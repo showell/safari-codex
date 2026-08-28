@@ -10,3 +10,4 @@ probe/probe_*
 !probe/probe_*.zig
 *.o
 .zig-cache/
+web/driving/safari.wasm

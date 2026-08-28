@@ -10,6 +10,7 @@ growing a second bundler:
     Safari -> port/    the port itself, hand written
     Judge  -> judge/   the graders and the run roots, hand written
     Gold   -> gold/    the gold chapters, GENERATED from the zig probes
+    Poc    -> poc/     the browser proof of concept, throwaway by design
 
 Gold is a quire of its own rather than a corner of judge/ because its contents
 are rewritten by every harness run and the judges are not; a directory that
@@ -55,6 +56,7 @@ def bundle(root_chapter):
     dirs['Safari'] = str(ROOT / 'port')
     dirs['Judge'] = str(ROOT / 'judge')
     dirs['Gold'] = str(ROOT / 'gold')
+    dirs['Poc'] = str(ROOT / 'poc')
     unit, missing = cr.resolve(root_chapter, dirs)
     for who, quire, name in missing:
         print(f'UNRESOLVED: {who} cites {quire} chapter {name}', file=sys.stderr)

@@ -53,6 +53,34 @@ Integers or Booleans, so one grader serves pond, the camera, and eventually the
 draw-command buffer — which is itself a flat list. Keep flattening at the seam
 rather than growing a judge per module.
 
+## The browser proof of concept
+
+    ./harness/build_wasm.sh          # Codex -> zig -> wasm32-freestanding
+    cd web && python3 -m http.server 9200
+
+Serves the game's **own unmodified `blitter.js`** — symlinked, not copied —
+against a wasm module computed in Codex. `blitter.js` fetches an absolute
+`/driving/safari.wasm`, so `web/` is the document root and the module at that
+path is the only thing that differs from the real game.
+
+`poc/Scene.codex` is throwaway by design: it places its own scenery instead of
+reading `world.zig`'s route, and carries its own Taylor sine because
+`Gpu chapter DeviceMath` is dark to this arm. What it shares with the real thing
+is the camera and the draw-command wire. 41 polygons — two mountain ranges, the
+road and its dashes, the ported pond and its bank, six trees.
+
+**NOTES §5 said a browser build through zig was "not close". It is three prelude
+functions**, and `harness/wasmify.py` replaces them: the entry spawns a thread
+only to get a 512 MB stack, the heap reserves 4 GiB through `page_allocator`
+(the whole of a wasm32 address space), and printing drags in `std.Io`. Nothing
+in the *transpiled program* changes — only the fixed prelude, which is why this
+is a text pass over three known shapes and not a fork of the emitter. Each
+substitution must match exactly once or the script refuses.
+
+`poc/shim.zig` walks the Codex list and writes `paint.zig`'s wire. **The f64 ->
+f32 narrowing happens there and only there** — the seam the hand-written zig
+already narrows at.
+
 ## Decisions
 
 **Dialect: `Real` (f64), not fixed point.** Codex `Real` is f64 in every plug

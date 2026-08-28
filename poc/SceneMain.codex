@@ -1,0 +1,17 @@
+Chapter: SceneMain
+  cites Foreword chapter Console
+  cites Poc chapter Scene
+
+ The entry point. The wasm build never calls it -- the shim exports renderFrame
+ and walks `frame` itself -- but the emitter only emits what the entry can reach,
+ so opening must actually touch the scene or the whole chapter is shaken out.
+ Reporting the command count keeps it reachable and doubles as a native smoke
+ test: run this on the host and it says how many polygons the frame holds.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("cmds " & show (list-length frame))
+  end

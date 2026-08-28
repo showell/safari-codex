@@ -1,0 +1,19 @@
+Chapter: Sem
+  cites Foreword chapter Console
+
+Section: FixedPoint
+
+  fdiv : Integer, Integer -> Integer
+  fdiv (n) (d) = if n < 0 then 0 - ((0 - n + d / 2) / d) else (n + d / 2) / d
+
+Section: Body
+
+  opening : [Console] Nothing = act
+    print-line-uni ("div  7/2   = " & show (7 / 2))
+    print-line-uni ("div -7/2   = " & show ((0 - 7) / 2))
+    print-line-uni ("div  7/-2  = " & show (7 / (0 - 2)))
+    print-line-uni ("proj-trunc = " & show (480000 + (3000 * 685511) / 20000))
+    print-line-uni ("proj-round = " & show (480000 + fdiv (3000 * 685511) 20000))
+    print-line-uni ("bigmul     = " & show (3000000 * 685511000))
+    print-line-uni ("s16-proj   = " & show (31457280 + fdiv (196608 * 44927222) 1310720))
+  end

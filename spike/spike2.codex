@@ -1,0 +1,71 @@
+Chapter: Spike2
+  cites Foreword chapter Console
+
+Section: Judging
+
+  t-abs : Real -> Real
+  t-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  near : Real, Real, Real -> Text
+  near (got) (want) (tol) = if t-abs (got - want) <= tol then "ok" else "BAD"
+
+Section: Sine
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+Section: Camera
+
+  cam-w : Real
+  cam-w = 960.0
+
+  focal : Real
+  focal = (cam-w / 2.0) / (r-sin (35.0 * pi / 180.0) / r-cos (35.0 * pi / 180.0))
+
+  project-x : Real, Real, Real -> Real
+  project-x (right) (forward) (f) = cam-w / 2.0 + (right / forward) * f
+
+Section: Body
+
+  opening : [Console] Nothing = act
+    print-line-uni ("focal      " & near focal 685.510900 0.001)
+    print-line-uni ("px         " & near (project-x 3.0 20.0 focal) 582.826660 0.001)
+    print-line-uni ("sin1       " & near (r-sin 1.0) 0.8414709848 0.0000001)
+    print-line-uni ("cos100     " & near (r-cos 100.0) 0.8623188722 0.0000001)
+    print-line-uni ("tight-px   " & near (project-x 3.0 20.0 focal) 582.826660 0.0001)
+  end

@@ -1,0 +1,12 @@
+Chapter: Dm
+  cites Foreword chapter Console
+  cites Gpu chapter DeviceMath
+Section: Body
+  t-abs : Real -> Real
+  t-abs (x) = if x < 0.0 then 0.0 - x else x
+  near : Real, Real, Real -> Text
+  near (g) (w) (t) = if t-abs (g - w) <= t then "ok" else "BAD"
+  opening : [Console] Nothing = act
+    print-line-uni ("sqrt2 " & near (real-sqrt 2.0) 1.414213562373095 0.000000001)
+    print-line-uni ("sin1  " & near (real-sin 1.0) 0.841470984807897 0.0000001)
+  end

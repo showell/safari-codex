@@ -1,0 +1,76 @@
+Chapter: FxSin
+  cites Foreword chapter Console
+
+Section: FixedTrig
+
+ Scale 1e6 fixed point. Taylor sine on a folded quadrant, same shape as
+ DeviceMath's dm-sin-poly but every product pays a divide by the scale.
+
+  fx-s : Integer
+  fx-s = 1000000
+
+  fx-pi : Integer
+  fx-pi = 3141593
+
+  fx-two-pi : Integer
+  fx-two-pi = 6283185
+
+  fx-half-pi : Integer
+  fx-half-pi = 1570796
+
+  fx-mul : Integer, Integer -> Integer
+  fx-mul (a) (b) = a * b / fx-s
+
+  fx-reduce : Integer -> Integer
+  fx-reduce (x) =
+    let k = x / fx-two-pi
+    in let r = x - k * fx-two-pi
+    in if r > fx-pi then r - fx-two-pi
+       else if r < 0 - fx-pi then r + fx-two-pi
+       else r
+
+  fx-fold : Integer -> Integer
+  fx-fold (r) =
+    if r > fx-half-pi then fx-pi - r
+    else if r < 0 - fx-half-pi then 0 - fx-pi - r
+    else r
+
+  fx-poly : Integer -> Integer
+  fx-poly (r) =
+    let r2 = fx-mul r r
+    in let r3 = fx-mul r2 r
+    in let r5 = fx-mul r3 r2
+    in let r7 = fx-mul r5 r2
+    in let r9 = fx-mul r7 r2
+    in let r11 = fx-mul r9 r2
+    in r - r3 / 6 + r5 / 120 - r7 / 5040 + r9 / 362880 - r11 / 39916800
+
+  fx-sin : Integer -> Integer
+  fx-sin (x) = fx-poly (fx-fold (fx-reduce x))
+
+  fx-cos : Integer -> Integer
+  fx-cos (x) = fx-sin (x + fx-half-pi)
+
+Section: Body
+
+  row : Integer -> Text
+  row (a) = show a & " " & show (fx-sin a) & " " & show (fx-cos a)
+
+  opening : [Console] Nothing = act
+    print-line-uni (row 0)
+    print-line-uni (row 100000)
+    print-line-uni (row 300000)
+    print-line-uni (row 500000)
+    print-line-uni (row 611000)
+    print-line-uni (row 785398)
+    print-line-uni (row 1000000)
+    print-line-uni (row 1400000)
+    print-line-uni (row 1570796)
+    print-line-uni (row 2000000)
+    print-line-uni (row 3000000)
+    print-line-uni (row 3141593)
+    print-line-uni (row 4000000)
+    print-line-uni (row 4712389)
+    print-line-uni (row 6000000)
+    print-line-uni (row 100000000)
+  end

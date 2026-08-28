@@ -1,0 +1,12 @@
+# Everything a harness run rewrites. Tracking any of it would let a stale copy
+# stand in for a fresh measurement, which is the one failure this port exists to
+# catch -- and the ladder has already paid for that lesson once.
+build/
+gold/
+*-unit.codex
+
+# zig build products, which land beside their source
+probe/probe_*
+!probe/probe_*.zig
+*.o
+.zig-cache/

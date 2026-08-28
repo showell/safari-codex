@@ -1,0 +1,37 @@
+Chapter: CordicProbe
+  cites Foreword chapter Console
+  cites Math chapter Cordic
+
+Section: Body
+
+  dump : Integer -> Text
+  dump (a) = show a & " " & show (cordic-sin a) & " " & show (cordic-cos a)
+
+  opening : [Console] Nothing = act
+    print-line-uni (dump 0)
+    print-line-uni (dump 100)
+    print-line-uni (dump 200)
+    print-line-uni (dump 300)
+    print-line-uni (dump 400)
+    print-line-uni (dump 500)
+    print-line-uni (dump 611)
+    print-line-uni (dump 700)
+    print-line-uni (dump 785)
+    print-line-uni (dump 900)
+    print-line-uni (dump 1000)
+    print-line-uni (dump 1200)
+    print-line-uni (dump 1400)
+    print-line-uni (dump 1571)
+    print-line-uni (dump 1800)
+    print-line-uni (dump 2000)
+    print-line-uni (dump 2500)
+    print-line-uni (dump 3000)
+    print-line-uni (dump 3142)
+    print-line-uni (dump 3500)
+    print-line-uni (dump 4000)
+    print-line-uni (dump 4712)
+    print-line-uni (dump 5000)
+    print-line-uni (dump 5500)
+    print-line-uni (dump 6000)
+    print-line-uni (dump 6283)
+  end

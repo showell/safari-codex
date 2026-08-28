@@ -1,0 +1,8 @@
+Chapter: Ovf
+  cites Foreword chapter Console
+Section: Body
+  opening : [Console] Nothing = act
+    print-line-uni ("start")
+    print-line-uni ("ovf = " & show (4000000000 * 4000000000))
+    print-line-uni ("end")
+  end

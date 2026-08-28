@@ -1,0 +1,11 @@
+Chapter: Ovf2
+  cites Foreword chapter Console
+Section: Body
+  seed : Integer -> Integer
+  seed (n) = if n < 2 then 4000000000 else seed (n - 1)
+Section: Entry
+  opening : [Console] Nothing = act
+    print-line-uni ("start")
+    let a = seed 3
+    in print-line-uni ("a*a = " & show (a * a))
+  end

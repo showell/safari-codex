@@ -1,0 +1,6 @@
+Chapter: Rti
+  cites Foreword chapter Console
+Section: Body
+  opening : [Console] Nothing = act
+    print-line-uni ("rti " & show (real-to-int 3.7))
+  end

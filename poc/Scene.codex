@@ -1,4 +1,7 @@
 Chapter: Scene
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+  cites Safari chapter Camera
   cites Safari chapter Pond
 
  A single frame of the Safari, computed in Codex.
@@ -11,76 +14,14 @@ Chapter: Scene
  real thing is the part that matters: the camera, and the draw-command wire.
 
  The rider looks straight down a straight road, so there is no yaw rotation here
- -- geom.toRider collapses to a subtraction. The trig is still real trig, because
- the focal length needs a tangent.
+ -- geom.toRider collapses to a subtraction.
+
+ The camera is NO LONGER hand-rolled. This chapter cites Safari chapter Camera,
+ which is a faithful port of wasm/camera.zig graded against it at 1e-6 relative
+ over 375 values, so the frame below is projected by the same lens the game uses
+ -- FOCAL computed from the real field of view, not a number typed in here.
 
  We say:
-
-Section: Trig
-
- A Taylor sine on a folded quadrant. Same shape as DeviceMath's, reproduced
- because DeviceMath is dark to this arm.
-
-  pi : Real
-  pi = 3.141592653589793
-
-  two-pi : Real
-  two-pi = 6.283185307179586
-
-  half-pi : Real
-  half-pi = 1.570796326794897
-
-  sin-poly : Real -> Real
-  sin-poly (r) =
-    let r2 = r * r
-    in let r3 = r2 * r
-    in let r5 = r3 * r2
-    in let r7 = r5 * r2
-    in let r9 = r7 * r2
-    in let r11 = r9 * r2
-    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
-
-  fold-quadrant : Real -> Real
-  fold-quadrant (r) =
-    if r > half-pi then pi - r
-    else if r < 0.0 - half-pi then 0.0 - pi - r
-    else r
-
-  wrap : Real, Integer -> Real
-  wrap (x) (fuel) =
-    if fuel <= 0 then x
-    else if x > pi then wrap (x - two-pi) (fuel - 1)
-    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
-    else x
-
-  r-sin : Real -> Real
-  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
-
-  r-cos : Real -> Real
-  r-cos (x) = r-sin (x + half-pi)
-
-Section: Camera
-
- The lens constants of wasm/camera.zig. FOCAL is computed, not baked -- it is the
- one number in this chapter the spike already graded against the real camera.
-
-  view-w : Real
-  view-w = 960.0
-
-  view-h : Real
-  view-h = 600.0
-
-  eye-h : Real
-  eye-h = 1.2
-
-  focal : Real
-  focal = (view-w / 2.0) / (r-sin (35.0 * pi / 180.0) / r-cos (35.0 * pi / 180.0))
-
-  project-x : Real, Real -> Real
-  project-x (right) (forward) = view-w / 2.0 + (right / forward) * focal
-
-  project-y : Real, Real -> Real
-  project-y (height) (forward) = view-h / 2.0 - ((height - eye-h) / forward) * focal
 
 Section: Draw Commands
 
@@ -93,19 +34,14 @@ Section: Draw Commands
     pts : List Real
   }
 
-  Pt3 = record {
-    right : Real,
-    forward : Real,
-    height : Real
-  }
-
-  project-all : List Pt3, Integer -> List Real
+  project-all : List Vec3, Integer -> List Real
   project-all (ps) (i) =
     if i >= list-length ps then []
     else let p = list-at ps i
-      in [project-x p.right p.forward, project-y p.height p.forward] & project-all ps (i + 1)
+      in let s = project p focal camera-w
+      in [s.x, s.y] & project-all ps (i + 1)
 
-  solid : Integer, List Pt3 -> DrawCmd
+  solid : Integer, List Vec3 -> DrawCmd
   solid (color) (ps) = DrawCmd { tag = 0, color = color, pts = project-all ps 0 }
 
 Section: Ground
@@ -126,18 +62,18 @@ Section: Ground
   road : DrawCmd
   road =
     (solid 3815994
-    [ Pt3 { right = 0.0 - road-half, forward = road-near, height = 0.0 },
-      Pt3 { right = road-half, forward = road-near, height = 0.0 },
-      Pt3 { right = road-half, forward = road-far, height = 0.0 },
-      Pt3 { right = 0.0 - road-half, forward = road-far, height = 0.0 } ])
+    [ Vec3 { right = 0.0 - road-half, forward = road-near, height = 0.0 },
+      Vec3 { right = road-half, forward = road-near, height = 0.0 },
+      Vec3 { right = road-half, forward = road-far, height = 0.0 },
+      Vec3 { right = 0.0 - road-half, forward = road-far, height = 0.0 } ])
 
   dash : Real -> DrawCmd
   dash (a) =
     (solid 14211744
-    [ Pt3 { right = 0.0 - 0.18, forward = a, height = 0.0 },
-      Pt3 { right = 0.18, forward = a, height = 0.0 },
-      Pt3 { right = 0.18, forward = a + 5.0, height = 0.0 },
-      Pt3 { right = 0.0 - 0.18, forward = a + 5.0, height = 0.0 } ])
+    [ Vec3 { right = 0.0 - 0.18, forward = a, height = 0.0 },
+      Vec3 { right = 0.18, forward = a, height = 0.0 },
+      Vec3 { right = 0.18, forward = a + 5.0, height = 0.0 },
+      Vec3 { right = 0.0 - 0.18, forward = a + 5.0, height = 0.0 } ])
 
   dashes : Real, Integer -> List DrawCmd
   dashes (a) (fuel) =
@@ -150,11 +86,11 @@ Section: Mountains
  screen-space cheat: the peaks are metres of height at a few kilometres of
  forward, and the projection puts them where they belong.
 
-  ridge : Real, Integer, Real, List Real -> List Pt3
+  ridge : Real, Integer, Real, List Real -> List Vec3
   ridge (far) (i) (x) (hs) =
     if i >= list-length hs then []
     else let h = list-at hs i
-      in [Pt3 { right = x, forward = far, height = h }] & ridge far (i + 1) (x + 260.0) hs
+      in [Vec3 { right = x, forward = far, height = h }] & ridge far (i + 1) (x + 260.0) hs
 
  The x accumulator is carried as a Real rather than derived from i, because the
  zig plug has no emitter for real-from-int -- there is no way to widen a loop
@@ -164,7 +100,7 @@ Section: Mountains
   ridge-poly : Real, Integer, List Real -> DrawCmd
   ridge-poly (far) (color) (hs) =
     let top = ridge far 0 (0.0 - 1800.0) hs
-    in let base = [ Pt3 { right = 1800.0, forward = far, height = 0.0 }, Pt3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
+    in let base = [ Vec3 { right = 1800.0, forward = far, height = 0.0 }, Vec3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
     in solid color (top & base)
 
   mountains-far : DrawCmd
@@ -178,16 +114,16 @@ Section: Trees
  Billboards: every vertex of one tree shares a forward, so the whole tree
  projects at one depth -- the paradigm the real game uses for its scenery.
 
-  canopy-ring : Real, Real, Real, Real, Integer, Real -> List Pt3
+  canopy-ring : Real, Real, Real, Real, Integer, Real -> List Vec3
   canopy-ring (right) (forward) (cy) (rad) (i) (a) =
     if i >= 9 then []
-    else [Pt3 { right = right + rad * r-cos a, forward = forward, height = cy + rad * r-sin a }] & canopy-ring right forward cy rad (i + 1) (a + two-pi / 9.0)
+    else [Vec3 { right = right + rad * r-cos a, forward = forward, height = cy + rad * r-sin a }] & canopy-ring right forward cy rad (i + 1) (a + two-pi / 9.0)
 
   tree : Real, Real, Real -> List DrawCmd
   tree (right) (forward) (scale) =
     let trunk-h = 2.6 * scale
     in let trunk-w = 0.22 * scale
-    in let trunk-pts = [ Pt3 { right = right - trunk-w, forward = forward, height = 0.0 }, Pt3 { right = right + trunk-w, forward = forward, height = 0.0 }, Pt3 { right = right + trunk-w, forward = forward, height = trunk-h }, Pt3 { right = right - trunk-w, forward = forward, height = trunk-h } ]
+    in let trunk-pts = [ Vec3 { right = right - trunk-w, forward = forward, height = 0.0 }, Vec3 { right = right + trunk-w, forward = forward, height = 0.0 }, Vec3 { right = right + trunk-w, forward = forward, height = trunk-h }, Vec3 { right = right - trunk-w, forward = forward, height = trunk-h } ]
     in let leaves = canopy-ring right forward (trunk-h + 1.5 * scale) (1.9 * scale) 0 0.0
     in [solid 5915698 trunk-pts, solid 3107386 leaves]
 
@@ -203,11 +139,11 @@ Section: Pond
   pond-at-forward : Real
   pond-at-forward = 46.0
 
-  pond-pts : List PondPt, Integer -> List Pt3
+  pond-pts : List PondPt, Integer -> List Vec3
   pond-pts (ps) (i) =
     if i >= list-length ps then []
     else let p = list-at ps i
-      in [Pt3 { right = pond-at-right - p.cu, forward = pond-at-forward + p.cv, height = 0.0 }] & pond-pts ps (i + 1)
+      in [Vec3 { right = pond-at-right - p.cu, forward = pond-at-forward + p.cv, height = 0.0 }] & pond-pts ps (i + 1)
 
   pond-poly : DrawCmd
   pond-poly = solid water-color (pond-pts water-outline 0)

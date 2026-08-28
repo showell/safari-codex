@@ -81,6 +81,29 @@ substitution must match exactly once or the script refuses.
 f32 narrowing happens there and only there** — the seam the hand-written zig
 already narrows at.
 
+## Ported so far
+
+| chapter | ports | graded |
+|---|---|---|
+| `port/Pond.codex` | `wasm/pond.zig` | 48 values, exact |
+| `port/Camera.codex` | `wasm/camera.zig` | with Geom below |
+| `port/Geom.codex` | `wasm/geom.zig` | 375 values, 1e-6 relative |
+| `port/Trig.codex` | **stand-in** for `Gpu chapter DeviceMath` | via the above |
+
+`Trig` exists only because DeviceMath cannot be transpiled to zig — its
+`dm-reduce` calls `real-from-int`, which has no emitter. It is the same
+algorithm. **Delete it and cite DeviceMath the day that emitter lands**, and do
+not let anything else grow a dependency on its names.
+
+`Camera` makes one adaptation: the zig's `pub var view_w` is a mutable global,
+so the port threads it as a parameter. It is the camera's only mutable state.
+
+**The 1e-6 relative tolerance is calibrated, not slack.** Tightened to 1e-7, six
+of the nine seams go red — the true error straddles f32 epsilon (1.19e-7),
+which is exactly the width gap and nothing else. Perturbing `eye-h` by 1e-4
+reddens `project` at index 1 and not index 0, because *x* does not read
+`eye-h` and *y* does.
+
 ## Decisions
 
 **Dialect: `Real` (f64), not fixed point.** Codex `Real` is f64 in every plug

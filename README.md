@@ -109,9 +109,30 @@ already narrows at.
 | `port/Paint.codex` | `wasm/paint.zig`'s wire | with Tree below |
 | `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
 | `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
+| `port/Sky.codex` | `wasm/sky.zig` | 148 values; **colours exact** |
 
-`Trig` exists because DeviceMath's `dm-reduce` calls `real-from-int`, which has
-no emitter, so `real-sin` and `real-cos` cannot be transpiled. It is the same
+**`Sky` is the first module that needed a plug change.** `skyColor` rounds a
+lerped channel and packs three of them into one integer, so it needed
+`real-to-int` and `real-from-int` — which the zig plug could not emit until
+2026-08-29. The emitter that closed that is `plugs-backlog` row 2.03, on branch
+`zig-plug-real-int-conversions`; `PLUG_WORK.md` is the provenance record. Both
+colour streams are graded **exactly**, as integers, because a colour one off is a
+wrong colour and no tolerance should be able to hide one.
+
+`Trig` exists because DeviceMath's `dm-reduce` calls `real-from-int`, which had
+no emitter when it was written, so `real-sin` and `real-cos` could not be
+transpiled. **That reason is gone as of row 2.03, and it was checked rather than
+assumed** — citing DeviceMath and calling `real-sin 100.0` transpiles, builds and
+answers −0.506, which means `dm-reduce`'s reduction over sixteen turns is running.
+Nothing in DeviceMath is dark to this arm any more.
+
+So `Trig` is retirable, and it has NOT been retired. That is a deliberate hold,
+not an oversight: **the swap is not a no-op.** Trig's `wrap` subtracts in a
+bounded loop where `dm-reduce` divides by two-pi and converts back through the
+integers, so the two disagree in the last bits, and four graded chapters
+(`Geom`, `Camera`, `Tree`, and the browser `Scene`) cite Trig today. Retiring it
+is its own change with its own regrade, worth doing on purpose rather than as a
+footnote to a colour port. It is the same
 algorithm. **Delete it and cite DeviceMath the day that emitter lands**, and do
 not let anything else grow a dependency on its names.
 

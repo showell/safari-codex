@@ -69,6 +69,17 @@ A1. real-to-int and real-from-int have no zig emitter.        [HOLE - FIXED]
     rewritten — the ports are graded green as they stand and there is no reason
     to churn them, but a new module need not pay that any more.
 
+    AND DEVICEMATH IS NOW FULLY CLEAR. The correction above said only real-sin
+    and real-cos were dark, via dm-reduce. dm-reduce is exactly what real-to-int
+    and real-from-int unblock, so nothing in that chapter is dark any more --
+    checked, not assumed: citing it and calling real-sin 100.0 transpiles, builds
+    and answers -0.506, which means the reduction over sixteen turns is running.
+    port/Trig.codex is therefore RETIRABLE. It has not been retired, and that is
+    a hold rather than an oversight: Trig's wrap subtracts in a bounded loop
+    where dm-reduce divides and converts back through the integers, so the two
+    disagree in the last bits, and four graded chapters cite Trig today. It is
+    its own change with its own regrade.
+
     STILL DARK, and unchanged by this: real-approx-* (the f32 family). Filling
     those would make the house-wide f32-computed-as-f64 collapse observable for
     the first time, which is section 6's conversation and not this one.
@@ -316,6 +327,32 @@ D3. SCREEN COORDINATES NEED A MIXED GATE, atol + rtol*|want|. Both halves were
         seven times a thousandth-of-a-pixel floor.
     In use: atol 1e-3 px, rtol 1e-6. At a hundred pixels that is about a
     thousandth of a pixel, which is the precision worth asserting.
+
+D5. A TOLERANCE FLOOR IS CALIBRATED PER SEAM, not copied from another one.
+
+    D3 set the screen-coordinate gate at atol 1e-3 + rtol 1e-6 and that is right
+    for the tree, whose coordinates run to -62929 where one f32 ulp is already
+    0.0075 px. Sky's heights are screen pixels too and take the same SHAPE of
+    gate, for the same cancellation reason -- but copying the 1e-3 floor with it
+    would have been slack, and measurably so.
+
+    The cancellation here is the worst yet seen. A sun height is 244 minus a term
+    of nearly the same size, so with the disc's centre on the horizon it is
+    244 - 243.993609 = 0.006391, and the f32/f64 gap there is:
+
+        absolute   2.6e-6 px           nothing
+        relative   4.1e-4              four hundred times a 1e-6 relative gate
+        amplified  244/0.0064 = 38180x  (the tree's horizon case was 15x)
+
+    So the floor has to admit 2.6e-6 and nothing else on that seam comes near
+    zero. 1e-4 admits it with forty times to spare; 1e-3 sits four hundred times
+    above the gap it exists for, and that is not free -- MEASURED: at 1e-3 a
+    perturbation of sun-start-px by 2e-4 left sky-height GREEN while two other
+    seams reddened. At 1e-4 the same perturbation reddens it.
+
+    The rule: take the SHAPE of the gate from the failure mode, take the NUMBER
+    from what that seam actually has to admit. A floor inherited from a seam with
+    different magnitudes is a floor nobody calibrated.
 
 D4. Structure is graded EXACTLY and must stay that way. Tags, colours and point
     counts take no tolerance. A wrong point count is a structural error and no

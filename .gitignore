@@ -9,10 +9,12 @@ build/pond
 build/camera
 build/tree
 build/guard_rail
+build/sky
 build/scene
 probe/probe_pond
 probe/probe_camera
 probe/probe_tree
 probe/probe_guard_rail
+probe/probe_sky
 .zig-cache/
 *.o

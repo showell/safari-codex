@@ -708,3 +708,26 @@ D7. THE CAT'S LEAP NEEDS A LOGARITHM, AND IT IS PARKED ON PURPOSE
     and it would need its own accuracy calibration like everything else here. One
     call site is not much reason on its own -- but a logarithm is a foreword gap
     like r-atan, and the next module that wants one will find it already argued.
+
+B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
+
+    `segs : List Segment` / `segs = build-world` reads like a constant. It emits:
+
+        fn segs() *CxList(Segment) { return build_world(); }
+
+    so every mention REBUILDS all nineteen segments with their trees, herds and
+    cat placements. The browser scene's `pos-from` mentions it twice per loop
+    iteration, so one frame rebuilt the world hundreds of times.
+
+    Measured: 270 ms a frame, about four per second. Threading the world down as
+    a parameter -- which every graded chapter in the port already does, because a
+    check has to hand it in anyway -- took the same frame to 25 ms. SIX TIMES,
+    for a change that moved no arithmetic and produced byte-identical output.
+
+    The tell is that it is invisible in the Codex. `segs` looks free at every use
+    site and the cost is entirely in the emitter's choice. Worth a look at the
+    generated zig whenever a nullary binding wraps real work: the fix is always to
+    pass it, and passing it is what the port does everywhere else anyway.
+
+    Related to B12 -- both are the emitter treating a definition as a rewrite rule
+    rather than a stored thing. B12's alias vanishes; this one duplicates.

@@ -1,0 +1,35 @@
+Chapter: DriveMain
+  cites Foreword chapter Console
+  cites Poc chapter Drive
+
+ The entry point. The wasm build never calls it -- the shim exports renderFrame
+ and walks `frame-at` itself -- but the emitter only emits what the entry can
+ REACH (B6), so opening has to touch every name the shim calls or they are shaken
+ out of the program and the wasm build fails on undeclared identifiers.
+
+ That is not hypothetical here: the sky, horizon and sun never enter the draw
+ buffer at all, because blitter.js paints them itself and only asks the module for
+ the numbers. Nothing else reaches them. Touching them below is the whole reason
+ they survive into the module.
+
+ It doubles as a native smoke test: run this on the host and it says how many
+ commands each point of the sweep holds, which is the fastest way to see whether a
+ frame is empty before ever opening a browser.
+
+ We say:
+
+Section: Entry
+
+  report : Real -> Text
+  report (u) =
+    let sun = if (scene-sun-at u).visible then "sun on " else "sun off"
+    in "seg " & show (drive-pos-at build-world u).seg & " sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " cmds " & show (list-length (frame-at u))
+
+  opening : [Console] Nothing = act
+    print-line-uni ("cmds  " & show (list-length frame))
+    print-line-uni ("u=0.00 " & report 0.0)
+    print-line-uni ("u=0.25 " & report 0.25)
+    print-line-uni ("u=0.50 " & report 0.5)
+    print-line-uni ("u=0.75 " & report 0.75)
+    print-line-uni ("u=1.00 " & report 1.0)
+  end

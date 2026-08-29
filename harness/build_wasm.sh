@@ -17,7 +17,15 @@ zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
 mkdir -p build web/driving
 
-python3 harness/bundle.py poc/SceneMain.codex build/scene-unit.codex
+# The entry chapter, defaulting to the REAL-ROUTE scene. `Scene` is the original
+# throwaway that placed its own scenery by hand; it still builds, and passing it
+# is the way to compare the two.
+#     ./harness/build_wasm.sh            # DriveMain -- the ported route
+#     ./harness/build_wasm.sh SceneMain  # the old hand-placed proof of concept
+entry="${1:-DriveMain}"
+[ -f "poc/$entry.codex" ] || { echo "no poc/$entry.codex" >&2; exit 1; }
+
+python3 harness/bundle.py "poc/$entry.codex" build/scene-unit.codex
 "$codexzig" < build/scene-unit.codex 2> build/scene.zig > build/scene.diag
 # codexzig writes the zig to STDERR and diagnostics to stdout. On a halt it writes
 # the REASON to stderr too, so the output file is short and non-empty rather than

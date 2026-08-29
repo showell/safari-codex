@@ -82,28 +82,35 @@ rather than growing a judge per module.
     ./harness/build_wasm.sh          # Codex -> zig -> wasm32-freestanding
     cd web && python3 -m http.server 9200
 
-Serves the game's **own unmodified `blitter.js`** — symlinked, not copied —
-against a wasm module computed in Codex. `blitter.js` fetches an absolute
-`/driving/safari.wasm`, so `web/` is the document root and the module at that
-path is the only thing that differs from the real game.
+Serves the game's **own unmodified `blitter.js`** — symlinked, not copied — against
+a wasm module computed in Codex. `blitter.js` fetches an absolute
+`/driving/safari.wasm`, so `web/` is the document root and the module at that path
+is the only thing that differs from the real game.
 
-`poc/Scene.codex` is throwaway by design: it places its own scenery instead of
-reading `world.zig`'s route, and reaches sine through `Safari chapter Trig`
-because DeviceMath's is dark to this arm. What it shares with the real thing is
-the camera and the draw-command wire. 160 polygons, 51 of them gradient-filled —
-two mountain ranges, the road and its dashes, the ported pond and its bank, **ten
-conifers from the ported `tree.zig`** with cone crowns near and flat tiers far,
-and **a guard rail from the ported `guard_rail.zig`**: twenty-one posts and a
-twenty-quad bar strip receding to the horizon along the right shoulder.
+**`poc/Drive.codex` drives the real route.** Nothing in the frame is placed by
+hand: the road and its corners, the conifers, the intersection towers, the guard
+rails and the pond all come out of `Safari chapter World` — the same nineteen
+segments graded at 3,822 values — mapped by `Render`'s chain, ordered by `Render`'s
+depth sort, and floored by `Render`'s ground pass. 2,132 draw commands in the
+opening frame. `u` runs 0..1 and walks the whole course by arc length; Space
+auto-plays, the arrows step, J jumps a segment.
 
-The rail is the one thing in the frame that is **depth-sorted rather than placed
-in paint order**. `rail-emit` hands back every bar and then every post, which is
-the order the zig's store holds them in and the wrong order to paint — a far post
-would land on a near bar. The scene sorts them on the `fwd` the port computes,
-which is the smallest possible demonstration of what that field is for. Sorting
-the rail *against the trees* is what the real render does and what this throwaway
-does not; it gets away with a coarse band ordering only because the rail hugs the
-shoulder while every tree stands well outside it.
+`poc/Scene.codex` is the original throwaway that placed its own scenery, kept
+because it still builds and is the way to compare:
+
+    ./harness/build_wasm.sh SceneMain
+
+**What is not real about the Drive page, precisely.** The animals are missing —
+cows, pigs, the corner elephants and giraffes, the ducks and the cat all reach the
+baked polygon tables, so they are collected and depth-sorted but draw nothing, and
+a frame has correctly-ordered holes where each one stands. The truck drives and its
+body reaches unported chain machinery. And the rider is not simulated: `Rider` is
+ported and graded, but it is a step function over mutable state while the shim's
+scrub is pure — `frame-at (u)` must answer from `u` alone — so the camera runs dead
+centre of the lane at constant speed with no lean, no gaze and no throttle. The one
+invented number on the page is the backdrop heading, blended across each corner
+because a segment's `north-heading` is a step function and the mountains would
+otherwise snap sideways at every joint.
 
 **NOTES §5 said a browser build through zig was "not close". It is three prelude
 functions**, and `harness/wasmify.py` replaces them: the entry spawns a thread
@@ -115,7 +122,8 @@ substitution must match exactly once or the script refuses.
 
 `poc/shim.zig` walks the Codex list and writes `paint.zig`'s wire. **The f64 ->
 f32 narrowing happens there and only there** — the seam the hand-written zig
-already narrows at.
+already narrows at. It also rewinds the bump heap once per frame, which is what
+lets a page that allocates and never reclaims run indefinitely; `PORTING_NOTES` C8.
 
 ## Ported so far
 

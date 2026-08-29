@@ -131,9 +131,89 @@ Section: Definitions
 
 Page 1
 
-Chapter: Trig
+Chapter: DeviceMath
 
- Sine, cosine and tangent in Real.
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
 
  THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
  and this is the same algorithm -- an argument reduction, a quadrant fold, and an
@@ -199,6 +279,57 @@ Section: Sine and Cosine
 
   r-tan : Real -> Real
   r-tan (x) = r-sin x / r-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
 
 Chapter: Geom
   cites Safari chapter Trig
@@ -784,85 +915,6 @@ Section: Ducks
       Duck { p = PondPt { cu = -12.0, cv = 7.0 }, face-right = False },
       Duck { p = PondPt { cu = -20.0, cv = 8.0 }, face-right = True } ]
 
-Chapter: DeviceMath
-
- We say:
-
-Section: Clamps and Selection
-
-  real-min : Real, Real -> Real
-  real-min (a) (b) = if a < b then a else b
-
-  real-max : Real, Real -> Real
-  real-max (a) (b) = if a > b then a else b
-
-  real-abs : Real -> Real
-  real-abs (x) = if x < 0.0 then 0.0 - x else x
-
-Section: Square Root
-
-  real-sqrt : Real -> Real
-  real-sqrt (x) =
-    if x <= 0.0 then 0.0
-    else dm-sqrt-scaled x 1.0 700
-
-  dm-sqrt-scaled : Real, Real, Integer -> Real
-  dm-sqrt-scaled (x) (s) (fuel) =
-    if fuel <= 0 then s * dm-sqrt-core x
-    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
-    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
-    else s * dm-sqrt-core x
-
-  dm-sqrt-core : Real -> Real
-  dm-sqrt-core (r) =
-    let g0 = (r + 1.0) * 0.5
-    in let g1 = (g0 + r / g0) * 0.5
-    in let g2 = (g1 + r / g1) * 0.5
-    in let g3 = (g2 + r / g2) * 0.5
-    in let g4 = (g3 + r / g3) * 0.5
-    in (g4 + r / g4) * 0.5
-
-Section: Sine and Cosine
-
-  dm-two-pi : Real
-  dm-two-pi = 6.283185307179586
-
-  dm-pi : Real
-  dm-pi = 3.141592653589793
-
-  dm-half-pi : Real
-  dm-half-pi = 1.570796326794897
-
-  dm-reduce : Real -> Real
-  dm-reduce (x) =
-    let k = real-from-int (real-to-int (x / dm-two-pi))
-    in let r = x - k * dm-two-pi
-    in if r > dm-pi then r - dm-two-pi
-       else if r < 0.0 - dm-pi then r + dm-two-pi
-       else r
-
-  dm-fold-quadrant : Real -> Real
-  dm-fold-quadrant (r) =
-    if r > dm-half-pi then dm-pi - r
-    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
-    else r
-
-  dm-sin-poly : Real -> Real
-  dm-sin-poly (r) =
-    let r2 = r * r
-    in let r3 = r2 * r
-    in let r5 = r3 * r2
-    in let r7 = r5 * r2
-    in let r9 = r7 * r2
-    in let r11 = r9 * r2
-    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
-
-  real-sin : Real -> Real
-  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
-
-  real-cos : Real -> Real
-  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
-
 Chapter: GuardRail
   cites Gpu chapter DeviceMath
   cites Safari chapter Geom
@@ -1058,6 +1110,433 @@ Section: Draw
     if i >= list-length ps then []
     else (rail-draw-poly (list-at ps i) cf view-w) & rail-draw-all ps cf view-w (i + 1)
 
+Chapter: Sky
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+
+ The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
+ Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
+ heading.
+
+ A port of wasm/sky.zig.
+
+ THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
+ handed and does no clock or colour arithmetic, so this chapter is the whole of
+ the sunset. The sun draws BEHIND the mountains, because the blitter paints it
+ before the buffer whose first polygons are the ranges.
+
+ THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
+ round a lerped colour channel and to pack three of them into one integer. Until
+ 2026-08-29 the zig plug could emit neither conversion and this module was simply
+ unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
+ that closed it. Nothing here works around anything any more.
+
+ We say:
+
+Section: The Sun as a Clock
+
+ Its height drops linearly with the step, so it scrubs on reverse and freezes on
+ pause like everything else. Heights are PIXELS at the base focal, so they compare
+ directly with the mountain silhouettes.
+
+  sun-bearing : Real
+  sun-bearing = 0.0 - 2.2176
+
+  sun-radius-px : Real
+  sun-radius-px = 46.0
+
+ Step-0 height, calibrated to the route's timing in the TypeScript.
+
+  sun-start-px : Real
+  sun-start-px = 244.0
+
+  sun-drop-px-per-step : Real
+  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
+
+ The whole disc is below the horizon at this height.
+
+  sun-fully-set-px : Real
+  sun-fully-set-px = 0.0 - sun-radius-px
+
+ How far from the horizon the sunset red fades out, and how far off-heading the
+ sun may be before it is off-screen entirely.
+
+  warmth-falloff-px : Real
+  warmth-falloff-px = 110.0
+
+  visible-bearing-limit : Real
+  visible-bearing-limit = 1.4
+
+  sun-height-px : Real -> Real
+  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
+
+Section: Dusk
+
+ How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
+ darkening is a SQUARED ramp -- barely moving while it is high, accelerating
+ toward sunset -- so the sky stays bright until around sunset; once the disc is
+ fully set the rest fades linearly.
+
+  dusk-at-set : Real
+  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
+
+ The two arms are separate definitions rather than one expression, because Codex
+ refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
+ the fix and it reads better here anyway.
+
+  dusk-while-up : Real -> Real
+  dusk-while-up (h) =
+    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
+    in real-max 0.0 (dusk-at-set * p * p)
+
+  dusk-after-set : Real -> Real
+  dusk-after-set (h) =
+    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
+
+  sun-set-fraction : Real -> Real
+  sun-set-fraction (step) =
+    let h = sun-height-px step
+    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
+
+ How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
+ fades when the sun is high or deep below. This drives the warm band the sky mixes
+ into its lower edge.
+
+  sunset-warmth : Real -> Real
+  sunset-warmth (step) =
+    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
+
+Section: Colours
+
+ The upper sky dims ALL channels toward dusk, so it deepens rather than greying
+ out; the red mixes only into the lower horizon band.
+
+  Rgb = record {
+    r : Real,
+    g : Real,
+    b : Real
+  }
+
+  day-sky : Rgb
+  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
+
+  dusk-sky : Rgb
+  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
+
+  sunset-red : Rgb
+  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
+
+ How strongly the red mixes in at peak warmth.
+
+  sunset-glow : Real
+  sunset-glow = 0.85
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which is not what
+ truncation gives, so the half has to be added before the conversion and the sign
+ handled. Every channel this rounds is in 0..255 and the negative arm is
+ unreachable from here -- it is written because a round that is wrong for half its
+ domain is a trap for the next caller, and mountains.zig is already the next
+ caller.
+
+  round-real : Real -> Real
+  round-real (x) =
+    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
+    else real-from-int (real-to-int (x + 0.5))
+
+  lerp3 : Rgb, Rgb, Real -> Rgb
+  lerp3 (a) (b) (t) =
+    Rgb {
+      r = round-real (a.r + (b.r - a.r) * t),
+      g = round-real (a.g + (b.g - a.g) * t),
+      b = round-real (a.b + (b.b - a.b) * t)
+    }
+
+ The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
+ Arithmetic would give the same answer for channels this size, but the shift is
+ what the source says and the plug emits it.
+
+  pack : Rgb -> Integer
+  pack (c) =
+    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
+
+  sky-color : Real -> Integer
+  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
+
+  horizon-color : Real -> Integer
+  horizon-color (step) =
+    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
+    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
+
+Section: The Sun's Placement
+
+ `scale` is cam-focal over the base focal: it squeezes the disc and its glow
+ vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
+ radii by it. `visible` is False when the sun is too far off-heading to be on
+ screen, and the blitter then skips it entirely.
+
+  SunPos = record {
+    visible : Boolean,
+    x : Real,
+    y : Real,
+    scale : Real
+  }
+
+  sun-pos-visible : Real, Real, Real, Real -> SunPos
+  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
+
+ The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
+ keeps everywhere: a wider window sees more, it does not zoom.
+
+  sun-pos : Real, Real, Real, Real -> SunPos
+  sun-pos (heading) (step) (cam-focal) (view-w) =
+    let rel = wrap (sun-bearing - heading) 64
+    in if real-abs rel >= visible-bearing-limit
+      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
+      else sun-pos-visible rel step cam-focal view-w
+
+Chapter: Mountains
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Sky
+  cites Foreword chapter ListUtils
+
+ The far backdrop ranges, as screen-space silhouettes. Each range is a pure
+ function from absolute bearing -- radians, 0 = north, + = clockwise -- to a height
+ in pixels above the horizon; the frame samples it per column across the screen and
+ fills the silhouette. Drawn FIRST, behind the road.
+
+ A port of wasm/mountains.zig.
+
+ The light DIMS the rock and the snow toward dusk, handed down as a `dusk`
+ fraction from the sunset clock. The rolling LAND stays put, matching the grass.
+
+ THE COLOUR HELPERS ARE SKY'S, NOT COPIES. snowColor is a lerp between two
+ colours followed by a round and a pack, which is exactly `lerp3` and `pack` in
+ Sky, and mountains.zig imports sky.zig for the sun as well. Reusing them keeps
+ one rounding rule in the port instead of two that can drift.
+
+ We say:
+
+Section: Palette
+
+  rock : Integer
+  rock = 5991055
+
+  rock-west : Integer
+  rock-west = 3752799
+
+  land : Integer
+  land = 4886339
+
+ Rock fades to this fraction of its day brightness by night -- it stays BELOW the
+ snow, which is also dimming.
+
+  rock-night-dim : Real
+  rock-night-dim = 0.5
+
+  snow-day : Rgb
+  snow-day = Rgb { r = 238.0, g = 243.0, b = 248.0 }
+
+  snow-night : Rgb
+  snow-night = Rgb { r = 70.0, g = 84.0, b = 104.0 }
+
+ Darken a 0xRRGGBB toward dusk. The multiplier keeps the rock always below the
+ snow.
+
+  chan : Integer, Integer -> Real
+  chan (color) (sh) = real-from-int (bit-and (bit-shr color sh) 255)
+
+  dimmed : Integer, Real -> Integer
+  dimmed (color) (dusk) =
+    let f = 1.0 - rock-night-dim * dusk
+    in let r = real-to-int (round-real (chan color 16 * f))
+    in let g = real-to-int (round-real (chan color 8 * f))
+    in let b = real-to-int (round-real (chan color 0 * f))
+    in bit-or (bit-or (bit-shl r 16) (bit-shl g 8)) b
+
+  snow-color : Real -> Integer
+  snow-color (dusk) = pack (lerp3 snow-day snow-night dusk)
+
+Section: Shape
+
+  west-range-bearing : Real
+  west-range-bearing = 0.0 - 2.0416
+
+ Only ridge taller than this gets snow, and this is how far the snowline dips
+ under the summit.
+
+  snow-threshold : Real
+  snow-threshold = 124.0
+
+  snow-dip : Real
+  snow-dip = 10.0
+
+ Column sampling step, in pixels.
+
+  col-step : Real
+  col-step = 2.0
+
+ The camera rolls with the rider's lean, up to about twenty degrees, so the
+ rotated viewport sees design-x beyond the screen at the corners -- about
+ seventy-four pixels at full lean. Trace this far past each edge so a lean never
+ reveals sky past the backdrop's end.
+
+  roll-margin : Real
+  roll-margin = 200.0
+
+ One range: a smooth envelope, tallest at centre and tapering to open sky at its
+ edges, times a fixed rugged ridge line.
+
+  range-at : Real, Real, Real, Real, Real, Real -> Real
+  range-at (bearing) (center) (half) (peak) (freq-a) (freq-b) =
+    let b = wrap (bearing - center) 64
+    in let t = b / half
+    in if real-abs t >= 1.0 then 0.0 else range-body b t peak freq-a freq-b
+
+  range-body : Real, Real, Real, Real, Real -> Real
+  range-body (b) (t) (peak) (freq-a) (freq-b) =
+    let envelope = r-cos (t * pi / 2.0)
+    in let ridge = 0.6 + 0.24 * r-cos (b * freq-a) + 0.16 * r-cos (b * freq-b + 1.0)
+    in peak * envelope * ridge
+
+  ground-base : Real -> Real
+  ground-base (bearing) = 18.0 + 12.0 * r-sin (wrap bearing 64 * 0.9 + 1.9)
+
+  north-range : Real -> Real
+  north-range (bearing) = range-at bearing 0.0 0.95 150.0 8.0 21.0
+
+  west-range : Real -> Real
+  west-range (bearing) = range-at bearing west-range-bearing 0.72 120.0 11.0 27.0
+
+Section: The Snowline
+
+ The north range's tallest hump, for normalising the snowline dip.
+
+ THE ZIG ACCUMULATES ITS SAMPLE POSITION IN f32 AND THIS ACCUMULATES IN Real, so
+ the two do not sample the same set: 0.01 is not exact in binary, and the f32 loop
+ drifts far enough to run 101 times where this runs 100. Measured, that moves the
+ peak by 8.5e-6 out of 147.54 -- 5.8e-8 relative -- because a maximum over a
+ densely sampled smooth function does not care which of two adjacent samples it
+ lands on. It is recorded because it is the only loop in this chapter whose STEP
+ is inexact; the column loops step by 2.0 from -200.0, which is exact in both
+ widths, and both sides walk 681 and 481 columns exactly.
+
+  snow-peak-loop : Real, Real -> Real
+  snow-peak-loop (b) (vm) =
+    if b > 0.5 then vm
+    else snow-peak-loop (b + 0.01) (real-max vm (north-range b))
+
+  snow-peak-height : Real
+  snow-peak-height = snow-peak-loop (0.0 - 0.5) (0.0 - 1.0)
+
+ The zig calls the normalised fraction `above`, and that name cannot be used
+ here: `above` is a Codex KEYWORD, one of the proof-language set beside `claim`,
+ `proof` and `qed`. The refusal is correct and the diagnostic is not -- it comes
+ out as CDX1023 "Expected 'in' after let bindings", naming the let rather than the
+ keyword, which is a bisect to find. See PORTING_NOTES B11.
+
+  snowline-at : Real, Real -> Real
+  snowline-at (bearing) (peak) =
+    let num = north-range bearing - snow-threshold
+    in let above-frac = real-max 0.0 (real-min 1.0 (num / (peak - snow-threshold)))
+    in snow-threshold - snow-dip * above-frac
+
+Section: Columns and Crests
+
+ A screen column maps to a bearing through the LIVE focal: a smaller cam-focal --
+ lean, or a focus pull-in -- widens the angular span across the screen, exactly as
+ the projection does. The centre follows the live width.
+
+  bearing-at : Real, Real, Real, Real -> Real
+  bearing-at (x) (heading) (cam-focal) (view-w) =
+    heading + r-atan ((x - view-w / 2.0) / cam-focal)
+
+ The silhouette crest at a bearing: the tallest of the ranges and the land.
+
+  horizon-crest-px : Real -> Real
+  horizon-crest-px (bearing) =
+    real-max (west-range bearing) (real-max (north-range bearing) (ground-base bearing))
+
+ Has the sun dropped fully BEHIND the western range? True once the whole disc is
+ below the crest at the sun's bearing -- the moment the truck's headlights come on.
+
+  sun-behind-mountains : Real -> Boolean
+  sun-behind-mountains (step) =
+    sun-height-px step + sun-radius-px < horizon-crest-px sun-bearing
+
+Section: Silhouettes
+
+ Trace a range's crest left to right, then close down to the horizon: one filled
+ polygon. `v-scale` squeezes the heights vertically by the same factor the pull-in
+ squeezes them horizontally, so it reads as a real focal change.
+
+ The range is passed as a FUNCTION, the way the zig passes it as a comptime fn.
+
+  crest-pts : (Real -> Real), Real, Real, Real, Real, Real -> List ScreenPt
+  crest-pts (f) (heading) (cam-focal) (view-w) (v-scale) (x) =
+    if x > view-w + roll-margin then []
+    else [ScreenPt { x = x, y = camera-h / 2.0 - f (bearing-at x heading cam-focal view-w) * v-scale }] & crest-pts f heading cam-focal view-w v-scale (x + col-step)
+
+  silhouette : (Real -> Real), Real, Real, Real, Real, Integer -> List DrawCmd
+  silhouette (f) (heading) (cam-focal) (view-w) (v-scale) (color) =
+    let top = crest-pts f heading cam-focal view-w v-scale (0.0 - roll-margin)
+    in let close = [ScreenPt { x = view-w + roll-margin, y = camera-h / 2.0 }, ScreenPt { x = 0.0 - roll-margin, y = camera-h / 2.0 }]
+    in push-poly color (top & close)
+
+Section: The Snowcap
+
+ The band between the snowline and the crest, over the contiguous central hump
+ where the north range rises above its snowline. Top edge left to right, bottom
+ edge right to left. The TypeScript clips the range to the cap; this builds the
+ band directly, which is the same shape without a clip primitive.
+
+  snow-columns : Real, Real, Real, Real, Real -> List Real
+  snow-columns (heading) (cam-focal) (view-w) (peak) (x) =
+    if x > view-w then []
+    else snow-columns-at heading cam-focal view-w peak x
+
+  snow-columns-at : Real, Real, Real, Real, Real -> List Real
+  snow-columns-at (heading) (cam-focal) (view-w) (peak) (x) =
+    let b = bearing-at x heading cam-focal view-w
+    in let rest = snow-columns heading cam-focal view-w peak (x + col-step)
+    in if north-range b > snowline-at b peak + 0.01 then [x] & rest else rest
+
+  snow-top : List Real, Real, Real, Real, Real, Integer -> List ScreenPt
+  snow-top (xs) (heading) (cam-focal) (view-w) (v-scale) (i) =
+    if i >= list-length xs then []
+    else [ScreenPt { x = list-at xs i, y = camera-h / 2.0 - north-range (bearing-at (list-at xs i) heading cam-focal view-w) * v-scale }] & snow-top xs heading cam-focal view-w v-scale (i + 1)
+
+  snow-bottom : List Real, Real, Real, Real, Real, Real, Integer -> List ScreenPt
+  snow-bottom (xs) (heading) (cam-focal) (view-w) (v-scale) (peak) (i) =
+    if i < 0 then []
+    else [ScreenPt { x = list-at xs i, y = camera-h / 2.0 - snowline-at (bearing-at (list-at xs i) heading cam-focal view-w) peak * v-scale }] & snow-bottom xs heading cam-focal view-w v-scale peak (i - 1)
+
+  draw-snow : Real, Real, Real, Real, Integer -> List DrawCmd
+  draw-snow (heading) (cam-focal) (view-w) (v-scale) (snow) =
+    let peak = snow-peak-height
+    in let xs = snow-columns heading cam-focal view-w peak 0.0
+    in if list-length xs < 2 then []
+    else push-poly snow ((snow-top xs heading cam-focal view-w v-scale 0) & snow-bottom xs heading cam-focal view-w v-scale peak (list-length xs - 1))
+
+Section: The Frame
+
+ Back to front: the westward range, the snowcapped northern range, and the rolling
+ land. The rock and the snow dim toward dusk; the land does not.
+
+  draw : Real, Real, Real, Real -> List DrawCmd
+  draw (heading) (dusk) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in let west = silhouette west-range heading cam-focal view-w v-scale (dimmed rock-west dusk)
+    in let north = silhouette north-range heading cam-focal view-w v-scale (dimmed rock dusk)
+    in let cap = draw-snow heading cam-focal view-w v-scale (snow-color dusk)
+    in let ground = silhouette ground-base heading cam-focal view-w v-scale land
+    in west & north & cap & ground
+
 Chapter: Scene
   cites Safari chapter Trig
   cites Safari chapter Geom
@@ -1066,6 +1545,8 @@ Chapter: Scene
   cites Safari chapter Tree
   cites Safari chapter Pond
   cites Safari chapter GuardRail
+  cites Safari chapter Sky
+  cites Safari chapter Mountains
   cites Foreword chapter ListUtils
 
  A single frame of the Safari, computed in Codex.
@@ -1136,34 +1617,66 @@ Section: Ground
     if fuel <= 0 then []
     else (dash a) & dashes (a + 14.0) (fuel - 1)
 
-Section: Mountains
+Section: The Backdrop and the Clock
 
- A ridge far enough away to sit just above the horizon. Real geometry, not a
- screen-space cheat: the peaks are metres of height at a few kilometres of
- forward, and the projection puts them where they belong.
+ THE RANGES ARE THE REAL ONES NOW. This section used to place two hand-made
+ ridges as lists of heights at a fixed forward distance -- a screen-space cheat
+ that looked like mountains and was not the game's. It is replaced by
+ `Safari chapter Mountains`, a faithful port graded at 2,204 values, which
+ samples a bearing per column through the live focal and traces the same
+ silhouettes the zig does.
 
-  ridge : Real, Integer, Real, List Real -> List Vec3
-  ridge (far) (i) (x) (hs) =
-    if i >= list-length hs then []
-    else let h = list-at hs i
-      in [Vec3 { right = x, forward = far, height = h }] & ridge far (i + 1) (x + 260.0) hs
+ The pose is chosen to put the most on screen at once. At this heading the WEST
+ range fills the left, the snowcapped NORTH range enters from the right, and the
+ sun is inside its visibility limit -- at heading 0 the sun is 2.2 radians off the
+ look axis and the blitter would skip it entirely.
 
- The x accumulator is carried as a Real rather than derived from i, because the
- zig plug has no emitter for real-from-int -- there is no way to widen a loop
- counter. Every counted loop in this port pays that, and it is the first thing
- the plug rows would buy back.
+ ONE SCRUB KNOB, `u` in 0..1, drives the heading and the clock together. That is
+ not a toy: the real game's advance() does exactly this -- the route turns the
+ rider while the sunset clock runs -- and a single frame cannot eye-test either
+ module. Panning is what shows a silhouette is a function of BEARING rather than a
+ picture: the ranges slide past at their own rate, the snowcap comes round from
+ the north as the sun leaves to the west, and the rocks dim as the sky reddens.
 
-  ridge-poly : Real, Integer, List Real -> List DrawCmd
-  ridge-poly (far) (color) (hs) =
-    let top = ridge far 0 (0.0 - 1800.0) hs
-    in let base = [ Vec3 { right = 1800.0, forward = far, height = 0.0 }, Vec3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
-    in solid color (top & base)
+ The sweep runs from facing the sunset to facing north, because the two cannot be
+ seen at once and the geometry says so: the sun sits at bearing -2.2176 and is
+ skipped beyond 1.4 radians off the look axis, while the snowcap only clears its
+ snowline near bearing 0. No heading holds both.
 
-  mountains-far : List DrawCmd
-  mountains-far = ridge-poly 5200.0 7042462 [60.0, 240.0, 120.0, 300.0, 150.0, 380.0, 110.0, 260.0, 80.0, 200.0, 90.0, 170.0, 60.0, 210.0, 70.0]
+  scene-heading-at : Real -> Real
+  scene-heading-at (u) = (0.0 - 2.5) + 3.1 * u
 
-  mountains-near : List DrawCmd
-  mountains-near = ridge-poly 3400.0 5466506 [40.0, 130.0, 200.0, 90.0, 170.0, 60.0, 220.0, 100.0, 60.0, 190.0, 80.0, 140.0, 50.0, 160.0, 40.0]
+  scene-step-at : Real -> Real
+  scene-step-at (u) = 3600.0 + 1400.0 * u
+
+  scene-heading : Real
+  scene-heading = scene-heading-at 0.0
+
+ Late in the ride: the disc is a few pixels above the horizon, so the sunset
+ warmth is near its peak and the sky is well into its dusk ramp.
+
+  scene-step : Real
+  scene-step = scene-step-at 0.0
+
+  backdrop-at : Real, Real -> List DrawCmd
+  backdrop-at (heading) (step) = draw heading (sun-set-fraction step) focal camera-w
+
+ The sky, the horizon band and the sun are NOT polygons. blitter.js paints them
+ itself -- a linear gradient for the sky and a radial glow plus the disc for the
+ sun -- and asks the module for the numbers. The shim exports these four straight
+ out of the port, so what the browser paints behind the ranges is the ported
+ sunset clock and nothing hand-tuned.
+
+ THE SHIM CALLS `sky-color`, `horizon-color` AND `scene-sun-at` DIRECTLY, and
+ there is a reason there are no per-field wrappers beside them. A Codex definition
+ whose body is a single application is INLINED at its call sites and never becomes
+ a zig function, so a `scene-sun-x-at (u) = (scene-sun-at u).x` written for the
+ shim's convenience simply is not there to call -- six of them were, and the wasm
+ build failed on six undeclared identifiers. The shim is outside the Codex
+ program; it can only call what survives inlining. See PORTING_NOTES B12.
+
+  scene-sun-at : Real -> SunPos
+  scene-sun-at (u) = sun-pos (scene-heading-at u) (scene-step-at u) focal camera-w
 
 Section: Trees
 
@@ -1260,14 +1773,17 @@ Section: The Frame
  well outside it, so nothing overlaps. The rail's own polys are properly sorted;
  it is the merge with the trees that this throwaway does not do.
 
-  frame : List DrawCmd
-  frame =
-    let ground = mountains-far & mountains-near & road & (dashes 12.0 24)
+  frame-at : Real -> List DrawCmd
+  frame-at (u) =
+    let ground = (backdrop-at (scene-heading-at u) (scene-step-at u)) & road & (dashes 12.0 24)
     in let water = bank-poly & pond-poly
     in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
     in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
     in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
     in ground & water & far-trees & mid-trees & rail-cmds & near-trees
+
+  frame : List DrawCmd
+  frame = frame-at 0.0
 
 Chapter: SceneMain
   cites Foreword chapter Console
@@ -1279,10 +1795,34 @@ Chapter: SceneMain
  Reporting the command count keeps it reachable and doubles as a native smoke
  test: run this on the host and it says how many polygons the frame holds.
 
+ THE SKY AND SUN LINES ARE NOT DECORATION. blitter.js paints those itself and
+ asks the module for the numbers, so they never enter `frame` -- which means
+ nothing reached them, which means the emitter shook all six out and the wasm
+ build failed on six undeclared identifiers. Touching them here is what keeps
+ them in the program. That is B6 in PORTING_NOTES, met for the second time in
+ this same file.
+
+ The sun's coordinates are printed through real-to-int, which is worth noticing:
+ `show` on a Real is still refused, and before the conversion emitters landed
+ this entry could not have reported them at all.
+
  We say:
 
 Section: Entry
 
+ One line per end of the sweep and its middle, which touches every export the
+ shim calls and is a genuine smoke test of the clock: the sky must darken and the
+ sun must set as u runs.
+
+  report : Real -> Text
+  report (u) =
+    let sun = if (scene-sun-at u).visible then "sun on " else "sun off"
+    in "sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " y " & show (real-to-int (scene-sun-at u).y) & " cmds " & show (list-length (frame-at u))
+
+
   opening : [Console] Nothing = act
-    print-line-uni ("cmds " & show (list-length frame))
+    print-line-uni ("cmds  " & show (list-length frame))
+    print-line-uni ("u=0.0 " & report 0.0)
+    print-line-uni ("u=0.5 " & report 0.5)
+    print-line-uni ("u=1.0 " & report 1.0)
   end

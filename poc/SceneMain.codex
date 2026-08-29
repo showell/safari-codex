@@ -8,10 +8,34 @@ Chapter: SceneMain
  Reporting the command count keeps it reachable and doubles as a native smoke
  test: run this on the host and it says how many polygons the frame holds.
 
+ THE SKY AND SUN LINES ARE NOT DECORATION. blitter.js paints those itself and
+ asks the module for the numbers, so they never enter `frame` -- which means
+ nothing reached them, which means the emitter shook all six out and the wasm
+ build failed on six undeclared identifiers. Touching them here is what keeps
+ them in the program. That is B6 in PORTING_NOTES, met for the second time in
+ this same file.
+
+ The sun's coordinates are printed through real-to-int, which is worth noticing:
+ `show` on a Real is still refused, and before the conversion emitters landed
+ this entry could not have reported them at all.
+
  We say:
 
 Section: Entry
 
+ One line per end of the sweep and its middle, which touches every export the
+ shim calls and is a genuine smoke test of the clock: the sky must darken and the
+ sun must set as u runs.
+
+  report : Real -> Text
+  report (u) =
+    let sun = if (scene-sun-at u).visible then "sun on " else "sun off"
+    in "sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " y " & show (real-to-int (scene-sun-at u).y) & " cmds " & show (list-length (frame-at u))
+
+
   opening : [Console] Nothing = act
-    print-line-uni ("cmds " & show (list-length frame))
+    print-line-uni ("cmds  " & show (list-length frame))
+    print-line-uni ("u=0.0 " & report 0.0)
+    print-line-uni ("u=0.5 " & report 0.5)
+    print-line-uni ("u=1.0 " & report 1.0)
   end

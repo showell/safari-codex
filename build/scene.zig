@@ -84,6 +84,21 @@ const RailPolyS = struct {
 };
 const RailPoly = *RailPolyS;
 
+const RgbS = struct {
+    r_: f64,
+    g: f64,
+    b_: f64,
+};
+const Rgb = *RgbS;
+
+const SunPosS = struct {
+    visible: bool,
+    x: f64,
+    y: f64,
+    scale: f64,
+};
+const SunPos = *SunPosS;
+
 fn list_tail_loop(comptime T17: type, xs: *CxList(T17), i_: i64, len_: i64, acc_: *CxList(T17)) *CxList(T17) {
     var _tl_i = i_;
     var _tl_acc = acc_;
@@ -106,6 +121,35 @@ fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: 
 
 fn list_drop(comptime T20: type, xs: *CxList(T20), n_: i64) *CxList(T20) {
     return list_tail_loop(T20, xs, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_list_len(xs), cx_ll_empty(T20));
+}
+
+fn real_min(a_: f64, b_: f64) f64 {
+    return (if ((a_ < b_)) a_ else b_);
+}
+
+fn real_max(a_: f64, b_: f64) f64 {
+    return (if ((a_ > b_)) a_ else b_);
+}
+
+fn real_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
+fn real_sqrt(x: f64) f64 {
+    return @as(f64, (if ((x <= @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else dm_sqrt_scaled(x, @as(f64, @bitCast(@as(i64, 4607182418800017408))), 700)));
+}
+
+fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
+    var _tl_x = x;
+    var _tl_s = s_;
+    var _tl_fuel = fuel;
+    while (true) {
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+    }
+}
+
+fn dm_sqrt_core(r_: f64) f64 {
+    return b0: { const g0: f64 = ((r_ + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b0 b1: { const g1: f64 = ((g0 + (r_ / g0)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b1 b2: { const g2: f64 = ((g1 + (r_ / g1)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b2 b3: { const g3: f64 = ((g2 + (r_ / g2)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b3 b4: { const g4: f64 = ((g3 + (r_ / g3)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b4 ((g4 + (r_ / g4)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); }; }; }; }; };
 }
 
 fn pi() f64 {
@@ -152,6 +196,26 @@ fn r_tan(x: f64) f64 {
     return (r_sin(x) / r_cos(x));
 }
 
+fn atan_halve(t: f64, n_: i64) f64 {
+    var _tl_t = t;
+    var _tl_n = n_;
+    while (true) {
+        if ((_tl_n <= 0)) { return _tl_t; } else { { const _tj1_0 = (_tl_t / (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + real_sqrt((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (_tl_t * _tl_t))))); const _tj1_1 = (_tl_n -% 1); _tl_t = _tj1_0; _tl_n = _tj1_1; continue; } }
+    }
+}
+
+fn atan_series(u_: f64) f64 {
+    return b0: { const @"u2": f64 = (u_ * u_); break :b0 b1: { const @"u3": f64 = (@"u2" * u_); break :b1 b2: { const @"u5": f64 = (@"u3" * @"u2"); break :b2 b3: { const @"u7": f64 = (@"u5" * @"u2"); break :b3 b4: { const @"u9": f64 = (@"u7" * @"u2"); break :b4 b5: { const @"u11": f64 = (@"u9" * @"u2"); break :b5 (((((u_ - (@"u3" / @as(f64, @bitCast(@as(i64, 4613937818241073152))))) + (@"u5" / @as(f64, @bitCast(@as(i64, 4617315517961601024))))) - (@"u7" / @as(f64, @bitCast(@as(i64, 4619567317775286272))))) + (@"u9" / @as(f64, @bitCast(@as(i64, 4621256167635550208))))) - (@"u11" / @as(f64, @bitCast(@as(i64, 4622382067542392832))))); }; }; }; }; }; };
+}
+
+fn atan_core(t: f64) f64 {
+    return (@as(f64, @bitCast(@as(i64, 4625196817309499392))) * atan_series(atan_halve(t, 4)));
+}
+
+fn r_atan(t: f64) f64 {
+    return (if ((t > @as(f64, @bitCast(@as(i64, 4607182418800017408))))) (half_pi() - atan_core((@as(f64, @bitCast(@as(i64, 4607182418800017408))) / t))) else (if ((t < (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) ((@as(f64, @bitCast(@as(i64, 0))) - half_pi()) - atan_core((@as(f64, @bitCast(@as(i64, 4607182418800017408))) / t))) else atan_core(t)));
+}
+
 fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
     return b0: { const f: f64 = ((_arg_near - a_.forward) / (b_.forward - a_.forward)); break :b0 cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = (a_.right + (f * (b_.right - a_.right))), .forward = _arg_near, .height = (a_.height + (f * (b_.height - a_.height))) }) }); };
 }
@@ -186,6 +250,18 @@ fn fov_deg() f64 {
 
 fn focal() f64 {
     return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
+fn min_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599976659396224614)));
+}
+
+fn min_gaze_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4603669611090668421)));
+}
+
+fn cam_focal(lean_frac: f64, attention: f64) f64 {
+    return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
 }
 
 fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
@@ -330,23 +406,6 @@ fn bank_color() i64 {
     return 12759680;
 }
 
-fn real_sqrt(x: f64) f64 {
-    return @as(f64, (if ((x <= @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else dm_sqrt_scaled(x, @as(f64, @bitCast(@as(i64, 4607182418800017408))), 700)));
-}
-
-fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
-    var _tl_x = x;
-    var _tl_s = s_;
-    var _tl_fuel = fuel;
-    while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
-    }
-}
-
-fn dm_sqrt_core(r_: f64) f64 {
-    return b0: { const g0: f64 = ((r_ + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b0 b1: { const g1: f64 = ((g0 + (r_ / g0)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b1 b2: { const g2: f64 = ((g1 + (r_ / g1)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b2 b3: { const g3: f64 = ((g2 + (r_ / g2)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b3 b4: { const g4: f64 = ((g3 + (r_ / g3)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b4 ((g4 + (r_ / g4)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); }; }; }; }; };
-}
-
 fn rail_height() f64 {
     return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
 }
@@ -423,6 +482,218 @@ fn rail_draw_all(ps: *CxList(RailPoly), cf: f64, view_w: f64, i_: i64) *CxList(D
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(DrawCmd) else cx_ll_concat(rail_draw_poly(cx_list_at(ps, i_), cf, view_w), rail_draw_all(ps, cf, view_w, (i_ +% 1))));
 }
 
+fn sun_bearing() f64 {
+    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4612176010066845814))));
+}
+
+fn sun_radius_px() f64 {
+    return @as(f64, @bitCast(@as(i64, 4631670741773844480)));
+}
+
+fn sun_start_px() f64 {
+    return @as(f64, @bitCast(@as(i64, 4642789003353915392)));
+}
+
+fn sun_drop_px_per_step() f64 {
+    return ((@as(f64, @bitCast(@as(i64, 4601168492001611942))) * (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * sun_radius_px())) / @as(f64, @bitCast(@as(i64, 4648708773957861376))));
+}
+
+fn sun_fully_set_px() f64 {
+    return (@as(f64, @bitCast(@as(i64, 0))) - sun_radius_px());
+}
+
+fn warmth_falloff_px() f64 {
+    return @as(f64, @bitCast(@as(i64, 4637440978796412928)));
+}
+
+fn visible_bearing_limit() f64 {
+    return @as(f64, @bitCast(@as(i64, 4608983858650965606)));
+}
+
+fn sun_height_px(step: f64) f64 {
+    return (sun_start_px() - (sun_drop_px_per_step() * step));
+}
+
+fn dusk_at_set() f64 {
+    return ((@as(f64, @bitCast(@as(i64, 4602678819172646912))) * (sun_start_px() - sun_fully_set_px())) / sun_start_px());
+}
+
+fn dusk_while_up(h_: f64) f64 {
+    return b0: { const p_: f64 = ((sun_start_px() - h_) / (sun_start_px() - sun_fully_set_px())); break :b0 real_max(@as(f64, @bitCast(@as(i64, 0))), ((dusk_at_set() * p_) * p_)); };
+}
+
+fn sun_set_fraction(step: f64) f64 {
+    return b0: { const h_: f64 = sun_height_px(step); break :b0 (if ((h_ >= sun_fully_set_px())) dusk_while_up(h_) else real_min(@as(f64, @bitCast(@as(i64, 4607182418800017408))), (dusk_at_set() + (((sun_fully_set_px() - h_) / sun_radius_px()) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - dusk_at_set()))))); };
+}
+
+fn day_sky() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4639200197400854528))), .g = @as(f64, @bitCast(@as(i64, 4641311259726184448))), .b_ = @as(f64, @bitCast(@as(i64, 4642296422144671744))) });
+}
+
+fn dusk_sky() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4630263366890291200))), .g = @as(f64, @bitCast(@as(i64, 4633359591634108416))), .b_ = @as(f64, @bitCast(@as(i64, 4636315078889570304))) });
+}
+
+fn sunset_red() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4642014947167961088))), .g = @as(f64, @bitCast(@as(i64, 4635892866424504320))), .b_ = @as(f64, @bitCast(@as(i64, 4632515166703976448))) });
+}
+
+fn sunset_glow() f64 {
+    return @as(f64, @bitCast(@as(i64, 4605831338911806259)));
+}
+
+fn round_real(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+}
+
+fn lerp3(a_: Rgb, b_: Rgb, t: f64) Rgb {
+    return cx_new(RgbS{ .r_ = round_real((a_.r_ + ((b_.r_ - a_.r_) * t))), .g = round_real((a_.g + ((b_.g - a_.g) * t))), .b_ = round_real((a_.b_ + ((b_.b_ - a_.b_) * t))) });
+}
+
+fn pack(c_: Rgb) i64 {
+    return ((cx_shl(cx_real_to_int(c_.r_), 16) | cx_shl(cx_real_to_int(c_.g), 8)) | cx_real_to_int(c_.b_));
+}
+
+fn sky_color(step: f64) i64 {
+    return pack(lerp3(day_sky(), dusk_sky(), sun_set_fraction(step)));
+}
+
+fn horizon_color(step: f64) i64 {
+    return b0: { const sky = lerp3(day_sky(), dusk_sky(), sun_set_fraction(step)); break :b0 pack(lerp3(sky, sunset_red(), (real_max(@as(f64, @bitCast(@as(i64, 0))), (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (real_abs(sun_height_px(step)) / warmth_falloff_px()))) * sunset_glow()))); };
+}
+
+fn sun_pos_visible(rel: f64, step: f64, _arg_cam_focal: f64, view_w: f64) SunPos {
+    return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 cx_new(SunPosS{ .visible = true, .x = ((view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + (r_tan(rel) * _arg_cam_focal)), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (sun_height_px(step) * v_scale)), .scale = v_scale }); };
+}
+
+fn sun_pos(heading: f64, step: f64, _arg_cam_focal: f64, view_w: f64) SunPos {
+    return b0: { const rel: f64 = wrap((sun_bearing() - heading), 64); break :b0 (if ((real_abs(rel) >= visible_bearing_limit())) cx_new(SunPosS{ .visible = false, .x = @as(f64, @bitCast(@as(i64, 0))), .y = @as(f64, @bitCast(@as(i64, 0))), .scale = @as(f64, @bitCast(@as(i64, 0))) }) else sun_pos_visible(rel, step, _arg_cam_focal, view_w)); };
+}
+
+fn rock() i64 {
+    return 5991055;
+}
+
+fn rock_west() i64 {
+    return 3752799;
+}
+
+fn land() i64 {
+    return 4886339;
+}
+
+fn rock_night_dim() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn snow_day() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4642577897121382400))), .g = @as(f64, @bitCast(@as(i64, 4642753818981826560))), .b_ = @as(f64, @bitCast(@as(i64, 4642929740842270720))) });
+}
+
+fn snow_night() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4634626229029306368))), .g = @as(f64, @bitCast(@as(i64, 4635611391447793664))), .b_ = @as(f64, @bitCast(@as(i64, 4637018766331346944))) });
+}
+
+fn chan(color: i64, sh: i64) f64 {
+    return cx_real_from_int((cx_shr(color, sh) & 255));
+}
+
+fn dimmed(color: i64, dusk: f64) i64 {
+    return b0: { const f: f64 = (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (rock_night_dim() * dusk)); break :b0 b1: { const r_: i64 = cx_real_to_int(round_real((chan(color, 16) * f))); break :b1 b2: { const g: i64 = cx_real_to_int(round_real((chan(color, 8) * f))); break :b2 b3: { const b_: i64 = cx_real_to_int(round_real((chan(color, 0) * f))); break :b3 ((cx_shl(r_, 16) | cx_shl(g, 8)) | b_); }; }; }; };
+}
+
+fn west_range_bearing() f64 {
+    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4611779693299637210))));
+}
+
+fn snow_threshold() f64 {
+    return @as(f64, @bitCast(@as(i64, 4638426141214900224)));
+}
+
+fn snow_dip() f64 {
+    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
+}
+
+fn col_step() f64 {
+    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
+}
+
+fn roll_margin() f64 {
+    return @as(f64, @bitCast(@as(i64, 4641240890982006784)));
+}
+
+fn range_at(bearing: f64, center: f64, half: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
+    return b0: { const b_: f64 = wrap((bearing - center), 64); break :b0 b1: { const t: f64 = (b_ / half); break :b1 @as(f64, (if ((real_abs(t) >= @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 0))) else range_body(b_, t, peak, freq_a, freq_b))); }; };
+}
+
+fn range_body(b_: f64, t: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
+    return b0: { const envelope: f64 = r_cos(((t * pi()) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const ridge: f64 = ((@as(f64, @bitCast(@as(i64, 4603579539098121011))) + (@as(f64, @bitCast(@as(i64, 4597814931575086776))) * r_cos((b_ * freq_a)))) + (@as(f64, @bitCast(@as(i64, 4594932627813569659))) * r_cos(((b_ * freq_b) + @as(f64, @bitCast(@as(i64, 4607182418800017408))))))); break :b1 ((peak * envelope) * ridge); }; };
+}
+
+fn ground_base(bearing: f64) f64 {
+    return (@as(f64, @bitCast(@as(i64, 4625759767262920704))) + (@as(f64, @bitCast(@as(i64, 4622945017495814144))) * r_sin(((wrap(bearing, 64) * @as(f64, @bitCast(@as(i64, 4606281698874543309)))) + @as(f64, @bitCast(@as(i64, 4611235658464650854)))))));
+}
+
+fn north_range(bearing: f64) f64 {
+    return range_at(bearing, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4606732058837280358))), @as(f64, @bitCast(@as(i64, 4639481672377565184))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4626604192193052672))));
+}
+
+fn west_range(bearing: f64) f64 {
+    return range_at(bearing, west_range_bearing(), @as(f64, @bitCast(@as(i64, 4604660403008689930))), @as(f64, @bitCast(@as(i64, 4638144666238189568))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), @as(f64, @bitCast(@as(i64, 4628293042053316608))));
+}
+
+fn snow_peak_loop(b_: f64, vm: f64) f64 {
+    var _tl_b = b_;
+    var _tl_vm = vm;
+    while (true) {
+        if ((_tl_b > @as(f64, @bitCast(@as(i64, 4602678819172646912))))) { return _tl_vm; } else { { const _tj1_0 = (_tl_b + @as(f64, @bitCast(@as(i64, 4576918229304087675)))); const _tj1_1 = real_max(_tl_vm, north_range(_tl_b)); _tl_b = _tj1_0; _tl_vm = _tj1_1; continue; } }
+    }
+}
+
+fn snow_peak_height() f64 {
+    return snow_peak_loop((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))), (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))));
+}
+
+fn snowline_at(bearing: f64, peak: f64) f64 {
+    return b0: { const num: f64 = (north_range(bearing) - snow_threshold()); break :b0 b1: { const above_frac: f64 = real_max(@as(f64, @bitCast(@as(i64, 0))), real_min(@as(f64, @bitCast(@as(i64, 4607182418800017408))), (num / (peak - snow_threshold())))); break :b1 (snow_threshold() - (snow_dip() * above_frac)); }; };
+}
+
+fn bearing_at(x: f64, heading: f64, _arg_cam_focal: f64, view_w: f64) f64 {
+    return (heading + r_atan(((x - (view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) / _arg_cam_focal)));
+}
+
+fn crest_pts(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, x: f64) *CxList(ScreenPt) {
+    return (if ((x > (view_w + roll_margin()))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = x, .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (f.call(f.ctx, bearing_at(x, heading, _arg_cam_focal, view_w)) * v_scale)) }) }), crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (x + col_step()))));
+}
+
+fn silhouette(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, color: i64) *CxList(DrawCmd) {
+    return b0: { const top_ = crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (@as(f64, @bitCast(@as(i64, 0))) - roll_margin())); break :b0 b1: { const close = cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (view_w + roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }), cx_new(ScreenPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }) }); break :b1 push_poly(color, cx_ll_concat(top_, close)); }; };
+}
+
+fn snow_columns(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
+    return (if ((x > view_w)) cx_ll_empty(f64) else snow_columns_at(heading, _arg_cam_focal, view_w, peak, x));
+}
+
+fn snow_columns_at(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
+    return b0: { const b_: f64 = bearing_at(x, heading, _arg_cam_focal, view_w); break :b0 b1: { const rest = snow_columns(heading, _arg_cam_focal, view_w, peak, (x + col_step())); break :b1 (if ((north_range(b_) > (snowline_at(b_, peak) + @as(f64, @bitCast(@as(i64, 4576918229304087675)))))) cx_ll_concat(cx_ll_of(f64, &[_]f64{ x }), rest) else rest); }; };
+}
+
+fn snow_top(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (north_range(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w)) * v_scale)) }) }), snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, (i_ +% 1))));
+}
+
+fn snow_bottom(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, peak: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ < 0)) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (snowline_at(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w), peak) * v_scale)) }) }), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (i_ -% 1))));
+}
+
+fn draw_snow(heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, snow: i64) *CxList(DrawCmd) {
+    return b0: { const peak: f64 = snow_peak_height(); break :b0 b1: { const xs = snow_columns(heading, _arg_cam_focal, view_w, peak, @as(f64, @bitCast(@as(i64, 0)))); break :b1 (if ((cx_list_len(xs) < 2)) cx_ll_empty(DrawCmd) else push_poly(snow, cx_ll_concat(snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, 0), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (cx_list_len(xs) -% 1))))); }; };
+}
+
+fn draw(heading: f64, dusk: f64, _arg_cam_focal: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 b1: { const west = silhouette(b3: { const _Env3 = struct { fn call(_ctx3: *anyopaque, p0: f64) f64 { _ = _ctx3; return west_range(p0); } }; break :b3 CxFn1(f64, f64){ .ctx = cx_new(_Env3{  }), .call = &_Env3.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock_west(), dusk)); break :b1 b2: { const north = silhouette(b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return north_range(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock(), dusk)); break :b2 b3: { const cap = draw_snow(heading, _arg_cam_focal, view_w, v_scale, pack(lerp3(snow_day(), snow_night(), dusk))); break :b3 b4: { const ground = silhouette(b6: { const _Env6 = struct { fn call(_ctx6: *anyopaque, p0: f64) f64 { _ = _ctx6; return ground_base(p0); } }; break :b6 CxFn1(f64, f64){ .ctx = cx_new(_Env6{  }), .call = &_Env6.call }; }, heading, _arg_cam_focal, view_w, v_scale, land()); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(west, north), cap), ground); }; }; }; }; };
+}
+
 fn to_screen(ps: *CxList(Vec3), i_: i64) *CxList(ScreenPt) {
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), focal(), camera_w()) }), to_screen(ps, (i_ +% 1))));
 }
@@ -451,20 +722,20 @@ fn dashes(a_: f64, fuel: i64) *CxList(DrawCmd) {
     return (if ((fuel <= 0)) cx_ll_empty(DrawCmd) else cx_ll_concat(solid(14211744, cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595653203753948938)))), .forward = a_, .height = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 4595653203753948938))), .forward = a_, .height = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 4595653203753948938))), .forward = (a_ + @as(f64, @bitCast(@as(i64, 4617315517961601024)))), .height = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(Vec3S{ .right = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595653203753948938)))), .forward = (a_ + @as(f64, @bitCast(@as(i64, 4617315517961601024)))), .height = @as(f64, @bitCast(@as(i64, 0))) }) })), dashes((a_ + @as(f64, @bitCast(@as(i64, 4624070917402656768)))), (fuel -% 1))));
 }
 
-fn ridge(far: f64, i_: i64, x: f64, hs: *CxList(f64)) *CxList(Vec3) {
-    return (if ((i_ >= cx_list_len(hs))) cx_ll_empty(Vec3) else b1: { const h_: f64 = cx_list_at(hs, i_); break :b1 cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = x, .forward = far, .height = h_ }) }), ridge(far, (i_ +% 1), (x + @as(f64, @bitCast(@as(i64, 4643281584563159040)))), hs)); });
+fn scene_heading_at(u_: f64) f64 {
+    return ((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4612811918334230528)))) + (@as(f64, @bitCast(@as(i64, 4614162998222441677))) * u_));
 }
 
-fn ridge_poly(far: f64, color: i64, hs: *CxList(f64)) *CxList(DrawCmd) {
-    return b0: { const top_ = ridge(far, 0, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4655631299166339072)))), hs); break :b0 b1: { const base_ = cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 4655631299166339072))), .forward = far, .height = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(Vec3S{ .right = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4655631299166339072)))), .forward = far, .height = @as(f64, @bitCast(@as(i64, 0))) }) }); break :b1 solid(color, cx_ll_concat(top_, base_)); }; };
+fn scene_step_at(u_: f64) f64 {
+    return (@as(f64, @bitCast(@as(i64, 4660134898793709568))) + (@as(f64, @bitCast(@as(i64, 4653872080561897472))) * u_));
 }
 
-fn mountains_far() *CxList(DrawCmd) {
-    return ridge_poly(@as(f64, @bitCast(@as(i64, 4662439475165528064))), 7042462, cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4633641066610819072))), @as(f64, @bitCast(@as(i64, 4642648265865560064))), @as(f64, @bitCast(@as(i64, 4638144666238189568))), @as(f64, @bitCast(@as(i64, 4643985272004935680))), @as(f64, @bitCast(@as(i64, 4639481672377565184))), @as(f64, @bitCast(@as(i64, 4645392646888488960))), @as(f64, @bitCast(@as(i64, 4637440978796412928))), @as(f64, @bitCast(@as(i64, 4643281584563159040))), @as(f64, @bitCast(@as(i64, 4635329916471083008))), @as(f64, @bitCast(@as(i64, 4641240890982006784))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4640185359819341824))), @as(f64, @bitCast(@as(i64, 4633641066610819072))), @as(f64, @bitCast(@as(i64, 4641592734702895104))), @as(f64, @bitCast(@as(i64, 4634626229029306368))) }));
+fn backdrop_at(heading: f64, step: f64) *CxList(DrawCmd) {
+    return draw(heading, sun_set_fraction(step), focal(), camera_w());
 }
 
-fn mountains_near() *CxList(DrawCmd) {
-    return ridge_poly(@as(f64, @bitCast(@as(i64, 4659695094142599168))), 5466506, cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4630826316843712512))), @as(f64, @bitCast(@as(i64, 4638777984935788544))), @as(f64, @bitCast(@as(i64, 4641240890982006784))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4640185359819341824))), @as(f64, @bitCast(@as(i64, 4633641066610819072))), @as(f64, @bitCast(@as(i64, 4641944578423783424))), @as(f64, @bitCast(@as(i64, 4636737291354636288))), @as(f64, @bitCast(@as(i64, 4633641066610819072))), @as(f64, @bitCast(@as(i64, 4640889047261118464))), @as(f64, @bitCast(@as(i64, 4635329916471083008))), @as(f64, @bitCast(@as(i64, 4639129828656676864))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4639833516098453504))), @as(f64, @bitCast(@as(i64, 4630826316843712512))) }));
+fn scene_sun_at(u_: f64) SunPos {
+    return sun_pos(scene_heading_at(u_), scene_step_at(u_), focal(), camera_w());
 }
 
 fn detail_dist() f64 {
@@ -526,12 +797,20 @@ fn rail_cmds() *CxList(DrawCmd) {
     return rail_draw_all(rail_sort(rail_emit(rail_path(@as(f64, @bitCast(@as(i64, 4636455816377925632))), 21)), 0, cx_ll_empty(RailPoly)), focal(), camera_w(), 0);
 }
 
+fn frame_at(u_: f64) *CxList(DrawCmd) {
+    return b0: { const ground = cx_ll_concat(cx_ll_concat(backdrop_at(scene_heading_at(u_), scene_step_at(u_)), road()), dashes(@as(f64, @bitCast(@as(i64, 4622945017495814144))), 24)); break :b0 b1: { const water = cx_ll_concat(bank_poly(), pond_poly()); break :b1 b2: { const far_trees = cx_ll_concat(cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4628011567076605952)))), @as(f64, @bitCast(@as(i64, 4640009437958897664))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), false), conifer(@as(f64, @bitCast(@as(i64, 4626604192193052672))), @as(f64, @bitCast(@as(i64, 4638848353679966208))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4625478292286210048)))), @as(f64, @bitCast(@as(i64, 4637018766331346944))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), false)), conifer(@as(f64, @bitCast(@as(i64, 4624633867356078080))), @as(f64, @bitCast(@as(i64, 4635189178982727680))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), false)); break :b2 b3: { const mid_trees = cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4623507967449235456)))), @as(f64, @bitCast(@as(i64, 4633218854145753088))), @as(f64, @bitCast(@as(i64, 4621256167635550208))), false), conifer(@as(f64, @bitCast(@as(i64, 4623226492472524800))), @as(f64, @bitCast(@as(i64, 4631389266797133824))), @as(f64, @bitCast(@as(i64, 4620130267728707584))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4622100592565682176)))), @as(f64, @bitCast(@as(i64, 4629841154425225216))), @as(f64, @bitCast(@as(i64, 4620974692658839552))), false)); break :b3 b4: { const near_trees = cx_ll_concat(cx_ll_concat(conifer(@as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4627167142146473984))), @as(f64, @bitCast(@as(i64, 4619567317775286272))), true), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4620693217682128896)))), @as(f64, @bitCast(@as(i64, 4624915342332788736))), @as(f64, @bitCast(@as(i64, 4619004367821864960))), true)), conifer(@as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4618441417868443648))), true)); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(ground, water), far_trees), mid_trees), rail_cmds()), near_trees); }; }; }; }; };
+}
+
 fn frame() *CxList(DrawCmd) {
-    return b0: { const ground = cx_ll_concat(cx_ll_concat(cx_ll_concat(mountains_far(), mountains_near()), road()), dashes(@as(f64, @bitCast(@as(i64, 4622945017495814144))), 24)); break :b0 b1: { const water = cx_ll_concat(bank_poly(), pond_poly()); break :b1 b2: { const far_trees = cx_ll_concat(cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4628011567076605952)))), @as(f64, @bitCast(@as(i64, 4640009437958897664))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), false), conifer(@as(f64, @bitCast(@as(i64, 4626604192193052672))), @as(f64, @bitCast(@as(i64, 4638848353679966208))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4625478292286210048)))), @as(f64, @bitCast(@as(i64, 4637018766331346944))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), false)), conifer(@as(f64, @bitCast(@as(i64, 4624633867356078080))), @as(f64, @bitCast(@as(i64, 4635189178982727680))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), false)); break :b2 b3: { const mid_trees = cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4623507967449235456)))), @as(f64, @bitCast(@as(i64, 4633218854145753088))), @as(f64, @bitCast(@as(i64, 4621256167635550208))), false), conifer(@as(f64, @bitCast(@as(i64, 4623226492472524800))), @as(f64, @bitCast(@as(i64, 4631389266797133824))), @as(f64, @bitCast(@as(i64, 4620130267728707584))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4622100592565682176)))), @as(f64, @bitCast(@as(i64, 4629841154425225216))), @as(f64, @bitCast(@as(i64, 4620974692658839552))), false)); break :b3 b4: { const near_trees = cx_ll_concat(cx_ll_concat(conifer(@as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4627167142146473984))), @as(f64, @bitCast(@as(i64, 4619567317775286272))), true), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4620693217682128896)))), @as(f64, @bitCast(@as(i64, 4624915342332788736))), @as(f64, @bitCast(@as(i64, 4619004367821864960))), true)), conifer(@as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4618441417868443648))), true)); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(ground, water), far_trees), mid_trees), rail_cmds()), near_trees); }; }; }; }; };
+    return frame_at(@as(f64, @bitCast(@as(i64, 0))));
+}
+
+fn report(u_: f64) []const u8 {
+    return b0: { const sun = (if (scene_sun_at(u_).visible) "\x13\x19\x12\x02\x10\x12\x02" else "\x13\x19\x12\x02\x10\x1c\x1c"); break :b0 cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x13\x22\x1e\x02", cx_show_int(sky_color(scene_step_at(u_)))), "\x02\x14\x10\x15\x11\x26\x10\x12\x02"), cx_show_int(horizon_color(scene_step_at(u_)))), "\x02"), sun), "\x02\x24\x02"), cx_show_int(cx_real_to_int(scene_sun_at(u_).x))), "\x02\x1e\x02"), cx_show_int(cx_real_to_int(scene_sun_at(u_).y))), "\x02\x18\x1a\x16\x13\x02"), cx_show_int(cx_list_len(frame_at(u_)))); };
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02", cx_show_int(cx_list_len(frame())))); break :b0; };
+    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -559,6 +838,12 @@ pub fn main() void {
 
 const std = @import("std");
 
+// cx_gpa and the heap it allocates from live beside the buffer
+// builtins below: one region, one bump frontier, bare metal's model.
+
+fn CxFn1(comptime A: type, comptime R: type) type {
+    return struct { ctx: *anyopaque, call: *const fn (*anyopaque, A) R };
+}
 fn CxList(comptime T: type) type {
     return struct { items: std.ArrayListUnmanaged(T) = .empty };
 }
@@ -596,11 +881,39 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
+// f64 in the default rounding mode, which is round-to-nearest-even.
+// @floatFromInt is that same conversion -- exact below 2^53 and correctly
+// rounded above it -- so the two arms agree at every magnitude.
+fn cx_real_from_int(n: i64) f64 {
+    return @floatFromInt(n);
+}
+// cvttsd2si on bare metal (emit-real-to-int-builtin): truncate toward
+// zero, and answer x86's "integer indefinite" -- INT64_MIN -- for a NaN,
+// for an infinity, and for anything whose truncation will not fit i64.
+// Zig's @intFromFloat truncates the same way but is UNDEFINED out of
+// range, so these guards are the mirror of what the hardware actually
+// answers rather than decoration: without them the out-of-range cases are
+// not merely a different answer from bare metal, they are no answer at
+// all. 2^63 is exact in f64, so both bounds are exact and the comparisons
+// catch the infinities on the way past.
+fn cx_real_to_int(v: f64) i64 {
+    if (v != v) return -9223372036854775808;
+    if (v >= 9223372036854775808.0) return -9223372036854775808;
+    if (v < -9223372036854775808.0) return -9223372036854775808;
+    return @intFromFloat(v);
+}
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);
 }
 fn cx_list_at(l: anytype, i: i64) @TypeOf(l.items.items[0]) {
     return l.items.items[@intCast(i)];
+}
+fn cx_shl(a: i64, b: i64) i64 {
+    return a << @as(u6, @intCast(b & 63));
+}
+fn cx_shr(a: i64, b: i64) i64 {
+    return a >> @as(u6, @intCast(b & 63));
 }
 // ONE heap, bare metal's own model: records, lists, text, closures,
 // buffers and the emit workspace all come from a single bump frontier

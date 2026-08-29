@@ -6,6 +6,8 @@ Chapter: Scene
   cites Safari chapter Tree
   cites Safari chapter Pond
   cites Safari chapter GuardRail
+  cites Safari chapter Sky
+  cites Safari chapter Mountains
   cites Foreword chapter ListUtils
 
  A single frame of the Safari, computed in Codex.
@@ -76,34 +78,66 @@ Section: Ground
     if fuel <= 0 then []
     else (dash a) & dashes (a + 14.0) (fuel - 1)
 
-Section: Mountains
+Section: The Backdrop and the Clock
 
- A ridge far enough away to sit just above the horizon. Real geometry, not a
- screen-space cheat: the peaks are metres of height at a few kilometres of
- forward, and the projection puts them where they belong.
+ THE RANGES ARE THE REAL ONES NOW. This section used to place two hand-made
+ ridges as lists of heights at a fixed forward distance -- a screen-space cheat
+ that looked like mountains and was not the game's. It is replaced by
+ `Safari chapter Mountains`, a faithful port graded at 2,204 values, which
+ samples a bearing per column through the live focal and traces the same
+ silhouettes the zig does.
 
-  ridge : Real, Integer, Real, List Real -> List Vec3
-  ridge (far) (i) (x) (hs) =
-    if i >= list-length hs then []
-    else let h = list-at hs i
-      in [Vec3 { right = x, forward = far, height = h }] & ridge far (i + 1) (x + 260.0) hs
+ The pose is chosen to put the most on screen at once. At this heading the WEST
+ range fills the left, the snowcapped NORTH range enters from the right, and the
+ sun is inside its visibility limit -- at heading 0 the sun is 2.2 radians off the
+ look axis and the blitter would skip it entirely.
 
- The x accumulator is carried as a Real rather than derived from i, because the
- zig plug has no emitter for real-from-int -- there is no way to widen a loop
- counter. Every counted loop in this port pays that, and it is the first thing
- the plug rows would buy back.
+ ONE SCRUB KNOB, `u` in 0..1, drives the heading and the clock together. That is
+ not a toy: the real game's advance() does exactly this -- the route turns the
+ rider while the sunset clock runs -- and a single frame cannot eye-test either
+ module. Panning is what shows a silhouette is a function of BEARING rather than a
+ picture: the ranges slide past at their own rate, the snowcap comes round from
+ the north as the sun leaves to the west, and the rocks dim as the sky reddens.
 
-  ridge-poly : Real, Integer, List Real -> List DrawCmd
-  ridge-poly (far) (color) (hs) =
-    let top = ridge far 0 (0.0 - 1800.0) hs
-    in let base = [ Vec3 { right = 1800.0, forward = far, height = 0.0 }, Vec3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
-    in solid color (top & base)
+ The sweep runs from facing the sunset to facing north, because the two cannot be
+ seen at once and the geometry says so: the sun sits at bearing -2.2176 and is
+ skipped beyond 1.4 radians off the look axis, while the snowcap only clears its
+ snowline near bearing 0. No heading holds both.
 
-  mountains-far : List DrawCmd
-  mountains-far = ridge-poly 5200.0 7042462 [60.0, 240.0, 120.0, 300.0, 150.0, 380.0, 110.0, 260.0, 80.0, 200.0, 90.0, 170.0, 60.0, 210.0, 70.0]
+  scene-heading-at : Real -> Real
+  scene-heading-at (u) = (0.0 - 2.5) + 3.1 * u
 
-  mountains-near : List DrawCmd
-  mountains-near = ridge-poly 3400.0 5466506 [40.0, 130.0, 200.0, 90.0, 170.0, 60.0, 220.0, 100.0, 60.0, 190.0, 80.0, 140.0, 50.0, 160.0, 40.0]
+  scene-step-at : Real -> Real
+  scene-step-at (u) = 3600.0 + 1400.0 * u
+
+  scene-heading : Real
+  scene-heading = scene-heading-at 0.0
+
+ Late in the ride: the disc is a few pixels above the horizon, so the sunset
+ warmth is near its peak and the sky is well into its dusk ramp.
+
+  scene-step : Real
+  scene-step = scene-step-at 0.0
+
+  backdrop-at : Real, Real -> List DrawCmd
+  backdrop-at (heading) (step) = draw heading (sun-set-fraction step) focal camera-w
+
+ The sky, the horizon band and the sun are NOT polygons. blitter.js paints them
+ itself -- a linear gradient for the sky and a radial glow plus the disc for the
+ sun -- and asks the module for the numbers. The shim exports these four straight
+ out of the port, so what the browser paints behind the ranges is the ported
+ sunset clock and nothing hand-tuned.
+
+ THE SHIM CALLS `sky-color`, `horizon-color` AND `scene-sun-at` DIRECTLY, and
+ there is a reason there are no per-field wrappers beside them. A Codex definition
+ whose body is a single application is INLINED at its call sites and never becomes
+ a zig function, so a `scene-sun-x-at (u) = (scene-sun-at u).x` written for the
+ shim's convenience simply is not there to call -- six of them were, and the wasm
+ build failed on six undeclared identifiers. The shim is outside the Codex
+ program; it can only call what survives inlining. See PORTING_NOTES B12.
+
+  scene-sun-at : Real -> SunPos
+  scene-sun-at (u) = sun-pos (scene-heading-at u) (scene-step-at u) focal camera-w
 
 Section: Trees
 
@@ -200,11 +234,14 @@ Section: The Frame
  well outside it, so nothing overlaps. The rail's own polys are properly sorted;
  it is the merge with the trees that this throwaway does not do.
 
-  frame : List DrawCmd
-  frame =
-    let ground = mountains-far & mountains-near & road & (dashes 12.0 24)
+  frame-at : Real -> List DrawCmd
+  frame-at (u) =
+    let ground = (backdrop-at (scene-heading-at u) (scene-step-at u)) & road & (dashes 12.0 24)
     in let water = bank-poly & pond-poly
     in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
     in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
     in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
     in ground & water & far-trees & mid-trees & rail-cmds & near-trees
+
+  frame : List DrawCmd
+  frame = frame-at 0.0

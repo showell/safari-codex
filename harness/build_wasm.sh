@@ -37,6 +37,19 @@ echo "web/driving/safari.wasm  ($(wc -c < web/driving/safari.wasm) bytes)"
 
 # Decode the frame the module produces, so a broken wire fails HERE and not as a
 # blank canvas in the browser.
+#
+# AND THEN RENDER A THOUSAND MORE. This decoded exactly ONE frame for a long time,
+# and one frame is not what a browser does: blitter.js calls renderFrame() every
+# animation frame, thirty of them behind the spinner before it even reveals the
+# canvas. The emitted prelude bump-allocates and never reclaims, so every build
+# from the first proof of concept onward died after 42 CALLS -- 0.7 seconds --
+# and this check passed all of them, because it never asked for a second frame.
+# The symptom in the browser was a spinner and then a dead canvas, which reads
+# like a build problem rather than a heap problem and cost real eye-testing time.
+#
+# The fix is in poc/shim.zig (an arena reset per frame, PORTING_NOTES C8); this is
+# the gate that would have caught it. A gate must exercise the shape the product
+# uses, not the smallest shape that proves the wire is connected.
 node -e '
 const fs=require("fs");
 const i=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync("web/driving/safari.wasm")),{});
@@ -47,8 +60,24 @@ while(w*4<len){
   const tag=u32[w++]; w++;                       // tag, colour
   if(tag===1){w++; round++;} else solid++;       // tag 1 carries a strength word
   const np=u32[w++];
-  if(np<3||np>64){console.error(`bad point count ${np} at command ${n}`);process.exit(1);}
+  // 2048 is the pts[] bound in mountains.zig itself: a silhouette is 683 points,
+  // one per column across the widest view plus two to close it to the horizon.
+  // This read 64 while the scene held only trees and rails, and the real ranges
+  // tripped it. NB the whole node program is one single-quoted shell string, so
+  // no apostrophes in here.
+  if(np<3||np>2048){console.error(`bad point count ${np} at command ${n}`);process.exit(1);}
   for(let k=0;k<np*2;k++){const v=f32[w++]; if(!isFinite(v))bad++;} n++;}
 if(w*4!==len){console.error(`wire desync: walked ${w*4} of ${len} bytes`);process.exit(1);}
 if(!n||bad){console.error(`bad frame: ${n} commands, ${bad} non-finite coords`);process.exit(1);}
-console.log(`frame: ${n} commands (${solid} solid, ${round} round), ${len} bytes, wire walks exactly`);'
+console.log(`frame: ${n} commands (${solid} solid, ${round} round), ${len} bytes, wire walks exactly`);
+// Now the endurance leg: advance and re-render the way the page does. 1200 frames
+// is twenty seconds at 60fps, and comfortably past the 42 that used to be fatal.
+const FRAMES=1200;
+let k=0;
+try{ for(;k<FRAMES;k++){ if(i.exports.advance) i.exports.advance(); const l=renderFrame(); if(!l){console.error(`empty frame at ${k}`);process.exit(1);} } }
+catch(err){ console.error(`DIED at frame ${k} of ${FRAMES}: ${String(err).split(String.fromCharCode(10))[0]}`); console.error(`the heap is not being reclaimed between frames -- see PORTING_NOTES C8`); process.exit(1); }
+// and the wire must still be walkable after all that churn
+const l2=renderFrame(), v32=new Uint32Array(memory.buffer,bufPtr(),l2/4);
+let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===1)z++;const np=v32[z++];z+=np*2;m++;}
+if(z*4!==l2){console.error(`wire desync after ${FRAMES} frames`);process.exit(1);}
+console.log(`endurance: ${FRAMES} frames advanced and rendered, then ${m} commands still walk exactly`);'

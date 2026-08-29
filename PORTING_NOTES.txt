@@ -256,6 +256,27 @@ B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
     which of ITS functions actually reach the hole. "This chapter is dark" is
     almost never true; "these functions are dark" usually is.
 
+B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
+
+    A Codex definition whose body is a single application does not become a zig
+    function. Six written for the wasm shim's convenience --
+
+        scene-sun-x-at (u) = (scene-sun-at u).x
+
+    -- emitted nothing at all; `report`, their only Codex caller, had
+    `scene_sun_at(u_).x` inlined into it, and the wasm build failed on six
+    undeclared identifiers.
+
+    This only bites at the boundary, and that is the thing to remember: inside
+    Codex an inlined alias is invisible and harmless, but the SHIM IS OUTSIDE THE
+    PROGRAM and can call only what survives. Write the shim against the real
+    functions -- `sky-color`, `sun-pos` -- rather than against wrappers, and drop
+    wrappers that exist purely to be called from zig.
+
+    Note the family resemblance to B6: both are the emitter declining to emit
+    something, silently, and both surface as a missing name downstream rather than
+    as a diagnostic.
+
 B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
 
     mountains.zig normalises a fraction it calls `above`. Porting that name
@@ -317,6 +338,45 @@ C5. wasm32-freestanding is THREE PRELUDE FUNCTIONS away, not the gulf NOTES
     heap reserves 4 GiB through page_allocator, which is the whole of a wasm32
     address space; printing reaches std.Io and drags in posix. Nothing in the
     TRANSPILED PROGRAM needs changing. See harness/wasmify.py.
+
+C8. A PER-FRAME PURE PROGRAM NEEDS AN ARENA RESET, AND THE SHIM IS THE PLACE.
+
+    C6 says the bump heap never reclaims. In a browser that is not a slow leak, it
+    is an immediate death: a blitter calls renderFrame() sixty times a second, and
+    the heap is gone in under a second. Measured across the history, every build
+    of the proof of concept:
+
+        the rail-era build (7008fce)      42 frames    0.7s at 60fps
+        the sky-era build  (9b6d6a5)      42 frames    0.7s
+        with the real mountain ranges      1 frame     immediately
+        with the arena reset          200,001 frames   55 minutes, still exact
+
+    THE PAGE HAD NEVER WORKED FOR MORE THAN A SECOND, and nobody knew, because
+    blitter.js renders up to thirty warm-up frames behind a spinner before it
+    reveals the canvas -- so the failure looked like a spinner and then a dead
+    canvas, which reads as a build problem rather than a heap one. It cost real
+    eye-testing time and was found only by accident, while adding a scrub control.
+
+    THE GATE COULD NOT SEE IT: harness/build_wasm.sh decoded exactly ONE frame and
+    passed every one of those builds. That is the lesson worth more than the fix --
+    a gate must exercise the shape the PRODUCT uses, not the smallest shape that
+    proves the wire is connected. It now advances and renders 1200 frames.
+
+    A bigger reserve buys frames and does not fix the shape. The fix is that the
+    frame is PURE: nothing computed in it outlives the call, because the shim
+    copies every coordinate into its own buffer before returning and the Codex
+    side has no mutable state to carry over. So the region can be rewound to where
+    it started and handed to the next frame:
+
+        var cx_hp_base: i64 = 0;
+        if (cx_hp_base == 0) cx_hp_base = cx_hp else cx_hp = cx_hp_base;
+
+    Capture the base rather than writing 6291456, which is bare metal's own boot
+    value for the heap pointer and mirrored by the plug -- see the deck note.
+
+    THE SHIM IS THE ONLY PLACE THAT KNOWS A FRAME HAS ENDED. Nothing inside the
+    transpiled program can know it; that is exactly the knowledge an arena needs,
+    and it is why this belongs at the boundary rather than upstream.
 
 C7. THE 4 GiB BUMP HEAP IS A CEILING ON HOW MUCH GOLD ONE UNIT CAN CARRY.
 

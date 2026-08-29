@@ -1,5 +1,6 @@
 Chapter: Sky
   cites Gpu chapter DeviceMath
+  cites Safari chapter Num
   cites Safari chapter Trig
   cites Safari chapter Camera
 
@@ -119,18 +120,6 @@ Section: Colours
 
   sunset-glow : Real
   sunset-glow = 0.85
-
- Zig's @round goes to nearest and ties AWAY FROM ZERO, which is not what
- truncation gives, so the half has to be added before the conversion and the sign
- handled. Every channel this rounds is in 0..255 and the negative arm is
- unreachable from here -- it is written because a round that is wrong for half its
- domain is a trap for the next caller, and mountains.zig is already the next
- caller.
-
-  round-real : Real -> Real
-  round-real (x) =
-    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
-    else real-from-int (real-to-int (x + 0.5))
 
   lerp3 : Rgb, Rgb, Real -> Rgb
   lerp3 (a) (b) (t) =

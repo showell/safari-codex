@@ -199,6 +199,10 @@ fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
     return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .strength = @as(f64, @bitCast(@as(i64, 0))), .pts = flatten_screen(ps, 0) }) }));
 }
 
+fn round_real(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+}
+
 fn sun_bearing() f64 {
     return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4612176010066845814))));
 }
@@ -217,10 +221,6 @@ fn sun_drop_px_per_step() f64 {
 
 fn sun_height_px(step: f64) f64 {
     return (sun_start_px() - (sun_drop_px_per_step() * step));
-}
-
-fn round_real(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
 }
 
 fn lerp3(a_: Rgb, b_: Rgb, t: f64) Rgb {

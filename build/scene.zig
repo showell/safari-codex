@@ -280,6 +280,10 @@ fn push_round_poly(color: i64, strength: f64, ps: *CxList(ScreenPt)) *CxList(Dra
     return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 1, .color = color, .strength = strength, .pts = flatten_screen(ps, 0) }) }));
 }
 
+fn push_beacon(color: i64, x: f64, y: f64, r_: f64, alpha: f64) *CxList(DrawCmd) {
+    return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .strength = alpha, .pts = cx_ll_of(f64, &[_]f64{ x, y, r_ }) }) });
+}
+
 fn tier_top() *CxList(f64) {
     return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4591870180066957722))), @as(f64, @bitCast(@as(i64, 4596373779694328218))), @as(f64, @bitCast(@as(i64, 4599075939470750515))), @as(f64, @bitCast(@as(i64, 4600877379321698714))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4603579539098121011))), @as(f64, @bitCast(@as(i64, 4604480259023595110))) });
 }
@@ -446,12 +450,12 @@ fn rail_poly(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, color: i64) RailPoly {
     return b0: { const fwd: f64 = ((((p0.forward + p1.forward) + p2.forward) + p3.forward) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b0 cx_new(RailPolyS{ .v_ = cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 }), .color = color, .fwd = fwd }); };
 }
 
-fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
+fn guardrail_bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
     return b0: { const p_bot = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_bot() }); break :b0 b1: { const q_bot = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_bot() }); break :b1 b2: { const q_top = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_top() }); break :b2 b3: { const p_top = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_top() }); break :b3 rail_poly(p_bot, q_bot, q_top, p_top, rail_metal()); }; }; }; };
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ guardrail_bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
@@ -480,6 +484,18 @@ fn rail_draw_poly(rp: RailPoly, cf: f64, view_w: f64) *CxList(DrawCmd) {
 
 fn rail_draw_all(ps: *CxList(RailPoly), cf: f64, view_w: f64, i_: i64) *CxList(DrawCmd) {
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(DrawCmd) else cx_ll_concat(rail_draw_poly(cx_list_at(ps, i_), cf, view_w), rail_draw_all(ps, cf, view_w, (i_ +% 1))));
+}
+
+fn round_real(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+}
+
+fn floor_real(x: f64) f64 {
+    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 (if ((t > x)) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t); };
+}
+
+fn mod_real(x: f64, m_: f64) f64 {
+    return (x - (m_ * floor_real((x / m_))));
 }
 
 fn sun_bearing() f64 {
@@ -540,10 +556,6 @@ fn sunset_red() Rgb {
 
 fn sunset_glow() f64 {
     return @as(f64, @bitCast(@as(i64, 4605831338911806259)));
-}
-
-fn round_real(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
 }
 
 fn lerp3(a_: Rgb, b_: Rgb, t: f64) Rgb {
@@ -694,6 +706,142 @@ fn draw(heading: f64, dusk: f64, _arg_cam_focal: f64, view_w: f64) *CxList(DrawC
     return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 b1: { const west = silhouette(b3: { const _Env3 = struct { fn call(_ctx3: *anyopaque, p0: f64) f64 { _ = _ctx3; return west_range(p0); } }; break :b3 CxFn1(f64, f64){ .ctx = cx_new(_Env3{  }), .call = &_Env3.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock_west(), dusk)); break :b1 b2: { const north = silhouette(b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return north_range(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock(), dusk)); break :b2 b3: { const cap = draw_snow(heading, _arg_cam_focal, view_w, v_scale, pack(lerp3(snow_day(), snow_night(), dusk))); break :b3 b4: { const ground = silhouette(b6: { const _Env6 = struct { fn call(_ctx6: *anyopaque, p0: f64) f64 { _ = _ctx6; return ground_base(p0); } }; break :b6 CxFn1(f64, f64){ .ctx = cx_new(_Env6{  }), .call = &_Env6.call }; }, heading, _arg_cam_focal, view_w, v_scale, land()); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(west, north), cap), ground); }; }; }; }; };
 }
 
+fn tower_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4635329916471083008)));
+}
+
+fn tower_half() f64 {
+    return @as(f64, @bitCast(@as(i64, 4618441417868443648)));
+}
+
+fn stage_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+}
+
+fn brace_stages() i64 {
+    return 2;
+}
+
+fn rod_half() f64 {
+    return @as(f64, @bitCast(@as(i64, 4593311331947716280)));
+}
+
+fn rod_w() f64 {
+    return (rod_half() * @as(f64, @bitCast(@as(i64, 4611686018427387904))));
+}
+
+fn tower_metal() i64 {
+    return 10133672;
+}
+
+fn earth_radius() f64 {
+    return @as(f64, @bitCast(@as(i64, 4671226772094713856)));
+}
+
+fn beacon_radius() f64 {
+    return @as(f64, @bitCast(@as(i64, 4613937818241073152)));
+}
+
+fn beacon_color() i64 {
+    return 16723942;
+}
+
+fn beacon_period() f64 {
+    return @as(f64, @bitCast(@as(i64, 4638144666238189568)));
+}
+
+fn beacon_offset_for(n_: i64) f64 {
+    return cx_real_from_int(((n_ *% 37) -% (@divTrunc((n_ *% 37), 120) *% 120)));
+}
+
+fn beacon_brightness(phase: f64) f64 {
+    return b0: { const wrapped: f64 = mod_real((mod_real(phase, beacon_period()) + beacon_period()), beacon_period()); break :b0 ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - r_cos((((@as(f64, @bitCast(@as(i64, 4611686018427387904))) * pi()) * wrapped) / beacon_period()))) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); };
+}
+
+fn base_corner_ax(k_: i64, a0: f64, x0: f64, yaw: f64) AX {
+    return b0: { const du: f64 = ((if ((k_ == 0)) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else @as(f64, (if ((k_ == 1)) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, (if ((k_ == 2)) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408))))))))) * tower_half()); break :b0 b1: { const dv: f64 = ((if ((k_ == 0)) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((k_ == 1)) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else @as(f64, (if ((k_ == 2)) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, @bitCast(@as(i64, 4607182418800017408))))))) * tower_half()); break :b1 b2: { const cy: f64 = r_cos(yaw); break :b2 b3: { const sy: f64 = r_sin(yaw); break :b3 cx_new(AXS{ .a_ = (a0 + ((du * sy) + (dv * cy))), .x = (x0 + ((du * cy) - (dv * sy))) }); }; }; }; };
+}
+
+fn lerp3v(a_: Vec3, b_: Vec3, t: f64) Vec3 {
+    return cx_new(Vec3S{ .right = (a_.right + ((b_.right - a_.right) * t)), .forward = (a_.forward + ((b_.forward - a_.forward) * t)), .height = (a_.height + ((b_.height - a_.height) * t)) });
+}
+
+fn corner_at(base_: *CxList(RiderPt), center: RiderPt, k_: i64, h_: f64, drop: f64) Vec3 {
+    return b0: { const t: f64 = (h_ / tower_height()); break :b0 b1: { const bk = cx_list_at(base_, k_); break :b1 cx_new(Vec3S{ .right = (bk.right + ((center.right - bk.right) * t)), .forward = (bk.forward + ((center.forward - bk.forward) * t)), .height = (h_ - drop) }); }; };
+}
+
+fn bar(a_: ScreenPt, b_: ScreenPt, wpx: f64) *CxList(DrawCmd) {
+    return b0: { const dx: f64 = (b_.x - a_.x); break :b0 b1: { const dy: f64 = (b_.y - a_.y); break :b1 b2: { const raw_: f64 = real_sqrt(((dx * dx) + (dy * dy))); break :b2 b3: { const len_: f64 = @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 4547007122018943789))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b3 tower_bar_quad(a_, b_, ((((@as(f64, @bitCast(@as(i64, 0))) - dy) / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), (((dx / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); }; }; }; };
+}
+
+fn tower_bar_quad(a_: ScreenPt, b_: ScreenPt, ox: f64, oy: f64) *CxList(DrawCmd) {
+    return push_poly(tower_metal(), cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (a_.x + ox), .y = (a_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x + ox), .y = (b_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x - ox), .y = (b_.y - oy) }), cx_new(ScreenPtS{ .x = (a_.x - ox), .y = (a_.y - oy) }) }));
+}
+
+fn bar3d(a_: Vec3, b_: Vec3, wpx: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const a_in: bool = (a_.forward >= near()); break :b0 b1: { const b_in: bool = (b_.forward >= near()); break :b1 (if (a_in) (if (b_in) bar3d_draw(a_, b_, wpx, cf, view_w) else bar3d_draw(a_, bar3d_cut(a_, b_), wpx, cf, view_w)) else (if (b_in) bar3d_draw(bar3d_cut(a_, b_), b_, wpx, cf, view_w) else cx_ll_empty(DrawCmd))); }; };
+}
+
+fn bar3d_cut(a_: Vec3, b_: Vec3) Vec3 {
+    return lerp3v(a_, b_, ((near() - a_.forward) / (b_.forward - a_.forward)));
+}
+
+fn bar3d_draw(a_: Vec3, b_: Vec3, wpx: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return bar(project(a_, cf, view_w), project(b_, cf, view_w), wpx);
+}
+
+fn rod_px(forward: f64, cf: f64, view_w: f64) f64 {
+    return b0: { const p1 = project(cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 4607182418800017408))), .forward = forward, .height = @as(f64, @bitCast(@as(i64, 0))) }), cf, view_w); break :b0 b1: { const p0 = project(cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 0))), .forward = forward, .height = @as(f64, @bitCast(@as(i64, 0))) }), cf, view_w); break :b1 (rod_w() * (p1.x - p0.x)); }; };
+}
+
+fn tower_legs(base_: *CxList(RiderPt), center: RiderPt, apex: Vec3, clip_h: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, k_: i64) *CxList(DrawCmd) {
+    return (if ((k_ >= 4)) cx_ll_empty(DrawCmd) else cx_ll_concat(bar3d(corner_at(base_, center, k_, clip_h, drop), apex, wpx, cf, view_w), tower_legs(base_, center, apex, clip_h, drop, wpx, cf, view_w, (k_ +% 1))));
+}
+
+fn ring_at(base_: *CxList(RiderPt), center: RiderPt, h_: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, k_: i64) *CxList(DrawCmd) {
+    return (if ((k_ >= 4)) cx_ll_empty(DrawCmd) else cx_ll_concat(bar3d(corner_at(base_, center, k_, h_, drop), corner_at(base_, center, ((k_ +% 1) -% (@divTrunc((k_ +% 1), 4) *% 4)), h_, drop), wpx, cf, view_w), ring_at(base_, center, h_, drop, wpx, cf, view_w, (k_ +% 1))));
+}
+
+fn rings(base_: *CxList(RiderPt), center: RiderPt, h_: f64, clip_h: f64, drop: f64, wpx: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if ((h_ >= tower_height())) cx_ll_empty(DrawCmd) else cx_ll_concat((if ((h_ <= clip_h)) cx_ll_empty(DrawCmd) else ring_at(base_, center, h_, drop, wpx, cf, view_w, 0)), rings(base_, center, (h_ + stage_height()), clip_h, drop, wpx, cf, view_w)));
+}
+
+fn brace_at(base_: *CxList(RiderPt), center: RiderPt, lo: f64, hi: f64, f: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, k_: i64) *CxList(DrawCmd) {
+    return (if ((k_ >= 4)) cx_ll_empty(DrawCmd) else brace_pair(base_, center, lo, hi, f, drop, wpx, cf, view_w, k_));
+}
+
+fn brace_pair(base_: *CxList(RiderPt), center: RiderPt, lo: f64, hi: f64, f: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, k_: i64) *CxList(DrawCmd) {
+    return b0: { const j: i64 = ((k_ +% 1) -% (@divTrunc((k_ +% 1), 4) *% 4)); break :b0 b1: { const kj = bar3d(lerp3v(corner_at(base_, center, k_, lo, drop), corner_at(base_, center, j, hi, drop), f), corner_at(base_, center, j, hi, drop), wpx, cf, view_w); break :b1 b2: { const jk = bar3d(lerp3v(corner_at(base_, center, j, lo, drop), corner_at(base_, center, k_, hi, drop), f), corner_at(base_, center, k_, hi, drop), wpx, cf, view_w); break :b2 cx_ll_concat(cx_ll_concat(kj, jk), brace_at(base_, center, lo, hi, f, drop, wpx, cf, view_w, (k_ +% 1))); }; }; };
+}
+
+fn braces(base_: *CxList(RiderPt), center: RiderPt, clip_h: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, stage: i64) *CxList(DrawCmd) {
+    return (if ((stage >= brace_stages())) cx_ll_empty(DrawCmd) else brace_stage(base_, center, clip_h, drop, wpx, cf, view_w, stage));
+}
+
+fn brace_stage(base_: *CxList(RiderPt), center: RiderPt, clip_h: f64, drop: f64, wpx: f64, cf: f64, view_w: f64, stage: i64) *CxList(DrawCmd) {
+    return b0: { const lo: f64 = (cx_real_from_int(stage) * stage_height()); break :b0 b1: { const hi: f64 = (lo + stage_height()); break :b1 b2: { const rest = braces(base_, center, clip_h, drop, wpx, cf, view_w, (stage +% 1)); break :b2 (if ((hi <= clip_h)) rest else cx_ll_concat(brace_at(base_, center, lo, hi, ((real_max(lo, clip_h) - lo) / stage_height()), drop, wpx, cf, view_w, 0), rest)); }; }; };
+}
+
+fn draw_beacon(apex_s: ScreenPt, forward: f64, cf: f64, view_w: f64, bright: f64) *CxList(DrawCmd) {
+    return (if ((bright < @as(f64, @bitCast(@as(i64, 4581421828931458171))))) cx_ll_empty(DrawCmd) else beacon_disc(apex_s, forward, cf, view_w, bright));
+}
+
+fn beacon_disc(apex_s: ScreenPt, forward: f64, cf: f64, view_w: f64, bright: f64) *CxList(DrawCmd) {
+    return b0: { const p1 = project(cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 4607182418800017408))), .forward = forward, .height = @as(f64, @bitCast(@as(i64, 0))) }), cf, view_w); break :b0 b1: { const p0 = project(cx_new(Vec3S{ .right = @as(f64, @bitCast(@as(i64, 0))), .forward = forward, .height = @as(f64, @bitCast(@as(i64, 0))) }), cf, view_w); break :b1 b2: { const r_: f64 = (beacon_radius() * (p1.x - p0.x)); break :b2 (if ((r_ < @as(f64, @bitCast(@as(i64, 4602678819172646912))))) cx_ll_empty(DrawCmd) else push_beacon(beacon_color(), apex_s.x, apex_s.y, r_, bright)); }; }; };
+}
+
+fn draw_flat(base_: *CxList(RiderPt), center: RiderPt, cf: f64, view_w: f64, beacon_phase: f64) *CxList(DrawCmd) {
+    return (if ((center.forward < near())) cx_ll_empty(DrawCmd) else draw_flat_body(base_, center, cf, view_w, beacon_phase, (((center.right * center.right) + (center.forward * center.forward)) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * earth_radius()))));
+}
+
+fn draw_flat_body(base_: *CxList(RiderPt), center: RiderPt, cf: f64, view_w: f64, beacon_phase: f64, drop: f64) *CxList(DrawCmd) {
+    return (if ((drop >= tower_height())) cx_ll_empty(DrawCmd) else draw_flat_rods(base_, center, cf, view_w, beacon_phase, drop));
+}
+
+fn draw_flat_rods(base_: *CxList(RiderPt), center: RiderPt, cf: f64, view_w: f64, beacon_phase: f64, drop: f64) *CxList(DrawCmd) {
+    return b0: { const apex = cx_new(Vec3S{ .right = center.right, .forward = center.forward, .height = (tower_height() - drop) }); break :b0 b1: { const wpx: f64 = rod_px(center.forward, cf, view_w); break :b1 b2: { const l_ = tower_legs(base_, center, apex, drop, drop, wpx, cf, view_w, 0); break :b2 b3: { const r_ = rings(base_, center, stage_height(), drop, drop, wpx, cf, view_w); break :b3 b4: { const x = braces(base_, center, drop, drop, wpx, cf, view_w, 0); break :b4 b5: { const b_ = draw_beacon(project(apex, cf, view_w), center.forward, cf, view_w, beacon_brightness(beacon_phase)); break :b5 cx_ll_concat(cx_ll_concat(cx_ll_concat(l_, r_), x), b_); }; }; }; }; }; };
+}
+
 fn to_screen(ps: *CxList(Vec3), i_: i64) *CxList(ScreenPt) {
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), focal(), camera_w()) }), to_screen(ps, (i_ +% 1))));
 }
@@ -797,8 +945,24 @@ fn rail_cmds() *CxList(DrawCmd) {
     return rail_draw_all(rail_sort(rail_emit(rail_path(@as(f64, @bitCast(@as(i64, 4636455816377925632))), 21)), 0, cx_ll_empty(RailPoly)), focal(), camera_w(), 0);
 }
 
+fn tower_forward() f64 {
+    return @as(f64, @bitCast(@as(i64, 4643985272004935680)));
+}
+
+fn tower_right() f64 {
+    return @as(f64, @bitCast(@as(i64, 4628011567076605952)));
+}
+
+fn tower_corners(k_: i64) *CxList(RiderPt) {
+    return (if ((k_ >= 4)) cx_ll_empty(RiderPt) else tower_corner_one(k_));
+}
+
+fn tower_corner_one(k_: i64) *CxList(RiderPt) {
+    return b0: { const ax = base_corner_ax(k_, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4599976659396224614)))); break :b0 cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ cx_new(RiderPtS{ .right = (tower_right() + ax.x), .forward = (tower_forward() + ax.a_) }) }), tower_corners((k_ +% 1))); };
+}
+
 fn frame_at(u_: f64) *CxList(DrawCmd) {
-    return b0: { const ground = cx_ll_concat(cx_ll_concat(backdrop_at(scene_heading_at(u_), scene_step_at(u_)), road()), dashes(@as(f64, @bitCast(@as(i64, 4622945017495814144))), 24)); break :b0 b1: { const water = cx_ll_concat(bank_poly(), pond_poly()); break :b1 b2: { const far_trees = cx_ll_concat(cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4628011567076605952)))), @as(f64, @bitCast(@as(i64, 4640009437958897664))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), false), conifer(@as(f64, @bitCast(@as(i64, 4626604192193052672))), @as(f64, @bitCast(@as(i64, 4638848353679966208))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4625478292286210048)))), @as(f64, @bitCast(@as(i64, 4637018766331346944))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), false)), conifer(@as(f64, @bitCast(@as(i64, 4624633867356078080))), @as(f64, @bitCast(@as(i64, 4635189178982727680))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), false)); break :b2 b3: { const mid_trees = cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4623507967449235456)))), @as(f64, @bitCast(@as(i64, 4633218854145753088))), @as(f64, @bitCast(@as(i64, 4621256167635550208))), false), conifer(@as(f64, @bitCast(@as(i64, 4623226492472524800))), @as(f64, @bitCast(@as(i64, 4631389266797133824))), @as(f64, @bitCast(@as(i64, 4620130267728707584))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4622100592565682176)))), @as(f64, @bitCast(@as(i64, 4629841154425225216))), @as(f64, @bitCast(@as(i64, 4620974692658839552))), false)); break :b3 b4: { const near_trees = cx_ll_concat(cx_ll_concat(conifer(@as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4627167142146473984))), @as(f64, @bitCast(@as(i64, 4619567317775286272))), true), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4620693217682128896)))), @as(f64, @bitCast(@as(i64, 4624915342332788736))), @as(f64, @bitCast(@as(i64, 4619004367821864960))), true)), conifer(@as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4618441417868443648))), true)); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(ground, water), far_trees), mid_trees), rail_cmds()), near_trees); }; }; }; }; };
+    return b0: { const ground = cx_ll_concat(cx_ll_concat(backdrop_at(scene_heading_at(u_), scene_step_at(u_)), road()), dashes(@as(f64, @bitCast(@as(i64, 4622945017495814144))), 24)); break :b0 b1: { const water = cx_ll_concat(bank_poly(), pond_poly()); break :b1 b2: { const far_trees = cx_ll_concat(cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4628011567076605952)))), @as(f64, @bitCast(@as(i64, 4640009437958897664))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), false), conifer(@as(f64, @bitCast(@as(i64, 4626604192193052672))), @as(f64, @bitCast(@as(i64, 4638848353679966208))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4625478292286210048)))), @as(f64, @bitCast(@as(i64, 4637018766331346944))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), false)), conifer(@as(f64, @bitCast(@as(i64, 4624633867356078080))), @as(f64, @bitCast(@as(i64, 4635189178982727680))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), false)); break :b2 b3: { const mid_trees = cx_ll_concat(cx_ll_concat(conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4623507967449235456)))), @as(f64, @bitCast(@as(i64, 4633218854145753088))), @as(f64, @bitCast(@as(i64, 4621256167635550208))), false), conifer(@as(f64, @bitCast(@as(i64, 4623226492472524800))), @as(f64, @bitCast(@as(i64, 4631389266797133824))), @as(f64, @bitCast(@as(i64, 4620130267728707584))), false)), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4622100592565682176)))), @as(f64, @bitCast(@as(i64, 4629841154425225216))), @as(f64, @bitCast(@as(i64, 4620974692658839552))), false)); break :b3 b4: { const near_trees = cx_ll_concat(cx_ll_concat(conifer(@as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4627167142146473984))), @as(f64, @bitCast(@as(i64, 4619567317775286272))), true), conifer((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4620693217682128896)))), @as(f64, @bitCast(@as(i64, 4624915342332788736))), @as(f64, @bitCast(@as(i64, 4619004367821864960))), true)), conifer(@as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4621537642612260864))), @as(f64, @bitCast(@as(i64, 4618441417868443648))), true)); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(ground, water), draw_flat(tower_corners(0), cx_new(RiderPtS{ .right = tower_right(), .forward = tower_forward() }), focal(), camera_w(), (scene_step_at(u_) + beacon_offset_for(3)))), far_trees), mid_trees), rail_cmds()), near_trees); }; }; }; }; };
 }
 
 fn frame() *CxList(DrawCmd) {

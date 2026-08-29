@@ -56,6 +56,21 @@ pub export fn renderFrame() u32 {
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
+        // TAG 3 IS A DISC, NOT A POLYGON -- [3][color][x][y][r][alpha], six words
+        // and no point count, because the blitter draws a true arc for it and it
+        // is the one command that is not opaque. Its x, y and r ride in pts and
+        // its alpha in strength, which is how one DrawCmd shape carries it.
+        if (cmd.tag == 3) {
+            if (w + 6 > CAP_WORDS) break;
+            cx_paint[w] = 3;
+            cx_paint[w + 1] = @intCast(cmd.color);
+            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(pts[0])));
+            cx_paint[w + 3] = @bitCast(@as(f32, @floatCast(pts[1])));
+            cx_paint[w + 4] = @bitCast(@as(f32, @floatCast(pts[2])));
+            cx_paint[w + 5] = @bitCast(@as(f32, @floatCast(cmd.strength)));
+            w += 6;
+            continue;
+        }
         // tag 1 carries a strength word between the colour and the count; tag 0
         // does not. Same split paint.pushPoly / pushRoundPoly makes.
         const head: usize = if (cmd.tag == 1) 4 else 3;

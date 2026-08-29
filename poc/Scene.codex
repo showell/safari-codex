@@ -8,6 +8,7 @@ Chapter: Scene
   cites Safari chapter GuardRail
   cites Safari chapter Sky
   cites Safari chapter Mountains
+  cites Safari chapter Tower
   cites Foreword chapter ListUtils
 
  A single frame of the Safari, computed in Codex.
@@ -223,6 +224,36 @@ Section: The Guard Rail
   rail-cmds : List DrawCmd
   rail-cmds = rail-draw-all (rail-sort (rail-emit (rail-path 96.0 21)) 0 []) focal camera-w 0
 
+Section: The Radio Tower
+
+ The ported wasm/tower.zig, standing well beyond the road on the right. The real
+ game puts one past each intersection; this places a single one so the lattice and
+ its beacon are on screen.
+
+ The beacon BLINKS ON THE CLOCK -- a pure function of it, so it moves with the same
+ scrub that runs the sunset, and its phase is offset the way render.zig offsets
+ each tower's so they do not pulse in unison.
+
+  tower-forward : Real
+  tower-forward = 300.0
+
+  tower-right : Real
+  tower-right = 26.0
+
+  tower-corners : Integer -> List RiderPt
+  tower-corners (k) =
+    if k >= 4 then []
+    else tower-corner-one k
+
+  tower-corner-one : Integer -> List RiderPt
+  tower-corner-one (k) =
+    let ax = base-corner-ax k 0.0 0.0 0.35
+    in [RiderPt { right = tower-right + ax.x, forward = tower-forward + ax.a }] & tower-corners (k + 1)
+
+  tower-cmds : Real -> List DrawCmd
+  tower-cmds (u) =
+    draw-flat (tower-corners 0) (RiderPt { right = tower-right, forward = tower-forward }) focal camera-w (scene-step-at u + beacon-offset-for 3)
+
 Section: The Frame
 
  Paint order, back to front: the ranges, then the ground furniture, then the
@@ -241,7 +272,7 @@ Section: The Frame
     in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
     in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
     in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
-    in ground & water & far-trees & mid-trees & rail-cmds & near-trees
+    in ground & water & (tower-cmds u) & far-trees & mid-trees & rail-cmds & near-trees
 
   frame : List DrawCmd
   frame = frame-at 0.0

@@ -111,6 +111,8 @@ already narrows at.
 | `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
 | `port/Sky.codex` | `wasm/sky.zig` | 148 values; **colours exact** |
 | `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
+| `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
+| `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed

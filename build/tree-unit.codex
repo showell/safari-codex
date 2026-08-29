@@ -574,10 +574,11 @@ Chapter: Paint
  wasm shim does the writing -- the same split NOTES calls seam 3, and the reason
  one grader serves every module: a frame is a flat list either way.
 
- The wire, per polygon:
+ The wire:
 
    tag 0   [0][color][nPoints][x f32][y f32]...
    tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
+   tag 3   [3][color][x f32][y f32][r f32][alpha f32]
 
  tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
  centre, dark edge across the polygon's x-extent -- with a per-polygon strength
@@ -617,6 +618,22 @@ Section: Commands
   push-round-poly (color) (strength) (ps) =
     if list-length ps < 3 then []
     else [DrawCmd { tag = 1, color = color, strength = strength, pts = flatten-screen ps 0 }]
+
+ THE BEACON IS NOT A POLYGON, and it is the first command here that is not. It is
+ a disc -- a centre, a radius and an alpha -- and the blitter draws a true arc for
+ it. It gets its own tag because unlike every other command it is NOT OPAQUE, and
+ the colour word on the solid path carries no alpha to say so.
+
+ It still fits the one DrawCmd shape, which is the point of that shape. The
+ record's prose already argues that strength rides on every command so there is
+ one record rather than two; the same argument carries the disc. `strength` is the
+ alpha the blitter composites at, and `pts` holds x, y and r -- three Reals where a
+ polygon holds an even number of them. The shim branches on the tag when it
+ writes, exactly as paint.zig's own pushBeacon does.
+
+  push-beacon : Integer, Real, Real, Real, Real -> List DrawCmd
+  push-beacon (color) (x) (y) (r) (alpha) =
+    [DrawCmd { tag = 3, color = color, strength = alpha, pts = [x, y, r] }]
 
 Chapter: Tree
   cites Safari chapter Trig

@@ -1,0 +1,152 @@
+Chapter: Spike
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter World
+  cites Safari chapter Render
+  cites Poc chapter Drive
+
+ SPIKE ONLY. THROWAWAY. NOT PART OF THE PORT AND GRADED BY NOTHING.
+
+ This chapter exists to put ONE still frame in front of a human, at a chosen point
+ on the route, so a piece of scenery can be LOOKED AT instead of reasoned about.
+ harness/spike_svg.py renders it to a flat SVG -- no wasm, no blitter, no
+ animation -- because a picture you can open is a faster feedback loop than a page
+ you have to drive to the right spot.
+
+ Nothing here is verified. The graded port is `Safari chapter Render` and the
+ checks in judge/; if this chapter and a check ever disagree, the CHECK is right.
+ Delete this whole file the day it stops being useful and nothing else changes.
+
+ WHAT IT ADDS TO A NORMAL FRAME: markers for the things that are COLLECTED BUT
+ INVISIBLE. Cows, pigs, the corner elephants and giraffes and the pond ducks are
+ all placed, mapped, projected, culled and depth-sorted by the ported render --
+ and then draw nothing, because their art is 615 KB of baked polygons that are not
+ ported. So a real frame has a correctly-ordered hole where each one stands, and
+ you cannot see whether the herd GEOMETRY is right.
+
+ A marker is a plain box at the billboard's own screen footprint: same anchor,
+ same height, same depth order, coloured by species. IT IS NOT WHAT THE ANIMAL
+ LOOKS LIKE. It is exactly where the animal is, and how tall, and what is in front
+ of what. That is the part this port is responsible for.
+
+ We say:
+
+Section: Marker Colours
+
+ Spike colours picked to be legible against grass and road, not the game's. By
+ codepoint, so a herd reads apart from its bull at a glance.
+
+  marker-cow : Integer
+  marker-cow = 14725248
+
+  marker-bull : Integer
+  marker-bull = 8400928
+
+  marker-pig : Integer
+  marker-pig = 15765680
+
+  marker-duck : Integer
+  marker-duck = 16764992
+
+  marker-safari : Integer
+  marker-safari = 6340832
+
+  marker-color : Integer -> Integer
+  marker-color (cp) =
+    if cp == bull-cp then marker-bull
+    else if cp == cow-cp then marker-cow
+    else if cp == pig-cp then marker-pig
+    else if cp == duck-codepoint then marker-duck
+    else marker-safari
+
+Section: The Marker
+
+ Project the billboard's feet and its top, exactly as critter.zig does before it
+ lays its baked polygons down, and box that. The width is a fraction of the
+ measured pixel height, so a marker keeps an animal-ish proportion at any distance
+ and a far one shrinks the way the real billboard would.
+
+  marker-half-width : Real
+  marker-half-width = 0.18
+
+  marker-of : Billboard, Real -> List DrawCmd
+  marker-of (b) (cf) =
+    let base = project (Vec3 { right = b.right, forward = b.fwd, height = 0.0 }) cf camera-w
+    in let top = project (Vec3 { right = b.right, forward = b.fwd, height = b.height }) cf camera-w
+    in let h = base.y - top.y
+    in if h < 1.0 then []
+      else push-poly (marker-color b.cp) [ScreenPt { x = base.x - h * marker-half-width, y = base.y }, ScreenPt { x = base.x + h * marker-half-width, y = base.y }, ScreenPt { x = base.x + h * marker-half-width, y = top.y }, ScreenPt { x = base.x - h * marker-half-width, y = top.y }]
+
+Section: The Frame
+
+ Drive's own dispatch with the billboard case filled in, so the markers land in
+ the REAL depth order rather than being painted on top afterwards. That is the
+ whole point: a marker behind a tree must be behind the tree.
+
+  spike-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
+  spike-item (w) (ch) (pose) (c) (it) (cf) (step) =
+   when it.kind
+    is KCow -> marker-of (list-at c.cows it.i) cf
+    is KTree -> draw-one-tree c.trees it.i cf
+    is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
+    is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
+    is KTruck -> []
+
+  spike-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
+  spike-order (w) (ch) (pose) (c) (cf) (step) (i) =
+    if i >= list-length c.order then []
+    else (spike-item w ch pose c (list-at c.order i) cf step) & spike-order w ch pose c cf step (i + 1)
+
+  spike-frame-at : Real -> List DrawCmd
+  spike-frame-at (u) = spike-frame-in build-world u
+
+  spike-frame-in : List Segment, Real -> List DrawCmd
+  spike-frame-in (w) (u) =
+    let p = drive-pos-at w u
+    in let pose = pose-in w u
+    in let step = scene-step-at u
+    in let ch = build-chain w p.seg
+    in (draw (heading-in w u) (sun-set-fraction step) focal camera-w)
+       & (frame-ground w p.seg pose focal camera-w)
+       & (spike-order w ch pose (collect w p.seg pose focal p.along 0.0) focal step 0)
+
+Section: The Viewpoints
+
+ Hand-picked spots on the route, each aimed at one thing worth seeing. The metres
+ are route distance from the start; drive-dist-at divides by the same 0.995 the
+ page uses, so these land where the page would if you drove to them.
+
+ THE BIG PIG HERD is a seven-by-seven block with jitter, placed 60 m before the
+ end of a distraction segment. Segment 2 is the first of the two that carry one
+ (49 pigs; every other segment has ten or none), it is 400 m long and starts at
+ 820 m, so the herd sits at about 1160 m and this stands 90 m short of it.
+
+  spike-course : Real
+  spike-course = course-length build-world * 0.995
+
+  u-at-metres : Real -> Real
+  u-at-metres (m) = m / spike-course
+
+  u-pig-herd : Real
+  u-pig-herd = u-at-metres 1070.0
+
+ THE MID-TOWER. Segment 6 is the 1200 m leg, the only one long enough to stand a
+ tower halfway down its own length rather than at an intersection. It starts at
+ 2120 m so the tower is at 2720, and this stands 140 m short.
+
+  u-mid-tower : Real
+  u-mid-tower = u-at-metres 2580.0
+
+ THE DUCK POND at segment 12's exit corner, the one hand-drawn scene on the route:
+ water, a mud bank, and three duck billboards floating on it. Segment 12 starts at
+ 5320 m and is 300 long, so the corner is at 5620 and this stands 70 m short.
+
+  u-pond : Real
+  u-pond = u-at-metres 5550.0
+
+ A CORNER PAIR: segment 15's exit carries the zebras, and an adult stands at the
+ far outer corner with its baby beyond the turn. Segment 15 starts at 5920 m.
+
+  u-zebras : Real
+  u-zebras = u-at-metres 6150.0

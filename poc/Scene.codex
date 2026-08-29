@@ -111,6 +111,13 @@ Section: The Backdrop and the Clock
   scene-step-at : Real -> Real
   scene-step-at (u) = 3600.0 + 1400.0 * u
 
+ The shim asks every scene how far u moves in a frame. This one is not a route --
+ it is a heading ramp over a fixed tableau -- so it keeps the flat sweep it always
+ had, 900 frames end to end. Drive derives its own from the rider's top speed.
+
+  u-per-step : Real
+  u-per-step = 1.0 / 900.0
+
   scene-heading : Real
   scene-heading = scene-heading-at 0.0
 

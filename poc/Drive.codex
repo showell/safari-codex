@@ -12,6 +12,7 @@ Chapter: Drive
   cites Safari chapter Mountains
   cites Safari chapter Sky
   cites Safari chapter SafariCritter
+  cites Safari chapter Rider
   cites Safari chapter Render
 
  A browser frame of the REAL route, driven by the ported render.
@@ -58,6 +59,23 @@ Section: The Scrub
 
   scene-step-at : Real -> Real
   scene-step-at (u) = 3600.0 + 1400.0 * u
+
+ HOW FAR u MOVES IN ONE FRAME, AND IT IS THE ROUTE THAT DECIDES, not a constant
+ picked to look right. rider.zig measures speed in METRES PER FRAME -- v-base 0.3,
+ v-max 2.5 -- so a frame covers about two metres once he is up to speed and
+ braking for corners. u is arc length over the whole course, so one frame is that
+ distance divided by the course.
+
+ The scrub had a flat 1/900, which over a 7.5 km course is 8.4 m a frame: more
+ than three times the rider's top speed, and it looked it. Deriving it from
+ v-max means the page cannot drift away from the game's own pace again, and a
+ route change moves it automatically.
+
+  drive-speed : Real
+  drive-speed = v-max * 0.8
+
+  u-per-step : Real
+  u-per-step = drive-speed / (course-length build-world * 0.995)
 
 Section: Where On The Route
 

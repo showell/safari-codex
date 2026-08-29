@@ -179,6 +179,52 @@ const SpeciesS = struct {
 };
 const Species = *SpeciesS;
 
+const RiderStateS = struct {
+    segment: i64,
+    along: f64,
+    across: f64,
+    yaw: f64,
+    v_: f64,
+    tilt: f64,
+    heading: f64,
+    gaze_yaw: f64,
+    focus: f64,
+};
+const RiderState = *RiderStateS;
+
+const PigLookS = struct {
+    looking: bool,
+    dist: f64,
+};
+const PigLook = *PigLookS;
+
+const GazeBrakeS = struct {
+    engaged: bool,
+    accel: f64,
+};
+const GazeBrake = *GazeBrakeS;
+
+const Side = enum {
+    SideLeft,
+    SideNone,
+    SideRight,
+};
+
+const PathSimS = struct {
+    side: Side,
+    forward: f64,
+    crossed: bool,
+    end_across: f64,
+    frames: f64,
+};
+const PathSim = *PathSimS;
+
+const DecisionS = struct {
+    tilt_step: f64,
+    accel: f64,
+};
+const Decision = *DecisionS;
+
 const PoseS = struct {
     along: f64,
     across: f64,
@@ -1371,6 +1417,10 @@ fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(
     return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
 }
 
+fn v_max() f64 {
+    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
+}
+
 fn look_ahead() i64 {
     return 7;
 }
@@ -1778,6 +1828,14 @@ fn scene_step_at(u_: f64) f64 {
     return (@as(f64, @bitCast(@as(i64, 4660134898793709568))) + (@as(f64, @bitCast(@as(i64, 4653872080561897472))) * u_));
 }
 
+fn drive_speed() f64 {
+    return (v_max() * @as(f64, @bitCast(@as(i64, 4605380978949069210))));
+}
+
+fn u_per_step() f64 {
+    return (drive_speed() / (course_length(build_world()) * @as(f64, @bitCast(@as(i64, 4607137382803743703)))));
+}
+
 fn pos_from(w: *CxList(Segment), dist: f64, i_: i64) RoutePos {
     var _tl_dist = dist;
     var _tl_i = i_;
@@ -1862,7 +1920,7 @@ fn report(u_: f64) []const u8 {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
+    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat(cx_concat("\x1a\x51\x1c\x15\x0f\x1a\x0d\x02", cx_show_int(cx_real_to_int((u_per_step() * @as(f64, @bitCast(@as(i64, 4681608360884174848))))))), "\x02\x0d\x49\x08\x02\x10\x1c\x02\x0e\x14\x0d\x02\x18\x10\x19\x15\x13\x0d")); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -2273,7 +2331,21 @@ var cx_paint_high: usize = 0;
 // which is the shape advance() has in the real game: the route turns the rider
 // while the clock runs. It wraps, so auto-play loops the sweep.
 var cx_u: f64 = 0.0;
-const U_PER_STEP: f64 = 1.0 / 900.0;
+
+// HOW FAR ONE FRAME MOVES IS THE SCENE'S TO SAY, not the shim's. This was a flat
+// 1/900 here, which is fine for a heading ramp over a fixed tableau and badly
+// wrong for a route: over Drive's 7.5 km course it is 8.4 m a frame, more than
+// three times rider.zig's v-max of 2.5 m/frame, and the page tore along at about
+// three times the real game's pace. Drive derives its step from v-max and the
+// course length; Scene keeps its old sweep. Cached because a nullary Codex
+// binding emits as a FUNCTION, not a constant (PORTING_NOTES B13) -- and this one
+// builds the whole world to measure the course, so calling it per frame would
+// undo the very fix B13 records.
+var cx_step: f64 = 0.0;
+fn uPerStep() f64 {
+    if (cx_step == 0.0) cx_step = u_per_step();
+    return cx_step;
+}
 
 // THE ARENA RESET, and without it this page lives for exactly one frame.
 //
@@ -2352,11 +2424,11 @@ pub export fn bufCap() u32 {
 // The pose exports. The camera still does not bank -- lean belongs to rider.zig,
 // which is not ported -- but the scrub is live, so these are no longer stubs.
 pub export fn advance() void {
-    cx_u += U_PER_STEP;
+    cx_u += uPerStep();
     if (cx_u > 1.0) cx_u -= 1.0;
 }
 pub export fn back() void {
-    cx_u -= U_PER_STEP;
+    cx_u -= uPerStep();
     if (cx_u < 0.0) cx_u += 1.0;
 }
 pub export fn riderTilt() f32 {

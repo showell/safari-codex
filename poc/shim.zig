@@ -27,7 +27,21 @@ var cx_paint_high: usize = 0;
 // which is the shape advance() has in the real game: the route turns the rider
 // while the clock runs. It wraps, so auto-play loops the sweep.
 var cx_u: f64 = 0.0;
-const U_PER_STEP: f64 = 1.0 / 900.0;
+
+// HOW FAR ONE FRAME MOVES IS THE SCENE'S TO SAY, not the shim's. This was a flat
+// 1/900 here, which is fine for a heading ramp over a fixed tableau and badly
+// wrong for a route: over Drive's 7.5 km course it is 8.4 m a frame, more than
+// three times rider.zig's v-max of 2.5 m/frame, and the page tore along at about
+// three times the real game's pace. Drive derives its step from v-max and the
+// course length; Scene keeps its old sweep. Cached because a nullary Codex
+// binding emits as a FUNCTION, not a constant (PORTING_NOTES B13) -- and this one
+// builds the whole world to measure the course, so calling it per frame would
+// undo the very fix B13 records.
+var cx_step: f64 = 0.0;
+fn uPerStep() f64 {
+    if (cx_step == 0.0) cx_step = u_per_step();
+    return cx_step;
+}
 
 // THE ARENA RESET, and without it this page lives for exactly one frame.
 //
@@ -106,11 +120,11 @@ pub export fn bufCap() u32 {
 // The pose exports. The camera still does not bank -- lean belongs to rider.zig,
 // which is not ported -- but the scrub is live, so these are no longer stubs.
 pub export fn advance() void {
-    cx_u += U_PER_STEP;
+    cx_u += uPerStep();
     if (cx_u > 1.0) cx_u -= 1.0;
 }
 pub export fn back() void {
-    cx_u -= U_PER_STEP;
+    cx_u -= uPerStep();
     if (cx_u < 0.0) cx_u += 1.0;
 }
 pub export fn riderTilt() f32 {

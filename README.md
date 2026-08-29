@@ -125,6 +125,30 @@ f32 narrowing happens there and only there** — the seam the hand-written zig
 already narrows at. It also rewinds the bump heap once per frame, which is what
 lets a page that allocates and never reclaims run indefinitely; `PORTING_NOTES` C8.
 
+## Looking at one thing: the spike loop
+
+    ./harness/spike.sh          # then http://localhost:9200/spikes/
+
+**Throwaway by design and graded by nothing.** `poc/Spike.codex` renders single
+still frames at hand-picked points on the route, and `harness/spike_svg.py` turns
+them into flat SVGs — no wasm, no blitter, no animation. A picture you can open is
+a faster loop than a page you have to drive to the right spot. `run.sh` does not
+call any of it; delete the three files and nothing else changes.
+
+What it adds to a normal frame is **markers for what is collected but invisible**.
+Cows, pigs, the corner animals and the ducks are placed, mapped, projected, culled
+and depth-sorted by the ported render, and then draw nothing, because their art is
+615KB of baked polygons that are not ported. A marker is a plain box at the
+billboard's own screen footprint — same anchor, same height, same depth order,
+coloured by species. It is not what the animal looks like; it is exactly *where*
+the animal is, which is the part this port is responsible for.
+
+That turns out to check things. The pig-herd viewpoint draws **exactly 49 pig
+markers**, which is the 7×7 distraction block `w-npigs` records for segment 2, all
+of them surviving the culls; the duck pond draws six ducks and the corner pairs
+draw two apiece. Four viewpoints ship: the big pig herd, the mid-tower on the
+1200m leg, the duck pond, and a corner zebra pair.
+
 ## Ported so far
 
 | chapter | ports | graded |

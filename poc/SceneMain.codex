@@ -35,6 +35,7 @@ Section: Entry
 
   opening : [Console] Nothing = act
     print-line-uni ("cmds  " & show (list-length frame))
+    print-line-uni ("m/frame " & show (real-to-int (u-per-step * 100000.0)) & " e-5 of the course")
     print-line-uni ("u=0.0 " & report 0.0)
     print-line-uni ("u=0.5 " & report 0.5)
     print-line-uni ("u=1.0 " & report 1.0)

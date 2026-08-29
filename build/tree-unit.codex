@@ -1,0 +1,952 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Trig
+
+ Sine, cosine and tangent in Real.
+
+ THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
+ and this is the same algorithm -- an argument reduction, a quadrant fold, and an
+ 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
+ transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
+ no emitter for it. The day that emitter lands, every function here is deleted and
+ the citers cite DeviceMath instead. Nothing else in the port should grow a
+ dependency on these names.
+
+ The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
+ converts back through the integers, which is exactly the call this arm cannot
+ emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
+ exact for the arguments this game has -- yaws, headings and tier angles, all
+ within a few turns of zero -- but it is NOT a general reduction, and it must not
+ outlive the emitter it works around.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Sine and Cosine
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+  r-tan : Real -> Real
+  r-tan (x) = r-sin x / r-cos x
+
+Chapter: Geom
+  cites Safari chapter Trig
+
+ Pure rider-relative geometry: the coordinate types, the world-to-rider transform,
+ the ground curvature, and near-plane clipping. No projection -- that is Camera --
+ no drawing, no allocation. The math leaf the rest of the camera stands on.
+
+ A port of wasm/geom.zig.
+
+ We say:
+
+Section: Coordinates
+
+ A ground-plane point measured FROM THE RIDER: how far forward, down his look
+ axis, and how far to his right. The fundamental coordinate of the whole scene.
+
+  RiderPt = record {
+    right : Real,
+    forward : Real
+  }
+
+ A rider-relative vertex carrying a height off the ground -- what the road quads
+ and raised structures clip and project as.
+
+  Vec3 = record {
+    right : Real,
+    forward : Real,
+    height : Real
+  }
+
+ A point in a segment's bottom-left frame: `a` along, `x` across-from-left.
+
+  AX = record {
+    a : Real,
+    x : Real
+  }
+
+Section: Ground
+
+ The local ground is a gentle spherical plateau: a point drops this far below the
+ rider's tangent plane at horizontal distance d, so the road bends toward a finite
+ horizon instead of a vanishing point at infinity. Larger radius = gentler.
+
+  ground-radius : Real
+  ground-radius = 100000.0
+
+  ground-drop : Real, Real -> Real
+  ground-drop (right) (forward) = (right * right + forward * forward) / (2.0 * ground-radius)
+
+Section: The Rider Transform
+
+ to-rider maps a point in a segment's bottom-left frame -- `a` along the segment,
+ `x` across from its LEFT edge -- into the rider's frame, given his pose along and
+ across the segment's centre line and his look angle `yaw`. His pose is
+ centre-relative, so the half-width `hw` shifts x to from-the-left.
+
+  to-rider : Real, Real, Real, Real, Real, Real -> RiderPt
+  to-rider (a) (x) (cam-along) (cam-across) (yaw) (hw) =
+    let d-a = a - cam-along
+    in let d-x = x - (cam-across + hw)
+    in let c = r-cos yaw
+    in let s = r-sin yaw
+    in RiderPt { forward = d-a * c + d-x * s, right = (0.0 - d-a) * s + d-x * c }
+
+Section: The Frame Fusion
+
+ next-to-cur maps a point from the NEXT segment's bottom-left frame into the
+ CURRENT segment's, across the join. LEFT and RIGHT are NOT mirror images: a left
+ turn fuses on the end-left edge, where the origin is the inner corner; a right
+ turn fuses on the end-right edge and pays a width shift. `turns-right` is the
+ turn direction.
+
+  next-to-cur : Real, Real, Real, Real, Boolean, Real -> AX
+  next-to-cur (a-b) (x-b) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then AX { a = a-b * c - x-b * s + width * s + seg-len, x = x-b * c + a-b * s + width * (1.0 - c) }
+      else AX { a = a-b * c + x-b * s + seg-len, x = x-b * c - a-b * s }
+
+ cur-to-next is the inverse: a point in the CURRENT segment's frame expressed in
+ the NEXT segment's, across the same join. Used to draw the joint just BEHIND the
+ rider, so the pavement he is still crossing does not vanish.
+
+  cur-to-next : Real, Real, Real, Real, Boolean, Real -> AX
+  cur-to-next (a) (x) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then let a0 = a - seg-len - width * s
+        in let x0 = x - width * (1.0 - c)
+        in AX { a = a0 * c + x0 * s, x = (0.0 - a0) * s + x0 * c }
+      else let a0 = a - seg-len
+        in AX { a = a0 * c - x * s, x = a0 * s + x * c }
+
+Section: Line Intersection
+
+ line-meet returns where two infinite lines cross in the rider frame: line A
+ through a0 toward a1, line B through b0 toward b1. Used for the corner's outer
+ apex, where the two segments' outer shoulders meet. A real turn has a non-zero
+ angle, so the lines are never parallel.
+
+  line-meet : RiderPt, RiderPt, RiderPt, RiderPt -> RiderPt
+  line-meet (a0) (a1) (b0) (b1) =
+    let dax = a1.right - a0.right
+    in let daf = a1.forward - a0.forward
+    in let dbx = b1.right - b0.right
+    in let dbf = b1.forward - b0.forward
+    in let t = ((b0.right - a0.right) * dbf - (b0.forward - a0.forward) * dbx) / (dax * dbf - daf * dbx)
+    in RiderPt { right = a0.right + t * dax, forward = a0.forward + t * daf }
+
+Section: Near-Plane Clipping
+
+ Clip a rider-frame polygon against the near plane at `near` metres forward, so no
+ vertex sits behind the eye where the perspective divide would fling it across the
+ screen. Fewer than 3 vertices out means the caller skips the polygon.
+
+ The zig writes into a caller-supplied `out` slice and returns a count; this
+ returns the list, which is the same thing without the buffer. The wrap-around
+ edge is the reason the index walks to the length and reads (i + 1) modulo it: the
+ polygon is closed, so the last vertex pairs with the first.
+
+  clip-cross : Vec3, Vec3, Real -> List Vec3
+  clip-cross (a) (b) (near) =
+    let f = (near - a.forward) / (b.forward - a.forward)
+    in [Vec3 { right = a.right + f * (b.right - a.right), forward = near, height = a.height + f * (b.height - a.height) }]
+
+  both-sides : Boolean, Boolean -> Boolean
+  both-sides (a-in) (b-in) = if a-in then b-in else (if b-in then False else True)
+
+  clip-near-edge : List Vec3, Real, Integer -> List Vec3
+  clip-near-edge (poly) (near) (i) =
+    let n = list-length poly
+    in if i >= n then []
+    else let a = list-at poly i
+    in let b = list-at poly ((i + 1) - (((i + 1) / n) * n))
+    in let a-in = a.forward >= near
+    in let b-in = b.forward >= near
+    in let kept = if a-in then [a] else []
+    in let crossed = if both-sides a-in b-in then [] else clip-cross a b near
+    in kept & crossed & clip-near-edge poly near (i + 1)
+
+  clip-near : List Vec3, Real -> List Vec3
+  clip-near (poly) (near) = clip-near-edge poly near 0
+
+Chapter: Camera
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+
+ The perspective projection: a rider-relative ground point at a height becomes a
+ screen pixel. Owns the lens constants and the near plane. Pure; no drawing, no
+ allocation.
+
+ A port of wasm/camera.zig.
+
+ ONE ADAPTATION. The zig carries the live projection width as a mutable global,
+ `pub var view_w`, which the native window widens toward the screen's aspect while
+ FOCAL stays frozen -- that is what makes a wider window a wider field of view
+ rather than a zoom. Codex has no mutable global, so view-w is threaded as a
+ parameter. It is the camera's only mutable state, and threading it is the pure
+ equivalent rather than a change of behaviour: pass camera-w for the design width
+ the browser and the golden-PNG harness both use.
+
+ We say:
+
+Section: Lens
+
+  camera-w : Real
+  camera-w = 960.0
+
+  camera-h : Real
+  camera-h = 600.0
+
+  eye-h : Real
+  eye-h = 1.2
+
+  near : Real
+  near = 0.4
+
+  fov-deg : Real
+  fov-deg = 70.0
+
+ The base focal, in pixels, looking straight ahead. FROZEN at the design width and
+ NOT recomputed from the live view-w -- that is what keeps a wider window a wider
+ FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
+
+  focal : Real
+  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
+
+Section: Focal Pull-In
+
+ The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
+ narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
+ road. The lean narrows hardest and is squared so it snaps in deep in the turn;
+ attention narrows gentler and linearly, but a crossing cat's attention overshoots
+ 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
+ mid-corner -- so the tightest simply wins.
+
+  min-focal-factor : Real
+  min-focal-factor = 0.35
+
+  min-gaze-focal-factor : Real
+  min-gaze-focal-factor = 0.61
+
+  focal-for-lean : Real -> Real
+  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
+
+  focal-for-gaze : Real -> Real
+  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
+
+  cam-focal : Real, Real -> Real
+  cam-focal (lean-frac) (attention) =
+    let a = focal-for-lean lean-frac
+    in let b = focal-for-gaze attention
+    in if a < b then a else b
+
+Section: Projection
+
+  ScreenPt = record {
+    x : Real,
+    y : Real
+  }
+
+ The perspective divide is by forward, so callers must clip to the near plane
+ first -- forward is then never near zero.
+
+  project : Vec3, Real, Real -> ScreenPt
+  project (p) (cf) (view-w) =
+    ScreenPt {
+      x = view-w / 2.0 + (p.right / p.forward) * cf,
+      y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
+    }
+
+Chapter: Paint
+  cites Safari chapter Camera
+
+ The seam to JS: a draw command in wasm/paint.zig's wire.
+
+ The zig writes each command into a fixed pre-sized buffer in linear memory and
+ hands the browser a byte length. The port is pure, so it RETURNS commands and the
+ wasm shim does the writing -- the same split NOTES calls seam 3, and the reason
+ one grader serves every module: a frame is a flat list either way.
+
+ The wire, per polygon:
+
+   tag 0   [0][color][nPoints][x f32][y f32]...
+   tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
+
+ tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
+ centre, dark edge across the polygon's x-extent -- with a per-polygon strength
+ that lets crown shading fade to flat with distance instead of popping. strength
+ rides on every command so the record has one shape; tag 0 ignores it, exactly as
+ the blitter does.
+
+ Coordinates are SCREEN pixels here and still Real. They narrow to f32 in the
+ shim, at the buffer, which is the only place the game's width is load-bearing.
+
+ We say:
+
+Section: Commands
+
+  DrawCmd = record {
+    tag : Integer,
+    color : Integer,
+    strength : Real,
+    pts : List Real
+  }
+
+  flatten-screen : List ScreenPt, Integer -> List Real
+  flatten-screen (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+    in [p.x, p.y] & flatten-screen ps (i + 1)
+
+  push-poly : Integer, List ScreenPt -> List DrawCmd
+  push-poly (color) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 0, color = color, strength = 0.0, pts = flatten-screen ps 0 }]
+
+ pushRoundPoly drops a polygon with fewer than three points rather than emitting
+ a degenerate one; push-poly is given the same guard so the two agree.
+
+  push-round-poly : Integer, Real, List ScreenPt -> List DrawCmd
+  push-round-poly (color) (strength) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 1, color = color, strength = strength, pts = flatten-screen ps 0 }]
+
+Chapter: Tree
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Foreword chapter ListUtils
+
+ A roadside conifer, with two independent detail axes the renderer sets per tree
+ because they are noticed at different ranges: the TRUNK is a round-shaded cylinder
+ up close and a flat bar beyond, and the CROWN is eight 3D cone tiers near and
+ eight flat triangles far. A cone is a base circle of world points, each at its own
+ depth, plus the apex, projected and filled to its convex-hull silhouette, so the
+ near rim is genuinely nearer and foreshortens.
+
+ The crown is SOLID either way -- its roundness is the SHAPE, not lighting -- which
+ keeps it uniform across the tree line with no shaded-to-solid pop, since crowns
+ are seen far out.
+
+ A port of wasm/tree.zig.
+
+ The hull is PORTED, not cited, though Math chapter Geometry has the same
+ algorithm. Two reasons, and the second is the binding one. Geometry's diverges for
+ fewer than three points -- it returns them sorted where the zig returns them as
+ given. And chapters share ONE FLAT NAMESPACE inside a bundle: Geometry defines its
+ own Vec3, which collides with Geom's, and the unit will not compile. Citing a
+ foreword chapter is not free of a port's own type names.
+
+ We say:
+
+Section: Proportions
+
+ The eight crown tiers as fractions of the foliage span: apex and base height, and
+ base half-width. Narrow at the top, widest at the bottom.
+
+  tier-top : List Real
+  tier-top = [0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70]
+
+  tier-bot : List Real
+  tier-bot = [0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0]
+
+  tier-wide : List Real
+  tier-wide = [0.35, 0.44, 0.53, 0.63, 0.72, 0.81, 0.91, 1.0]
+
+  trunk-color : Integer
+  trunk-color = 5914146
+
+  visible-trunk : Real
+  visible-trunk = 0.44
+
+  crown-h : Real
+  crown-h = 0.648
+
+  crown-w : Real
+  crown-w = 0.288
+
+ A cone base nearer than this bails to the flat tier.
+
+  min-cone-forward : Real
+  min-cone-forward = 0.4
+
+  ring-n : Integer
+  ring-n = 16
+
+Section: Metrics
+
+ The screen-space layout shared by both forms: ground point, pixel height, crown
+ apex, foliage span, and crown base half-width.
+
+  Metrics = record {
+    bx : Real,
+    by : Real,
+    ht : Real,
+    apex-y : Real,
+    foliage : Real,
+    w : Real
+  }
+
+  metrics : Real, Real, Real, Real, Real -> Metrics
+  metrics (right) (forward) (height) (cf) (view-w) =
+    let base = project (Vec3 { right = right, forward = forward, height = 0.0 }) cf view-w
+    in let top = project (Vec3 { right = right, forward = forward, height = height }) cf view-w
+    in let ht = base.y - top.y
+    in let foliage = ht * crown-h
+    in let crown-bottom-y = base.y - ht * visible-trunk
+    in Metrics { bx = base.x, by = base.y, ht = ht, apex-y = crown-bottom-y - foliage, foliage = foliage, w = ht * crown-w }
+
+Section: The Trunk
+
+  draw-trunk : Metrics, Boolean -> List DrawCmd
+  draw-trunk (m) (round-trunk) =
+    let trunk-w = if m.ht * 0.08 > 1.0 then m.ht * 0.08 else 1.0
+    in let trunk-h = m.ht * visible-trunk + m.ht * 0.05
+    in let tx = m.bx - trunk-w / 2.0
+    in let pts = [ScreenPt { x = tx, y = m.by - trunk-h }, ScreenPt { x = tx + trunk-w, y = m.by - trunk-h }, ScreenPt { x = tx + trunk-w, y = m.by }, ScreenPt { x = tx, y = m.by }]
+    in if round-trunk then push-round-poly trunk-color 1.0 pts else push-poly trunk-color pts
+
+Section: The Flat Crown
+
+ One flat crown tier: the far and cheap form, and the near form's bail-out for a
+ cone too close to project.
+
+  tier-triangle : Metrics, Integer, Integer -> List DrawCmd
+  tier-triangle (m) (k) (color) =
+    let tri = [ScreenPt { x = m.bx, y = m.apex-y + m.foliage * list-at tier-top k }, ScreenPt { x = m.bx + m.w * list-at tier-wide k, y = m.apex-y + m.foliage * list-at tier-bot k }, ScreenPt { x = m.bx - m.w * list-at tier-wide k, y = m.apex-y + m.foliage * list-at tier-bot k }]
+    in push-poly color tri
+
+Section: The Cone Crown
+
+ Crown tier k as a cone: a base circle of world radius R on the trunk axis rising
+ to the tier apex. Project the apex and a ring of base points, each at its own
+ depth, and fill their convex hull -- exactly the cone's silhouette, a cone being
+ convex.
+
+ The ring angle is carried as a Real accumulator rather than derived from the
+ index, because the zig plug has no emitter for real-from-int.
+
+  cone-ring : Real, Real, Real, Real, Real, Real, Integer, Real -> List ScreenPt
+  cone-ring (r0) (f0) (rad) (h-base) (cf) (view-w) (i) (a) =
+    if i >= ring-n then []
+    else let p = Vec3 { right = r0 + rad * r-cos a, forward = f0 + rad * r-sin a, height = h-base }
+    in [project p cf view-w] & cone-ring r0 f0 rad h-base cf view-w (i + 1) (a + two-pi / 16.0)
+
+ The tie test is ~0, BITWISE exact, not ~. Codex refuses == on a Real (CDX2085)
+ and makes the caller say which equality it means; the zig writes a plain ==,
+ which is the bitwise one. A 4-ULP ~ here would call distinct ring points equal
+ and reorder the sort, changing the hull's point count.
+
+  less-xy : ScreenPt, ScreenPt -> Boolean
+  less-xy (a) (b) = if a.x < b.x then True else (if a.x ~0 b.x then a.y < b.y else False)
+
+  hull-insert : ScreenPt, List ScreenPt, Integer -> List ScreenPt
+  hull-insert (p) (xs) (i) =
+    if i >= list-length xs then xs & [p]
+    else if less-xy p (list-at xs i) then (list-take xs i) & [p] & (list-drop xs i)
+    else hull-insert p xs (i + 1)
+
+  sort-pts : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  sort-pts (src) (i) (acc) =
+    if i >= list-length src then acc
+    else sort-pts src (i + 1) (hull-insert (list-at src i) acc 0)
+
+ Trim while the last two hull points and the candidate turn the wrong way. The
+ comparison is <= 0, so a collinear point is dropped rather than kept -- that is
+ the zig's choice and it changes the point COUNT, which the judge compares exactly.
+
+  hull-trim : List ScreenPt, ScreenPt -> List ScreenPt
+  hull-trim (hull) (p) =
+    let n = list-length hull
+    in if n < 2 then hull
+    else let a = list-at hull (n - 2)
+    in let b = list-at hull (n - 1)
+    in let cr = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+    in if cr <= 0.0 then hull-trim (list-take hull (n - 1)) p else hull
+
+  lower-chain : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  lower-chain (ps) (i) (hull) =
+    if i >= list-length ps then hull
+    else let p = list-at ps i
+    in lower-chain ps (i + 1) ((hull-trim hull p) & [p])
+
+  upper-chain : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  upper-chain (ps) (i) (hull) =
+    if i < 0 then hull
+    else let p = list-at ps i
+    in upper-chain ps (i - 1) ((hull-trim hull p) & [p])
+
+ Andrew's monotone chain: sort, build the lower and upper chains, and concatenate
+ dropping the last of each because it is the first of the other.
+
+  convex-hull-pts : List ScreenPt -> List ScreenPt
+  convex-hull-pts (ps) =
+    let n = list-length ps
+    in if n < 3 then ps
+    else let sorted = sort-pts ps 0 []
+    in let lo = lower-chain sorted 0 []
+    in let up = upper-chain sorted (n - 1) []
+    in (list-take lo (list-length lo - 1)) & (list-take up (list-length up - 1))
+
+  tier-cone : Real, Real, Real, Integer, Real, Real, Metrics, Integer, Real -> List DrawCmd
+  tier-cone (r0) (f0) (height) (color) (cf) (view-w) (m) (k) (shade) =
+    let rad = crown-w * list-at tier-wide k * height
+    in if f0 - rad < min-cone-forward then tier-triangle m k color
+    else let h-base = (visible-trunk + crown-h * (1.0 - list-at tier-bot k)) * height
+    in let h-apex = (visible-trunk + crown-h * (1.0 - list-at tier-top k)) * height
+    in let apex = project (Vec3 { right = r0, forward = f0, height = h-apex }) cf view-w
+    in let ring = (cone-ring r0 f0 rad h-base cf view-w 0 0.0) & [apex]
+    in let hull = convex-hull-pts ring
+    in if list-length hull < 3 then []
+    else push-round-poly color shade hull
+
+Section: The Tree
+
+  tiers : Real, Real, Real, Integer, Real, Real, Metrics, Boolean, Real, Integer -> List DrawCmd
+  tiers (r0) (f0) (height) (color) (cf) (view-w) (m) (near-crown) (shade) (k) =
+    if k >= 8 then []
+    else let one = if near-crown then tier-cone r0 f0 height color cf view-w m k shade else tier-triangle m k color
+    in one & tiers r0 f0 height color cf view-w m near-crown shade (k + 1)
+
+ A tree less than a pixel tall is not drawn at all.
+
+  tree-draw : Real, Real, Real, Integer, Real, Real, Boolean, Boolean, Real -> List DrawCmd
+  tree-draw (right) (forward) (height) (color) (cf) (view-w) (round-trunk) (near-crown) (shade) =
+    let m = metrics right forward height cf view-w
+    in if m.ht < 1.0 then []
+    else (draw-trunk m round-trunk) & tiers right forward height color cf view-w m near-crown shade 0
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-abs (list-at got i - list-at want i) > tol then i
+    else first-real-diff got want tol (i + 1)
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+      else first-rel-diff got want tol (i + 1)
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Screen Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a projected coordinate. Neither half works alone, and both failures were
+ measured rather than guessed.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+      else first-px-diff got want atol rtol (i + 1)
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: TreeGold
+
+ GENERATED by harness/gen_gold.py from probe/probe_tree.zig.
+ Every value here came from importing the real game module unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-tree-tags : List Integer
+  g-tree-tags = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  g-tree-colors : List Integer
+  g-tree-colors = [5914146, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 5914146, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 5914146, 3504447, 3504447, 3504447, 3504447, 3504447, 3504447, 3504447, 3504447, 5914146, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 5914146, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154, 3108154]
+
+  g-tree-counts : List Integer
+  g-tree-counts = [4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 11, 11, 11, 11, 11, 11, 11, 11, 4, 11, 12, 12, 12, 12, 12, 12, 12, 4, 16, 16, 16, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3]
+
+  g-tree-strengths : List Real
+  g-tree-strengths = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+  g-tree-coords : List Real
+  g-tree-coords = [434.5604, 289.08078, 437.30243, 289.08078, 437.30243, 305.8758, 434.5604, 305.8758, 435.93143, 268.584, 439.3864, 275.2472, 432.47644, 275.2472, 435.93143, 270.80508, 440.2748, 277.46823, 431.58804, 277.46823, 435.93143, 273.02612, 441.16324, 279.6893, 430.69962, 279.6893, 435.93143, 275.2472, 442.1504, 281.91034, 429.71246, 281.91034, 435.93143, 277.46823, 443.03882, 284.1314, 428.82404, 284.1314, 435.93143, 279.6893, 443.92722, 286.35245, 427.93564, 286.35245, 435.93143, 281.91034, 444.91437, 288.57352, 426.9485, 288.57352, 435.93143, 284.1314, 445.8028, 290.79456, 426.06006, 290.79456, 653.7621, 255.81436, 663.89575, 255.81436, 663.89575, 317.8829, 653.7621, 317.8829, 645.85034, 205.36469, 646.06055, 204.69012, 658.8289, 180.06538, 671.9939, 204.00589, 671.5973, 204.69012, 669.27625, 205.36469, 665.4155, 205.92911, 660.60724, 206.3025, 655.55896, 206.43292, 651.00006, 206.3025, 647.593, 205.92911, 642.5426, 213.67197, 642.7772, 212.89838, 658.8289, 188.27362, 675.4098, 212.11084, 674.8806, 212.89838, 671.93884, 213.67197, 667.0816, 214.31708, 661.0548, 214.74277, 654.7373, 214.89127, 649.02954, 214.74277, 644.75085, 214.31708, 639.2469, 221.9491, 639.49396, 221.10663, 658.8289, 196.48187, 678.8383, 220.24579, 678.16394, 221.10663, 674.5918, 221.9491, 668.7367, 222.64932, 661.4986, 223.11024, 653.9234, 223.2708, 647.07605, 223.11024, 641.92755, 222.64932, 635.59894, 230.2103, 635.8458, 229.31488, 658.8289, 204.69012, 682.6627, 228.3962, 681.812, 229.31488, 677.5282, 230.2103, 670.56274, 230.95181, 661.9872, 231.43857, 653.02783, 231.60788, 644.9252, 231.43857, 638.81244, 230.95181, 632.32837, 238.426, 632.56256, 237.52313, 658.8289, 212.89838, 686.1182, 236.59338, 685.09534, 237.52313, 680.16095, 238.426, 672.19476, 239.17122, 662.4229, 239.65918, 652.2297, 239.82869, 643.00684, 239.65918, 636.0284, 239.17122, 629.0695, 246.61206, 629.27924, 245.73138, 658.8289, 221.10663, 689.5867, 244.82115, 688.3786, 245.73138, 682.7842, 246.61206, 673.8161, 247.3366, 662.855, 247.80984, 651.43884, 247.97401, 641.1048, 247.80984, 633.26263, 247.3366, 625.4624, 254.77771, 625.6311, 253.93964, 658.8289, 229.31488, 693.45557, 253.06989, 692.02673, 253.93964, 685.6878, 254.77771, 675.6051, 255.46468, 663.3307, 255.91219, 650.56866, 256.0672, 639.0103, 255.91219, 630.2108, 255.46468, 622.2283, 262.90335, 622.34784, 262.1479, 658.8289, 237.52313, 696.9514, 261.36096, 695.31006, 262.1479, 688.29114, 262.90335, 677.2041, 263.5206, 663.75507, 263.92172, 649.79297, 264.0605, 637.1421, 263.92172, 627.48303, 263.5206, 121.66474, 183.93053, 152.82433, 183.93053, 152.82433, 374.78302, 121.66474, 374.78302, 92.47861, 20.606842, 93.84424, 15.196442, 137.24454, -48.987427, 180.09027, 32.59131, 177.26639, 37.366516, 168.73889, 40.463287, 155.81168, 41.533478, 140.19983, 40.463287, 123.90396, 37.366516, 109.101166, 32.59131, 97.98346, 26.730408, 80.641205, 44.942, 82.08551, 38.664642, 137.24454, -23.748138, 186.60132, 51.96968, 190.81229, 58.620453, 187.05914, 63.98555, 176.33234, 67.43944, 160.26544, 68.62842, 140.91238, 67.43944, 120.63962, 63.98555, 102.05829, 58.620453, 87.88779, 51.96968, 68.6658, 69.5609, 70.06592, 62.653564, 137.24454, 1.4911499, 196.69702, 77.20894, 201.41736, 84.36565, 196.65973, 90.08223, 183.73444, 93.73596, 164.59845, 94.98898, 141.60696, 93.73596, 117.43945, 90.08223, 95.09235, 84.36565, 77.79205, 77.20894, 55.194946, 94.33447, 56.394073, 86.915146, 137.24454, 26.730408, 207.91446, 102.44823, 213.06592, 109.94606, 207.10849, 115.870575, 191.74332, 119.62753, 169.27722, 120.910706, 142.35846, 119.62753, 113.95654, 115.870575, 87.44092, 109.94606, 66.574615, 102.44823, 42.920197, 119.55159, 43.79425, 112.02748, 137.24454, 51.96968, 218.0102, 127.687485, 223.4302, 135.12137, 216.32153, 140.93886, 198.76462, 144.60246, 173.371, 145.84923, 143.01736, 144.60246, 110.88553, 140.93886, 80.63306, 135.12137, 56.47888, 127.687485, 30.499603, 145.06815, 30.904968, 137.71696, 137.24454, 77.20894, 228.10591, 152.92676, 233.6834, 160.02661, 225.35912, 165.52982, 205.61569, 168.97194, 177.3583, 170.1392, 143.66025, 168.97194, 107.87305, 165.52982, 73.898254, 160.02661, 46.38318, 152.92676, 16.231628, 163.8278, 137.24454, 102.44823, 239.32335, 178.16602, 244.94753, 184.73442, 235.20116, 189.77237, 213.03574, 192.90015, 181.66876, 193.95679, 144.35648, 192.90015, 104.59235, 189.77237, 66.49936, 184.7344, 35.16574, 178.16602, 16.524872, 170.80374, 2.697235, 190.76599, 137.24454, 127.687485, 249.41905, 203.40527, 254.97176, 209.09767, 243.88443, 213.42297, 219.54721, 216.0907, 185.44452, 216.98892, 144.9675, 216.0907, 101.69791, 213.42297, 59.914856, 209.09766, 25.070007, 203.40527, 3.7879944, 196.95233, 870.7412, -800.24506, 1117.5251, -800.24506, 1117.5251, 711.3066, 870.7412, 711.3066, 673.3008, -1698.3809, 683.1855, -2045.2703, 754.50494, -2537.885, 913.20905, -3152.703, 1160.1852, -3737.1084, 1420.9464, -3992.2217, 1569.8552, -3737.1074, 1560.6028, -3152.702, 1449.7446, -2537.885, 1305.0808, -2045.2703, 1162.8745, -1698.3809, 1035.7524, -1475.7195, 926.15625, -1352.6791, 833.69653, -1313.422, 758.44867, -1352.6791, 702.7987, -1475.7195, 603.2275, -1845.3752, 675.68634, -2444.223, 878.3401, -3294.9211, 1250.4263, -4234.077, 1676.3263, -4692.0303, 1882.7318, -4234.0757, 1804.6857, -3294.9202, 1599.6046, -2444.223, 1385.039, -1845.375, 1198.4926, -1461.0715, 1043.3792, -1228.8937, 914.7079, -1105.1143, 807.42334, -1066.272, 718.7557, -1105.1143, 649.4111, -1228.8937, 605.5793, -1461.0717, 523.26953, -1645.4801, 587.3223, -2339.2183, 832.28754, -3482.7544, 1393.8931, -5024.166, 2121.9683, -5913.207, 2380.148, -5024.1636, 2127.0537, -3482.7524, 1767.6134, -2339.2183, 1464.9968, -1645.4799, 1231.5928, -1240.5378, 1050.1592, -1009.4724, 904.7689, -890.1913, 784.7835, -853.3008, 684.2962, -890.1913, 601.951, -1009.4724, 542.6451, -1240.538, 994.1332, -2045.27, 1553.8391, -1445.5851, 434.4272, -1445.5851, 994.1332, -1845.375, 1633.7971, -1245.6902, 354.46918, -1245.6902, 994.1332, -1645.4801, 1713.7551, -1045.795, 274.51123, -1045.795, 994.1332, -1445.5851, 1802.5974, -845.90015, 185.66895, -845.90015, 994.1332, -1245.6902, 1882.5554, -646.0051, 105.711, -646.0051, 486.3551, 299.7018, 487.3551, 299.7018, 487.3551, 300.20566, 486.3551, 300.20566, 486.8551, 299.0869, 486.95874, 299.2868, 486.75146, 299.2868, 486.8551, 299.15353, 486.9854, 299.35342, 486.7248, 299.35342, 486.8551, 299.22018, 487.01205, 299.42007, 486.69815, 299.42007, 486.8551, 299.2868, 487.04166, 299.4867, 486.66855, 299.4867, 486.8551, 299.35342, 487.06833, 299.55334, 486.64188, 299.55334, 486.8551, 299.42007, 487.09497, 299.61996, 486.61523, 299.61996, 486.8551, 299.4867, 487.1246, 299.68658, 486.5856, 299.68658, 486.8551, 299.55334, 487.15125, 299.75323, 486.55896, 299.75323]
+
+Chapter: TreeCheck
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tree
+  cites Judge chapter Grade
+  cites Gold chapter TreeGold
+
+ Grade the Tree and Paint ports against wasm/tree.zig driving wasm/paint.zig.
+
+ Seam 3 on one object. The oracle does not read return values -- tree.draw writes
+ into paint's real buffer -- so the gold is the words the game actually put on the
+ wire, decoded back into four streams. Tags, colours and point counts compare
+ EXACTLY; strengths and coordinates carry the width tolerance.
+
+ That split matters. A wrong tag or a wrong point count is a structural error and
+ no tolerance should ever hide one; a coordinate differing in the seventh digit is
+ the f32/f64 width and nothing else.
+
+ COORDINATES TAKE THE MIXED PIXEL GATE, and that is not a loosening. A screen
+ y is computed as 300 minus a term of about the same size, so a y near the horizon
+ is a small DIFFERENCE OF TWO LARGE NUMBERS and cancellation amplifies f32's
+ relative error by the ratio between them. Measured on this frame's first cone
+ tier: y = 20.6068 carries a relative gap of 1.3e-6, about fifteen times f32
+ epsilon, exactly the 300/20.6 the cancellation predicts. A purely relative gate would have to
+ be loosened everywhere to admit that. A purely absolute one breaks the other way on
+ coordinates flung far off screen by the near plane. The floor plus a relative term
+ covers both, and on this canvas it is about a thousandth of a pixel.
+
+ THE CASES ARE BRANCHES, NOT COVERAGE: a far tree (flat triangles, bar trunk), a
+ mid tree (cone hulls), a near tree (cone hulls and a round-shaded trunk), a tree
+ close enough that its widest tiers cross MIN_CONE_FORWARD and bail from cone back
+ to triangle -- one tree emitting both crown forms -- and a tree too small to draw,
+ which must emit nothing at all.
+
+ We say:
+
+Section: The Cases
+
+  case-far : List DrawCmd
+  case-far = tree-draw (0.0 - 9.0) 140.0 7.0 3108154 focal camera-w False False 0.0
+
+  case-mid : List DrawCmd
+  case-mid = tree-draw 12.0 46.0 8.5 3108154 focal camera-w False True 0.45
+
+  case-near : List DrawCmd
+  case-near = tree-draw (0.0 - 5.5) 11.0 6.25 3504447 focal camera-w True True 1.0
+
+  case-close : List DrawCmd
+  case-close = tree-draw 1.5 2.0 9.0 3108154 focal camera-w True True 1.0
+
+  case-tiny : List DrawCmd
+  case-tiny = tree-draw 40.0 4000.0 6.0 3108154 focal camera-w False False 0.0
+
+  all-cmds : List DrawCmd
+  all-cmds = case-far & case-mid & case-near & case-close & case-tiny
+
+Section: Streams
+
+ The same four streams the probe decoded out of the buffer, in the same order.
+
+  cmd-tags : List DrawCmd, Integer -> List Integer
+  cmd-tags (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).tag] & cmd-tags cs (i + 1)
+
+  cmd-colors : List DrawCmd, Integer -> List Integer
+  cmd-colors (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).color] & cmd-colors cs (i + 1)
+
+  cmd-counts : List DrawCmd, Integer -> List Integer
+  cmd-counts (cs) (i) =
+    if i >= list-length cs then []
+    else [list-length (list-at cs i).pts / 2] & cmd-counts cs (i + 1)
+
+  cmd-strengths : List DrawCmd, Integer -> List Real
+  cmd-strengths (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).strength] & cmd-strengths cs (i + 1)
+
+  cmd-coords : List DrawCmd, Integer -> List Real
+  cmd-coords (cs) (i) =
+    if i >= list-length cs then []
+    else (list-at cs i).pts & cmd-coords cs (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints "tree-tags     " (cmd-tags all-cmds 0) g-tree-tags)
+    print-line-uni (grade-ints "tree-colors   " (cmd-colors all-cmds 0) g-tree-colors)
+    print-line-uni (grade-ints "tree-counts   " (cmd-counts all-cmds 0) g-tree-counts)
+    print-line-uni (grade-rel  "tree-strengths" (cmd-strengths all-cmds 0) g-tree-strengths 0.000001)
+    print-line-uni (grade-px "tree-coords   " (cmd-coords all-cmds 0) g-tree-coords 0.001 0.000001)
+  end

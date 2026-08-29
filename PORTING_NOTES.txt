@@ -1,0 +1,247 @@
+================================================================================
+PORTING NOTES — Codex and the zig plug, as met while porting the Safari
+Started 2026-08-28. Append; do not prune. Companion to README.md and NOTES.txt.
+================================================================================
+
+Everything here was hit by writing the port, not by reading the compiler, and
+every claim is reproducible through the loop in README.md (bundle, codexzig, zig,
+run — about five seconds, no guest). Probes for the numeric items are in price-b/.
+
+Three sections, and the middle one matters most for day-to-day work:
+
+  A. DEFECTS AND HOLES — things that are wrong, or missing. Upstream candidates.
+  B. CORRECT BUT SURPRISING — things that cost a build until understood. Mostly
+     a documentation gap, and several of them are Codex being RIGHT where zig is
+     silent. Read this section before writing Codex.
+  C. ENVIRONMENT — how the pieces actually behave. No defect implied.
+
+Nothing here has been sent upstream. The ladder's protocol is that a finding
+reaches Damian only via a PR carrying a compiler-backlog.md / plugs-backlog.md
+row — see NewRepository/contrib/README.md.
+
+
+================================================================================
+A. DEFECTS AND HOLES
+================================================================================
+
+A1. real-to-int and real-from-int have no zig emitter.               [HOLE]
+
+    "error: zig plug: no emitter for real-to-int" (and real-from-int). Both
+    confirmed missing independently.
+
+    Consequences, in order of how much they cost:
+      - Gpu chapter DeviceMath CANNOT BE TRANSPILED AT ALL. Its dm-reduce calls
+        real-from-int, so real-sqrt, real-sin and real-cos are dark to this arm.
+        The port carries port/Trig.codex as a stand-in for exactly this reason.
+      - No counted loop can widen its index. Every `i / n * two-pi` becomes a
+        Real accumulator threaded alongside the Integer counter. Three sites in
+        the port so far (Tree's cone ring, Scene's ridge, Scene's canopy).
+      - Combined with A2 below, a transpiled program CANNOT REPORT A COMPUTED
+        REAL AT ALL. That is the expensive one — see the note under A2.
+
+    The fix looks small: each is one ZigBuiltinEmitter table row plus one prelude
+    helper, the shape of bits-to-real-approx at ZigEmitter.codex:1036 and :3784.
+    Bare metal is cvttsd2si / cvtsi2sd (X86_64Builtins.codex:1663-1679) —
+    truncate toward zero, INT64_MIN on NaN or overflow. Zig's @intFromFloat
+    truncates the same way but is UB out of range, so the honest emission is a
+    guarded prelude helper, not a bare cast.
+
+A2. `show` on a Real is refused — deliberately, and the refusal is right, but
+    the CONSEQUENCE is worth stating.                                [BY DESIGN]
+
+    @compileError("zig plug: show on a Real needs __real_to_text, which this plug
+    does not have"). std.fmt would agree with bare metal on some values and not
+    others, so it refuses rather than guess. Correct.
+
+    But with A1 also missing there is NO WAY OUT for a Real: it cannot be
+    printed, and it cannot be converted to something that can. A failing test can
+    say WHERE it failed and not WHAT it computed.
+
+    Measured cost, twice this session:
+      - Calibrating the camera tolerance meant BINARY-SEARCHING it (tighten,
+        rebuild, see which seams go red) instead of reading an error.
+      - A red coordinate in the tree port had to be diagnosed by re-simulating
+        the whole cone in f64 in a separate zig program, to prove that
+        20.606868 vs the gold's 20.606842 was width and not a bug.
+    Landing A1 retires both: real-to-int (x * 1000.0) gives scaled-integer dumps
+    and plain diffs.
+
+A3. OvError silently becomes a WRAPPING multiply.                    [DEFECT]
+
+    Codex declares int-ty-default : CodexType = IntegerTy i64-min i64-max
+    OvError (Types/CodexType.codex:129). The zig plug emits `*%`.
+
+        a * a   where a = 4000000000
+        ->  -2446744073709551616      exit 0, no diagnostic
+
+    Exactly the i64 wrap. Same family as the trapping/saturating collapse at
+    ZigEmitter.codex:1270-1273. This is a silent wrong answer, and it is the
+    single reason a fixed-point port of this game was rejected: its whole
+    technique is large intermediate products.
+    Repro: price-b/ovf2.codex.
+
+A4. Math chapter Cordic is four times less accurate than it claims, and its
+    test never calls it.                                             [DEFECT]
+
+    Docstring: "16 iterations gives ~0.1% accuracy." Measured worst error 0.45%
+    (cordic-sin 300 = 291 against a true 295.52). Its atan table
+    [785,463,244,124,62,31,15,7,3,1,0,0,0,0,0,0] saturates — the last six
+    iterations are no-ops.
+
+    Upstream's gate cannot see it: codex/test/forewords/math-cordic.expected is
+    the single line "Math/Cordic OK", and the test body only prints that string.
+    Nothing anywhere calls a Cordic function.
+    Repro: price-b/cordic_probe.codex.
+
+A5. A multi-line application inside a `let` emits @panic AS A CALLEE, with no
+    diagnostic.                                                      [DEFECT]
+
+    This one is worth a careful look, because the same shape is DIAGNOSED
+    elsewhere (CDX1070, item B1) and here it is not.
+
+        let pts =
+          [ ScreenPt { ... }, ... ]
+        in ...
+
+    emitted, for the value of pts:
+
+        b4: { const _f4 = @panic("\x01"); break :b4 _f4.call(_f4.ctx, <the list>); }
+
+    The list was parsed as an ARGUMENT to something the emitter had no value for,
+    so it emitted a panic where the callee goes and then called it. Codegen
+    reported no error; zig then rejected it as unreachable code, which is the
+    only reason it was noticed. Putting the literal on one line fixes it.
+
+    A program that failed this way in an expression zig happened to accept would
+    be a runtime panic with no source-level explanation.
+
+A6. Single-letter function names a, b, c, d are unusable.            [DEFECT]
+
+    A Codex function named `d` emits `fn d_`, which collides with the Tup4
+    comptime parameter `d_`:
+        error: function parameter shadows declaration of 'd_'
+    Found by accident naming a one-line helper `d`. Cheap to hit, cheap to fix,
+    and a mangling collision rather than anything deep.
+
+A7. Real is f64 in every plug; bare metal computes f32 in f32.       [KNOWN]
+
+    Not found here — recorded in NOTES.txt section 6 and re-confirmed. Listed so
+    this file is complete: ZigEmitter.codex:297 and :328 map every RealTy to
+    f64 whatever width the type asked for, and 1270-1273 collapse the approx /
+    trapping / saturating opcodes onto one operator, so TRAPPING does not trap
+    and SATURATING does not saturate. The C# plug is character-for-character
+    identical and the wasm plug states it as policy, so this is a house-wide
+    convention and NOT a zig quirk — ask before patching. The f32 conversion
+    builtins are all missing too, which is why the collapse has never been
+    observable from this arm: the hole hides the wrong answer.
+
+
+================================================================================
+B. CORRECT BUT SURPRISING — read before writing Codex
+================================================================================
+
+B1. CDX1070 — an application may not span a newline.
+    "Application ended at newline; '[' on line N is not parsed as an argument."
+    Wrap the application in parentheses, bind it with a let, or put the arguments
+    on one line. Cost two builds. See A5 for the case where it is NOT diagnosed.
+
+B2. CDX1023 — a `let` nested inside an `if` arm inside a `let` is refused.
+    "Expected 'in' after let bindings." Flatten it: hoist the inner computation
+    into its own function. Doing so in Geom's clip-near EXPOSED A REAL BUG of
+    mine, so the refusal earned its keep.
+
+B3. CDX2085 — `==` between Reals is refused, and CODEX IS RIGHT.
+    "Floating-point equality is not safe. Use the ~ operator: x ~ y
+    (approximately equal, 4 ULP tolerance), x ~0 y (bitwise exact, if you are
+    certain)." zig writes a plain == and says nothing.
+
+    This forced a real decision in tree.zig's hull sort. The zig's `a.x == b.x`
+    is bitwise, so the port needs ~0. A 4-ULP ~ would have called distinct ring
+    points equal, reordered the sort, and changed the hull's POINT COUNT — a
+    structural error that a coordinate tolerance would never have caught.
+    Best single argument in this file for Codex over zig.
+
+B4. CDX2001 — no implicit Integer to Real widening.
+    `0.0 + i` is a type error, not a widening. With A1 missing there is no
+    conversion either, so carry a Real accumulator beside the Integer counter.
+
+B5. CDX3001 — chapters share ONE FLAT NAMESPACE inside a bundle.
+    Citing Math chapter Geometry for its convex-hull collided with the port's own
+    Geom: "Duplicate type definition: 'Vec3' is already defined", 21 errors.
+    Citing a foreword chapter is not free of a port's own type names. The hull
+    was ported instead, which is more faithful anyway.
+
+B6. The emitter emits only what the entry can REACH, and silently.
+    A first attempt at the scene chapter had an `opening` that referenced nothing
+    in it. Result: exit 0, no diagnostic, and a ZERO-BYTE program. If a chapter
+    vanishes, check that opening actually touches it.
+
+B7. `Integer between lo and hi clamping` is real and type-enforced.
+    From arith.codex: Score { v = 250 } with `v : Integer between 0 and 100
+    clamping` yields 100. Worth remembering for colour channels.
+
+B8. Integer division truncates toward zero, both signs.
+    -7/2 = -3, 7/-2 = -3. Matches zig @divTrunc. There is no floor division.
+
+
+================================================================================
+C. ENVIRONMENT
+================================================================================
+
+C1. codexzig writes the ZIG TO STDERR and diagnostics to stdout.
+    ON A HALT IT WRITES THE REASON TO STDERR TOO — so the output file is short
+    and NON-EMPTY rather than empty, and a `[ -s ]` test calls that success. This
+    cost a confusing failure; harness/build_wasm.sh now greps for the prelude
+    marker instead.
+
+C2. A transpiled program prints to STDERR.
+    print-line-uni becomes std.debug.print. Every harness here reads stderr.
+
+C3. Codex has no mutable globals.
+    camera.zig's `pub var view_w` is threaded as a parameter in the port. It is
+    the camera's only mutable state.
+
+C4. Codex has no libm, and its foreword is mostly INTEGER fixed point.
+    There are no transcendental builtins at all — only conversions and the
+    arithmetic modes. DeviceMath is a 78-line hand-written Codex chapter, and it
+    is one of only ten files in the whole foreword that use Real. Cordic,
+    Easing, Color, GameCamera and Numeric are all Integer milli-units.
+
+C5. wasm32-freestanding is THREE PRELUDE FUNCTIONS away, not the gulf NOTES
+    section 5 describes. The entry spawns a thread purely for a 512 MB stack; the
+    heap reserves 4 GiB through page_allocator, which is the whole of a wasm32
+    address space; printing reaches std.Io and drags in posix. Nothing in the
+    TRANSPILED PROGRAM needs changing. See harness/wasmify.py.
+
+C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
+    frame; a long-running process rebuilding a scene per frame will exhaust it.
+    Design for one probe process per short horizon.
+
+
+================================================================================
+D. NUMERIC CALIBRATION — what the tolerances are actually measuring
+================================================================================
+
+D1. The f32/f64 gap is about 1.2e-7 relative, and that is the floor. The port
+    computes in Real (f64); the game computes in f32; the gold reaches Codex as
+    the shortest decimal that round-trips the f32, re-parsed at f64.
+
+D2. Camera and Geom hold at 1e-6 RELATIVE over 375 values. Tightened to 1e-7,
+    six of nine seams go red — so the gate sits one decade above the width gap
+    and nothing more. It is calibrated, not slack.
+
+D3. SCREEN COORDINATES NEED A MIXED GATE, atol + rtol*|want|. Both halves were
+    measured, and each covers the other's failure:
+      - relative fails at the horizon. A screen y is 300 minus a term of about
+        the same size, so y = 20.6068 is a small DIFFERENCE OF TWO LARGE NUMBERS
+        and cancellation amplifies the relative error by the 300/20.6 between
+        them — 1.3e-6, about fifteen times f32 epsilon.
+      - absolute fails at the near plane. A point 37 m to the side at 0.4 m
+        forward projects to x = -62929, where ONE f32 ULP IS ALREADY 0.0075 px,
+        seven times a thousandth-of-a-pixel floor.
+    In use: atol 1e-3 px, rtol 1e-6. At a hundred pixels that is about a
+    thousandth of a pixel, which is the precision worth asserting.
+
+D4. Structure is graded EXACTLY and must stay that way. Tags, colours and point
+    counts take no tolerance. A wrong point count is a structural error and no
+    coordinate tolerance should ever be able to hide one.

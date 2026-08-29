@@ -1,0 +1,966 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Trig
+
+ Sine, cosine and tangent in Real.
+
+ THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
+ and this is the same algorithm -- an argument reduction, a quadrant fold, and an
+ 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
+ transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
+ no emitter for it. The day that emitter lands, every function here is deleted and
+ the citers cite DeviceMath instead. Nothing else in the port should grow a
+ dependency on these names.
+
+ The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
+ converts back through the integers, which is exactly the call this arm cannot
+ emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
+ exact for the arguments this game has -- yaws, headings and tier angles, all
+ within a few turns of zero -- but it is NOT a general reduction, and it must not
+ outlive the emitter it works around.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Sine and Cosine
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+  r-tan : Real -> Real
+  r-tan (x) = r-sin x / r-cos x
+
+Chapter: Geom
+  cites Safari chapter Trig
+
+ Pure rider-relative geometry: the coordinate types, the world-to-rider transform,
+ the ground curvature, and near-plane clipping. No projection -- that is Camera --
+ no drawing, no allocation. The math leaf the rest of the camera stands on.
+
+ A port of wasm/geom.zig.
+
+ We say:
+
+Section: Coordinates
+
+ A ground-plane point measured FROM THE RIDER: how far forward, down his look
+ axis, and how far to his right. The fundamental coordinate of the whole scene.
+
+  RiderPt = record {
+    right : Real,
+    forward : Real
+  }
+
+ A rider-relative vertex carrying a height off the ground -- what the road quads
+ and raised structures clip and project as.
+
+  Vec3 = record {
+    right : Real,
+    forward : Real,
+    height : Real
+  }
+
+ A point in a segment's bottom-left frame: `a` along, `x` across-from-left.
+
+  AX = record {
+    a : Real,
+    x : Real
+  }
+
+Section: Ground
+
+ The local ground is a gentle spherical plateau: a point drops this far below the
+ rider's tangent plane at horizontal distance d, so the road bends toward a finite
+ horizon instead of a vanishing point at infinity. Larger radius = gentler.
+
+  ground-radius : Real
+  ground-radius = 100000.0
+
+  ground-drop : Real, Real -> Real
+  ground-drop (right) (forward) = (right * right + forward * forward) / (2.0 * ground-radius)
+
+Section: The Rider Transform
+
+ to-rider maps a point in a segment's bottom-left frame -- `a` along the segment,
+ `x` across from its LEFT edge -- into the rider's frame, given his pose along and
+ across the segment's centre line and his look angle `yaw`. His pose is
+ centre-relative, so the half-width `hw` shifts x to from-the-left.
+
+  to-rider : Real, Real, Real, Real, Real, Real -> RiderPt
+  to-rider (a) (x) (cam-along) (cam-across) (yaw) (hw) =
+    let d-a = a - cam-along
+    in let d-x = x - (cam-across + hw)
+    in let c = r-cos yaw
+    in let s = r-sin yaw
+    in RiderPt { forward = d-a * c + d-x * s, right = (0.0 - d-a) * s + d-x * c }
+
+Section: The Frame Fusion
+
+ next-to-cur maps a point from the NEXT segment's bottom-left frame into the
+ CURRENT segment's, across the join. LEFT and RIGHT are NOT mirror images: a left
+ turn fuses on the end-left edge, where the origin is the inner corner; a right
+ turn fuses on the end-right edge and pays a width shift. `turns-right` is the
+ turn direction.
+
+  next-to-cur : Real, Real, Real, Real, Boolean, Real -> AX
+  next-to-cur (a-b) (x-b) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then AX { a = a-b * c - x-b * s + width * s + seg-len, x = x-b * c + a-b * s + width * (1.0 - c) }
+      else AX { a = a-b * c + x-b * s + seg-len, x = x-b * c - a-b * s }
+
+ cur-to-next is the inverse: a point in the CURRENT segment's frame expressed in
+ the NEXT segment's, across the same join. Used to draw the joint just BEHIND the
+ rider, so the pavement he is still crossing does not vanish.
+
+  cur-to-next : Real, Real, Real, Real, Boolean, Real -> AX
+  cur-to-next (a) (x) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then let a0 = a - seg-len - width * s
+        in let x0 = x - width * (1.0 - c)
+        in AX { a = a0 * c + x0 * s, x = (0.0 - a0) * s + x0 * c }
+      else let a0 = a - seg-len
+        in AX { a = a0 * c - x * s, x = a0 * s + x * c }
+
+Section: Line Intersection
+
+ line-meet returns where two infinite lines cross in the rider frame: line A
+ through a0 toward a1, line B through b0 toward b1. Used for the corner's outer
+ apex, where the two segments' outer shoulders meet. A real turn has a non-zero
+ angle, so the lines are never parallel.
+
+  line-meet : RiderPt, RiderPt, RiderPt, RiderPt -> RiderPt
+  line-meet (a0) (a1) (b0) (b1) =
+    let dax = a1.right - a0.right
+    in let daf = a1.forward - a0.forward
+    in let dbx = b1.right - b0.right
+    in let dbf = b1.forward - b0.forward
+    in let t = ((b0.right - a0.right) * dbf - (b0.forward - a0.forward) * dbx) / (dax * dbf - daf * dbx)
+    in RiderPt { right = a0.right + t * dax, forward = a0.forward + t * daf }
+
+Section: Near-Plane Clipping
+
+ Clip a rider-frame polygon against the near plane at `near` metres forward, so no
+ vertex sits behind the eye where the perspective divide would fling it across the
+ screen. Fewer than 3 vertices out means the caller skips the polygon.
+
+ The zig writes into a caller-supplied `out` slice and returns a count; this
+ returns the list, which is the same thing without the buffer. The wrap-around
+ edge is the reason the index walks to the length and reads (i + 1) modulo it: the
+ polygon is closed, so the last vertex pairs with the first.
+
+  clip-cross : Vec3, Vec3, Real -> List Vec3
+  clip-cross (a) (b) (near) =
+    let f = (near - a.forward) / (b.forward - a.forward)
+    in [Vec3 { right = a.right + f * (b.right - a.right), forward = near, height = a.height + f * (b.height - a.height) }]
+
+  both-sides : Boolean, Boolean -> Boolean
+  both-sides (a-in) (b-in) = if a-in then b-in else (if b-in then False else True)
+
+  clip-near-edge : List Vec3, Real, Integer -> List Vec3
+  clip-near-edge (poly) (near) (i) =
+    let n = list-length poly
+    in if i >= n then []
+    else let a = list-at poly i
+    in let b = list-at poly ((i + 1) - (((i + 1) / n) * n))
+    in let a-in = a.forward >= near
+    in let b-in = b.forward >= near
+    in let kept = if a-in then [a] else []
+    in let crossed = if both-sides a-in b-in then [] else clip-cross a b near
+    in kept & crossed & clip-near-edge poly near (i + 1)
+
+  clip-near : List Vec3, Real -> List Vec3
+  clip-near (poly) (near) = clip-near-edge poly near 0
+
+Chapter: Camera
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+
+ The perspective projection: a rider-relative ground point at a height becomes a
+ screen pixel. Owns the lens constants and the near plane. Pure; no drawing, no
+ allocation.
+
+ A port of wasm/camera.zig.
+
+ ONE ADAPTATION. The zig carries the live projection width as a mutable global,
+ `pub var view_w`, which the native window widens toward the screen's aspect while
+ FOCAL stays frozen -- that is what makes a wider window a wider field of view
+ rather than a zoom. Codex has no mutable global, so view-w is threaded as a
+ parameter. It is the camera's only mutable state, and threading it is the pure
+ equivalent rather than a change of behaviour: pass camera-w for the design width
+ the browser and the golden-PNG harness both use.
+
+ We say:
+
+Section: Lens
+
+  camera-w : Real
+  camera-w = 960.0
+
+  camera-h : Real
+  camera-h = 600.0
+
+  eye-h : Real
+  eye-h = 1.2
+
+  near : Real
+  near = 0.4
+
+  fov-deg : Real
+  fov-deg = 70.0
+
+ The base focal, in pixels, looking straight ahead. FROZEN at the design width and
+ NOT recomputed from the live view-w -- that is what keeps a wider window a wider
+ FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
+
+  focal : Real
+  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
+
+Section: Focal Pull-In
+
+ The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
+ narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
+ road. The lean narrows hardest and is squared so it snaps in deep in the turn;
+ attention narrows gentler and linearly, but a crossing cat's attention overshoots
+ 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
+ mid-corner -- so the tightest simply wins.
+
+  min-focal-factor : Real
+  min-focal-factor = 0.35
+
+  min-gaze-focal-factor : Real
+  min-gaze-focal-factor = 0.61
+
+  focal-for-lean : Real -> Real
+  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
+
+  focal-for-gaze : Real -> Real
+  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
+
+  cam-focal : Real, Real -> Real
+  cam-focal (lean-frac) (attention) =
+    let a = focal-for-lean lean-frac
+    in let b = focal-for-gaze attention
+    in if a < b then a else b
+
+Section: Projection
+
+  ScreenPt = record {
+    x : Real,
+    y : Real
+  }
+
+ The perspective divide is by forward, so callers must clip to the near plane
+ first -- forward is then never near zero.
+
+  project : Vec3, Real, Real -> ScreenPt
+  project (p) (cf) (view-w) =
+    ScreenPt {
+      x = view-w / 2.0 + (p.right / p.forward) * cf,
+      y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
+    }
+
+Chapter: Paint
+  cites Safari chapter Camera
+
+ The seam to JS: a draw command in wasm/paint.zig's wire.
+
+ The zig writes each command into a fixed pre-sized buffer in linear memory and
+ hands the browser a byte length. The port is pure, so it RETURNS commands and the
+ wasm shim does the writing -- the same split NOTES calls seam 3, and the reason
+ one grader serves every module: a frame is a flat list either way.
+
+ The wire, per polygon:
+
+   tag 0   [0][color][nPoints][x f32][y f32]...
+   tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
+
+ tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
+ centre, dark edge across the polygon's x-extent -- with a per-polygon strength
+ that lets crown shading fade to flat with distance instead of popping. strength
+ rides on every command so the record has one shape; tag 0 ignores it, exactly as
+ the blitter does.
+
+ Coordinates are SCREEN pixels here and still Real. They narrow to f32 in the
+ shim, at the buffer, which is the only place the game's width is load-bearing.
+
+ We say:
+
+Section: Commands
+
+  DrawCmd = record {
+    tag : Integer,
+    color : Integer,
+    strength : Real,
+    pts : List Real
+  }
+
+  flatten-screen : List ScreenPt, Integer -> List Real
+  flatten-screen (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+    in [p.x, p.y] & flatten-screen ps (i + 1)
+
+  push-poly : Integer, List ScreenPt -> List DrawCmd
+  push-poly (color) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 0, color = color, strength = 0.0, pts = flatten-screen ps 0 }]
+
+ pushRoundPoly drops a polygon with fewer than three points rather than emitting
+ a degenerate one; push-poly is given the same guard so the two agree.
+
+  push-round-poly : Integer, Real, List ScreenPt -> List DrawCmd
+  push-round-poly (color) (strength) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 1, color = color, strength = strength, pts = flatten-screen ps 0 }]
+
+Chapter: Tree
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Foreword chapter ListUtils
+
+ A roadside conifer, with two independent detail axes the renderer sets per tree
+ because they are noticed at different ranges: the TRUNK is a round-shaded cylinder
+ up close and a flat bar beyond, and the CROWN is eight 3D cone tiers near and
+ eight flat triangles far. A cone is a base circle of world points, each at its own
+ depth, plus the apex, projected and filled to its convex-hull silhouette, so the
+ near rim is genuinely nearer and foreshortens.
+
+ The crown is SOLID either way -- its roundness is the SHAPE, not lighting -- which
+ keeps it uniform across the tree line with no shaded-to-solid pop, since crowns
+ are seen far out.
+
+ A port of wasm/tree.zig.
+
+ The hull is PORTED, not cited, though Math chapter Geometry has the same
+ algorithm. Two reasons, and the second is the binding one. Geometry's diverges for
+ fewer than three points -- it returns them sorted where the zig returns them as
+ given. And chapters share ONE FLAT NAMESPACE inside a bundle: Geometry defines its
+ own Vec3, which collides with Geom's, and the unit will not compile. Citing a
+ foreword chapter is not free of a port's own type names.
+
+ We say:
+
+Section: Proportions
+
+ The eight crown tiers as fractions of the foliage span: apex and base height, and
+ base half-width. Narrow at the top, widest at the bottom.
+
+  tier-top : List Real
+  tier-top = [0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70]
+
+  tier-bot : List Real
+  tier-bot = [0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0]
+
+  tier-wide : List Real
+  tier-wide = [0.35, 0.44, 0.53, 0.63, 0.72, 0.81, 0.91, 1.0]
+
+  trunk-color : Integer
+  trunk-color = 5914146
+
+  visible-trunk : Real
+  visible-trunk = 0.44
+
+  crown-h : Real
+  crown-h = 0.648
+
+  crown-w : Real
+  crown-w = 0.288
+
+ A cone base nearer than this bails to the flat tier.
+
+  min-cone-forward : Real
+  min-cone-forward = 0.4
+
+  ring-n : Integer
+  ring-n = 16
+
+Section: Metrics
+
+ The screen-space layout shared by both forms: ground point, pixel height, crown
+ apex, foliage span, and crown base half-width.
+
+  Metrics = record {
+    bx : Real,
+    by : Real,
+    ht : Real,
+    apex-y : Real,
+    foliage : Real,
+    w : Real
+  }
+
+  metrics : Real, Real, Real, Real, Real -> Metrics
+  metrics (right) (forward) (height) (cf) (view-w) =
+    let base = project (Vec3 { right = right, forward = forward, height = 0.0 }) cf view-w
+    in let top = project (Vec3 { right = right, forward = forward, height = height }) cf view-w
+    in let ht = base.y - top.y
+    in let foliage = ht * crown-h
+    in let crown-bottom-y = base.y - ht * visible-trunk
+    in Metrics { bx = base.x, by = base.y, ht = ht, apex-y = crown-bottom-y - foliage, foliage = foliage, w = ht * crown-w }
+
+Section: The Trunk
+
+  draw-trunk : Metrics, Boolean -> List DrawCmd
+  draw-trunk (m) (round-trunk) =
+    let trunk-w = if m.ht * 0.08 > 1.0 then m.ht * 0.08 else 1.0
+    in let trunk-h = m.ht * visible-trunk + m.ht * 0.05
+    in let tx = m.bx - trunk-w / 2.0
+    in let pts = [ScreenPt { x = tx, y = m.by - trunk-h }, ScreenPt { x = tx + trunk-w, y = m.by - trunk-h }, ScreenPt { x = tx + trunk-w, y = m.by }, ScreenPt { x = tx, y = m.by }]
+    in if round-trunk then push-round-poly trunk-color 1.0 pts else push-poly trunk-color pts
+
+Section: The Flat Crown
+
+ One flat crown tier: the far and cheap form, and the near form's bail-out for a
+ cone too close to project.
+
+  tier-triangle : Metrics, Integer, Integer -> List DrawCmd
+  tier-triangle (m) (k) (color) =
+    let tri = [ScreenPt { x = m.bx, y = m.apex-y + m.foliage * list-at tier-top k }, ScreenPt { x = m.bx + m.w * list-at tier-wide k, y = m.apex-y + m.foliage * list-at tier-bot k }, ScreenPt { x = m.bx - m.w * list-at tier-wide k, y = m.apex-y + m.foliage * list-at tier-bot k }]
+    in push-poly color tri
+
+Section: The Cone Crown
+
+ Crown tier k as a cone: a base circle of world radius R on the trunk axis rising
+ to the tier apex. Project the apex and a ring of base points, each at its own
+ depth, and fill their convex hull -- exactly the cone's silhouette, a cone being
+ convex.
+
+ The ring angle is carried as a Real accumulator rather than derived from the
+ index, because the zig plug has no emitter for real-from-int.
+
+  cone-ring : Real, Real, Real, Real, Real, Real, Integer, Real -> List ScreenPt
+  cone-ring (r0) (f0) (rad) (h-base) (cf) (view-w) (i) (a) =
+    if i >= ring-n then []
+    else let p = Vec3 { right = r0 + rad * r-cos a, forward = f0 + rad * r-sin a, height = h-base }
+    in [project p cf view-w] & cone-ring r0 f0 rad h-base cf view-w (i + 1) (a + two-pi / 16.0)
+
+ The tie test is ~0, BITWISE exact, not ~. Codex refuses == on a Real (CDX2085)
+ and makes the caller say which equality it means; the zig writes a plain ==,
+ which is the bitwise one. A 4-ULP ~ here would call distinct ring points equal
+ and reorder the sort, changing the hull's point count.
+
+  less-xy : ScreenPt, ScreenPt -> Boolean
+  less-xy (a) (b) = if a.x < b.x then True else (if a.x ~0 b.x then a.y < b.y else False)
+
+  hull-insert : ScreenPt, List ScreenPt, Integer -> List ScreenPt
+  hull-insert (p) (xs) (i) =
+    if i >= list-length xs then xs & [p]
+    else if less-xy p (list-at xs i) then (list-take xs i) & [p] & (list-drop xs i)
+    else hull-insert p xs (i + 1)
+
+  sort-pts : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  sort-pts (src) (i) (acc) =
+    if i >= list-length src then acc
+    else sort-pts src (i + 1) (hull-insert (list-at src i) acc 0)
+
+ Trim while the last two hull points and the candidate turn the wrong way. The
+ comparison is <= 0, so a collinear point is dropped rather than kept -- that is
+ the zig's choice and it changes the point COUNT, which the judge compares exactly.
+
+  hull-trim : List ScreenPt, ScreenPt -> List ScreenPt
+  hull-trim (hull) (p) =
+    let n = list-length hull
+    in if n < 2 then hull
+    else let a = list-at hull (n - 2)
+    in let b = list-at hull (n - 1)
+    in let cr = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+    in if cr <= 0.0 then hull-trim (list-take hull (n - 1)) p else hull
+
+  lower-chain : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  lower-chain (ps) (i) (hull) =
+    if i >= list-length ps then hull
+    else let p = list-at ps i
+    in lower-chain ps (i + 1) ((hull-trim hull p) & [p])
+
+  upper-chain : List ScreenPt, Integer, List ScreenPt -> List ScreenPt
+  upper-chain (ps) (i) (hull) =
+    if i < 0 then hull
+    else let p = list-at ps i
+    in upper-chain ps (i - 1) ((hull-trim hull p) & [p])
+
+ Andrew's monotone chain: sort, build the lower and upper chains, and concatenate
+ dropping the last of each because it is the first of the other.
+
+  convex-hull-pts : List ScreenPt -> List ScreenPt
+  convex-hull-pts (ps) =
+    let n = list-length ps
+    in if n < 3 then ps
+    else let sorted = sort-pts ps 0 []
+    in let lo = lower-chain sorted 0 []
+    in let up = upper-chain sorted (n - 1) []
+    in (list-take lo (list-length lo - 1)) & (list-take up (list-length up - 1))
+
+  tier-cone : Real, Real, Real, Integer, Real, Real, Metrics, Integer, Real -> List DrawCmd
+  tier-cone (r0) (f0) (height) (color) (cf) (view-w) (m) (k) (shade) =
+    let rad = crown-w * list-at tier-wide k * height
+    in if f0 - rad < min-cone-forward then tier-triangle m k color
+    else let h-base = (visible-trunk + crown-h * (1.0 - list-at tier-bot k)) * height
+    in let h-apex = (visible-trunk + crown-h * (1.0 - list-at tier-top k)) * height
+    in let apex = project (Vec3 { right = r0, forward = f0, height = h-apex }) cf view-w
+    in let ring = (cone-ring r0 f0 rad h-base cf view-w 0 0.0) & [apex]
+    in let hull = convex-hull-pts ring
+    in if list-length hull < 3 then []
+    else push-round-poly color shade hull
+
+Section: The Tree
+
+  tiers : Real, Real, Real, Integer, Real, Real, Metrics, Boolean, Real, Integer -> List DrawCmd
+  tiers (r0) (f0) (height) (color) (cf) (view-w) (m) (near-crown) (shade) (k) =
+    if k >= 8 then []
+    else let one = if near-crown then tier-cone r0 f0 height color cf view-w m k shade else tier-triangle m k color
+    in one & tiers r0 f0 height color cf view-w m near-crown shade (k + 1)
+
+ A tree less than a pixel tall is not drawn at all.
+
+  tree-draw : Real, Real, Real, Integer, Real, Real, Boolean, Boolean, Real -> List DrawCmd
+  tree-draw (right) (forward) (height) (color) (cf) (view-w) (round-trunk) (near-crown) (shade) =
+    let m = metrics right forward height cf view-w
+    in if m.ht < 1.0 then []
+    else (draw-trunk m round-trunk) & tiers right forward height color cf view-w m near-crown shade 0
+
+Chapter: Pond
+
+ pond -- a small pond at a corner (seg13), just BEYOND a right-turn intersection,
+ off to its LEFT, with ducks floating on the water. Pure data and dimensions; the
+ mapping, projection and emit live in the renderer, the same split safari-critter
+ uses.
+
+ Frame: cv = metres BEYOND the incoming segment's end edge (the rider's forward as
+ he arrives), cu = metres across from its end-left corner (0 = left edge, + = toward
+ the road; the pond's cu is NEGATIVE, out to the left -- the outer side of the right
+ turn).
+
+ A port of wasm/pond.zig. The zig carries these as f32 and this chapter as Real
+ (f64), so the judge compares with a tolerance rather than for equality; every
+ value here is integral except duck-height, so the tolerance buys nothing yet and
+ the comparison is effectively exact.
+
+ We say:
+
+Section: Shapes
+
+  PondPt = record {
+    cu : Real,
+    cv : Real
+  }
+
+  Duck = record {
+    p : PondPt,
+    face-right : Boolean
+  }
+
+Section: Water
+
+ The outline is a big blob off the LEFT of the road, ~30m across (cu -1 to -31)
+ reaching ~30m beyond the intersection (cv 3 to 32). Its near edge (the flat front
+ at cv 3) faces the incoming road.
+
+  water-outline : List PondPt
+  water-outline =
+    [ PondPt { cu = -2.0, cv = 3.0 },
+      PondPt { cu = -28.0, cv = 3.0 },
+      PondPt { cu = -31.0, cv = 14.0 },
+      PondPt { cu = -26.0, cv = 28.0 },
+      PondPt { cu = -15.0, cv = 32.0 },
+      PondPt { cu = -5.0, cv = 29.0 },
+      PondPt { cu = -1.0, cv = 16.0 } ]
+
+  water-color : Integer
+  water-color = 3112588
+
+Section: Bank
+
+ A 1m khaki bank along the water's FAR edge -- the shore. Its inner edge hugs the
+ water's far edge (the arc cv 29 to 32 to 28), its outer edge is 1m further onto
+ the land.
+
+  bank : List PondPt
+  bank =
+    [ PondPt { cu = -5.0, cv = 29.0 },
+      PondPt { cu = -15.0, cv = 32.0 },
+      PondPt { cu = -26.0, cv = 28.0 },
+      PondPt { cu = -26.0, cv = 29.0 },
+      PondPt { cu = -15.0, cv = 33.0 },
+      PondPt { cu = -5.0, cv = 30.0 } ]
+
+  bank-color : Integer
+  bank-color = 12759680
+
+Section: Ducks
+
+ Six ducks floating on the water, spread across the pond -- three deeper in (larger
+ cv) and three nearer the intersection (smaller cv, toward the front edge at cv 3).
+ ADULTS, drawn slightly out of proportion so they read. cu is shifted toward the
+ road (less negative) than the pond centre, so the ducks hug the near/road side of
+ the water while still sitting inside the outline.
+
+  duck-codepoint : Integer
+  duck-codepoint = 129414
+
+  duck-height : Real
+  duck-height = 0.9
+
+  ducks : List Duck
+  ducks =
+    [ Duck { p = PondPt { cu = -8.0, cv = 11.0 }, face-right = True },
+      Duck { p = PondPt { cu = -16.0, cv = 17.0 }, face-right = False },
+      Duck { p = PondPt { cu = -9.0, cv = 21.0 }, face-right = True },
+      Duck { p = PondPt { cu = -4.0, cv = 6.0 }, face-right = True },
+      Duck { p = PondPt { cu = -12.0, cv = 7.0 }, face-right = False },
+      Duck { p = PondPt { cu = -20.0, cv = 8.0 }, face-right = True } ]
+
+Chapter: Scene
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tree
+  cites Safari chapter Pond
+
+ A single frame of the Safari, computed in Codex.
+
+ THROWAWAY, and deliberately so. This is the proof that Codex -> zig -> wasm ->
+ the game's own JS blitter is a closed loop; it is not the faithful port. It
+ places its own scenery instead of reading world.zig's route, and it carries its
+ own Taylor sine instead of citing Gpu chapter DeviceMath, which the zig arm
+ cannot transpile until real-from-int has an emitter. What it does share with the
+ real thing is the part that matters: the camera, and the draw-command wire.
+
+ The rider looks straight down a straight road, so there is no yaw rotation here
+ -- geom.toRider collapses to a subtraction.
+
+ The camera is NO LONGER hand-rolled. This chapter cites Safari chapter Camera,
+ which is a faithful port of wasm/camera.zig graded against it at 1e-6 relative
+ over 375 values, so the frame below is projected by the same lens the game uses
+ -- FOCAL computed from the real field of view, not a number typed in here.
+
+ We say:
+
+Section: Draw Commands
+
+ The wire of wasm/paint.zig: a tag, a colour, and a flat run of screen-space
+ coordinates. tag 0 is a solid fill, which is all this frame uses.
+
+  to-screen : List Vec3, Integer -> List ScreenPt
+  to-screen (ps) (i) =
+    if i >= list-length ps then []
+    else [project (list-at ps i) focal camera-w] & to-screen ps (i + 1)
+
+  solid : Integer, List Vec3 -> List DrawCmd
+  solid (color) (ps) = push-poly color (to-screen ps 0)
+
+Section: Ground
+
+ The road is a flat quad on the ground plane, near edge first. A quad is exactly
+ right for a plane: the projection is a perspective divide, so four projected
+ corners bound the same region the surface does.
+
+  road-half : Real
+  road-half = 4.0
+
+  road-near : Real
+  road-near = 3.0
+
+  road-far : Real
+  road-far = 400.0
+
+  road : List DrawCmd
+  road =
+    (solid 3815994
+    [ Vec3 { right = 0.0 - road-half, forward = road-near, height = 0.0 },
+      Vec3 { right = road-half, forward = road-near, height = 0.0 },
+      Vec3 { right = road-half, forward = road-far, height = 0.0 },
+      Vec3 { right = 0.0 - road-half, forward = road-far, height = 0.0 } ])
+
+  dash : Real -> List DrawCmd
+  dash (a) =
+    (solid 14211744
+    [ Vec3 { right = 0.0 - 0.18, forward = a, height = 0.0 },
+      Vec3 { right = 0.18, forward = a, height = 0.0 },
+      Vec3 { right = 0.18, forward = a + 5.0, height = 0.0 },
+      Vec3 { right = 0.0 - 0.18, forward = a + 5.0, height = 0.0 } ])
+
+  dashes : Real, Integer -> List DrawCmd
+  dashes (a) (fuel) =
+    if fuel <= 0 then []
+    else (dash a) & dashes (a + 14.0) (fuel - 1)
+
+Section: Mountains
+
+ A ridge far enough away to sit just above the horizon. Real geometry, not a
+ screen-space cheat: the peaks are metres of height at a few kilometres of
+ forward, and the projection puts them where they belong.
+
+  ridge : Real, Integer, Real, List Real -> List Vec3
+  ridge (far) (i) (x) (hs) =
+    if i >= list-length hs then []
+    else let h = list-at hs i
+      in [Vec3 { right = x, forward = far, height = h }] & ridge far (i + 1) (x + 260.0) hs
+
+ The x accumulator is carried as a Real rather than derived from i, because the
+ zig plug has no emitter for real-from-int -- there is no way to widen a loop
+ counter. Every counted loop in this port pays that, and it is the first thing
+ the plug rows would buy back.
+
+  ridge-poly : Real, Integer, List Real -> List DrawCmd
+  ridge-poly (far) (color) (hs) =
+    let top = ridge far 0 (0.0 - 1800.0) hs
+    in let base = [ Vec3 { right = 1800.0, forward = far, height = 0.0 }, Vec3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
+    in solid color (top & base)
+
+  mountains-far : List DrawCmd
+  mountains-far = ridge-poly 5200.0 7042462 [60.0, 240.0, 120.0, 300.0, 150.0, 380.0, 110.0, 260.0, 80.0, 200.0, 90.0, 170.0, 60.0, 210.0, 70.0]
+
+  mountains-near : List DrawCmd
+  mountains-near = ridge-poly 3400.0 5466506 [40.0, 130.0, 200.0, 90.0, 170.0, 60.0, 220.0, 100.0, 60.0, 190.0, 80.0, 140.0, 50.0, 160.0, 40.0]
+
+Section: Trees
+
+ Real conifers now: Safari chapter Tree, a faithful port of wasm/tree.zig graded
+ against it over 45 draw commands and 628 coordinates. The two detail axes are set
+ the way the renderer sets them -- a round-shaded trunk only on the nearest few,
+ cone crowns within the detail distance and flat triangles beyond -- and the crown
+ shade fades to zero with depth so there is no shaded-to-solid pop along the line.
+
+  detail-dist : Real
+  detail-dist = 60.0
+
+  crown-shade : Real -> Real
+  crown-shade (forward) =
+    let s = 1.0 - forward / detail-dist
+    in if s < 0.0 then 0.0 else s
+
+  conifer : Real, Real, Real, Boolean -> List DrawCmd
+  conifer (right) (forward) (height) (round-trunk) =
+    tree-draw right forward height 3108154 focal camera-w round-trunk (forward < detail-dist) (crown-shade forward)
+
+Section: Pond
+
+ The ported pond, placed off the left of the road. Its outline is Pond's own
+ data, unchanged -- the chapter that Phase 0 graded against wasm/pond.zig, drawn
+ here for the first time.
+
+  pond-at-right : Real
+  pond-at-right = 0.0 - 26.0
+
+  pond-at-forward : Real
+  pond-at-forward = 46.0
+
+  pond-pts : List PondPt, Integer -> List Vec3
+  pond-pts (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+      in [Vec3 { right = pond-at-right - p.cu, forward = pond-at-forward + p.cv, height = 0.0 }] & pond-pts ps (i + 1)
+
+  pond-poly : List DrawCmd
+  pond-poly = solid water-color (pond-pts water-outline 0)
+
+  bank-poly : List DrawCmd
+  bank-poly = solid bank-color (pond-pts bank 0)
+
+Section: The Frame
+
+ Paint order, back to front: the ranges, then the ground furniture, then the
+ nearer trees last so they occlude.
+
+  frame : List DrawCmd
+  frame =
+    let ground = mountains-far & mountains-near & road & (dashes 12.0 24)
+    in let water = bank-poly & pond-poly
+    in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
+    in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
+    in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
+    in ground & water & far-trees & mid-trees & near-trees
+
+Chapter: SceneMain
+  cites Foreword chapter Console
+  cites Poc chapter Scene
+
+ The entry point. The wasm build never calls it -- the shim exports renderFrame
+ and walks `frame` itself -- but the emitter only emits what the entry can reach,
+ so opening must actually touch the scene or the whole chapter is shaken out.
+ Reporting the command count keeps it reachable and doubles as a native smoke
+ test: run this on the host and it says how many polygons the frame holds.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("cmds " & show (list-length frame))
+  end

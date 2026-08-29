@@ -1,0 +1,451 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Pond
+
+ pond -- a small pond at a corner (seg13), just BEYOND a right-turn intersection,
+ off to its LEFT, with ducks floating on the water. Pure data and dimensions; the
+ mapping, projection and emit live in the renderer, the same split safari-critter
+ uses.
+
+ Frame: cv = metres BEYOND the incoming segment's end edge (the rider's forward as
+ he arrives), cu = metres across from its end-left corner (0 = left edge, + = toward
+ the road; the pond's cu is NEGATIVE, out to the left -- the outer side of the right
+ turn).
+
+ A port of wasm/pond.zig. The zig carries these as f32 and this chapter as Real
+ (f64), so the judge compares with a tolerance rather than for equality; every
+ value here is integral except duck-height, so the tolerance buys nothing yet and
+ the comparison is effectively exact.
+
+ We say:
+
+Section: Shapes
+
+  PondPt = record {
+    cu : Real,
+    cv : Real
+  }
+
+  Duck = record {
+    p : PondPt,
+    face-right : Boolean
+  }
+
+Section: Water
+
+ The outline is a big blob off the LEFT of the road, ~30m across (cu -1 to -31)
+ reaching ~30m beyond the intersection (cv 3 to 32). Its near edge (the flat front
+ at cv 3) faces the incoming road.
+
+  water-outline : List PondPt
+  water-outline =
+    [ PondPt { cu = -2.0, cv = 3.0 },
+      PondPt { cu = -28.0, cv = 3.0 },
+      PondPt { cu = -31.0, cv = 14.0 },
+      PondPt { cu = -26.0, cv = 28.0 },
+      PondPt { cu = -15.0, cv = 32.0 },
+      PondPt { cu = -5.0, cv = 29.0 },
+      PondPt { cu = -1.0, cv = 16.0 } ]
+
+  water-color : Integer
+  water-color = 3112588
+
+Section: Bank
+
+ A 1m khaki bank along the water's FAR edge -- the shore. Its inner edge hugs the
+ water's far edge (the arc cv 29 to 32 to 28), its outer edge is 1m further onto
+ the land.
+
+  bank : List PondPt
+  bank =
+    [ PondPt { cu = -5.0, cv = 29.0 },
+      PondPt { cu = -15.0, cv = 32.0 },
+      PondPt { cu = -26.0, cv = 28.0 },
+      PondPt { cu = -26.0, cv = 29.0 },
+      PondPt { cu = -15.0, cv = 33.0 },
+      PondPt { cu = -5.0, cv = 30.0 } ]
+
+  bank-color : Integer
+  bank-color = 12759680
+
+Section: Ducks
+
+ Six ducks floating on the water, spread across the pond -- three deeper in (larger
+ cv) and three nearer the intersection (smaller cv, toward the front edge at cv 3).
+ ADULTS, drawn slightly out of proportion so they read. cu is shifted toward the
+ road (less negative) than the pond centre, so the ducks hug the near/road side of
+ the water while still sitting inside the outline.
+
+  duck-codepoint : Integer
+  duck-codepoint = 129414
+
+  duck-height : Real
+  duck-height = 0.9
+
+  ducks : List Duck
+  ducks =
+    [ Duck { p = PondPt { cu = -8.0, cv = 11.0 }, face-right = True },
+      Duck { p = PondPt { cu = -16.0, cv = 17.0 }, face-right = False },
+      Duck { p = PondPt { cu = -9.0, cv = 21.0 }, face-right = True },
+      Duck { p = PondPt { cu = -4.0, cv = 6.0 }, face-right = True },
+      Duck { p = PondPt { cu = -12.0, cv = 7.0 }, face-right = False },
+      Duck { p = PondPt { cu = -20.0, cv = 8.0 }, face-right = True } ]
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-abs (list-at got i - list-at want i) > tol then i
+    else first-real-diff got want tol (i + 1)
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+      else first-rel-diff got want tol (i + 1)
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Screen Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a projected coordinate. Neither half works alone, and both failures were
+ measured rather than guessed.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+      else first-px-diff got want atol rtol (i + 1)
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: PondGold
+
+ GENERATED by harness/gen_gold.py from probe/probe_pond.zig.
+ Every value here came from importing the real game module unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-water-outline : List Real
+  g-water-outline = [-2.0, 3.0, -28.0, 3.0, -31.0, 14.0, -26.0, 28.0, -15.0, 32.0, -5.0, 29.0, -1.0, 16.0]
+
+  g-bank : List Real
+  g-bank = [-5.0, 29.0, -15.0, 32.0, -26.0, 28.0, -26.0, 29.0, -15.0, 33.0, -5.0, 30.0]
+
+  g-ducks-p : List Real
+  g-ducks-p = [-8.0, 11.0, -16.0, 17.0, -9.0, 21.0, -4.0, 6.0, -12.0, 7.0, -20.0, 8.0]
+
+  g-duck-height : List Real
+  g-duck-height = [0.9]
+
+  g-water-color : List Integer
+  g-water-color = [3112588]
+
+  g-bank-color : List Integer
+  g-bank-color = [12759680]
+
+  g-duck-codepoint : List Integer
+  g-duck-codepoint = [129414]
+
+  g-ducks-face : List Boolean
+  g-ducks-face = [True, False, True, True, False, True]
+
+Chapter: PondCheck
+  cites Foreword chapter Console
+  cites Safari chapter Pond
+  cites Judge chapter Grade
+  cites Gold chapter PondGold
+
+ Grade the Pond port against the gold taken from wasm/pond.zig.
+
+ pond is the FIRST module ported because it holds no arithmetic at all: seven
+ outline points, six bank points, six ducks, two colours and a height. Nothing
+ here can be wrong for a numerical reason, so a failure means the harness is
+ wrong -- which is the whole point of running it first. It tests the loop, not
+ the math.
+
+ The tolerance is 0.0, deliberately. Pond's coordinates are integral and its one
+ fractional value reaches Codex as the shortest decimal that round-trips the f32,
+ re-parsed at f64, so both sides hold the same number exactly. A data seam that
+ needs a tolerance is a data seam with a bug in it. The math seams are where a
+ tolerance starts earning its keep.
+
+ We say:
+
+Section: Flattening
+
+ Every seam reduces to a flat list so that one grader serves all of them.
+
+  flat-pts : List PondPt, Integer -> List Real
+  flat-pts (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+      in [p.cu, p.cv] & flat-pts ps (i + 1)
+
+  flat-duck-pts : List Duck, Integer -> List Real
+  flat-duck-pts (ds) (i) =
+    if i >= list-length ds then []
+    else let d = list-at ds i
+      in [d.p.cu, d.p.cv] & flat-duck-pts ds (i + 1)
+
+  duck-faces : List Duck, Integer -> List Boolean
+  duck-faces (ds) (i) =
+    if i >= list-length ds then []
+    else let d = list-at ds i
+      in [d.face-right] & duck-faces ds (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "water-outline " (flat-pts water-outline 0) g-water-outline 0.0)
+    print-line-uni (grade-reals "bank          " (flat-pts bank 0) g-bank 0.0)
+    print-line-uni (grade-reals "ducks-p       " (flat-duck-pts ducks 0) g-ducks-p 0.0)
+    print-line-uni (grade-reals "duck-height   " [duck-height] g-duck-height 0.0)
+    print-line-uni (grade-ints  "water-color   " [water-color] g-water-color)
+    print-line-uni (grade-ints  "bank-color    " [bank-color] g-bank-color)
+    print-line-uni (grade-ints  "duck-codepoint" [duck-codepoint] g-duck-codepoint)
+    print-line-uni (grade-bools "ducks-face    " (duck-faces ducks 0) g-ducks-face)
+  end

@@ -44,9 +44,14 @@ port lives here, and the symlink pays for it.
 
 Add three files and nothing else — `harness/run.sh` discovers the rest:
 
-    port/<Mod>.codex          the port
-    probe/probe_<mod>.zig     the oracle, printing `<kind> <name> <values...>`
-    judge/<Mod>Check.codex    flatten each seam, hand it to Grade
+    port/<Chapter>.codex        the port
+    probe/probe_<chapter>.zig   the oracle, printing `<kind> <name> <values...>`
+    judge/<Chapter>Check.codex  flatten each seam, hand it to Grade
+
+The chapter name is written once and everything else is derived from it. The
+probe is **snake_case, named after the game file it imports** — `GuardRail` gives
+`probe/probe_guard_rail.zig` beside `wasm/guard_rail.zig` — and the gold chapter
+is the name with `Gold` appended, so the check cites `Gold chapter <Chapter>Gold`.
 
 `judge/Grade.codex` is the only grader. Every seam flattens to a list of Reals,
 Integers or Booleans, so one grader serves pond, the camera, and eventually the
@@ -64,12 +69,22 @@ against a wasm module computed in Codex. `blitter.js` fetches an absolute
 path is the only thing that differs from the real game.
 
 `poc/Scene.codex` is throwaway by design: it places its own scenery instead of
-reading `world.zig`'s route, and carries its own Taylor sine because
-`Gpu chapter DeviceMath` is dark to this arm. What it shares with the real thing
-is the camera and the draw-command wire. 119 polygons, 51 of them
-gradient-filled — two mountain ranges, the road and its dashes, the ported pond
-and its bank, and **ten conifers from the ported `tree.zig`**, with cone crowns
-near, flat tiers far, and round-shaded trunks on the closest three.
+reading `world.zig`'s route, and reaches sine through `Safari chapter Trig`
+because DeviceMath's is dark to this arm. What it shares with the real thing is
+the camera and the draw-command wire. 160 polygons, 51 of them gradient-filled —
+two mountain ranges, the road and its dashes, the ported pond and its bank, **ten
+conifers from the ported `tree.zig`** with cone crowns near and flat tiers far,
+and **a guard rail from the ported `guard_rail.zig`**: twenty-one posts and a
+twenty-quad bar strip receding to the horizon along the right shoulder.
+
+The rail is the one thing in the frame that is **depth-sorted rather than placed
+in paint order**. `rail-emit` hands back every bar and then every post, which is
+the order the zig's store holds them in and the wrong order to paint — a far post
+would land on a near bar. The scene sorts them on the `fwd` the port computes,
+which is the smallest possible demonstration of what that field is for. Sorting
+the rail *against the trees* is what the real render does and what this throwaway
+does not; it gets away with a coarse band ordering only because the rail hugs the
+shoulder while every tree stands well outside it.
 
 **NOTES §5 said a browser build through zig was "not close". It is three prelude
 functions**, and `harness/wasmify.py` replaces them: the entry spawns a thread
@@ -93,11 +108,28 @@ already narrows at.
 | `port/Trig.codex` | **stand-in** for `Gpu chapter DeviceMath` | via the above |
 | `port/Paint.codex` | `wasm/paint.zig`'s wire | with Tree below |
 | `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
+| `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
 
-`Trig` exists only because DeviceMath cannot be transpiled to zig — its
-`dm-reduce` calls `real-from-int`, which has no emitter. It is the same
+`Trig` exists because DeviceMath's `dm-reduce` calls `real-from-int`, which has
+no emitter, so `real-sin` and `real-cos` cannot be transpiled. It is the same
 algorithm. **Delete it and cite DeviceMath the day that emitter lands**, and do
 not let anything else grow a dependency on its names.
+
+It owes upstream **sine and cosine, and nothing else**. Emission is per-function,
+not per-chapter, so a chapter can cite DeviceMath for the parts that do not reach
+the hole: `real-sqrt` is a scaled Heron iteration that touches no conversion, and
+`GuardRail` cites the real chapter for it and grades green. Before writing a
+stand-in for any foreword chapter, check which of *its functions* actually reach
+the hole — "this chapter is dark" is almost never true.
+
+`GuardRail` is graded on **both of its halves**, because `guard_rail.zig` is
+deliberately two. `emit` collects `RailPoly`s rather than drawing them, so the
+judge reads the store directly — poly counts, colours, every corner, and **the
+mean forward depth each poly sorts by**. That depth is the module's whole
+contribution to render's one back-to-front pass over rails, trees and critters; a
+rail sorted wrong is a rail a far tree paints over, which is the bug the
+collect-then-sort design exists to prevent, and it is invisible to a check that
+only looks at pixels. `drawPoly` is then graded on the wire as usual.
 
 `Camera` makes one adaptation: the zig's `pub var view_w` is a mutable global,
 so the port threads it as a parameter. It is the camera's only mutable state.

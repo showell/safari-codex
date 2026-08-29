@@ -2,8 +2,9 @@
 # Run every check in judge/, end to end: gold, bundle, transpile, build, grade.
 #
 # The four steps NOTES calls the loop, wired once so that adding a module means
-# adding files, never editing this script. A check is judge/<Module>Check.codex;
-# its oracle is probe/probe_<module>.zig; its gold is regenerated every run.
+# adding files, never editing this script. A check is judge/<Chapter>Check.codex;
+# its oracle is probe/probe_<chapter_in_snake_case>.zig, named after the game file
+# it imports; its gold is gold/<Chapter>Gold.codex, regenerated every run.
 #
 # Nothing here boots a guest. The whole sweep is native and takes seconds, which
 # is why the gold is rebuilt from the zig every time rather than cached.
@@ -27,9 +28,10 @@ fail=0
 for check in judge/*Check.codex; do
   [ -e "$check" ] || { echo "no checks in judge/" >&2; exit 1; }
   base="$(basename "$check" Check.codex)"
-  mod="$(echo "$base" | tr '[:upper:]' '[:lower:]')"
+  # GuardRail -> guard_rail, matching wasm/guard_rail.zig. Pond stays pond.
+  mod="$(printf '%s' "$base" | sed 's/\(.\)\([A-Z]\)/\1_\2/g' | tr '[:upper:]' '[:lower:]')"
 
-  python3 harness/gen_gold.py "$mod" >/dev/null
+  python3 harness/gen_gold.py "$base" >/dev/null
   python3 harness/bundle.py "$check" "build/$mod-unit.codex"
   "$codexzig" < "build/$mod-unit.codex" 2> "build/$mod.zig" > "build/$mod.diag"
   ( cd build && "$zig" build-exe "$mod.zig" -O ReleaseFast )

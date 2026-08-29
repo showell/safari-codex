@@ -30,9 +30,19 @@ A1. real-to-int and real-from-int have no zig emitter.               [HOLE]
     confirmed missing independently.
 
     Consequences, in order of how much they cost:
-      - Gpu chapter DeviceMath CANNOT BE TRANSPILED AT ALL. Its dm-reduce calls
-        real-from-int, so real-sqrt, real-sin and real-cos are dark to this arm.
-        The port carries port/Trig.codex as a stand-in for exactly this reason.
+      - Gpu chapter DeviceMath is PARTLY dark: real-sin and real-cos are, because
+        dm-reduce calls real-from-int. The port carries port/Trig.codex as a
+        stand-in for exactly that.
+        CORRECTED 2026-08-29, and the correction is worth having. This bullet
+        used to read "DeviceMath CANNOT BE TRANSPILED AT ALL", which is wrong,
+        because emission is per-function and not per-chapter (B6). real-sqrt
+        does NOT call dm-reduce -- it is a scaled Heron iteration and touches no
+        conversion at all -- so a chapter that cites DeviceMath and reaches only
+        real-sqrt transpiles, builds and runs TODAY. Measured by doing it:
+        port/GuardRail.codex cites Gpu chapter DeviceMath for its post-direction
+        square root and is graded green against the zig. The stand-in's footprint
+        is therefore smaller than this file claimed: Trig owes upstream sine and
+        cosine, and nothing else.
       - No counted loop can widen its index. Every `i / n * two-pi` becomes a
         Real accumulator threaded alongside the Integer counter. Three sites in
         the port so far (Tree's cone ring, Scene's ridge, Scene's canopy).
@@ -182,6 +192,41 @@ B7. `Integer between lo and hi clamping` is real and type-enforced.
 
 B8. Integer division truncates toward zero, both signs.
     -7/2 = -3, 7/-2 = -3. Matches zig @divTrunc. There is no floor division.
+
+B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
+    nobody had tried: a chapter with an unemittable function in it is not itself
+    unemittable. B6 records the cost -- an unreached chapter silently vanishes.
+    The benefit is the same mechanism: cite a chapter for the functions you CAN
+    emit and the ones you cannot are never reached, so they are never emitted and
+    never diagnosed.
+
+    This is how the port got a real square root. Gpu chapter DeviceMath was
+    written off wholesale (see the correction under A1) on the strength of
+    dm-reduce needing real-from-int. But real-sqrt is independent of it:
+
+        real-sqrt (x) = if x <= 0.0 then 0.0 else dm-sqrt-scaled x 1.0 700
+
+    -- a scale by fours into [0.25, 4) and five Newton steps, all in Real. Citing
+    DeviceMath and touching only real-sqrt transpiles clean and prints the right
+    answers. Took four minutes to test and retired a stand-in that would otherwise
+    have grown a third function.
+
+    THE RULE TO CARRY: before writing a stand-in for a foreword chapter, check
+    which of ITS functions actually reach the hole. "This chapter is dark" is
+    almost never true; "these functions are dark" usually is.
+
+B10. B3's ~0 comes up again, and the second instance is more dangerous than the
+    first. guard_rail.zig guards a division by a run length:
+
+        if (len == 0) len = 1;
+
+    Codex refuses the bare == (CDX2085) and the caller must choose. It is ~0,
+    bitwise, because the zig's == is. Choosing the 4-ULP ~ instead would fire the
+    fallback on path points that are merely CLOSE, swinging that post from its own
+    run direction to the fixed one -- a post visibly rotated on screen, not a
+    rounding difference. Unlike the hull case in B3 it would not change any point
+    count, so the structural half of the judge would not catch it: only the
+    coordinate gate would, and only because the error is large.
 
 
 ================================================================================

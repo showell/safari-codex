@@ -5,6 +5,8 @@ Chapter: Scene
   cites Safari chapter Paint
   cites Safari chapter Tree
   cites Safari chapter Pond
+  cites Safari chapter GuardRail
+  cites Foreword chapter ListUtils
 
  A single frame of the Safari, computed in Codex.
 
@@ -147,10 +149,56 @@ Section: Pond
   bank-poly : List DrawCmd
   bank-poly = solid bank-color (pond-pts bank 0)
 
+Section: The Guard Rail
+
+ The ported wasm/guard_rail.zig, on the right shoulder. Render builds this path
+ along the outer edge of a corner; here the road is straight, so what is drawn is
+ exactly the run-up section -- a post every four metres and a bar strip between
+ them, receding to the horizon.
+
+  rail-right : Real
+  rail-right = road-half + 1.4
+
+ The forward accumulator is a Real carried beside the counter, for the same reason
+ the ridge's x is: no emitter for real-from-int, so a loop index cannot widen.
+
+  rail-path : Real, Integer -> List RiderPt
+  rail-path (f) (fuel) =
+    if fuel <= 0 then []
+    else [RiderPt { right = rail-right, forward = f }] & rail-path (f - 4.0) (fuel - 1)
+
+ SORTED BY THE DEPTH THE PORT COMPUTES. rail-emit hands back every bar and then
+ every post, which is the order the zig's store holds them in and the wrong order
+ to paint: a far post would land on top of a near bar. Each poly carries its own
+ mean forward depth precisely so a caller can fix that, and this is the smallest
+ possible demonstration of what that field is for -- the game merges rails, trees
+ and critters into ONE such sort, which is why guard_rail collects instead of
+ drawing.
+
+  rail-insert : RailPoly, List RailPoly, Integer -> List RailPoly
+  rail-insert (p) (xs) (i) =
+    if i >= list-length xs then xs & [p]
+    else if p.fwd > (list-at xs i).fwd then (list-take xs i) & [p] & (list-drop xs i)
+    else rail-insert p xs (i + 1)
+
+  rail-sort : List RailPoly, Integer, List RailPoly -> List RailPoly
+  rail-sort (src) (i) (acc) =
+    if i >= list-length src then acc
+    else rail-sort src (i + 1) (rail-insert (list-at src i) acc 0)
+
+  rail-cmds : List DrawCmd
+  rail-cmds = rail-draw-all (rail-sort (rail-emit (rail-path 96.0 21)) 0 []) focal camera-w 0
+
 Section: The Frame
 
  Paint order, back to front: the ranges, then the ground furniture, then the
  nearer trees last so they occlude.
+
+ The rail goes in as its own band, between the mid and near trees. That is a
+ COARSE ordering where the game does one merged depth sort over all scenery, and
+ it is right here only because the rail hugs the shoulder while every tree stands
+ well outside it, so nothing overlaps. The rail's own polys are properly sorted;
+ it is the merge with the trees that this throwaway does not do.
 
   frame : List DrawCmd
   frame =
@@ -159,4 +207,4 @@ Section: The Frame
     in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
     in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
     in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
-    in ground & water & far-trees & mid-trees & near-trees
+    in ground & water & far-trees & mid-trees & rail-cmds & near-trees

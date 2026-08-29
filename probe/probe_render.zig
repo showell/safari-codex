@@ -43,7 +43,6 @@ const camera = @import("wasm/camera.zig");
 const truck = @import("wasm/truck.zig");
 const pond = @import("wasm/pond.zig");
 const cat = @import("wasm/cat.zig");
-const critter = @import("wasm/critter.zig");
 
 // COPIED from render.zig's private consts -- see the header. Nothing else here is.
 const LOOK_AHEAD: usize = 7;
@@ -87,13 +86,6 @@ var k_lift: [512]f32 = undefined;
 var nkp: usize = 0;
 var nka: usize = 0;
 var nkr: usize = 0;
-
-var cr_tag: [1024]u32 = undefined;
-var cr_col: [1024]u32 = undefined;
-var cr_cnt: [1024]u32 = undefined;
-var cr_xy: [65536]f32 = undefined;
-var ncrt: usize = 0;
-var ncrx: usize = 0;
 
 var sc_n: [32]u32 = undefined;
 var sc_cp: [64]u32 = undefined;
@@ -515,52 +507,6 @@ pub fn main() void {
         }
     }
 
-    // THE BILLBOARD DRAW. critter.draw IS pub, so this is a real oracle: the probe
-    // calls it and reads the words the game actually put on the wire.
-    //
-    // THE BULL IS DELIBERATELY ABSENT. It is the only Fluent COLOR animal and 40 of
-    // its 43 polygons carry a 2-stop gradient, which paint.zig writes as wire tags
-    // 5 and 6. Safari chapter Paint models tags 0, 1 and 3, so the baked table
-    // flattens those to their first stop and the port emits tag 0 where the game
-    // emits 5 or 6. Grading it here would compare two different wire shapes and
-    // prove nothing. The seven FLAT species below are exact, and the bull becomes
-    // gradeable the day Paint grows the two tags.
-    {
-        const cases = [_]struct { cp: u32, h: f32, fwd: f32, face: bool }{
-            .{ .cp = 0x1F986, .h = 0.9, .fwd = 14.0, .face = false },
-            .{ .cp = 0x1F418, .h = 2.8, .fwd = 40.0, .face = true },
-            .{ .cp = 0x1F992, .h = 4.5, .fwd = 90.0, .face = false },
-            .{ .cp = 0x1F993, .h = 1.6, .fwd = 25.0, .face = true },
-            .{ .cp = 0x1F98F, .h = 2.2, .fwd = 60.0, .face = false },
-            .{ .cp = 0x1F404, .h = 1.4, .fwd = 18.0, .face = true },
-            .{ .cp = 0x1F416, .h = 1.1, .fwd = 9.0, .face = false },
-        };
-        for (cases) |cs| {
-            paint.reset();
-            critter.draw(2.5, cs.fwd, cs.h, cs.cp, cs.face, camera.FOCAL);
-            const words = paint.frameWords();
-            var wi: usize = 0;
-            while (wi < words.len) {
-                const tag = words[wi];
-                wi += 1;
-                cr_tag[ncrt] = tag;
-                cr_col[ncrt] = words[wi];
-                wi += 1;
-                if (tag == 1) wi += 1;
-                const np2 = words[wi];
-                wi += 1;
-                cr_cnt[ncrt] = np2;
-                ncrt += 1;
-                var k: usize = 0;
-                while (k < np2 * 2) : (k += 1) {
-                    cr_xy[ncrx] = @bitCast(words[wi]);
-                    ncrx += 1;
-                    wi += 1;
-                }
-            }
-        }
-    }
-
     std.debug.print("I r-chainlen", .{});
     for (chain_len[0..ncl]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nI r-chain", .{});
@@ -597,14 +543,6 @@ pub fn main() void {
     for (k_air[0..nka]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR k-lift", .{});
     for (k_lift[0..nkp]) |v| std.debug.print(" {d}", .{v});
-    std.debug.print("\nI cr-tag", .{});
-    for (cr_tag[0..ncrt]) |v| std.debug.print(" {d}", .{v});
-    std.debug.print("\nI cr-col", .{});
-    for (cr_col[0..ncrt]) |v| std.debug.print(" {d}", .{v});
-    std.debug.print("\nI cr-cnt", .{});
-    for (cr_cnt[0..ncrt]) |v| std.debug.print(" {d}", .{v});
-    std.debug.print("\nR cr-xy", .{});
-    for (cr_xy[0..ncrx]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR sc-place", .{});
     for (sc_r[0..nsr]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\n", .{});

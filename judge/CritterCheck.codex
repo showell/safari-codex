@@ -1,0 +1,93 @@
+Chapter: CritterCheck
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Critter
+  cites Judge chapter Grade
+  cites Gold chapter CritterGold
+
+ Grade Safari chapter Critter, which draws the animals' baked stills.
+
+ A CHECK OF ITS OWN FOR A BUNDLE-SIZE REASON, not a logical one. The two generated
+ tables are 216 KB and 534 KB of Codex literals; folded into RenderCheck on top of
+ everything that check already cites, codexzig aborts outright -- not a diagnostic,
+ a core dump. Apart they transpile comfortably. That is PORTING_NOTES C7 shaping
+ the port's STRUCTURE rather than just a tolerance, for the second time.
+
+ Both draw functions ARE pub, so both seams are real oracles: the probe calls the
+ game's own function and reads the words it put on paint's wire.
+
+ STRUCTURE EXACTLY, COORDINATES WITH THE PIXEL GATE. A still is baked art scaled by
+ one number, so a wrong point count is a wrong polygon and every colour is a
+ literal carried through unchanged; neither takes any tolerance.
+
+ THE BULL IS DELIBERATELY ABSENT from the animal cases, and saying so is the
+ honest part. It is the only Fluent COLOR animal and 40 of its 43 polygons carry a
+ 2-stop gradient, which paint.zig writes as wire tags 5 and 6. Safari chapter Paint
+ models tags 0, 1 and 3, so the generated table flattens each gradient to its first
+ stop and the port emits tag 0 where the game emits 5 or 6. Grading it would
+ compare two different wire shapes and prove nothing. The seven FLAT species are
+ exact, and the bull becomes gradeable the day Paint grows the two tags.
+
+ THE CAT'S COORDINATES ARE SAMPLED EVERY THIRD POINT and that is C7 again: seven
+ stills are 13,453 points, 26,906 Reals, and one Real literal past about 16,868
+ exhausts the transpiler's bump heap. Point counts stay exact, so a still that
+ gained or lost a polygon fails hard regardless; only the density is thinned.
+ Mountains hit the same ceiling and took the same answer.
+
+ THE CAT'S HOP IS WHAT ITS CASES ARE FOR. It is applied in the UNIT FRAME -- added
+ to each polygon's own y before scaling -- so it is measured in cat-heights and
+ shrinks with distance like the rest of the still. Reading it as a metres offset to
+ the anchor would look nearly right up close and drift wrong as the cat recedes,
+ which one near sample would wave through. Two of the seven cases are airborne, at
+ different depths.
+
+ We say:
+
+Section: The Cases
+
+  CritterCase = record {
+    cp : Integer,
+    h : Real,
+    fwd : Real,
+    face : Boolean
+  }
+
+  critter-cases : List CritterCase
+  critter-cases = [CritterCase { cp = 129414, h = 0.9, fwd = 14.0, face = False }, CritterCase { cp = 128024, h = 2.8, fwd = 40.0, face = True }, CritterCase { cp = 129426, h = 4.5, fwd = 90.0, face = False }, CritterCase { cp = 129427, h = 1.6, fwd = 25.0, face = True }, CritterCase { cp = 129423, h = 2.2, fwd = 60.0, face = False }, CritterCase { cp = 128004, h = 1.4, fwd = 18.0, face = True }, CritterCase { cp = 128022, h = 1.1, fwd = 9.0, face = False }]
+
+  critter-wire : Integer -> List DrawCmd
+  critter-wire (i) =
+    if i >= list-length critter-cases then []
+    else (critter-draw 2.5 (list-at critter-cases i).fwd (list-at critter-cases i).h (list-at critter-cases i).cp (list-at critter-cases i).face focal camera-w) & critter-wire (i + 1)
+
+Section: Flattening
+
+  s-tags : List DrawCmd, Integer -> List Integer
+  s-tags (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).tag] & s-tags cs (i + 1)
+
+  s-cols : List DrawCmd, Integer -> List Integer
+  s-cols (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).color] & s-cols cs (i + 1)
+
+  s-counts : List DrawCmd, Integer -> List Integer
+  s-counts (cs) (i) =
+    if i >= list-length cs then []
+    else [list-length (list-at cs i).pts / 2] & s-counts cs (i + 1)
+
+  s-coords : List DrawCmd, Integer -> List Real
+  s-coords (cs) (i) =
+    if i >= list-length cs then []
+    else (list-at cs i).pts & s-coords cs (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints "cr-tag " (s-tags (critter-wire 0) 0) g-cr-tag)
+    print-line-uni (grade-ints "cr-col " (s-cols (critter-wire 0) 0) g-cr-col)
+    print-line-uni (grade-ints "cr-cnt " (s-counts (critter-wire 0) 0) g-cr-cnt)
+    print-line-uni (grade-px   "cr-xy  " (s-coords (critter-wire 0) 0) g-cr-xy 0.001 0.000001)
+  end

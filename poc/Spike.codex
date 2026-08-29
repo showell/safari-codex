@@ -4,6 +4,7 @@ Chapter: Spike
   cites Safari chapter Paint
   cites Safari chapter World
   cites Safari chapter Critter
+  cites Safari chapter CatDraw
   cites Safari chapter Render
   cites Safari chapter Pose
   cites Safari chapter Rider
@@ -21,11 +22,11 @@ Chapter: Spike
  checks in judge/; if this chapter and a check ever disagree, the CHECK is right.
  Delete this whole file the day it stops being useful and nothing else changes.
 
- WHAT IT ADDS TO A NORMAL FRAME IS NOW ONLY THE CAT. The animals draw themselves
- -- EmojiStills holds their art and Critter places it, both graded -- so a still
- here is what the browser draws, not an approximation of it. The cat's flipbook is
- a second table that is not generated yet, so it keeps a box, lifted by its hop so
- the leap still reads.
+ IT ADDS NOTHING TO A NORMAL FRAME ANY MORE. Every kind that draws at all draws
+ itself now -- the animals from EmojiStills, the cat from CatStills, both graded on
+ the wire against the game's own functions -- so a still here IS what the browser
+ draws, at a chosen point on the route and without having to drive to it. The only
+ thing missing from both is the truck's body.
 
  We say:
 
@@ -44,27 +45,8 @@ Section: The Animals
   marker-of : Billboard, Real -> List DrawCmd
   marker-of (b) (cf) = critter-draw b.right b.fwd b.height b.cp b.face-right cf camera-w
 
-  cat-marker-tag : Integer
-  cat-marker-tag = 10
-
- THE CAT GETS ITS OWN SPIKE TAG because it is a FLIPBOOK, not a species: what has
- to travel is which still to draw, so the pose index rides in the colour word
- where the animals put their codepoint. cat_frames.zig turns out to be the same
- shape of table as emoji_frames -- named pose arrays of solid polygons in the same
- unit frame -- so the spike script reads it the same way.
-
- THE ANCHOR ALREADY CARRIES THE HOP. The feet are projected at the lift, not at
- the ground, so a mid-leap cat is drawn where it actually is in the air; and the
- height is measured from lifted feet to lifted ears, so it does not grow as it
- rises. That is what cat.zig's draw does with the same two numbers.
-
   cat-marker : CatItem, Real -> List DrawCmd
-  cat-marker (c) (cf) =
-    let base = project (Vec3 { right = c.right, forward = c.fwd, height = c.lift }) cf camera-w
-    in let top = project (Vec3 { right = c.right, forward = c.fwd, height = c.lift + c.height }) cf camera-w
-    in let h = base.y - top.y
-    in if h < 1.0 then []
-      else [DrawCmd { tag = cat-marker-tag, color = c.pose-idx, strength = 0.0, pts = [base.x, base.y, h] }]
+  cat-marker (c) (cf) = cat-draw c.right c.fwd c.height c.pose-idx c.lift cf camera-w
 
 Section: The Frame
 

@@ -2,6 +2,7 @@ Chapter: Critter
   cites Safari chapter Camera
   cites Safari chapter Geom
   cites Safari chapter Paint
+  cites Safari chapter Stills
   cites Safari chapter EmojiStills
 
  A roadside animal as a baked-polygon billboard.
@@ -45,7 +46,7 @@ Section: The Billboard Map
   facing : Boolean -> Real
   facing (face-right) = if face-right then 0.0 - 1.0 else 1.0
 
-  mapped-pts : ScreenPt, Real, Real, List EmojiPt, Integer -> List ScreenPt
+  mapped-pts : ScreenPt, Real, Real, List StillPt, Integer -> List ScreenPt
   mapped-pts (b) (s) (ht) (ps) (i) =
     if i >= list-length ps then []
     else [map-p b s ht (list-at ps i).x (list-at ps i).y] & mapped-pts b s ht ps (i + 1)
@@ -58,12 +59,12 @@ Section: The Billboard Map
   max-critter-pts : Integer
   max-critter-pts = 512
 
-  critter-poly : ScreenPt, Real, Real, EmojiPoly -> List DrawCmd
+  critter-poly : ScreenPt, Real, Real, StillPoly -> List DrawCmd
   critter-poly (b) (s) (ht) (poly) =
     if list-length poly.pts > max-critter-pts then []
     else push-poly poly.color (mapped-pts b s ht poly.pts 0)
 
-  critter-polys : ScreenPt, Real, Real, List EmojiPoly, Integer -> List DrawCmd
+  critter-polys : ScreenPt, Real, Real, List StillPoly, Integer -> List DrawCmd
   critter-polys (b) (s) (ht) (ps) (i) =
     if i >= list-length ps then []
     else (critter-poly b s ht (list-at ps i)) & critter-polys b s ht ps (i + 1)

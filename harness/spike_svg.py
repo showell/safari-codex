@@ -275,12 +275,6 @@ def svg(name, top, hor, cmds):
     # then cover it wherever there is road.
     out.append(f'<rect y="{H//2}" width="{W}" height="{H//2}" fill="{GRASS}"/>')
     for i, (tag, color, st, pts, raw) in enumerate(cmds):
-        # TAG 10 IS SPIKE-ONLY: a cat still, pose index in the colour word.
-        if tag == 10:
-            if len(raw) < 3:
-                continue
-            out += cat_still(color, raw[0], raw[1], raw[2])
-            continue
         if tag == 3:  # a disc: x, y, r with alpha in strength
             if len(raw) < 3:
                 continue

@@ -1,0 +1,26 @@
+Chapter: Stills
+
+ The shape a baked still is made of, shared by every generated table.
+
+ IT IS ITS OWN CHAPTER FOR A NAMESPACE REASON. Codex chapters share one flat
+ namespace inside a bundle (PORTING_NOTES B5), so EmojiStills and CatStills cannot
+ each define these -- render draws animals and a cat in the same frame and cites
+ both. Hand-written, unlike the tables that cite it, because it never changes.
+
+ A point is in the UNIT FRAME the billboards use: feet at y = 0, y up, height 1,
+ facing LEFT. A polygon is solid; the one gradient in the game's art is flattened
+ by the baker, and Safari chapter Critter says which animal that costs.
+
+ We say:
+
+Section: Shapes
+
+  StillPt = record {
+    x : Real,
+    y : Real
+  }
+
+  StillPoly = record {
+    color : Integer,
+    pts : List StillPt
+  }

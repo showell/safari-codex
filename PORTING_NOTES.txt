@@ -808,3 +808,45 @@ C13. THE WASM HEAP IS SIZED BY ONE FRAME'S HIGH-WATER, NOT BY A LEAK.
     about three times the requirement. .bss costs nothing until the pages are
     touched, so reserving generously is nearly free, and wasm32 caps the whole
     address space at 4 GiB. build_wasm.sh takes HEAP_MB to re-measure.
+
+
+================================================================================
+C14. C7 SHAPES STRUCTURE, NOT JUST TOLERANCES
+================================================================================
+
+    C7 recorded the bump-heap ceiling as a reason to grade Mountains at every
+    eighth point. It also decides how CHECKS ARE DIVIDED, which is a bigger
+    consequence and took two failures to see.
+
+    The two generated still tables are 216 KB (EmojiStills) and 534 KB
+    (CatStills). Bundled into RenderCheck on top of what it already cites,
+    codexzig ABORTS -- a core dump, not a diagnostic. Bundled together into one
+    StillsCheck it still aborts. Each alone transpiles comfortably.
+
+    AND IT IS NOT THE DECK. It died with 68 MB used of 512 MB reserved, so the
+    reported arena had ample headroom; the abort is somewhere else in the
+    transpiler. Watching CX-DECK is therefore not enough to predict this.
+
+    So: ONE CHECK PER GENERATED TABLE. judge/CritterCheck grades the animals,
+    judge/CatDrawCheck grades the cat, and RenderCheck went back to grading the
+    collection. That is three checks where the module structure would have
+    suggested one, and the reason is entirely the toolchain.
+
+    The practical rule: a generated data chapter is a bundle-sized thing, and the
+    check that cites it should cite almost nothing else.
+
+C15. A NEW MODULE MUST NOT BE ABLE TO KILL THE SWEEP SILENTLY.
+
+    The stamp skip added in C10 keys the gold on `cat probe/... gold/<X>Gold.codex
+    | sha256sum`. A NEW module has no gold yet, so `cat` exits non-zero, `pipefail`
+    propagates it, and `set -e` ended the whole run -- printing NOTHING, because
+    the stderr was already redirected to /dev/null to hide the missing-file
+    message.
+
+    Adding a module is the most ordinary thing this repo does, and the failure
+    looked like the harness silently doing nothing. `|| true` inside the group is
+    the fix: a missing gold simply means the key cannot match, which is exactly
+    the "regenerate it" answer wanted.
+
+    The general shape is worth keeping: an optimisation that assumes steady state
+    has to be checked against the FIRST run, not just the second.

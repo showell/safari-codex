@@ -13,6 +13,7 @@ Chapter: Drive
   cites Safari chapter Sky
   cites Safari chapter SafariCritter
   cites Safari chapter Critter
+  cites Safari chapter CatDraw
   cites Safari chapter Rider
   cites Safari chapter Render
 
@@ -36,9 +37,11 @@ Chapter: Drive
  carry a 2-stop gradient, which paint.zig writes as wire tags 5 and 6 that Paint
  does not model yet, so the generated table flattens each to its first stop.
 
- The cat still draws nothing: its flipbook is a second, bigger table. The truck is
- the same -- it drives, and its body reaches chain machinery that is ported now, so
- it is unblocked rather than missing.
+ THE CAT DRAWS TOO, from `Safari chapter CatStills` -- seven stills, not seven
+ hundred, with `Safari chapter Cat` picking one per crossing step and computing the
+ lateral travel and the hop continuously. Only the truck's body is still missing,
+ and it is unblocked rather than blocked: it reaches chain machinery that is ported
+ now and one paint tag that is not.
 
  The rider is not simulated. `Safari chapter Rider` is ported and graded, but it is
  a step function over a mutable state and the shim's scrub is PURE -- frame-at (u)
@@ -203,6 +206,9 @@ Section: Drawing What Is Sorted
   draw-one-critter : Billboard, Real -> List DrawCmd
   draw-one-critter (b) (cf) = critter-draw b.right b.fwd b.height b.cp b.face-right cf camera-w
 
+  draw-one-cat : CatItem, Real -> List DrawCmd
+  draw-one-cat (k) (cf) = cat-draw k.right k.fwd k.height k.pose-idx k.lift cf camera-w
+
   draw-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
   draw-item (w) (ch) (pose) (c) (it) (cf) (step) =
    when it.kind
@@ -210,7 +216,7 @@ Section: Drawing What Is Sorted
     is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
     is KCow -> draw-one-critter (list-at c.cows it.i) cf
-    is KCat -> []
+    is KCat -> draw-one-cat (list-at c.cats it.i) cf
     is KTruck -> []
 
   draw-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd

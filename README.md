@@ -171,6 +171,8 @@ draw two apiece. Four viewpoints ship: the big pig herd, the mid-tower on the
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
 | `port/EmojiStills.codex` | `wasm/emoji_frames.zig` | **generated**, 5,267 points |
 | `port/Critter.codex` | `wasm/critter.zig` | 6,174 values, 7 species exact |
+| `port/CatStills.codex` | `wasm/cat_frames.zig` | **generated**, 7 poses |
+| `port/CatDraw.codex` | `wasm/cat.zig`'s `draw` | 9,993 values |
 | `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
 
 

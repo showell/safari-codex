@@ -57,7 +57,11 @@ for check in "${checks[@]}"; do
   # survive one run: edit gold/ by hand and the key no longer matches, so the next
   # sweep regenerates it from the zig. Leave the gold out of the key and this
   # optimisation would quietly turn a generated file into an editable one.
-  gold_key="$(cat "probe/probe_$mod.zig" probe/wasm/*.zig "gold/${base}Gold.codex" 2>/dev/null | sha256sum)"
+  # `|| true` because a NEW module has no gold yet: cat fails, pipefail propagates
+  # it, and set -e killed the whole sweep with no message at all. Adding a module
+  # must not be able to do that -- a missing gold simply means the key cannot
+  # match, which is exactly the "regenerate it" answer we want.
+  gold_key="$( { cat "probe/probe_$mod.zig" probe/wasm/*.zig "gold/${base}Gold.codex" 2>/dev/null || true; } | sha256sum )"
   if [ "$gold_key" != "$(cat "build/$mod.goldstamp" 2>/dev/null)" ]; then
     python3 harness/gen_gold.py "$base" >/dev/null
     cat "probe/probe_$mod.zig" probe/wasm/*.zig "gold/${base}Gold.codex" | sha256sum > "build/$mod.goldstamp"

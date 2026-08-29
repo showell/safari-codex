@@ -1,32 +1,23 @@
-# Compiled executables only. Everything else — generated zig, gold chapters, the
-# wasm module — is now tracked, per Steve 2026-08-29 ("just add everything for
-# now; we can sort out gitignore in the next session").
+# Generated zig, gold chapters, the wasm module and the bundled units are tracked,
+# per Steve 2026-08-29 ("just add everything for now"). Compiled executables and
+# the harness's skip stamps are not.
 #
-# These are left out because git keeps a blob FOREVER: they are 3.7 MB each,
-# they are pure `zig build-exe` output, and ./harness/run.sh remakes them from
-# nothing in about a minute. Say the word and they go in too.
-build/pond
-build/camera
-build/tree
-build/guard_rail
-build/sky
-build/mountains
-build/tower
-build/world
-build/rider
-build/truck
-build/scene
-build/render
-probe/probe_pond
-probe/probe_camera
-probe/probe_tree
-probe/probe_guard_rail
-probe/probe_sky
-probe/probe_mountains
-probe/probe_tower
-probe/probe_world
-probe/probe_rider
-probe/probe_truck
-probe/probe_render
+# PATTERNS, NOT A HAND-LIST OF EVERY BINARY. The old file named all twenty-three
+# by hand, which quietly broke README's "add three files and nothing else" rule:
+# a new module actually needed two more lines here, and forgetting them commits a
+# 3.7 MB blob that git keeps forever.
+#
+# Executables are left out because they are pure `zig build-exe` output and
+# ./harness/run.sh remakes them from nothing in about a second each.
+build/*
+!build/*.zig
+!build/*.codex
+!build/*.diag
+!build/*.wasm
+
+# The probes, likewise: sources tracked, binaries not.
+probe/probe_*
+!probe/probe_*.zig
+
 .zig-cache/
 *.o

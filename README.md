@@ -12,8 +12,9 @@ been built.
 
     ./harness/run.sh
 
-That is the whole interface. It takes no arguments, runs every check in `judge/`,
-and prints `GREEN` or `RED`. For each module it:
+That is the whole interface. With no arguments it runs every check in `judge/`;
+name one or more chapters to run just those. It prints `GREEN` or `RED`. For each
+module it:
 
 1. builds `probe/probe_<mod>.zig` and runs it — the probe imports the **real,
    unmodified** game module, so the hand-written Zig is the oracle;
@@ -21,14 +22,26 @@ and prints `GREEN` or `RED`. For each module it:
 3. bundles the check with `harness/bundle.py`;
 4. transpiles it with `codexzig`, builds the Zig, runs it, and grades.
 
-**About three seconds per module, and it used to be fifty.** All of the difference
-was `zig build-exe -O ReleaseFast` — 22s for even a 495-line generated file, LLVM
-optimising the Codex runtime prelude that every one embeds, run twice per module
-and *not* cached between sweeps. Nothing here is a benchmark, so both builds are
-Debug now, which also turns on the safety checks a correctness harness wants.
-`PORTING_NOTES` C9 has the measurements, including the one value in the whole port
-that the optimisation level moves. **Nothing here boots a QEMU guest** — this is
-not the ladder's usual cadence, and none of the ladder's compute rules apply.
+**Twenty-nine seconds cold, three seconds when nothing has changed.** It was nine
+minutes. Two things fixed that, and both are worth knowing:
+
+`zig build-exe -O ReleaseFast` cost 22s per invocation and ran twice per module.
+That is *not* our code being optimised — a two-line program whose whole body is one
+`std.debug.print` costs the same 22s, and 1,200 extra lines of generated Codex cost
+0.05s. It is LLVM compiling zig's own formatting machinery on a two-core box.
+Nothing here is a benchmark, so both builds are Debug, which also turns on the
+safety checks a correctness harness wants.
+
+Then the sweep **skips what has not changed**, keyed on a hash of the bundled unit —
+which *is* the transitive closure of every `cites` edge, so there is no dependency
+list to keep in step. The gold's own hash is folded into its key, which is what
+keeps the promise below that a hand-edited gold cannot survive one run.
+`PORTING_NOTES` C9 and C10 have the measurements.
+
+    ./harness/run.sh Render          # just one module, about 3s
+
+**Nothing here boots a QEMU guest** — this is not the ladder's usual cadence, and
+none of the ladder's compute rules apply.
 
 ## Layout
 
@@ -162,13 +175,20 @@ exactly the right place: the state on segment 16 has a three-long chain that nev
 reaches the farm cull's third index, so its tally is zero, and that is the chain's
 extent made observable from outside render.zig.
 
-**The cat is the one collected kind still missing, and it is blocked rather than
+**The cat is the one collected kind still missing, and it is parked rather than
 skipped.** `cat.state` is otherwise portable — its pose indices are plain constants,
 not baked polygons — but the airborne branch interpolates by `pow(b, 0.7)` and Codex
-has no power function. `Num` already grew `exp-real`; what is missing is its other
-half, a logarithm. So that is a third gap in the foreword beside `r-atan`, not a
-hole in the plug. The depth-order seam is graded on chains the route itself makes
-cat-free — cats sit on segments 1, 12 and 18 only.
+has no power function. It is the *only* `pow` in the whole game; the only other
+transcendental outside the trig is `rider.zig`'s `@exp`, which `Num` already ports.
+So the missing half is a logarithm.
+
+Changing `cat.zig` would make it easy — 0.75 is dyadic where 0.7 is not, so
+`@sqrt(b * @sqrt(b))` is exactly b^0.75 using a square root both languages already
+have, and it differs from b^0.7 by at most 8.6cm of lateral position mid-flight.
+**The game is not being changed for the port's convenience**, so that stays on the
+shelf. We may come back and write `ln-real` beside `exp-real`; `PORTING_NOTES` D7
+carries the argument. The depth-order seam is graded on chains the route itself
+makes cat-free — cats sit on segments 1, 12 and 18 only.
 
 **The sort is the one place the port departs from the zig on purpose.** render.zig
 insertion-sorts, which is right for a mutable array. Carried literally onto Codex

@@ -584,13 +584,41 @@ C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
         the graded program itself running  0.5 s
 
     So an eleven-module sweep was nine minutes, of which about eight and a half
-    were LLVM optimising the Codex runtime prelude that every generated file
-    embeds. README's "about five seconds per module" was never right.
+    were ReleaseFast. README's "about five seconds per module" was never right.
 
-    AND ZIG DOES NOT CACHE IT. Rebuilding an UNCHANGED probe a second time took
-    28 s against the cold build's 22 s -- slower, not cached. So this was not a
-    one-time cost being amortised; it was 25 s per module on every single sweep,
-    forever.
+    I FIRST BLAMED THE CODEX RUNTIME PRELUDE. Wrong, and the disproof was sitting
+    in the sentence above: a cost that is the same for 495 lines and for 1,714 is
+    a FIXED cost, which is not what a prelude-proportional one looks like. A
+    two-line program whose entire body is one std.debug.print costs the same 23 s:
+
+        hello, 2 lines, one std.debug.print   Debug 0.94 s   ReleaseFast 23.5 s
+        build/pond.zig, 495 lines             Debug 0.85 s   ReleaseFast 23.8 s
+
+    It is LLVM compiling ZIG'S OWN formatting machinery, on a two-core box. Our
+    code is nearly free by comparison -- 1,200 extra lines of generated Codex cost
+    about 0.05 s. (An empty `pub fn main() void {}` builds in 0.24 s and proves
+    nothing: with no std reachable there is nothing to optimise.)
+
+    THAT MATTERS BECAUSE IT KILLS THE TEMPTING FIX. The generated files really do
+    share a byte-identical prelude, so precompiling it once as a module and
+    linking looks like the obvious win. It would save under half a second across
+    the whole sweep, and it would cost the transpiler a module boundary it does
+    not currently emit. The fixed floor is zig's std, and no amount of prelude
+    surgery touches it.
+
+    AND `zig build-exe` NEVER CACHES. Rebuilding an UNCHANGED probe a second time
+    took 28 s against the cold build's 22 s -- slower, not cached. It writes no
+    .zig-cache in the cwd, an explicit --cache-dir is written to and never read
+    back, and it does not skip when the output binary is newer than the source.
+    So this was not a one-time cost being amortised; it was 25 s per module on
+    every single sweep, forever.
+
+    `zig build` -- the build SYSTEM, with a build.zig -- caches completely: 24.5 s
+    cold, then 0.04 s unchanged, and 0.04 s after a touch that does not change
+    content. That is the escape hatch if ReleaseFast is ever wanted back here.
+    `-fno-llvm` also takes ReleaseFast to under a second, but it is a different
+    codegen, so by this note's own argument it is no more "the shipping
+    arithmetic" than Debug is.
 
     THE FIRST ATTEMPT AT THIS NOTE CLAIMED THE LEVEL CHANGES NO ANSWER. That was
     wrong, and how it was wrong is the interesting part. It moves exactly one
@@ -621,3 +649,62 @@ C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
     oracle itself is allowed to wobble between honest builds of the same source,
     and D5's gate already admits it with room to spare. A port graded tightly
     enough to fail on a build-mode change would be a port measuring the compiler.
+
+
+================================================================================
+C10. THE SWEEP SKIPS WHAT HAS NOT CHANGED, AND THE KEY IS THE BUNDLED UNIT
+================================================================================
+
+    Debug took the sweep to 29 s, and every second of that was still being paid
+    on runs where nothing had changed. Two stamp files per module in build/ take
+    an unchanged sweep to 2.9 s, with byte-identical output.
+
+    THE CHECK'S KEY IS THE BUNDLED UNIT, and that is the whole trick. The unit IS
+    the transitive closure of every `cites` edge -- the port chapters, Grade, the
+    gold just written, and the foreword chapters that live outside this repo -- so
+    hashing it covers all of them with no dependency list to keep in step.
+    Verified: perturbing Pond's duck-height rebuilt Pond AND Render, because
+    Render cites Pond, and nothing else. Bundling is 50 ms, so it runs every time
+    and only the two slow steps are skipped.
+
+    THE GOLD'S OWN HASH IS PART OF ITS KEY. That is what keeps README's promise
+    that a stale or hand-edited gold cannot survive one run. Verified by injecting
+    a bogus 999.0 into gold/PondGold.codex: the next sweep regenerated it from the
+    zig and went green. Leave the gold out of its own key and this optimisation
+    would quietly turn a generated file into an editable one -- which is exactly
+    the "second copy of the oracle" failure the whole harness exists to prevent.
+
+    The graded programs still RUN every time, all eleven of them, for 1.9 s total.
+    Skipping those would save little and would make "a check that printed nothing
+    is a check that did not run" a lie.
+
+    Measured: 28.9 s cold, 2.9 s unchanged, 7.2 s after a one-chapter edit.
+
+    NOT DONE, MEASURED AND REJECTED: running the modules in parallel. `xargs -P2`
+    gave 20.9 s against 30.5 s serial and `-P4` gave nothing more -- the box has
+    two cores -- for interleaved output and a harder failure check. The stamp skip
+    subsumes it on the common case.
+
+
+================================================================================
+D7. THE CAT'S LEAP NEEDS A LOGARITHM, AND IT IS PARKED ON PURPOSE
+================================================================================
+
+    cat.zig's airborne branch interpolates the cat's lateral travel by
+    `pow(b, 0.7)` -- the "front-loaded" lerp of a two-frame hop. It is the ONLY
+    `pow` in the whole game; the only other transcendental outside the trig is
+    rider.zig's `@exp`, which Num already ports as exp-real. So the missing half
+    is a logarithm, since pow is exp of a log.
+
+    THE GAME IS NOT BEING CHANGED FOR THE PORT'S CONVENIENCE (Steve). It would be
+    easy to: 0.75 is dyadic where 0.7 is not, so `@sqrt(b * @sqrt(b))` is exactly
+    b^0.75 using nothing but a square root both languages already have, and it
+    differs from b^0.7 by at most 0.025 -- about 8.6 cm of lateral position at
+    mid-flight, zero at both ends. But cat.zig is the ORACLE and the deployed
+    screensaver, and this port's premise is that the zig stays intact.
+
+    So the cat stays out of the collection, and this is a note rather than a plan:
+    WE MAY COME BACK AND WRITE ln-real. Num is where it would go, beside exp-real,
+    and it would need its own accuracy calibration like everything else here. One
+    call site is not much reason on its own -- but a logarithm is a foreword gap
+    like r-atan, and the next module that wants one will find it already argued.

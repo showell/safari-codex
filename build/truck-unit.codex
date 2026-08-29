@@ -131,55 +131,6 @@ Section: Definitions
 
 Page 1
 
-Chapter: Pose
-
- The rider's state, and nothing else.
-
- THIS CHAPTER EXISTS TO CUT A CYCLE. In the zig, rider.zig imports gaze.zig for the
- gawk brake and the gaze step, and gaze.zig imports rider.zig for the state type --
- a mutual import zig permits and Codex cites do not. The cycle has to be cut
- somewhere, and the honest place is the thing they actually share: the record.
- Neither module's LOGIC moves, so this is a packaging adaptation and not a change
- of behaviour, in the same family as Camera threading view-w because Codex has no
- mutable global.
-
- A port of the RiderState in wasm/rider.zig.
-
- We say:
-
-Section: State
-
- `yaw` is the heading against the CURRENT segment -- frame-relative, which is what
- the road geometry reads -- and is reset into each new segment's frame at a
- crossing.
-
- `heading` is the bike's ABSOLUTE world heading, integrated continuously and left
- untouched by the crossing. The backdrop reads this one, so the horizon turns
- exactly as much as the bike does rather than jumping when the frame changes.
-
- `gaze-yaw` and `focus` are the distracted rider, and both are VIEW-ONLY: an extra
- camera yaw toward the roadside pigs, and the camera's focus-narrowing progress as
- he gawks. They are advanced after the bike has moved.
-
-  RiderState = record {
-    segment : Integer,
-    along : Real,
-    across : Real,
-    yaw : Real,
-    v : Real,
-    tilt : Real,
-    heading : Real,
-    gaze-yaw : Real,
-    focus : Real
-  }
-
-  v-base : Real
-  v-base = 0.3
-
-  initial-rider-state : RiderState
-  initial-rider-state =
-    RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
-
 Chapter: DeviceMath
 
  We say:
@@ -1115,6 +1066,55 @@ Section: Distances
   route-distance : List Segment, Integer, Real -> Real
   route-distance (ss) (seg) (along) = route-distance-from ss seg 0 + along
 
+Chapter: Pose
+
+ The rider's state, and nothing else.
+
+ THIS CHAPTER EXISTS TO CUT A CYCLE. In the zig, rider.zig imports gaze.zig for the
+ gawk brake and the gaze step, and gaze.zig imports rider.zig for the state type --
+ a mutual import zig permits and Codex cites do not. The cycle has to be cut
+ somewhere, and the honest place is the thing they actually share: the record.
+ Neither module's LOGIC moves, so this is a packaging adaptation and not a change
+ of behaviour, in the same family as Camera threading view-w because Codex has no
+ mutable global.
+
+ A port of the RiderState in wasm/rider.zig.
+
+ We say:
+
+Section: State
+
+ `yaw` is the heading against the CURRENT segment -- frame-relative, which is what
+ the road geometry reads -- and is reset into each new segment's frame at a
+ crossing.
+
+ `heading` is the bike's ABSOLUTE world heading, integrated continuously and left
+ untouched by the crossing. The backdrop reads this one, so the horizon turns
+ exactly as much as the bike does rather than jumping when the frame changes.
+
+ `gaze-yaw` and `focus` are the distracted rider, and both are VIEW-ONLY: an extra
+ camera yaw toward the roadside pigs, and the camera's focus-narrowing progress as
+ he gawks. They are advanced after the bike has moved.
+
+  RiderState = record {
+    segment : Integer,
+    along : Real,
+    across : Real,
+    yaw : Real,
+    v : Real,
+    tilt : Real,
+    heading : Real,
+    gaze-yaw : Real,
+    focus : Real
+  }
+
+  v-base : Real
+  v-base = 0.3
+
+  initial-rider-state : RiderState
+  initial-rider-state =
+    RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
 Chapter: Gaze
   cites Gpu chapter DeviceMath
   cites Safari chapter Num
@@ -1670,6 +1670,137 @@ Section: One Frame
     let seg = list-at segs s.segment
     in if seg.terminates then s.along >= seg.length else False
 
+Chapter: Truck
+  cites Gpu chapter DeviceMath
+  cites Safari chapter World
+  cites Safari chapter Rider
+  cites Foreword chapter ListUtils
+
+ The truck the rider is chasing: how far it has driven along the route, its speed,
+ and whether it is slowing this frame.
+
+ A partial port of wasm/truck.zig -- THE MOTION HALF ONLY, and the split is the
+ zig's own. `State`, `initial`, `nextTurn` and `next` reach nothing but the world
+ and a few of the rider's constants. The drawing half -- the trailer box, its
+ tires, the headlight wedges -- reaches `render.Chain`, `render.Pose` and
+ `render.at`, which is the road-chain machinery that maps a segment-local point
+ into the rider's frame, and render.zig is not ported. So the truck can DRIVE and
+ not yet be seen, exactly as the cat can be placed and not yet animated.
+
+ THREE RULES AND NOTHING ELSE: brake before a turn, accelerate when behind
+ schedule, cruise when ahead. The schedule is a lerp -- it starts the truck five
+ hundred metres ahead and closes that to a hundred by the course end, which is a
+ photo finish rather than a catch.
+
+ Every one of its margins is expressed against the rider's own constants rather
+ than repeated: it accelerates ten percent harder, tops out ten percent faster,
+ brakes over the same distance, and takes each corner at four fifths of the
+ rider's safe speed. So a change to the rider's physics moves the truck with it.
+
+ We say:
+
+Section: The Chase Schedule
+
+  start-ahead : Real
+  start-ahead = 500.0
+
+ The lead the schedule closes DOWN to by the course end -- not zero, because the
+ point is a photo finish.
+
+  finish-lead : Real
+  finish-lead = 100.0
+
+  truck-turn-caution : Real
+  truck-turn-caution = 0.8
+
+  truck-brake-distance : Real
+  truck-brake-distance = approach-intersection-dist
+
+  truck-chase-accel : Real
+  truck-chase-accel = 1.1 * a-accel
+
+  truck-max-v : Real
+  truck-max-v = 1.1 * v-max
+
+Section: State
+
+  TruckState = record {
+    pos : Real,
+    v : Real,
+    braking : Boolean
+  }
+
+ At the start: a long way down the road, idling at the rider's base speed, not
+ braking.
+
+  truck-initial : TruckState
+  truck-initial = TruckState { pos = start-ahead, v = v-base, braking = False }
+
+Section: The Next Turn
+
+ How far to the next real TURN ahead of `pos`, and the rider's safe speed for it.
+ Past the course end there is no turn to brake for and the truck cruises in.
+
+ The zig answers infinity for "no turn", which Codex has no literal for -- and a
+ sentinel would be worse than saying what is meant, so `found` carries it. Every
+ caller tests it before reading the distance.
+
+  NextTurn = record {
+    found : Boolean,
+    dist : Real,
+    v-turn : Real
+  }
+
+  no-turn : NextTurn
+  no-turn = NextTurn { found = False, dist = 0.0, v-turn = 0.0 }
+
+  next-turn-loop : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-loop (segs) (pos) (i) (cum0) =
+    if i >= list-length segs then no-turn
+    else next-turn-step segs pos i (cum0 + (list-at segs i).length)
+
+  next-turn-step : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-step (segs) (pos) (i) (cum) =
+    let s = list-at segs i
+    in if pos < cum
+      then (if s.terminates then no-turn else NextTurn { found = True, dist = cum - pos, v-turn = turn-speed s.exit-angle })
+      else next-turn-loop segs pos (i + 1) cum
+
+  next-turn : List Segment, Real -> NextTurn
+  next-turn (segs) (pos) = next-turn-loop segs pos 0 0.0
+
+Section: One Frame
+
+ Advance the truck one RIDER frame. `rider-dist` is how far the rider has now
+ driven, and `l` is the course length.
+
+ The kinematic brake arrives at the turn at the caution speed and is recomputed
+ every frame, so it tracks rather than committing. The brake lights are lit only
+ while it is ACTUALLY slowing -- the flag is a comparison against the previous
+ speed, not against the intent.
+
+  truck-next : TruckState, Real, List Segment, Real -> TruckState
+  truck-next (truck) (rider-dist) (segs) (l) =
+    let scheduled = rider-dist + finish-lead + (start-ahead - finish-lead) * (1.0 - rider-dist / l)
+    in let turn = next-turn segs truck.pos
+    in if turn.found then (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
+       else truck-free truck scheduled
+
+  truck-braking : TruckState, NextTurn -> TruckState
+  truck-braking (truck) (turn) =
+    let target = turn.v-turn * truck-turn-caution
+    in let a = if turn.dist > 0.000001 then (target * target - truck.v * truck.v) / (2.0 * turn.dist) else 0.0
+    in let v = real-max target (truck.v + a)
+    in TruckState { pos = truck.pos + v, v = v, braking = v < truck.v }
+
+ Behind schedule it accelerates, capped; ahead of schedule and not braking, it
+ holds its speed.
+
+  truck-free : TruckState, Real -> TruckState
+  truck-free (truck) (scheduled) =
+    let v = if truck.pos < scheduled then real-min truck-max-v (truck.v + truck-chase-accel) else truck.v
+    in TruckState { pos = truck.pos + v, v = v, braking = False }
+
 Chapter: Grade
 
  The reusable grader: compare a flattened list of values against gold and say
@@ -1807,9 +1938,9 @@ Section: Judging Booleans
         in if i < 0 then name & " ok " & show (list-length got)
            else name & " BAD at " & show i
 
-Chapter: RiderGold
+Chapter: TruckGold
 
- GENERATED by harness/gen_gold.py from probe/probe_rider.zig.
+ GENERATED by harness/gen_gold.py from probe/probe_truck.zig.
  Every value here came from importing the real game module unmodified.
  Do not edit: the next harness run overwrites this file.
 
@@ -1817,213 +1948,95 @@ Chapter: RiderGold
 
 Section: Gold
 
-  g-rd-seg : List Integer
-  g-rd-seg = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 1, 18, 18, 0]
+  g-tk-pos : List Real
+  g-tk-pos = [500.3, 601.211, 901.2, 471.93387, 495.47815, 499.1776, 2002.5, 7301.0, 7601.0]
 
-  g-rd-along : List Real
-  g-rd-along = [0.31, 121.40974, 121.40974, 2.5, 472.11542, 497.48245, 61.21, 111.2, 201.58923, 301.52582, 335.23874, 360.23874, -1.9938776, 250.7936, 300.0, 201.01]
+  g-tk-v : List Real
+  g-tk-v = [0.3, 1.2110001, 1.2, 1.933859, 0.47815418, 0.17760001, 2.5, 1.0, 1.0]
 
-  g-rd-across : List Real
-  g-rd-across = [0.0000058781293, 0.92725015, -0.92725015, 0.0003307646, 0.09953263, 0.09996803, 0.19968008, 0.19968273, 0.29918504, 0.31392738, 0.30234417, 0.2999803, 1.3425452, 0.0999322, 0.099999785, 1.7991188]
+  g-tk-braking : List Boolean
+  g-tk-braking = [False, False, False, True, True, False, False, False, False]
 
-  g-rd-yaw : List Real
-  g-rd-yaw = [0.000037923415, 0.018655097, -0.018655097, 0.00026461168, -0.00044187167, -0.0001325189, -0.0005287972, -0.0005287972, -0.0010256366, 0.008255096, 0.009637384, -0.00016490293, -0.8726889, -0.00017086843, -0.000011504856, -0.0017449033]
+  g-tk-initial : List Real
+  g-tk-initial = [500.0, 0.3]
 
-  g-rd-v : List Real
-  g-rd-v = [0.31, 1.41, 1.41, 2.5, 2.1154237, 0.48246554, 1.21, 1.2, 1.5892308, 1.5258824, 0.23875, 0.23875, 0.222, 0.7936, 0.0, 1.01]
-
-  g-rd-tilt : List Real
-  g-rd-tilt = [0.00037923414, -0.01344903, 0.01344903, 0.0026461168, -0.0044187168, -0.0013251889, -0.0052879723, -0.0052879723, -0.010256366, -0.017449033, -0.00362616, -0.0016490293, -0.00024288028, -0.0017086843, -0.00011504856, -0.017449033]
-
-  g-rd-heading : List Real
-  g-rd-heading = [0.30003792, 0.29865512, 0.3013449, 0.30026463, 0.29955813, 0.29986748, 0.29947123, 0.29947123, 0.29897436, 0.29825512, 0.2996374, 0.29983512, 0.29997572, 0.29982916, 0.2999885, 0.29825512]
-
-  g-rd-gazeyaw : List Real
-  g-rd-gazeyaw = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.06981317, 0.06981317, 0.19650935, 0.49650934, 0.0, 0.0, 0.0, 0.0]
-
-  g-rd-focus : List Real
-  g-rd-focus = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.114285715, 0.114285715, 0.4, 0.9, 0.0, 0.0, 0.0, 0.0]
-
-  g-rd-finished : List Boolean
-  g-rd-finished = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
-
-  g-rd-turnspeed : List Real
-  g-rd-turnspeed = [1.297, 0.84, 0.461, 0.222, 0.139, 0.117, 0.222]
-
-  g-rd-gawk : List Boolean
-  g-rd-gawk = [False, False, False, False, False, False, False, False, True, True, True, True, False, False, False, False]
-
-  g-rd-pigbrake : List Real
-  g-rd-pigbrake = [12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, -0.010769231, -0.07411765, -0.011249999, -0.011249999, 12345.0, 12345.0, 12345.0, 12345.0]
-
-  g-rd-gazefocus : List Real
-  g-rd-gazefocus = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35200003, 0.97199994, 0.0, 0.0, 0.0, 0.0]
-
-Chapter: RiderCheck
+Chapter: TruckCheck
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
-  cites Safari chapter Pose
   cites Safari chapter World
-  cites Safari chapter Gaze
-  cites Safari chapter Rider
+  cites Safari chapter Truck
   cites Judge chapter Grade
-  cites Gold chapter RiderGold
+  cites Gold chapter TruckGold
 
- Grade the Rider and Gaze ports against wasm/rider.zig and wasm/gaze.zig.
+ Grade the Truck port's MOTION half against wasm/truck.zig.
 
- SEAM 4, AND IT IS GRADED THE ONLY WAY THAT WORKS. rider's lean comes from a
- binary search: twelve iterations, each deciding on ONE float comparison after
- simulating up to two thousand physics steps. A 1e-7 difference between the game's
- f32 and this port's Real will eventually flip one of those comparisons, and from
- there the two rides are on genuinely different trajectories. A long trace
- comparison would go red and it would mean nothing about correctness.
+ Seam 4, graded the way rider is: ONE STEP FROM A SHARED STATE. The truck's speed
+ is a kinematic brake recomputed against a corner every frame, so it carries the
+ same sensitivity to a flipped comparison that the rider's search does, and a
+ trajectory comparison would be just as meaningless.
 
- So both sides are handed THE SAME STATE N and only state N+1 is compared. Drift
- cannot accumulate, and a failure points at one step and one module. That is
- NOTES' prescription for this seam and it is the whole design of this check.
+ THE CASES ARE THE THREE RULES AND THE SEAMS BETWEEN THEM: far from a turn and
+ behind schedule so it accelerates; far and ahead so it cruises; inside the brake
+ distance so it slows; already below the caution speed, where the same formula
+ RAISES it and the brake lights must stay OFF because it is not slowing; and past
+ the course end, where there is no turn to brake for at all.
 
- THE STATES SIT ON BRANCHES, and two of them show behaviour that is otherwise
- invisible:
-
-   the cat throttle hold -- at `along` 60 on the cat segment his speed goes
-   1.2 to 1.21, and at 110, inside the crossing window, it goes 1.2 to 1.2. He
-   stops CLOSING on the cat without ever braking, and the difference between those
-   two rows is the entire gate.
-
-   the finish clamp -- creeping at 0.05 inside the terminus braking zone, he snaps
-   to exactly the segment length with v = 0. Without that arm the kinematic brake
-   Zeno-stalls him a hair short and he is stopped forever, never finished.
-
- The rest: dead centre and off-centre with the mirror pair, upright and leaned, at
- V_MAX, inside the corner approach, at the commit point, a hair short of a seam so
- the crossing fires, and one state already OUTSIDE the road inset -- which must not
- be judged instantly off the road, because the bounds widen to wherever he is.
-
- EVERY FIELD OF THE NEXT STATE IS GRADED. A port that got the position right and
- the tilt wrong would be a port whose next frame is wrong, and the tilt is the
- binary search's whole answer.
+ The brake-light flag is the one worth stating: it is a comparison against the
+ PREVIOUS speed, not against the intent to brake. Case six is inside the brake
+ distance and is not braking, because the kinematic law is bringing it back up to
+ the corner speed rather than down to it.
 
  We say:
 
-Section: The States
+Section: The Cases
 
   segs : List Segment
   segs = build-world
 
-  mk : Integer, Real, Real, Real, Real, Real, Real, Real -> RiderState
-  mk (seg) (along) (across) (yaw) (v) (tilt) (gy) (focus) =
-    RiderState { segment = seg, along = along, across = across, yaw = yaw, v = v, tilt = tilt, heading = 0.3, gaze-yaw = gy, focus = focus }
+  course : Real
+  course = course-length segs
 
-  cases : List RiderState
-  cases = [mk 0 0.0 0.0 0.0 v-base 0.0 0.0 0.0, mk 0 120.0 0.9 0.02 1.4 0.004 0.0 0.0, mk 0 120.0 (0.0 - 0.9) (0.0 - 0.02) 1.4 (0.0 - 0.004) 0.0 0.0, mk 0 0.0 0.0 0.0 2.5 0.0 0.0 0.0, mk 0 470.0 0.1 0.0 2.2 0.0 0.0 0.0, mk 0 497.0 0.1 0.0 0.6 0.0 0.0 0.0, mk 1 60.0 0.2 0.0 1.2 0.0 0.0 0.0, mk 1 110.0 0.2 0.0 1.2 0.0 0.0 0.0, mk 2 200.0 0.3 0.0 1.6 0.0 0.0 0.0, mk 2 300.0 0.3 0.01 1.6 0.0 0.0 0.0, mk 2 335.0 0.3 0.01 0.25 0.0 0.2 0.4, mk 2 360.0 0.3 0.0 0.25 0.0 0.5 0.9, mk 0 499.0 0.05 0.0 0.22 0.0 0.0 0.0, mk 18 250.0 0.1 0.0 0.8 0.0 0.0 0.0, mk 18 299.9 0.1 0.0 0.05 0.0 0.0 0.0, mk 0 200.0 1.8 0.0 1.0 0.0 0.0 0.0]
+  poses : List Real
+  poses = [500.0, 600.0, 900.0, 470.0, 495.0, 499.0, 2000.0, 7300.0, 7600.0]
 
-  nexts : List RiderState, Integer -> List RiderState
-  nexts (cs) (i) =
-    if i >= list-length cs then []
-    else [get-next-rider-state (list-at cs i) segs] & nexts cs (i + 1)
+  vs : List Real
+  vs = [0.3, 1.2, 1.2, 2.0, 0.5, 0.1, 2.5, 1.0, 1.0]
 
-  outs : List RiderState
-  outs = nexts cases 0
+  rds : List Real
+  rds = [0.0, 300.0, 300.0, 200.0, 200.0, 200.0, 1500.0, 7000.0, 7400.0]
 
-Section: Streams
+  step-at : Integer -> TruckState
+  step-at (i) =
+    truck-next (TruckState { pos = list-at poses i, v = list-at vs i, braking = False }) (list-at rds i) segs course
 
-  f-seg : List RiderState, Integer -> List Integer
-  f-seg (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).segment] & f-seg ss (i + 1)
+  outs : Integer -> List TruckState
+  outs (i) =
+    if i >= list-length poses then []
+    else [step-at i] & outs (i + 1)
 
-  f-along : List RiderState, Integer -> List Real
-  f-along (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).along] & f-along ss (i + 1)
+  all-outs : List TruckState
+  all-outs = outs 0
 
-  f-across : List RiderState, Integer -> List Real
-  f-across (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).across] & f-across ss (i + 1)
+  f-pos : List TruckState, Integer -> List Real
+  f-pos (ts) (i) =
+    if i >= list-length ts then []
+    else [(list-at ts i).pos] & f-pos ts (i + 1)
 
-  f-yaw : List RiderState, Integer -> List Real
-  f-yaw (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).yaw] & f-yaw ss (i + 1)
+  f-v : List TruckState, Integer -> List Real
+  f-v (ts) (i) =
+    if i >= list-length ts then []
+    else [(list-at ts i).v] & f-v ts (i + 1)
 
-  f-v : List RiderState, Integer -> List Real
-  f-v (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).v] & f-v ss (i + 1)
-
-  f-tilt : List RiderState, Integer -> List Real
-  f-tilt (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).tilt] & f-tilt ss (i + 1)
-
-  f-heading : List RiderState, Integer -> List Real
-  f-heading (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).heading] & f-heading ss (i + 1)
-
-  f-gazeyaw : List RiderState, Integer -> List Real
-  f-gazeyaw (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).gaze-yaw] & f-gazeyaw ss (i + 1)
-
-  f-focus : List RiderState, Integer -> List Real
-  f-focus (ss) (i) =
-    if i >= list-length ss then []
-    else [(list-at ss i).focus] & f-focus ss (i + 1)
-
-  finished : List RiderState, Integer -> List Boolean
-  finished (cs) (i) =
-    if i >= list-length cs then []
-    else [is-finished (list-at cs i) segs] & finished cs (i + 1)
-
-  angles : List Real
-  angles = [15.0, 20.0, 30.0, 50.0, 70.0, 80.0, 45.0]
-
-  turn-speeds : List Real, Integer -> List Real
-  turn-speeds (ds) (i) =
-    if i >= list-length ds then []
-    else [turn-speed (list-at ds i * pi / 180.0)] & turn-speeds ds (i + 1)
-
-  gawks : List RiderState, Integer -> List Boolean
-  gawks (cs) (i) =
-    if i >= list-length cs then []
-    else [gawk-engaged (list-at cs i) (list-at segs (list-at cs i).segment)] & gawks cs (i + 1)
-
- The probe prints 12345 where the zig's optional is null, so the port answers the
- same sentinel for a brake that is not engaged. It is a marker, not a number, and
- nothing computes with it.
-
-  pig-brakes : List RiderState, Integer -> List Real
-  pig-brakes (cs) (i) =
-    if i >= list-length cs then []
-    else brake-of (list-at cs i) & pig-brakes cs (i + 1)
-
-  brake-of : RiderState -> List Real
-  brake-of (c) =
-    let b = pig-gaze-brake c (list-at segs c.segment)
-    in if b.engaged then [b.accel] else [12345.0]
-
-  focuses : List RiderState, Integer -> List Real
-  focuses (cs) (i) =
-    if i >= list-length cs then []
-    else [gaze-focus (list-at cs i).focus] & focuses cs (i + 1)
+  f-braking : List TruckState, Integer -> List Boolean
+  f-braking (ts) (i) =
+    if i >= list-length ts then []
+    else [(list-at ts i).braking] & f-braking ts (i + 1)
 
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-ints  "rd-seg       " (f-seg outs 0) g-rd-seg)
-    print-line-uni (grade-px    "rd-along     " (f-along outs 0) g-rd-along 0.0001 0.000001)
-    print-line-uni (grade-px    "rd-across    " (f-across outs 0) g-rd-across 0.0001 0.000001)
-    print-line-uni (grade-px    "rd-yaw       " (f-yaw outs 0) g-rd-yaw 0.0000001 0.000001)
-    print-line-uni (grade-rel   "rd-v         " (f-v outs 0) g-rd-v 0.000001)
-    print-line-uni (grade-px    "rd-tilt      " (f-tilt outs 0) g-rd-tilt 0.0000001 0.000001)
-    print-line-uni (grade-rel   "rd-heading   " (f-heading outs 0) g-rd-heading 0.000001)
-    print-line-uni (grade-px    "rd-gazeyaw   " (f-gazeyaw outs 0) g-rd-gazeyaw 0.0000001 0.000001)
-    print-line-uni (grade-px    "rd-focus     " (f-focus outs 0) g-rd-focus 0.0000001 0.000001)
-    print-line-uni (grade-bools "rd-finished  " (finished cases 0) g-rd-finished)
-    print-line-uni (grade-rel   "rd-turnspeed " (turn-speeds angles 0) g-rd-turnspeed 0.000001)
-    print-line-uni (grade-bools "rd-gawk      " (gawks cases 0) g-rd-gawk)
-    print-line-uni (grade-rel   "rd-pigbrake  " (pig-brakes cases 0) g-rd-pigbrake 0.000001)
-    print-line-uni (grade-px    "rd-gazefocus " (focuses cases 0) g-rd-gazefocus 0.0000001 0.000001)
+    print-line-uni (grade-px    "tk-pos     " (f-pos all-outs 0) g-tk-pos 0.0001 0.000001)
+    print-line-uni (grade-rel   "tk-v       " (f-v all-outs 0) g-tk-v 0.000001)
+    print-line-uni (grade-bools "tk-braking " (f-braking all-outs 0) g-tk-braking)
+    print-line-uni (grade-rel   "tk-initial " [truck-initial.pos, truck-initial.v] g-tk-initial 0.000001)
   end

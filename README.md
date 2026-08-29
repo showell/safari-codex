@@ -118,6 +118,7 @@ already narrows at.
 | `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
 | `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
+| `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed

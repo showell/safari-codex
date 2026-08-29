@@ -139,12 +139,14 @@ Chapter: Cat
  what world.zig needs to author a segment, and it is arithmetic over five
  constants with no dependencies at all.
 
- THE REST OF cat.zig IS DEFERRED AND THE REASON IS NOT DIFFICULTY. Its `state`,
- `inDanger` and `draw` reach `cat_frames.zig`, which is 615 KB of BAKED polygons --
+ MOST OF cat.zig IS DEFERRED AND THE REASON IS NOT DIFFICULTY. `inDanger` is
+ arithmetic over three constants and is ported below, because the rider's throttle
+ gate reads it every frame. Its `state`,
+ `state` and `draw` reach `cat_frames.zig`, which is 434 KB of BAKED polygons --
  and baked means GENERATED, by ops/bake_cat running the real TypeScript drawing
  code through a recorder. NOTES section 5 scopes that out and says how it should
  arrive when it does: teach the baker a Codex emitter and the data ports itself.
- Hand-porting 615 KB of generated coordinates would be the wrong shape of work
+ Hand-porting 434 KB of generated coordinates would be the wrong shape of work
  and would rot the moment the baker ran again.
 
  So this chapter is honest about being a slice: the cat can be PLACED but not yet
@@ -614,7 +616,7 @@ Chapter: World
  gold trees on 4. Segment 19 terminates; the rider arrives and stops.
 
  PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
- PORTED -- critter.zig needs emoji_frames.zig, 615 KB of generated bakes that
+ PORTED -- critter.zig needs emoji_frames.zig, 182 KB of generated bakes that
  NOTES scopes out. The placement data is still ported because it is the world's,
  not the renderer's, and because it is what the exit-corner logic reads.
 

@@ -24,7 +24,7 @@ Chapter: World
  gold trees on 4. Segment 19 terminates; the rider arrives and stops.
 
  PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
- PORTED -- critter.zig needs emoji_frames.zig, 615 KB of generated bakes that
+ PORTED -- critter.zig needs emoji_frames.zig, 182 KB of generated bakes that
  NOTES scopes out. The placement data is still ported because it is the world's,
  not the renderer's, and because it is what the exit-corner logic reads.
 

@@ -14,6 +14,7 @@ build/mountains
 build/tower
 build/world
 build/rider
+build/truck
 build/scene
 probe/probe_pond
 probe/probe_camera
@@ -24,5 +25,6 @@ probe/probe_mountains
 probe/probe_tower
 probe/probe_world
 probe/probe_rider
+probe/probe_truck
 .zig-cache/
 *.o

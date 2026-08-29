@@ -42,7 +42,13 @@ if ! grep -q "^// THE PRELUDE" build/scene.zig; then
   exit 1
 fi
 
-python3 harness/wasmify.py build/scene.zig build/scene_wasm.zig 32 "$shim"
+# HEAP. 32 MB was ample while the animals drew nothing; with their stills in the
+# frame it dies at frame 202. The arena is rewound every frame, so this is not a
+# leak -- it is the high-water mark of ONE frame, and drawing 2,368 commands
+# through Codex's persistent lists costs far more transient memory than the 166 KB
+# of wire it produces. .bss costs nothing until touched (wasmify), so reserving
+# generously is close to free; wasm32 caps the whole address space at 4 GiB.
+python3 harness/wasmify.py build/scene.zig build/scene_wasm.zig "${HEAP_MB:-256}" "$shim"
 ( cd build && "$zig" build-exe scene_wasm.zig \
     -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseSmall \
     -femit-bin=safari_codex.wasm )

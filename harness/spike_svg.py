@@ -275,13 +275,6 @@ def svg(name, top, hor, cmds):
     # then cover it wherever there is road.
     out.append(f'<rect y="{H//2}" width="{W}" height="{H//2}" fill="{GRASS}"/>')
     for i, (tag, color, st, pts, raw) in enumerate(cmds):
-        # TAG 9 IS SPIKE-ONLY: a billboard anchor, not a polygon. See Spike.codex.
-        if tag == 9:
-            if len(raw) < 3:
-                continue
-            bx, by, h = raw[0], raw[1], raw[2]
-            out += billboard(color, st > 0.5, bx, by, h)
-            continue
         # TAG 10 IS SPIKE-ONLY: a cat still, pose index in the colour word.
         if tag == 10:
             if len(raw) < 3:

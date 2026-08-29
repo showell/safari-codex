@@ -777,3 +777,34 @@ C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
     -- free to check here, expensive to diagnose from a browser. Same shape as the
     build_wasm gate that renders a thousand frames rather than one: a gate has to
     exercise the thing the consumer actually does with the artifact.
+
+
+================================================================================
+C12. A CODEX LIST LITERAL MAY NOT SPAN A NEWLINE, EITHER
+================================================================================
+
+    B1 records that an APPLICATION may not span a newline. The same holds for a
+    list literal, and it is worth its own line because the generator that hit it
+    was formatting for readability, which is exactly when you break a line:
+
+        duck-polys =
+         [EmojiPoly { ... },
+          EmojiPoly { ... }]
+
+    halts with CDX1025 "Unclosed list literal: expected ',' or ']'". Each list has
+    to be ONE line. The bull's is about 200 KB long, which is fine in a file and
+    is a good argument for generating this kind of chapter rather than typing it.
+
+C13. THE WASM HEAP IS SIZED BY ONE FRAME'S HIGH-WATER, NOT BY A LEAK.
+
+    Adding the animals' stills took the browser page from 2,132 draw commands to
+    2,368 and it began dying at frame 202 with "unreachable". That reads like a
+    leak and is not one: the arena is rewound every frame (C8), so what matters is
+    the peak of a SINGLE frame, and drawing 2,368 commands through persistent
+    lists costs far more transient memory than the 166 KB of wire it produces --
+    every `&` concatenation copies.
+
+    Measured by bisection: 48 MB dies, 96 MB survives 1,200 frames. Set to 256 MB,
+    about three times the requirement. .bss costs nothing until the pages are
+    touched, so reserving generously is nearly free, and wasm32 caps the whole
+    address space at 4 GiB. build_wasm.sh takes HEAP_MB to re-measure.

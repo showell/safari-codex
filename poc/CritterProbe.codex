@@ -1,0 +1,13 @@
+Chapter: CritterProbe
+  cites Foreword chapter Console
+  cites Safari chapter Critter
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("cow polys " & show (list-length (emoji-polys-for 128004)))
+    print-line-uni ("cmds at 20 px " & show (list-length (critter-draw 0.0 30.0 1.4 128004 False focal camera-w)))
+    print-line-uni ("bull cmds " & show (list-length (critter-draw 0.0 20.0 1.6 128002 True focal camera-w)))
+  end

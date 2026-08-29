@@ -3,6 +3,7 @@ Chapter: Spike
   cites Safari chapter Camera
   cites Safari chapter Paint
   cites Safari chapter World
+  cites Safari chapter Critter
   cites Safari chapter Render
   cites Safari chapter Pose
   cites Safari chapter Rider
@@ -20,90 +21,28 @@ Chapter: Spike
  checks in judge/; if this chapter and a check ever disagree, the CHECK is right.
  Delete this whole file the day it stops being useful and nothing else changes.
 
- WHAT IT ADDS TO A NORMAL FRAME: markers for the things that are COLLECTED BUT
- INVISIBLE. Cows, pigs, the corner elephants and giraffes and the pond ducks are
- all placed, mapped, projected, culled and depth-sorted by the ported render --
- and then draw nothing, because their art is 615 KB of baked polygons that are not
- ported. So a real frame has a correctly-ordered hole where each one stands, and
- you cannot see whether the herd GEOMETRY is right.
-
- A marker is a plain box at the billboard's own screen footprint: same anchor,
- same height, same depth order, coloured by species. IT IS NOT WHAT THE ANIMAL
- LOOKS LIKE. It is exactly where the animal is, and how tall, and what is in front
- of what. That is the part this port is responsible for.
+ WHAT IT ADDS TO A NORMAL FRAME IS NOW ONLY THE CAT. The animals draw themselves
+ -- EmojiStills holds their art and Critter places it, both graded -- so a still
+ here is what the browser draws, not an approximation of it. The cat's flipbook is
+ a second table that is not generated yet, so it keeps a box, lifted by its hop so
+ the leap still reads.
 
  We say:
 
-Section: Marker Colours
+Section: The Animals
 
- Spike colours picked to be legible against grass and road, not the game's. By
- codepoint, so a herd reads apart from its bull at a glance.
+ THE SPIKE STOPPED CHEATING FOR THESE. It used to emit a spike-only tag carrying a
+ codepoint, and the SVG script read the game's baked table off disk to draw the
+ animal -- because the port could not draw one at all. It can now: EmojiStills
+ holds the art and Critter places it, graded at 5,916 coordinates against the real
+ critter.draw. So the spike just calls the port, and the still shows exactly what
+ the browser shows.
 
-  marker-cow : Integer
-  marker-cow = 14725248
-
-  marker-bull : Integer
-  marker-bull = 8400928
-
-  marker-pig : Integer
-  marker-pig = 15765680
-
-  marker-duck : Integer
-  marker-duck = 16764992
-
-  marker-safari : Integer
-  marker-safari = 6340832
-
-  marker-color : Integer -> Integer
-  marker-color (cp) =
-    if cp == bull-cp then marker-bull
-    else if cp == cow-cp then marker-cow
-    else if cp == pig-cp then marker-pig
-    else if cp == duck-codepoint then marker-duck
-    else marker-safari
-
-Section: The Marker
-
- SPIKE-ONLY TAG 9, AND IT IS NOT A DRAW COMMAND THE GAME HAS. paint.zig's wire
- uses 0, 1 and 3; this borrows an unused number to say "a billboard stands here",
- carrying the codepoint in the colour word, the facing in strength, and the screen
- anchor and pixel height in pts. harness/spike_svg.py recognises it and draws the
- REAL baked art from the game's emoji_frames.zig -- which the spike script can
- read straight off disk, being Python and being throwaway, where the port cannot.
-
- So the ART on a spike is the game's own and the PLACEMENT is the port's. That is
- the split that makes these pictures worth looking at: if a pig is in the wrong
- spot it is this port's fault, and if a pig looks wrong it is not.
-
- Nothing outside the spike ever sees tag 9. The wasm shim would not know what to
- do with it, and the build gate that walks the wire would reject it -- correctly.
-
-  marker-tag : Integer
-  marker-tag = 9
+ The cat below still uses a tag, because its flipbook is a second table that is not
+ generated yet.
 
   marker-of : Billboard, Real -> List DrawCmd
-  marker-of (b) (cf) =
-    let base = project (Vec3 { right = b.right, forward = b.fwd, height = 0.0 }) cf camera-w
-    in let top = project (Vec3 { right = b.right, forward = b.fwd, height = b.height }) cf camera-w
-    in let h = base.y - top.y
-    in if h < 1.0 then []
-      else [DrawCmd { tag = marker-tag, color = b.cp, strength = if b.face-right then 1.0 else 0.0, pts = [base.x, base.y, h] }]
-
-Section: The Frame
-
- Drive's own dispatch with the billboard case filled in, so the markers land in
- the REAL depth order rather than being painted on top afterwards. That is the
- whole point: a marker behind a tree must be behind the tree.
-
-  spike-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
-  spike-item (w) (ch) (pose) (c) (it) (cf) (step) =
-   when it.kind
-    is KCow -> marker-of (list-at c.cows it.i) cf
-    is KCat -> cat-marker (list-at c.cats it.i) cf
-    is KTree -> draw-one-tree c.trees it.i cf
-    is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
-    is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
-    is KTruck -> []
+  marker-of (b) (cf) = critter-draw b.right b.fwd b.height b.cp b.face-right cf camera-w
 
   cat-marker-tag : Integer
   cat-marker-tag = 10
@@ -126,6 +65,22 @@ Section: The Frame
     in let h = base.y - top.y
     in if h < 1.0 then []
       else [DrawCmd { tag = cat-marker-tag, color = c.pose-idx, strength = 0.0, pts = [base.x, base.y, h] }]
+
+Section: The Frame
+
+ Drive's own dispatch with the two billboard cases filled in, so everything lands
+ in the REAL depth order rather than being painted on top afterwards. That is the
+ whole point: a pig behind a tree must be behind the tree.
+
+  spike-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
+  spike-item (w) (ch) (pose) (c) (it) (cf) (step) =
+   when it.kind
+    is KCow -> marker-of (list-at c.cows it.i) cf
+    is KCat -> cat-marker (list-at c.cats it.i) cf
+    is KTree -> draw-one-tree c.trees it.i cf
+    is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
+    is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
+    is KTruck -> []
 
   spike-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
   spike-order (w) (ch) (pose) (c) (cf) (step) (i) =

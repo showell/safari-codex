@@ -4,6 +4,7 @@ Chapter: RenderCheck
   cites Safari chapter World
   cites Safari chapter Camera
   cites Safari chapter Cat
+  cites Safari chapter Critter
   cites Safari chapter GuardRail
   cites Safari chapter Paint
   cites Safari chapter Render
@@ -486,6 +487,39 @@ Section: The Crossing Cat
     else if is-airborne (gap-at i) (list-at cat-speeds si) then [(cat-state (cat-of (list-at segs 1)) (gap-at i) (list-at cat-speeds si)).across] & cat-flight si (i + 1)
     else cat-flight si (i + 1)
 
+Section: The Billboard Draw
+
+ critter.draw IS pub, so this is a REAL ORACLE on the wire: seven animals at seven
+ distances, half of them mirrored, decoded back into tags, colours, point counts
+ and coordinates.
+
+ THE BULL IS DELIBERATELY ABSENT and its absence is the honest part. It is the
+ only Fluent COLOR animal, and 40 of its 43 polygons carry a 2-stop gradient which
+ paint.zig writes as wire tags 5 and 6. Safari chapter Paint models tags 0, 1 and
+ 3, so the generated table flattens each gradient to its first stop and the port
+ emits tag 0 where the game emits 5 or 6. Grading that would compare two different
+ wire shapes and prove nothing; the seven FLAT species are exact, and the bull
+ becomes gradeable the day Paint grows the two tags.
+
+ The COLOURS and POINT COUNTS take no tolerance. A billboard is baked art scaled
+ by one number, so a wrong count means a wrong polygon, and every colour is a
+ literal carried through unchanged.
+
+  CritterCase = record {
+    cp : Integer,
+    h : Real,
+    fwd : Real,
+    face : Boolean
+  }
+
+  critter-cases : List CritterCase
+  critter-cases = [CritterCase { cp = 129414, h = 0.9, fwd = 14.0, face = False }, CritterCase { cp = 128024, h = 2.8, fwd = 40.0, face = True }, CritterCase { cp = 129426, h = 4.5, fwd = 90.0, face = False }, CritterCase { cp = 129427, h = 1.6, fwd = 25.0, face = True }, CritterCase { cp = 129423, h = 2.2, fwd = 60.0, face = False }, CritterCase { cp = 128004, h = 1.4, fwd = 18.0, face = True }, CritterCase { cp = 128022, h = 1.1, fwd = 9.0, face = False }]
+
+  critter-wire : Integer -> List DrawCmd
+  critter-wire (i) =
+    if i >= list-length critter-cases then []
+    else (critter-draw 2.5 (list-at critter-cases i).fwd (list-at critter-cases i).h (list-at critter-cases i).cp (list-at critter-cases i).face focal camera-w) & critter-wire (i + 1)
+
 Section: Entry
 
  Chain indices, lengths, codepoints and counts take NO tolerance: they are
@@ -553,4 +587,8 @@ Section: Entry
     print-line-uni (grade-rel  "k-lift    " (cat-lifts 0 0) g-k-lift 0.000001)
     print-line-uni (grade-px   "k-across  " (cat-ground 0 0) g-k-across 0.00001 0.000001)
     print-line-uni (grade-px   "k-air     " (cat-flight 0 0) g-k-air 0.12 0.0)
+    print-line-uni (grade-ints "cr-tag    " (g-tags (critter-wire 0) 0) g-cr-tag)
+    print-line-uni (grade-ints "cr-col    " (g-cols (critter-wire 0) 0) g-cr-col)
+    print-line-uni (grade-ints "cr-cnt    " (g-counts (critter-wire 0) 0) g-cr-cnt)
+    print-line-uni (grade-px   "cr-xy     " (g-coords (critter-wire 0) 0) g-cr-xy 0.001 0.000001)
   end

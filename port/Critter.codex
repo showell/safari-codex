@@ -1,0 +1,82 @@
+Chapter: Critter
+  cites Safari chapter Camera
+  cites Safari chapter Geom
+  cites Safari chapter Paint
+  cites Safari chapter EmojiStills
+
+ A roadside animal as a baked-polygon billboard.
+
+ A port of wasm/critter.zig. It projects the feet and the top to get a pixel
+ height, then transforms the baked unit-frame polygons to that screen anchor and
+ emits them. It knows how to PLACE and FLIP a billboard and nothing else -- where
+ the animals stand is world.zig and safari_critter.zig, both already ported, and
+ what they look like is the baked table `Safari chapter EmojiStills`.
+
+ THE HEIGHT IS MEASURED IN PIXELS, NOT METRES, and that is the whole trick of a
+ billboard. Project the feet, project a point `height` metres above them, and the
+ gap between the two screen y values is how tall the animal is on this frame at
+ this distance. Everything in the unit frame then scales by that one number, so
+ perspective is applied ONCE, to a scalar, rather than per vertex.
+
+ UNDER A PIXEL IT DRAWS NOTHING. The zig returns early, and so does this: a
+ sub-pixel animal is not worth a polygon, and the collector's own size cull has
+ usually caught it long before.
+
+ GRADIENT POLYGONS DRAW FLAT, and it affects exactly one species. Seven of the
+ eight animals are the Fluent Flat art and are solid throughout; the bull is the
+ Color variant and 40 of its 43 polygons carry a 2-stop gradient. paint.zig has
+ wire tags for those -- 5 for linear, 6 for radial -- and Safari chapter Paint
+ models tags 0, 1 and 3 only, so the baker's Codex emitter flattens each gradient
+ to its first stop. The bull is therefore FLAT-SHADED and every other animal is
+ exact. Modelling the two gradient tags is the fix, and it is a change to Paint
+ and the shim rather than to anything here.
+
+ We say:
+
+Section: The Billboard Map
+
+ A POINT translates to the feet anchor and scales by the pixel height; the art is
+ baked facing LEFT, so an animal that faces right mirrors in x. Mirrors mapP.
+
+  map-p : ScreenPt, Real, Real, Real, Real -> ScreenPt
+  map-p (b) (s) (ht) (x) (y) =
+    ScreenPt { x = b.x + s * x * ht, y = b.y - y * ht }
+
+  facing : Boolean -> Real
+  facing (face-right) = if face-right then 0.0 - 1.0 else 1.0
+
+  mapped-pts : ScreenPt, Real, Real, List EmojiPt, Integer -> List ScreenPt
+  mapped-pts (b) (s) (ht) (ps) (i) =
+    if i >= list-length ps then []
+    else [map-p b s ht (list-at ps i).x (list-at ps i).y] & mapped-pts b s ht ps (i + 1)
+
+ The zig's screen buffer holds 512 points and a longer polygon is SKIPPED rather
+ than truncated -- the same choice emit-ground makes about its eight, and for the
+ same reason: a silently shortened polygon is a wrong shape drawn confidently.
+ Nothing in the baked table comes close, but the guard is the zig's and is kept.
+
+  max-critter-pts : Integer
+  max-critter-pts = 512
+
+  critter-poly : ScreenPt, Real, Real, EmojiPoly -> List DrawCmd
+  critter-poly (b) (s) (ht) (poly) =
+    if list-length poly.pts > max-critter-pts then []
+    else push-poly poly.color (mapped-pts b s ht poly.pts 0)
+
+  critter-polys : ScreenPt, Real, Real, List EmojiPoly, Integer -> List DrawCmd
+  critter-polys (b) (s) (ht) (ps) (i) =
+    if i >= list-length ps then []
+    else (critter-poly b s ht (list-at ps i)) & critter-polys b s ht ps (i + 1)
+
+Section: Drawing One
+
+ Painted in array order, which is the SVG document order the baker preserved --
+ painter's order, so a later polygon covers an earlier one.
+
+  critter-draw : Real, Real, Real, Integer, Boolean, Real, Real -> List DrawCmd
+  critter-draw (right) (forward) (height) (cp) (face-right) (cf) (view-w) =
+    let base = project (Vec3 { right = right, forward = forward, height = 0.0 }) cf view-w
+    in let top = project (Vec3 { right = right, forward = forward, height = height }) cf view-w
+    in let h = base.y - top.y
+    in if h < 1.0 then []
+      else critter-polys base (facing face-right) h (emoji-polys-for cp) 0

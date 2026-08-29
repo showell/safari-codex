@@ -30,7 +30,7 @@ the ladder's usual cadence, and none of the ladder's compute rules apply.
 |---|---|---|
 | `port/` | the port itself — Codex chapters, quire `Safari` | hand |
 | `judge/` | graders and check roots, quire `Judge` | hand |
-| `gold/` | gold chapters, quire `Gold` | **generated, gitignored** |
+| `gold/` | gold chapters, quire `Gold` | **generated, then tracked** |
 | `probe/` | Zig probes that import the real game | hand |
 | `harness/` | the four steps | hand |
 | `price-b/` | the fixed-point measurements behind the dialect decision | one-off |
@@ -255,8 +255,18 @@ fixed-point port in integer milli-units — was priced and rejected; see
 plug, so `Grade` reports *where* a list first disagrees. When `real-to-int` lands
 this becomes a scaled-integer dump and full-frame diffs.
 
-**Gold is never checked in.** It is a second copy of the oracle, and a second
-copy can quietly disagree with the first.
+**Gold is generated every run, and tracked anyway.** It is a second copy of the
+oracle, and the worry that put it in `.gitignore` at first was that a second copy
+can quietly disagree with the first. That worry is real but it is not load-bearing
+here: `harness/gen_gold.py` rebuilds every gold chapter from the zig probe on every
+sweep, so a stale or hand-edited gold cannot survive a single `./harness/run.sh` —
+it is overwritten before it is ever read. What tracking buys is a reviewable diff:
+when a port changes an answer, the gold moves in the same commit and you can see
+which values moved and by how much, which is exactly what a Real-valued check
+cannot tell you at the console.
+
+The rule that still holds is **never edit `gold/` by hand.** Every file there says
+so in its own header, and the next run will overwrite it regardless.
 
 ## What the pricing measured
 

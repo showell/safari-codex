@@ -256,6 +256,25 @@ B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
     which of ITS functions actually reach the hole. "This chapter is dark" is
     almost never true; "these functions are dark" usually is.
 
+B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
+
+    mountains.zig normalises a fraction it calls `above`. Porting that name
+    verbatim halts codegen with
+
+        CDX1023 Expected 'in' after let bindings
+
+    over a `let` that has its `in`, on the line above the real problem. `above` is
+    a KEYWORD -- Lexer.codex:333, `else if w == "above" then AboveKeyword`, sitting
+    with the proof-language set beside `cites`, `claim`, `proof`, `qed` and
+    `induction`. The refusal is right; the message names the wrong construct and
+    does not mention the keyword or its position.
+
+    Cost a bisect: no error line is reported anywhere, codexzig writes only the
+    HALT summary, so the chapter had to be truncated repeatedly to find which
+    definition carried it. Watch for it whenever a zig identifier is copied
+    across -- `above` is an ordinary word in graphics code and not an obvious
+    keyword. Renaming to `above-frac` is the whole fix.
+
 B10. B3's ~0 comes up again, and the second instance is more dangerous than the
     first. guard_rail.zig guards a division by a run length:
 
@@ -298,6 +317,26 @@ C5. wasm32-freestanding is THREE PRELUDE FUNCTIONS away, not the gulf NOTES
     heap reserves 4 GiB through page_allocator, which is the whole of a wasm32
     address space; printing reaches std.Io and drags in posix. Nothing in the
     TRANSPILED PROGRAM needs changing. See harness/wasmify.py.
+
+C7. THE 4 GiB BUMP HEAP IS A CEILING ON HOW MUCH GOLD ONE UNIT CAN CARRY.
+
+    Mountains' four frames are fifteen polygons of up to 683 points, which is
+    16,868 coordinates. As a Codex list literal that is a 139 KB gold and a 187 KB
+    unit, and codexzig dies transpiling it:
+
+        thread panic: cx heap: exhausted at 4294926367 + 614587 of 4294967296
+
+    Not a slow build -- an abort, from the same never-reclaiming bump region C6
+    describes, hit by the TRANSPILER on its own input rather than by a transpiled
+    program. Tree's 628 coordinates and a 43 KB unit are nowhere near it; the
+    ceiling sits somewhere between.
+
+    The fix that keeps the grading honest is to stride the COORDINATES and keep
+    everything else: point counts stay exact, so a silhouette that gained or lost
+    a column is still a hard failure, and what thins is only the sampling density
+    of a curve that is smooth by construction. Every eighth point took the unit
+    from 187 KB to 34 KB. Prefer that over dropping a frame -- the frames are the
+    BRANCHES, and branch coverage is worth more than coordinate density.
 
 C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
     frame; a long-running process rebuilding a scene per frame will exhaust it.

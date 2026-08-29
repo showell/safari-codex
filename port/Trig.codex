@@ -1,6 +1,7 @@
 Chapter: Trig
+  cites Gpu chapter DeviceMath
 
- Sine, cosine and tangent in Real.
+ Sine, cosine, tangent and arc tangent in Real.
 
  THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
  and this is the same algorithm -- an argument reduction, a quadrant fold, and an
@@ -66,3 +67,54 @@ Section: Sine and Cosine
 
   r-tan : Real -> Real
   r-tan (x) = r-sin x / r-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t

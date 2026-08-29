@@ -1,0 +1,1346 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
+ and this is the same algorithm -- an argument reduction, a quadrant fold, and an
+ 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
+ transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
+ no emitter for it. The day that emitter lands, every function here is deleted and
+ the citers cite DeviceMath instead. Nothing else in the port should grow a
+ dependency on these names.
+
+ The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
+ converts back through the integers, which is exactly the call this arm cannot
+ emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
+ exact for the arguments this game has -- yaws, headings and tier angles, all
+ within a few turns of zero -- but it is NOT a general reduction, and it must not
+ outlive the emitter it works around.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Sine and Cosine
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+  r-tan : Real -> Real
+  r-tan (x) = r-sin x / r-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+Chapter: Geom
+  cites Safari chapter Trig
+
+ Pure rider-relative geometry: the coordinate types, the world-to-rider transform,
+ the ground curvature, and near-plane clipping. No projection -- that is Camera --
+ no drawing, no allocation. The math leaf the rest of the camera stands on.
+
+ A port of wasm/geom.zig.
+
+ We say:
+
+Section: Coordinates
+
+ A ground-plane point measured FROM THE RIDER: how far forward, down his look
+ axis, and how far to his right. The fundamental coordinate of the whole scene.
+
+  RiderPt = record {
+    right : Real,
+    forward : Real
+  }
+
+ A rider-relative vertex carrying a height off the ground -- what the road quads
+ and raised structures clip and project as.
+
+  Vec3 = record {
+    right : Real,
+    forward : Real,
+    height : Real
+  }
+
+ A point in a segment's bottom-left frame: `a` along, `x` across-from-left.
+
+  AX = record {
+    a : Real,
+    x : Real
+  }
+
+Section: Ground
+
+ The local ground is a gentle spherical plateau: a point drops this far below the
+ rider's tangent plane at horizontal distance d, so the road bends toward a finite
+ horizon instead of a vanishing point at infinity. Larger radius = gentler.
+
+  ground-radius : Real
+  ground-radius = 100000.0
+
+  ground-drop : Real, Real -> Real
+  ground-drop (right) (forward) = (right * right + forward * forward) / (2.0 * ground-radius)
+
+Section: The Rider Transform
+
+ to-rider maps a point in a segment's bottom-left frame -- `a` along the segment,
+ `x` across from its LEFT edge -- into the rider's frame, given his pose along and
+ across the segment's centre line and his look angle `yaw`. His pose is
+ centre-relative, so the half-width `hw` shifts x to from-the-left.
+
+  to-rider : Real, Real, Real, Real, Real, Real -> RiderPt
+  to-rider (a) (x) (cam-along) (cam-across) (yaw) (hw) =
+    let d-a = a - cam-along
+    in let d-x = x - (cam-across + hw)
+    in let c = r-cos yaw
+    in let s = r-sin yaw
+    in RiderPt { forward = d-a * c + d-x * s, right = (0.0 - d-a) * s + d-x * c }
+
+Section: The Frame Fusion
+
+ next-to-cur maps a point from the NEXT segment's bottom-left frame into the
+ CURRENT segment's, across the join. LEFT and RIGHT are NOT mirror images: a left
+ turn fuses on the end-left edge, where the origin is the inner corner; a right
+ turn fuses on the end-right edge and pays a width shift. `turns-right` is the
+ turn direction.
+
+  next-to-cur : Real, Real, Real, Real, Boolean, Real -> AX
+  next-to-cur (a-b) (x-b) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then AX { a = a-b * c - x-b * s + width * s + seg-len, x = x-b * c + a-b * s + width * (1.0 - c) }
+      else AX { a = a-b * c + x-b * s + seg-len, x = x-b * c - a-b * s }
+
+ cur-to-next is the inverse: a point in the CURRENT segment's frame expressed in
+ the NEXT segment's, across the same join. Used to draw the joint just BEHIND the
+ rider, so the pavement he is still crossing does not vanish.
+
+  cur-to-next : Real, Real, Real, Real, Boolean, Real -> AX
+  cur-to-next (a) (x) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then let a0 = a - seg-len - width * s
+        in let x0 = x - width * (1.0 - c)
+        in AX { a = a0 * c + x0 * s, x = (0.0 - a0) * s + x0 * c }
+      else let a0 = a - seg-len
+        in AX { a = a0 * c - x * s, x = a0 * s + x * c }
+
+Section: Line Intersection
+
+ line-meet returns where two infinite lines cross in the rider frame: line A
+ through a0 toward a1, line B through b0 toward b1. Used for the corner's outer
+ apex, where the two segments' outer shoulders meet. A real turn has a non-zero
+ angle, so the lines are never parallel.
+
+  line-meet : RiderPt, RiderPt, RiderPt, RiderPt -> RiderPt
+  line-meet (a0) (a1) (b0) (b1) =
+    let dax = a1.right - a0.right
+    in let daf = a1.forward - a0.forward
+    in let dbx = b1.right - b0.right
+    in let dbf = b1.forward - b0.forward
+    in let t = ((b0.right - a0.right) * dbf - (b0.forward - a0.forward) * dbx) / (dax * dbf - daf * dbx)
+    in RiderPt { right = a0.right + t * dax, forward = a0.forward + t * daf }
+
+Section: Near-Plane Clipping
+
+ Clip a rider-frame polygon against the near plane at `near` metres forward, so no
+ vertex sits behind the eye where the perspective divide would fling it across the
+ screen. Fewer than 3 vertices out means the caller skips the polygon.
+
+ The zig writes into a caller-supplied `out` slice and returns a count; this
+ returns the list, which is the same thing without the buffer. The wrap-around
+ edge is the reason the index walks to the length and reads (i + 1) modulo it: the
+ polygon is closed, so the last vertex pairs with the first.
+
+  clip-cross : Vec3, Vec3, Real -> List Vec3
+  clip-cross (a) (b) (near) =
+    let f = (near - a.forward) / (b.forward - a.forward)
+    in [Vec3 { right = a.right + f * (b.right - a.right), forward = near, height = a.height + f * (b.height - a.height) }]
+
+  both-sides : Boolean, Boolean -> Boolean
+  both-sides (a-in) (b-in) = if a-in then b-in else (if b-in then False else True)
+
+  clip-near-edge : List Vec3, Real, Integer -> List Vec3
+  clip-near-edge (poly) (near) (i) =
+    let n = list-length poly
+    in if i >= n then []
+    else let a = list-at poly i
+    in let b = list-at poly ((i + 1) - (((i + 1) / n) * n))
+    in let a-in = a.forward >= near
+    in let b-in = b.forward >= near
+    in let kept = if a-in then [a] else []
+    in let crossed = if both-sides a-in b-in then [] else clip-cross a b near
+    in kept & crossed & clip-near-edge poly near (i + 1)
+
+  clip-near : List Vec3, Real -> List Vec3
+  clip-near (poly) (near) = clip-near-edge poly near 0
+
+Chapter: Camera
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+
+ The perspective projection: a rider-relative ground point at a height becomes a
+ screen pixel. Owns the lens constants and the near plane. Pure; no drawing, no
+ allocation.
+
+ A port of wasm/camera.zig.
+
+ ONE ADAPTATION. The zig carries the live projection width as a mutable global,
+ `pub var view_w`, which the native window widens toward the screen's aspect while
+ FOCAL stays frozen -- that is what makes a wider window a wider field of view
+ rather than a zoom. Codex has no mutable global, so view-w is threaded as a
+ parameter. It is the camera's only mutable state, and threading it is the pure
+ equivalent rather than a change of behaviour: pass camera-w for the design width
+ the browser and the golden-PNG harness both use.
+
+ We say:
+
+Section: Lens
+
+  camera-w : Real
+  camera-w = 960.0
+
+  camera-h : Real
+  camera-h = 600.0
+
+  eye-h : Real
+  eye-h = 1.2
+
+  near : Real
+  near = 0.4
+
+  fov-deg : Real
+  fov-deg = 70.0
+
+ The base focal, in pixels, looking straight ahead. FROZEN at the design width and
+ NOT recomputed from the live view-w -- that is what keeps a wider window a wider
+ FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
+
+  focal : Real
+  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
+
+Section: Focal Pull-In
+
+ The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
+ narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
+ road. The lean narrows hardest and is squared so it snaps in deep in the turn;
+ attention narrows gentler and linearly, but a crossing cat's attention overshoots
+ 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
+ mid-corner -- so the tightest simply wins.
+
+  min-focal-factor : Real
+  min-focal-factor = 0.35
+
+  min-gaze-focal-factor : Real
+  min-gaze-focal-factor = 0.61
+
+  focal-for-lean : Real -> Real
+  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
+
+  focal-for-gaze : Real -> Real
+  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
+
+  cam-focal : Real, Real -> Real
+  cam-focal (lean-frac) (attention) =
+    let a = focal-for-lean lean-frac
+    in let b = focal-for-gaze attention
+    in if a < b then a else b
+
+Section: Projection
+
+  ScreenPt = record {
+    x : Real,
+    y : Real
+  }
+
+ The perspective divide is by forward, so callers must clip to the near plane
+ first -- forward is then never near zero.
+
+  project : Vec3, Real, Real -> ScreenPt
+  project (p) (cf) (view-w) =
+    ScreenPt {
+      x = view-w / 2.0 + (p.right / p.forward) * cf,
+      y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
+    }
+
+Chapter: Paint
+  cites Safari chapter Camera
+
+ The seam to JS: a draw command in wasm/paint.zig's wire.
+
+ The zig writes each command into a fixed pre-sized buffer in linear memory and
+ hands the browser a byte length. The port is pure, so it RETURNS commands and the
+ wasm shim does the writing -- the same split NOTES calls seam 3, and the reason
+ one grader serves every module: a frame is a flat list either way.
+
+ The wire, per polygon:
+
+   tag 0   [0][color][nPoints][x f32][y f32]...
+   tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
+
+ tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
+ centre, dark edge across the polygon's x-extent -- with a per-polygon strength
+ that lets crown shading fade to flat with distance instead of popping. strength
+ rides on every command so the record has one shape; tag 0 ignores it, exactly as
+ the blitter does.
+
+ Coordinates are SCREEN pixels here and still Real. They narrow to f32 in the
+ shim, at the buffer, which is the only place the game's width is load-bearing.
+
+ We say:
+
+Section: Commands
+
+  DrawCmd = record {
+    tag : Integer,
+    color : Integer,
+    strength : Real,
+    pts : List Real
+  }
+
+  flatten-screen : List ScreenPt, Integer -> List Real
+  flatten-screen (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+    in [p.x, p.y] & flatten-screen ps (i + 1)
+
+  push-poly : Integer, List ScreenPt -> List DrawCmd
+  push-poly (color) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 0, color = color, strength = 0.0, pts = flatten-screen ps 0 }]
+
+ pushRoundPoly drops a polygon with fewer than three points rather than emitting
+ a degenerate one; push-poly is given the same guard so the two agree.
+
+  push-round-poly : Integer, Real, List ScreenPt -> List DrawCmd
+  push-round-poly (color) (strength) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 1, color = color, strength = strength, pts = flatten-screen ps 0 }]
+
+Chapter: Sky
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+
+ The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
+ Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
+ heading.
+
+ A port of wasm/sky.zig.
+
+ THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
+ handed and does no clock or colour arithmetic, so this chapter is the whole of
+ the sunset. The sun draws BEHIND the mountains, because the blitter paints it
+ before the buffer whose first polygons are the ranges.
+
+ THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
+ round a lerped colour channel and to pack three of them into one integer. Until
+ 2026-08-29 the zig plug could emit neither conversion and this module was simply
+ unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
+ that closed it. Nothing here works around anything any more.
+
+ We say:
+
+Section: The Sun as a Clock
+
+ Its height drops linearly with the step, so it scrubs on reverse and freezes on
+ pause like everything else. Heights are PIXELS at the base focal, so they compare
+ directly with the mountain silhouettes.
+
+  sun-bearing : Real
+  sun-bearing = 0.0 - 2.2176
+
+  sun-radius-px : Real
+  sun-radius-px = 46.0
+
+ Step-0 height, calibrated to the route's timing in the TypeScript.
+
+  sun-start-px : Real
+  sun-start-px = 244.0
+
+  sun-drop-px-per-step : Real
+  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
+
+ The whole disc is below the horizon at this height.
+
+  sun-fully-set-px : Real
+  sun-fully-set-px = 0.0 - sun-radius-px
+
+ How far from the horizon the sunset red fades out, and how far off-heading the
+ sun may be before it is off-screen entirely.
+
+  warmth-falloff-px : Real
+  warmth-falloff-px = 110.0
+
+  visible-bearing-limit : Real
+  visible-bearing-limit = 1.4
+
+  sun-height-px : Real -> Real
+  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
+
+Section: Dusk
+
+ How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
+ darkening is a SQUARED ramp -- barely moving while it is high, accelerating
+ toward sunset -- so the sky stays bright until around sunset; once the disc is
+ fully set the rest fades linearly.
+
+  dusk-at-set : Real
+  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
+
+ The two arms are separate definitions rather than one expression, because Codex
+ refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
+ the fix and it reads better here anyway.
+
+  dusk-while-up : Real -> Real
+  dusk-while-up (h) =
+    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
+    in real-max 0.0 (dusk-at-set * p * p)
+
+  dusk-after-set : Real -> Real
+  dusk-after-set (h) =
+    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
+
+  sun-set-fraction : Real -> Real
+  sun-set-fraction (step) =
+    let h = sun-height-px step
+    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
+
+ How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
+ fades when the sun is high or deep below. This drives the warm band the sky mixes
+ into its lower edge.
+
+  sunset-warmth : Real -> Real
+  sunset-warmth (step) =
+    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
+
+Section: Colours
+
+ The upper sky dims ALL channels toward dusk, so it deepens rather than greying
+ out; the red mixes only into the lower horizon band.
+
+  Rgb = record {
+    r : Real,
+    g : Real,
+    b : Real
+  }
+
+  day-sky : Rgb
+  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
+
+  dusk-sky : Rgb
+  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
+
+  sunset-red : Rgb
+  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
+
+ How strongly the red mixes in at peak warmth.
+
+  sunset-glow : Real
+  sunset-glow = 0.85
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which is not what
+ truncation gives, so the half has to be added before the conversion and the sign
+ handled. Every channel this rounds is in 0..255 and the negative arm is
+ unreachable from here -- it is written because a round that is wrong for half its
+ domain is a trap for the next caller, and mountains.zig is already the next
+ caller.
+
+  round-real : Real -> Real
+  round-real (x) =
+    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
+    else real-from-int (real-to-int (x + 0.5))
+
+  lerp3 : Rgb, Rgb, Real -> Rgb
+  lerp3 (a) (b) (t) =
+    Rgb {
+      r = round-real (a.r + (b.r - a.r) * t),
+      g = round-real (a.g + (b.g - a.g) * t),
+      b = round-real (a.b + (b.b - a.b) * t)
+    }
+
+ The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
+ Arithmetic would give the same answer for channels this size, but the shift is
+ what the source says and the plug emits it.
+
+  pack : Rgb -> Integer
+  pack (c) =
+    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
+
+  sky-color : Real -> Integer
+  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
+
+  horizon-color : Real -> Integer
+  horizon-color (step) =
+    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
+    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
+
+Section: The Sun's Placement
+
+ `scale` is cam-focal over the base focal: it squeezes the disc and its glow
+ vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
+ radii by it. `visible` is False when the sun is too far off-heading to be on
+ screen, and the blitter then skips it entirely.
+
+  SunPos = record {
+    visible : Boolean,
+    x : Real,
+    y : Real,
+    scale : Real
+  }
+
+  sun-pos-visible : Real, Real, Real, Real -> SunPos
+  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
+
+ The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
+ keeps everywhere: a wider window sees more, it does not zoom.
+
+  sun-pos : Real, Real, Real, Real -> SunPos
+  sun-pos (heading) (step) (cam-focal) (view-w) =
+    let rel = wrap (sun-bearing - heading) 64
+    in if real-abs rel >= visible-bearing-limit
+      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
+      else sun-pos-visible rel step cam-focal view-w
+
+Chapter: Mountains
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Sky
+  cites Foreword chapter ListUtils
+
+ The far backdrop ranges, as screen-space silhouettes. Each range is a pure
+ function from absolute bearing -- radians, 0 = north, + = clockwise -- to a height
+ in pixels above the horizon; the frame samples it per column across the screen and
+ fills the silhouette. Drawn FIRST, behind the road.
+
+ A port of wasm/mountains.zig.
+
+ The light DIMS the rock and the snow toward dusk, handed down as a `dusk`
+ fraction from the sunset clock. The rolling LAND stays put, matching the grass.
+
+ THE COLOUR HELPERS ARE SKY'S, NOT COPIES. snowColor is a lerp between two
+ colours followed by a round and a pack, which is exactly `lerp3` and `pack` in
+ Sky, and mountains.zig imports sky.zig for the sun as well. Reusing them keeps
+ one rounding rule in the port instead of two that can drift.
+
+ We say:
+
+Section: Palette
+
+  rock : Integer
+  rock = 5991055
+
+  rock-west : Integer
+  rock-west = 3752799
+
+  land : Integer
+  land = 4886339
+
+ Rock fades to this fraction of its day brightness by night -- it stays BELOW the
+ snow, which is also dimming.
+
+  rock-night-dim : Real
+  rock-night-dim = 0.5
+
+  snow-day : Rgb
+  snow-day = Rgb { r = 238.0, g = 243.0, b = 248.0 }
+
+  snow-night : Rgb
+  snow-night = Rgb { r = 70.0, g = 84.0, b = 104.0 }
+
+ Darken a 0xRRGGBB toward dusk. The multiplier keeps the rock always below the
+ snow.
+
+  chan : Integer, Integer -> Real
+  chan (color) (sh) = real-from-int (bit-and (bit-shr color sh) 255)
+
+  dimmed : Integer, Real -> Integer
+  dimmed (color) (dusk) =
+    let f = 1.0 - rock-night-dim * dusk
+    in let r = real-to-int (round-real (chan color 16 * f))
+    in let g = real-to-int (round-real (chan color 8 * f))
+    in let b = real-to-int (round-real (chan color 0 * f))
+    in bit-or (bit-or (bit-shl r 16) (bit-shl g 8)) b
+
+  snow-color : Real -> Integer
+  snow-color (dusk) = pack (lerp3 snow-day snow-night dusk)
+
+Section: Shape
+
+  west-range-bearing : Real
+  west-range-bearing = 0.0 - 2.0416
+
+ Only ridge taller than this gets snow, and this is how far the snowline dips
+ under the summit.
+
+  snow-threshold : Real
+  snow-threshold = 124.0
+
+  snow-dip : Real
+  snow-dip = 10.0
+
+ Column sampling step, in pixels.
+
+  col-step : Real
+  col-step = 2.0
+
+ The camera rolls with the rider's lean, up to about twenty degrees, so the
+ rotated viewport sees design-x beyond the screen at the corners -- about
+ seventy-four pixels at full lean. Trace this far past each edge so a lean never
+ reveals sky past the backdrop's end.
+
+  roll-margin : Real
+  roll-margin = 200.0
+
+ One range: a smooth envelope, tallest at centre and tapering to open sky at its
+ edges, times a fixed rugged ridge line.
+
+  range-at : Real, Real, Real, Real, Real, Real -> Real
+  range-at (bearing) (center) (half) (peak) (freq-a) (freq-b) =
+    let b = wrap (bearing - center) 64
+    in let t = b / half
+    in if real-abs t >= 1.0 then 0.0 else range-body b t peak freq-a freq-b
+
+  range-body : Real, Real, Real, Real, Real -> Real
+  range-body (b) (t) (peak) (freq-a) (freq-b) =
+    let envelope = r-cos (t * pi / 2.0)
+    in let ridge = 0.6 + 0.24 * r-cos (b * freq-a) + 0.16 * r-cos (b * freq-b + 1.0)
+    in peak * envelope * ridge
+
+  ground-base : Real -> Real
+  ground-base (bearing) = 18.0 + 12.0 * r-sin (wrap bearing 64 * 0.9 + 1.9)
+
+  north-range : Real -> Real
+  north-range (bearing) = range-at bearing 0.0 0.95 150.0 8.0 21.0
+
+  west-range : Real -> Real
+  west-range (bearing) = range-at bearing west-range-bearing 0.72 120.0 11.0 27.0
+
+Section: The Snowline
+
+ The north range's tallest hump, for normalising the snowline dip.
+
+ THE ZIG ACCUMULATES ITS SAMPLE POSITION IN f32 AND THIS ACCUMULATES IN Real, so
+ the two do not sample the same set: 0.01 is not exact in binary, and the f32 loop
+ drifts far enough to run 101 times where this runs 100. Measured, that moves the
+ peak by 8.5e-6 out of 147.54 -- 5.8e-8 relative -- because a maximum over a
+ densely sampled smooth function does not care which of two adjacent samples it
+ lands on. It is recorded because it is the only loop in this chapter whose STEP
+ is inexact; the column loops step by 2.0 from -200.0, which is exact in both
+ widths, and both sides walk 681 and 481 columns exactly.
+
+  snow-peak-loop : Real, Real -> Real
+  snow-peak-loop (b) (vm) =
+    if b > 0.5 then vm
+    else snow-peak-loop (b + 0.01) (real-max vm (north-range b))
+
+  snow-peak-height : Real
+  snow-peak-height = snow-peak-loop (0.0 - 0.5) (0.0 - 1.0)
+
+ The zig calls the normalised fraction `above`, and that name cannot be used
+ here: `above` is a Codex KEYWORD, one of the proof-language set beside `claim`,
+ `proof` and `qed`. The refusal is correct and the diagnostic is not -- it comes
+ out as CDX1023 "Expected 'in' after let bindings", naming the let rather than the
+ keyword, which is a bisect to find. See PORTING_NOTES B11.
+
+  snowline-at : Real, Real -> Real
+  snowline-at (bearing) (peak) =
+    let num = north-range bearing - snow-threshold
+    in let above-frac = real-max 0.0 (real-min 1.0 (num / (peak - snow-threshold)))
+    in snow-threshold - snow-dip * above-frac
+
+Section: Columns and Crests
+
+ A screen column maps to a bearing through the LIVE focal: a smaller cam-focal --
+ lean, or a focus pull-in -- widens the angular span across the screen, exactly as
+ the projection does. The centre follows the live width.
+
+  bearing-at : Real, Real, Real, Real -> Real
+  bearing-at (x) (heading) (cam-focal) (view-w) =
+    heading + r-atan ((x - view-w / 2.0) / cam-focal)
+
+ The silhouette crest at a bearing: the tallest of the ranges and the land.
+
+  horizon-crest-px : Real -> Real
+  horizon-crest-px (bearing) =
+    real-max (west-range bearing) (real-max (north-range bearing) (ground-base bearing))
+
+ Has the sun dropped fully BEHIND the western range? True once the whole disc is
+ below the crest at the sun's bearing -- the moment the truck's headlights come on.
+
+  sun-behind-mountains : Real -> Boolean
+  sun-behind-mountains (step) =
+    sun-height-px step + sun-radius-px < horizon-crest-px sun-bearing
+
+Section: Silhouettes
+
+ Trace a range's crest left to right, then close down to the horizon: one filled
+ polygon. `v-scale` squeezes the heights vertically by the same factor the pull-in
+ squeezes them horizontally, so it reads as a real focal change.
+
+ The range is passed as a FUNCTION, the way the zig passes it as a comptime fn.
+
+  crest-pts : (Real -> Real), Real, Real, Real, Real, Real -> List ScreenPt
+  crest-pts (f) (heading) (cam-focal) (view-w) (v-scale) (x) =
+    if x > view-w + roll-margin then []
+    else [ScreenPt { x = x, y = camera-h / 2.0 - f (bearing-at x heading cam-focal view-w) * v-scale }] & crest-pts f heading cam-focal view-w v-scale (x + col-step)
+
+  silhouette : (Real -> Real), Real, Real, Real, Real, Integer -> List DrawCmd
+  silhouette (f) (heading) (cam-focal) (view-w) (v-scale) (color) =
+    let top = crest-pts f heading cam-focal view-w v-scale (0.0 - roll-margin)
+    in let close = [ScreenPt { x = view-w + roll-margin, y = camera-h / 2.0 }, ScreenPt { x = 0.0 - roll-margin, y = camera-h / 2.0 }]
+    in push-poly color (top & close)
+
+Section: The Snowcap
+
+ The band between the snowline and the crest, over the contiguous central hump
+ where the north range rises above its snowline. Top edge left to right, bottom
+ edge right to left. The TypeScript clips the range to the cap; this builds the
+ band directly, which is the same shape without a clip primitive.
+
+  snow-columns : Real, Real, Real, Real, Real -> List Real
+  snow-columns (heading) (cam-focal) (view-w) (peak) (x) =
+    if x > view-w then []
+    else snow-columns-at heading cam-focal view-w peak x
+
+  snow-columns-at : Real, Real, Real, Real, Real -> List Real
+  snow-columns-at (heading) (cam-focal) (view-w) (peak) (x) =
+    let b = bearing-at x heading cam-focal view-w
+    in let rest = snow-columns heading cam-focal view-w peak (x + col-step)
+    in if north-range b > snowline-at b peak + 0.01 then [x] & rest else rest
+
+  snow-top : List Real, Real, Real, Real, Real, Integer -> List ScreenPt
+  snow-top (xs) (heading) (cam-focal) (view-w) (v-scale) (i) =
+    if i >= list-length xs then []
+    else [ScreenPt { x = list-at xs i, y = camera-h / 2.0 - north-range (bearing-at (list-at xs i) heading cam-focal view-w) * v-scale }] & snow-top xs heading cam-focal view-w v-scale (i + 1)
+
+  snow-bottom : List Real, Real, Real, Real, Real, Real, Integer -> List ScreenPt
+  snow-bottom (xs) (heading) (cam-focal) (view-w) (v-scale) (peak) (i) =
+    if i < 0 then []
+    else [ScreenPt { x = list-at xs i, y = camera-h / 2.0 - snowline-at (bearing-at (list-at xs i) heading cam-focal view-w) peak * v-scale }] & snow-bottom xs heading cam-focal view-w v-scale peak (i - 1)
+
+  draw-snow : Real, Real, Real, Real, Integer -> List DrawCmd
+  draw-snow (heading) (cam-focal) (view-w) (v-scale) (snow) =
+    let peak = snow-peak-height
+    in let xs = snow-columns heading cam-focal view-w peak 0.0
+    in if list-length xs < 2 then []
+    else push-poly snow ((snow-top xs heading cam-focal view-w v-scale 0) & snow-bottom xs heading cam-focal view-w v-scale peak (list-length xs - 1))
+
+Section: The Frame
+
+ Back to front: the westward range, the snowcapped northern range, and the rolling
+ land. The rock and the snow dim toward dusk; the land does not.
+
+  draw : Real, Real, Real, Real -> List DrawCmd
+  draw (heading) (dusk) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in let west = silhouette west-range heading cam-focal view-w v-scale (dimmed rock-west dusk)
+    in let north = silhouette north-range heading cam-focal view-w v-scale (dimmed rock dusk)
+    in let cap = draw-snow heading cam-focal view-w v-scale (snow-color dusk)
+    in let ground = silhouette ground-base heading cam-focal view-w v-scale land
+    in west & north & cap & ground
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-abs (list-at got i - list-at want i) > tol then i
+    else first-real-diff got want tol (i + 1)
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+      else first-rel-diff got want tol (i + 1)
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Screen Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a projected coordinate. Neither half works alone, and both failures were
+ measured rather than guessed.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+      else first-px-diff got want atol rtol (i + 1)
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: MountainsGold
+
+ GENERATED by harness/gen_gold.py from probe/probe_mountains.zig.
+ Every value here came from importing the real game module unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-mt-crest : List Real
+  g-mt-crest = [138.96725, 94.76448, 61.468422, 52.87411, 22.624264, 28.432878, 22.424206, 28.32447, 111.173805, 25.791945, 26.87617, 11.3836155, 25.84019, 42.633415, 6.0757084, 9.391728, 6.001112, 8.409334, 16.701658, 30.415653]
+
+  g-mt-rock : List Integer
+  g-mt-rock = [3752799, 3555418, 3291987, 2830919, 2370107, 2041140, 1909296]
+
+  g-mt-sun-behind : List Boolean
+  g-mt-sun-behind = [False, False, False, False, False, True, True, True]
+
+  g-mt-tags : List Integer
+  g-mt-tags = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  g-mt-colors : List Integer
+  g-mt-colors = [3752799, 5991055, 15660024, 4886339, 3094350, 4937590, 4886339, 2633539, 4213348, 9016482, 4886339, 1909296, 3028296, 4609128, 4886339]
+
+  g-mt-counts : List Integer
+  g-mt-counts = [683, 683, 88, 683, 683, 683, 683, 683, 683, 62, 683, 683, 683, 88, 683]
+
+  g-mt-coords : List Real
+  g-mt-coords = [-200.0, 300.0, -184.0, 300.0, -168.0, 300.0, -152.0, 300.0, -136.0, 300.0, -120.0, 300.0, -104.0, 300.0, -88.0, 300.0, -72.0, 300.0, -56.0, 300.0, -40.0, 300.0, -24.0, 300.0, -8.0, 300.0, 8.0, 300.0, 24.0, 300.0, 40.0, 300.0, 56.0, 300.0, 72.0, 300.0, 88.0, 300.0, 104.0, 300.0, 120.0, 300.0, 136.0, 300.0, 152.0, 300.0, 168.0, 300.0, 184.0, 300.0, 200.0, 300.0, 216.0, 300.0, 232.0, 300.0, 248.0, 300.0, 264.0, 300.0, 280.0, 300.0, 296.0, 300.0, 312.0, 300.0, 328.0, 300.0, 344.0, 300.0, 360.0, 300.0, 376.0, 300.0, 392.0, 300.0, 408.0, 300.0, 424.0, 300.0, 440.0, 300.0, 456.0, 300.0, 472.0, 300.0, 488.0, 300.0, 504.0, 300.0, 520.0, 300.0, 536.0, 300.0, 552.0, 300.0, 568.0, 300.0, 584.0, 300.0, 600.0, 300.0, 616.0, 300.0, 632.0, 300.0, 648.0, 300.0, 664.0, 300.0, 680.0, 300.0, 696.0, 300.0, 712.0, 300.0, 728.0, 300.0, 744.0, 300.0, 760.0, 300.0, 776.0, 300.0, 792.0, 300.0, 808.0, 300.0, 824.0, 300.0, 840.0, 300.0, 856.0, 300.0, 872.0, 300.0, 888.0, 300.0, 904.0, 300.0, 920.0, 300.0, 936.0, 300.0, 952.0, 300.0, 968.0, 300.0, 984.0, 300.0, 1000.0, 300.0, 1016.0, 300.0, 1032.0, 300.0, 1048.0, 300.0, 1064.0, 300.0, 1080.0, 300.0, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, -200.0, 271.63712, -184.0, 269.04895, -168.0, 266.01947, -152.0, 262.54764, -136.0, 258.68307, -120.0, 254.536, -104.0, 250.28232, -88.0, 246.16202, -72.0, 242.46835, -56.0, 239.52716, -40.0, 237.66472, -24.0, 237.16644, -8.0, 238.22888, 8.0, 240.91124, 24.0, 245.09357, 40.0, 250.45149, 56.0, 256.45645, 72.0, 262.4096, 88.0, 267.51294, 104.0, 270.97498, 120.0, 272.14075, 136.0, 270.6256, 152.0, 266.42764, 168.0, 259.98764, 184.0, 252.17073, 200.0, 244.1544, 216.0, 237.22527, 232.0, 232.51227, 248.0, 230.70627, 264.0, 231.83301, 280.0, 235.14789, 296.0, 239.20506, 312.0, 242.11581, 328.0, 241.9626, 344.0, 237.2844, 360.0, 227.5138, 376.0, 213.23965, 392.0, 196.20074, 408.0, 178.98004, 424.0, 164.45284, 440.0, 155.11794, 456.0, 152.48729, 472.0, 156.70392, 488.0, 166.5015, 504.0, 179.52493, 520.0, 192.92734, 536.0, 204.08046, 552.0, 211.20425, 568.0, 213.75015, 584.0, 212.44736, 600.0, 209.01988, 616.0, 205.67172, 632.0, 204.492, 648.0, 206.93887, 664.0, 213.52405, 680.0, 223.75375, 696.0, 236.31017, 712.0, 249.40053, 728.0, 261.171, 744.0, 270.08334, 760.0, 275.1785, 776.0, 276.18884, 792.0, 273.5017, 808.0, 268.00772, 824.0, 260.8835, 840.0, 253.36275, 856.0, 246.53873, 872.0, 241.22685, 888.0, 237.89786, 904.0, 236.6774, 920.0, 237.39706, 936.0, 239.6774, 952.0, 243.02258, 968.0, 246.9101, 984.0, 250.86382, 1000.0, 254.50421, 1016.0, 257.57455, 1032.0, 259.9454, 1048.0, 261.60287, 1064.0, 262.62518, 1080.0, 263.15442, 1096.0, 263.3672, 1112.0, 263.4483, 1128.0, 263.56955, 1144.0, 263.8746, 1160.0, 264.46985, 412.0, 174.98648, 428.0, 161.5524, 444.0, 153.80113, 460.0, 152.92616, 476.0, 158.70732, 492.0, 169.56311, 490.0, 179.39404, 474.0, 183.78873, 458.0, 185.9169, 442.0, 185.17252, 426.0, 181.53915, -200.0, 270.82962, -184.0, 270.7833, -168.0, 270.7372, -152.0, 270.69144, -136.0, 270.64606, -120.0, 270.6012, -104.0, 270.5569, -88.0, 270.51324, -72.0, 270.47043, -56.0, 270.4285, -40.0, 270.3876, -24.0, 270.34787, -8.0, 270.30942, 8.0, 270.27243, 24.0, 270.23703, 40.0, 270.20337, 56.0, 270.17163, 72.0, 270.14197, 88.0, 270.1146, 104.0, 270.08966, 120.0, 270.06735, 136.0, 270.0479, 152.0, 270.0315, 168.0, 270.01828, 184.0, 270.0085, 200.0, 270.00235, 216.0, 270.0, 232.0, 270.00168, 248.0, 270.00757, 264.0, 270.0178, 280.0, 270.0326, 296.0, 270.05206, 312.0, 270.0764, 328.0, 270.10568, 344.0, 270.14008, 360.0, 270.17963, 376.0, 270.2244, 392.0, 270.27448, 408.0, 270.3299, 424.0, 270.3906, 440.0, 270.4566, 456.0, 270.52786, 472.0, 270.60428, 488.0, 270.68576, 504.0, 270.77222, 520.0, 270.86343, 536.0, 270.9593, 552.0, 271.05957, 568.0, 271.16406, 584.0, 271.27258, 600.0, 271.38486, 616.0, 271.5006, 632.0, 271.61963, 648.0, 271.7416, 664.0, 271.8663, 680.0, 271.9934, 696.0, 272.12265, 712.0, 272.25375, 728.0, 272.38644, 744.0, 272.52048, 760.0, 272.65555, 776.0, 272.79147, 792.0, 272.92795, 808.0, 273.06476, 824.0, 273.2017, 840.0, 273.33856, 856.0, 273.47513, 872.0, 273.61127, 888.0, 273.74673, 904.0, 273.88147, 920.0, 274.01523, 936.0, 274.14795, 952.0, 274.27948, 968.0, 274.40973, 984.0, 274.5386, 1000.0, 274.66602, 1016.0, 274.79187, 1032.0, 274.91614, 1048.0, 275.03873, 1064.0, 275.1596, 1080.0, 275.27875, 1096.0, 275.3961, 1112.0, 275.5116, 1128.0, 275.6253, 1144.0, 275.73718, 1160.0, 275.8472, -200.0, 300.0, -184.0, 300.0, -168.0, 300.0, -152.0, 300.0, -136.0, 300.0, -120.0, 299.804, -104.0, 297.23544, -88.0, 294.7079, -72.0, 292.33588, -56.0, 290.1367, -40.0, 288.00403, -24.0, 285.71005, -8.0, 282.94565, 8.0, 279.39975, 24.0, 274.86816, 40.0, 269.36865, 56.0, 263.2289, 72.0, 257.10797, 88.0, 251.92159, 104.0, 248.65982, 120.0, 248.12021, 136.0, 250.61844, 152.0, 255.76707, 168.0, 262.42227, 184.0, 268.8668, 200.0, 273.23282, 216.0, 274.07364, 232.0, 270.9075, 248.0, 264.5168, 264.0, 256.82565, 280.0, 250.30843, 296.0, 247.07196, 312.0, 247.92696, 328.0, 251.84534, 344.0, 256.11102, 360.0, 257.2251, 376.0, 252.29526, 392.0, 240.37402, 408.0, 223.14957, 424.0, 204.60606, 440.0, 189.69067, 456.0, 182.48026, 472.0, 184.60455, 488.0, 194.6147, 504.0, 208.5911, 520.0, 221.74216, 536.0, 230.30432, 552.0, 232.93404, 568.0, 231.02753, 584.0, 227.89493, 600.0, 227.21133, 616.0, 231.44104, 632.0, 240.88051, 648.0, 253.64522, 664.0, 266.5052, 680.0, 276.14923, 696.0, 280.3487, 712.0, 278.60654, 728.0, 272.13733, 744.0, 263.2901, 760.0, 254.70251, 776.0, 248.5116, 792.0, 245.85999, 808.0, 246.78946, 824.0, 250.47005, 840.0, 255.62093, 856.0, 260.9567, 872.0, 265.52667, 888.0, 268.87952, 904.0, 271.0527, 920.0, 272.43524, 936.0, 273.57227, 952.0, 274.9775, 968.0, 276.9993, 984.0, 279.75958, 1000.0, 283.1624, 1016.0, 286.95267, 1032.0, 290.7991, 1048.0, 294.37805, 1064.0, 297.4388, 1080.0, 299.84247, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, -200.0, 300.0, -184.0, 300.0, -168.0, 300.0, -152.0, 300.0, -136.0, 300.0, -120.0, 300.0, -104.0, 300.0, -88.0, 300.0, -72.0, 300.0, -56.0, 300.0, -40.0, 300.0, -24.0, 300.0, -8.0, 300.0, 8.0, 300.0, 24.0, 300.0, 40.0, 300.0, 56.0, 300.0, 72.0, 300.0, 88.0, 300.0, 104.0, 300.0, 120.0, 300.0, 136.0, 300.0, 152.0, 300.0, 168.0, 300.0, 184.0, 300.0, 200.0, 300.0, 216.0, 300.0, 232.0, 300.0, 248.0, 300.0, 264.0, 300.0, 280.0, 300.0, 296.0, 300.0, 312.0, 300.0, 328.0, 300.0, 344.0, 300.0, 360.0, 300.0, 376.0, 300.0, 392.0, 300.0, 408.0, 300.0, 424.0, 300.0, 440.0, 300.0, 456.0, 300.0, 472.0, 300.0, 488.0, 300.0, 504.0, 300.0, 520.0, 300.0, 536.0, 300.0, 552.0, 300.0, 568.0, 300.0, 584.0, 300.0, 600.0, 300.0, 616.0, 300.0, 632.0, 300.0, 648.0, 300.0, 664.0, 300.0, 680.0, 300.0, 696.0, 300.0, 712.0, 300.0, 728.0, 300.0, 744.0, 300.0, 760.0, 300.0, 776.0, 300.0, 792.0, 300.0, 808.0, 300.0, 824.0, 300.0, 840.0, 300.0, 856.0, 300.0, 872.0, 300.0, 888.0, 300.0, 904.0, 300.0, 920.0, 300.0, 936.0, 300.0, 952.0, 300.0, 968.0, 300.0, 984.0, 300.0, 1000.0, 300.0, 1016.0, 300.0, 1032.0, 300.0, 1048.0, 300.0, 1064.0, 300.0, 1080.0, 300.0, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, -200.0, 289.17276, -184.0, 289.06927, -168.0, 288.96252, -152.0, 288.85242, -136.0, 288.7388, -120.0, 288.62158, -104.0, 288.50067, -88.0, 288.376, -72.0, 288.2474, -56.0, 288.11484, -40.0, 287.97818, -24.0, 287.83734, -8.0, 287.69223, 8.0, 287.54276, 24.0, 287.38885, 40.0, 287.23047, 56.0, 287.0675, 72.0, 286.8999, 88.0, 286.72766, 104.0, 286.55072, 120.0, 286.36905, 136.0, 286.18265, 152.0, 285.99158, 168.0, 285.7958, 184.0, 285.5954, 200.0, 285.3904, 216.0, 285.18097, 232.0, 284.96713, 248.0, 284.74905, 264.0, 284.5269, 280.0, 284.30078, 296.0, 284.07095, 312.0, 283.83765, 328.0, 283.60107, 344.0, 283.3615, 360.0, 283.11926, 376.0, 282.8746, 392.0, 282.62787, 408.0, 282.3794, 424.0, 282.12958, 440.0, 281.87875, 456.0, 281.6273, 472.0, 281.37558, 488.0, 281.12402, 504.0, 280.873, 520.0, 280.62286, 536.0, 280.374, 552.0, 280.12677, 568.0, 279.88156, 584.0, 279.6387, 600.0, 279.3985, 616.0, 279.1613, 632.0, 278.9273, 648.0, 278.69687, 664.0, 278.47015, 680.0, 278.24747, 696.0, 278.02893, 712.0, 277.81473, 728.0, 277.60504, 744.0, 277.39993, 760.0, 277.19955, 776.0, 277.00397, 792.0, 276.81323, 808.0, 276.62738, 824.0, 276.4464, 840.0, 276.27036, 856.0, 276.0992, 872.0, 275.9329, 888.0, 275.7714, 904.0, 275.6147, 920.0, 275.46265, 936.0, 275.31525, 952.0, 275.17236, 968.0, 275.03394, 984.0, 274.8999, 1000.0, 274.77008, 1016.0, 274.64444, 1032.0, 274.52286, 1048.0, 274.4052, 1064.0, 274.29138, 1080.0, 274.18127, 1096.0, 274.0748, 1112.0, 273.9718, 1128.0, 273.8722, 1144.0, 273.77588, 1160.0, 273.68274, -200.0, 300.0, -184.0, 300.0, -168.0, 300.0, -152.0, 300.0, -136.0, 300.0, -120.0, 300.0, -104.0, 300.0, -88.0, 300.0, -72.0, 300.0, -56.0, 300.0, -40.0, 300.0, -24.0, 300.0, -8.0, 300.0, 8.0, 300.0, 24.0, 300.0, 40.0, 300.0, 56.0, 300.0, 72.0, 300.0, 88.0, 300.0, 104.0, 300.0, 120.0, 300.0, 136.0, 300.0, 152.0, 300.0, 168.0, 300.0, 184.0, 300.0, 200.0, 300.0, 216.0, 300.0, 232.0, 300.0, 248.0, 300.0, 264.0, 300.0, 280.0, 300.0, 296.0, 300.0, 312.0, 300.0, 328.0, 300.0, 344.0, 300.0, 360.0, 300.0, 376.0, 300.0, 392.0, 300.0, 408.0, 300.0, 424.0, 300.0, 440.0, 300.0, 456.0, 300.0, 472.0, 300.0, 488.0, 300.0, 504.0, 300.0, 520.0, 300.0, 536.0, 300.0, 552.0, 300.0, 568.0, 300.0, 584.0, 300.0, 600.0, 300.0, 616.0, 300.0, 632.0, 300.0, 648.0, 300.0, 664.0, 300.0, 680.0, 300.0, 696.0, 300.0, 712.0, 300.0, 728.0, 300.0, 744.0, 300.0, 760.0, 300.0, 776.0, 300.0, 792.0, 300.0, 808.0, 300.0, 824.0, 300.0, 840.0, 300.0, 856.0, 300.0, 872.0, 300.0, 888.0, 300.0, 904.0, 300.0, 920.0, 300.0, 936.0, 300.0, 952.0, 300.0, 968.0, 300.0, 984.0, 300.0, 1000.0, 300.0, 1016.0, 300.0, 1032.0, 300.0, 1048.0, 300.0, 1064.0, 300.0, 1080.0, 300.0, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, -200.0, 281.85245, -184.0, 283.22852, -168.0, 284.52753, -152.0, 285.68015, -136.0, 286.6089, -120.0, 287.2312, -104.0, 287.46475, -88.0, 287.23456, -72.0, 286.48267, -56.0, 285.1798, -40.0, 283.33868, -24.0, 281.0272, -8.0, 278.37897, 8.0, 275.59784, 24.0, 272.95135, 40.0, 270.7477, 56.0, 269.29102, 72.0, 268.81323, 88.0, 269.38638, 104.0, 270.82898, 120.0, 272.6356, 136.0, 273.9706, 152.0, 273.77658, 168.0, 271.0345, 184.0, 265.16852, 200.0, 256.50394, 216.0, 246.5752, 232.0, 238.00558, 248.0, 233.73163, 264.0, 235.63187, 280.0, 243.12396, 296.0, 252.75581, 312.0, 259.70645, 328.0, 260.976, 344.0, 258.22668, 360.0, 257.32858, 376.0, 263.59024, 392.0, 276.06616, 408.0, 287.00452, 424.0, 288.66006, 440.0, 281.30774, 456.0, 273.2396, 472.0, 271.9918, 488.0, 276.95737, 504.0, 281.95734, 520.0, 283.50082, 536.0, 283.96115, 552.0, 287.01257, 568.0, 292.68906, 584.0, 298.05057, 600.0, 300.0, 616.0, 300.0, 632.0, 300.0, 648.0, 300.0, 664.0, 300.0, 680.0, 300.0, 696.0, 300.0, 712.0, 300.0, 728.0, 300.0, 744.0, 300.0, 760.0, 300.0, 776.0, 300.0, 792.0, 300.0, 808.0, 300.0, 824.0, 300.0, 840.0, 300.0, 856.0, 300.0, 872.0, 300.0, 888.0, 300.0, 904.0, 300.0, 920.0, 300.0, 936.0, 300.0, 952.0, 300.0, 968.0, 300.0, 984.0, 300.0, 1000.0, 300.0, 1016.0, 300.0, 1032.0, 300.0, 1048.0, 300.0, 1064.0, 300.0, 1080.0, 300.0, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, 220.0, 244.1871, 236.0, 236.43082, 252.0, 233.59998, 268.0, 237.07036, 278.0, 245.14462, 262.0, 248.08763, 246.0, 248.55469, 230.0, 246.45193, -200.0, 286.57004, -184.0, 286.56317, -168.0, 286.5564, -152.0, 286.54974, -136.0, 286.54327, -120.0, 286.537, -104.0, 286.53098, -88.0, 286.52524, -72.0, 286.5199, -56.0, 286.51498, -40.0, 286.5106, -24.0, 286.5068, -8.0, 286.50372, 8.0, 286.5015, 24.0, 286.50024, 40.0, 286.5001, 56.0, 286.50125, 72.0, 286.50394, 88.0, 286.50833, 104.0, 286.5147, 120.0, 286.5234, 136.0, 286.53467, 152.0, 286.54895, 168.0, 286.56662, 184.0, 286.58813, 200.0, 286.614, 216.0, 286.64484, 232.0, 286.68118, 248.0, 286.72372, 264.0, 286.77316, 280.0, 286.8302, 296.0, 286.89563, 312.0, 286.97015, 328.0, 287.05453, 344.0, 287.1494, 360.0, 287.2554, 376.0, 287.37292, 392.0, 287.50226, 408.0, 287.64343, 424.0, 287.79636, 440.0, 287.96048, 456.0, 288.13516, 472.0, 288.31937, 488.0, 288.51184, 504.0, 288.71115, 520.0, 288.9157, 536.0, 289.1238, 552.0, 289.33377, 568.0, 289.5439, 584.0, 289.75275, 600.0, 289.95886, 616.0, 290.161, 632.0, 290.3582, 648.0, 290.54953, 664.0, 290.73447, 680.0, 290.9125, 696.0, 291.08334, 712.0, 291.24686, 728.0, 291.403, 744.0, 291.55182, 760.0, 291.69345, 776.0, 291.82812, 792.0, 291.956, 808.0, 292.0774, 824.0, 292.1926, 840.0, 292.30188, 856.0, 292.40555, 872.0, 292.5039, 888.0, 292.59726, 904.0, 292.68585, 920.0, 292.77, 936.0, 292.8499, 952.0, 292.92587, 968.0, 292.9981, 984.0, 293.06686, 1000.0, 293.13232, 1016.0, 293.1947, 1032.0, 293.25418, 1048.0, 293.3109, 1064.0, 293.36508, 1080.0, 293.4168, 1096.0, 293.46628, 1112.0, 293.51358, 1128.0, 293.5589, 1144.0, 293.60226, 1160.0, 293.64386, -200.0, 300.0, -184.0, 300.0, -168.0, 300.0, -152.0, 300.0, -136.0, 300.0, -120.0, 300.0, -104.0, 300.0, -88.0, 300.0, -72.0, 300.0, -56.0, 300.0, -40.0, 300.0, -24.0, 300.0, -8.0, 300.0, 8.0, 300.0, 24.0, 300.0, 40.0, 300.0, 56.0, 300.0, 72.0, 300.0, 88.0, 300.0, 104.0, 300.0, 120.0, 300.0, 136.0, 300.0, 152.0, 300.0, 168.0, 300.0, 184.0, 300.0, 200.0, 300.0, 216.0, 300.0, 232.0, 300.0, 248.0, 300.0, 264.0, 300.0, 280.0, 300.0, 296.0, 300.0, 312.0, 300.0, 328.0, 300.0, 344.0, 300.0, 360.0, 300.0, 376.0, 300.0, 392.0, 300.0, 408.0, 300.0, 424.0, 300.0, 440.0, 300.0, 456.0, 300.0, 472.0, 300.0, 488.0, 300.0, 504.0, 300.0, 520.0, 300.0, 536.0, 300.0, 552.0, 300.0, 568.0, 300.0, 584.0, 300.0, 600.0, 300.0, 616.0, 300.0, 632.0, 300.0, 648.0, 300.0, 664.0, 300.0, 680.0, 300.0, 696.0, 300.0, 712.0, 300.0, 728.0, 300.0, 744.0, 300.0, 760.0, 300.0, 776.0, 300.0, 792.0, 300.0, 808.0, 300.0, 824.0, 300.0, 840.0, 300.0, 856.0, 300.0, 872.0, 300.0, 888.0, 300.0, 904.0, 300.0, 920.0, 300.0, 936.0, 300.0, 952.0, 300.0, 968.0, 300.0, 984.0, 300.0, 1000.0, 300.0, 1016.0, 300.0, 1032.0, 300.0, 1048.0, 300.0, 1064.0, 300.0, 1080.0, 300.0, 1096.0, 300.0, 1112.0, 300.0, 1128.0, 300.0, 1144.0, 300.0, 1160.0, 300.0, -200.0, 271.63712, -184.0, 269.04895, -168.0, 266.01947, -152.0, 262.54764, -136.0, 258.68307, -120.0, 254.536, -104.0, 250.28232, -88.0, 246.16202, -72.0, 242.46835, -56.0, 239.52716, -40.0, 237.66472, -24.0, 237.16644, -8.0, 238.22888, 8.0, 240.91124, 24.0, 245.09357, 40.0, 250.45149, 56.0, 256.45645, 72.0, 262.4096, 88.0, 267.51294, 104.0, 270.97498, 120.0, 272.14075, 136.0, 270.6256, 152.0, 266.42764, 168.0, 259.98764, 184.0, 252.17073, 200.0, 244.1544, 216.0, 237.22527, 232.0, 232.51227, 248.0, 230.70627, 264.0, 231.83301, 280.0, 235.14789, 296.0, 239.20506, 312.0, 242.11581, 328.0, 241.9626, 344.0, 237.2844, 360.0, 227.5138, 376.0, 213.23965, 392.0, 196.20074, 408.0, 178.98004, 424.0, 164.45284, 440.0, 155.11794, 456.0, 152.48729, 472.0, 156.70392, 488.0, 166.5015, 504.0, 179.52493, 520.0, 192.92734, 536.0, 204.08046, 552.0, 211.20425, 568.0, 213.75015, 584.0, 212.44736, 600.0, 209.01988, 616.0, 205.67172, 632.0, 204.492, 648.0, 206.93887, 664.0, 213.52405, 680.0, 223.75375, 696.0, 236.31017, 712.0, 249.40053, 728.0, 261.171, 744.0, 270.08334, 760.0, 275.1785, 776.0, 276.18884, 792.0, 273.5017, 808.0, 268.00772, 824.0, 260.8835, 840.0, 253.36275, 856.0, 246.53873, 872.0, 241.22685, 888.0, 237.89786, 904.0, 236.6774, 920.0, 237.39706, 936.0, 239.6774, 952.0, 243.02258, 968.0, 246.9101, 984.0, 250.86382, 1000.0, 254.50421, 1016.0, 257.57455, 1032.0, 259.9454, 1048.0, 261.60287, 1064.0, 262.62518, 1080.0, 263.15442, 1096.0, 263.3672, 1112.0, 263.4483, 1128.0, 263.56955, 1144.0, 263.8746, 1160.0, 264.46985, 412.0, 174.98648, 428.0, 161.5524, 444.0, 153.80113, 460.0, 152.92616, 476.0, 158.70732, 492.0, 169.56311, 490.0, 179.39404, 474.0, 183.78873, 458.0, 185.9169, 442.0, 185.17252, 426.0, 181.53915, -200.0, 270.82962, -184.0, 270.7833, -168.0, 270.7372, -152.0, 270.69144, -136.0, 270.64606, -120.0, 270.6012, -104.0, 270.5569, -88.0, 270.51324, -72.0, 270.47043, -56.0, 270.4285, -40.0, 270.3876, -24.0, 270.34787, -8.0, 270.30942, 8.0, 270.27243, 24.0, 270.23703, 40.0, 270.20337, 56.0, 270.17163, 72.0, 270.14197, 88.0, 270.1146, 104.0, 270.08966, 120.0, 270.06735, 136.0, 270.0479, 152.0, 270.0315, 168.0, 270.01828, 184.0, 270.0085, 200.0, 270.00235, 216.0, 270.0, 232.0, 270.00168, 248.0, 270.00757, 264.0, 270.0178, 280.0, 270.0326, 296.0, 270.05206, 312.0, 270.0764, 328.0, 270.10568, 344.0, 270.14008, 360.0, 270.17963, 376.0, 270.2244, 392.0, 270.27448, 408.0, 270.3299, 424.0, 270.3906, 440.0, 270.4566, 456.0, 270.52786, 472.0, 270.60428, 488.0, 270.68576, 504.0, 270.77222, 520.0, 270.86343, 536.0, 270.9593, 552.0, 271.05957, 568.0, 271.16406, 584.0, 271.27258, 600.0, 271.38486, 616.0, 271.5006, 632.0, 271.61963, 648.0, 271.7416, 664.0, 271.8663, 680.0, 271.9934, 696.0, 272.12265, 712.0, 272.25375, 728.0, 272.38644, 744.0, 272.52048, 760.0, 272.65555, 776.0, 272.79147, 792.0, 272.92795, 808.0, 273.06476, 824.0, 273.2017, 840.0, 273.33856, 856.0, 273.47513, 872.0, 273.61127, 888.0, 273.74673, 904.0, 273.88147, 920.0, 274.01523, 936.0, 274.14795, 952.0, 274.27948, 968.0, 274.40973, 984.0, 274.5386, 1000.0, 274.66602, 1016.0, 274.79187, 1032.0, 274.91614, 1048.0, 275.03873, 1064.0, 275.1596, 1080.0, 275.27875, 1096.0, 275.3961, 1112.0, 275.5116, 1128.0, 275.6253, 1144.0, 275.73718, 1160.0, 275.8472]
+
+Chapter: MountainsCheck
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Sky
+  cites Safari chapter Mountains
+  cites Judge chapter Grade
+  cites Gold chapter MountainsGold
+
+ Grade the Mountains port against wasm/mountains.zig.
+
+ Two seams. The crest and the headlight test are seam 1, walked over a table of
+ bearings; draw is seam 3, decoded off paint's wire.
+
+ THE COLOURS ARE GRADED EXACTLY, as in Sky and for the same reason: dimmed and
+ snowColor round a channel and pack three of them, which is precisely the work the
+ zig plug could not emit before row 2.03. A dimmed rock one off is a wrong rock.
+
+ THE SILHOUETTE COORDINATES ARE WHERE THE RANGE FUNCTIONS ARE REALLY GRADED.
+ northRange, westRange and groundBase are private to the module, so nothing can
+ call them directly -- but every silhouette traces one of them over 681 columns,
+ so 683-point polygons carry them. This is also the only place in the port that
+ grades an ARC TANGENT: bearing-at calls r-atan once per column, so a wrong atan
+ would bend every ridge.
+
+ THE CASES ARE BRANCHES. A plain forward view; a heading swung onto the west
+ range, which puts the north range off-screen so that NO column clears its
+ snowline and drawSnow takes its `m < 2` bail -- that case emits three polygons
+ where the others emit four, and the count is the assertion; a pulled-in focal,
+ which changes the angular span and v_scale together and shrinks the snow band
+ from 88 points to 62; and full night, where the rock is at its dimmest.
+
+ 683 is 681 columns plus the two points that close the polygon down to the
+ horizon. Both sides walk exactly 681 because the column loop steps by 2.0 from
+ -200.0, and both are exact in binary. The one loop that is NOT exact is the
+ snow peak's 0.01 -- see the note in the port; it moves the peak by 5.8e-8
+ relative and cannot move a point count.
+
+ We say:
+
+Section: Scalars
+
+  bearings : List Real
+  bearings = [0.0, 0.2, 0.0 - 0.2, 0.5, 0.94, 0.0 - 0.94, 0.96, 0.0 - 0.96, 0.0 - 2.0416, 0.0 - 1.7, 0.0 - 2.4, 0.0 - 2.76, 0.0 - 1.32, 0.0 - 2.2176, 3.0, 0.0 - 3.0, 3.14, 0.0 - 3.14, 1.5, 0.0 - 1.5]
+
+  crests : List Real, Integer -> List Real
+  crests (bs) (i) =
+    if i >= list-length bs then []
+    else [horizon-crest-px (list-at bs i)] & crests bs (i + 1)
+
+  dusks : List Real
+  dusks = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+
+ The probe reads the colour of the FIRST polygon of each frame, which is the
+ westward range, so this is dimmed rock-west at each dusk.
+
+  rocks : List Real, Integer -> List Integer
+  rocks (ds) (i) =
+    if i >= list-length ds then []
+    else [dimmed rock-west (list-at ds i)] & rocks ds (i + 1)
+
+  steps : List Real
+  steps = [0.0, 2000.0, 3500.0, 3900.0, 4000.0, 4300.0, 5000.0, 8000.0]
+
+  behinds : List Real, Integer -> List Boolean
+  behinds (ss) (i) =
+    if i >= list-length ss then []
+    else [sun-behind-mountains (list-at ss i)] & behinds ss (i + 1)
+
+Section: The Frames
+
+  frame-1 : List DrawCmd
+  frame-1 = draw 0.0 0.0 focal camera-w
+
+  frame-2 : List DrawCmd
+  frame-2 = draw (0.0 - 2.0416) 0.35 focal camera-w
+
+  frame-3 : List DrawCmd
+  frame-3 = draw 0.6 0.6 (focal * 0.45) camera-w
+
+  frame-4 : List DrawCmd
+  frame-4 = draw 0.0 1.0 focal camera-w
+
+  all-cmds : List DrawCmd
+  all-cmds = frame-1 & frame-2 & frame-3 & frame-4
+
+  cmd-tags : List DrawCmd, Integer -> List Integer
+  cmd-tags (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).tag] & cmd-tags cs (i + 1)
+
+  cmd-colors : List DrawCmd, Integer -> List Integer
+  cmd-colors (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).color] & cmd-colors cs (i + 1)
+
+  cmd-counts : List DrawCmd, Integer -> List Integer
+  cmd-counts (cs) (i) =
+    if i >= list-length cs then []
+    else [list-length (list-at cs i).pts / 2] & cmd-counts cs (i + 1)
+
+ EVERY 8th POINT, matching the probe. Four frames at full density are 16,868
+ coordinates, and codexzig exhausts its own 4 GiB bump heap on a Real literal that
+ size -- the heap never reclaims, so the gold a single unit can carry has a
+ ceiling. Striding is what to give up: the point COUNTS above are still exact, so
+ a silhouette that gained or lost a column still fails hard, and 86 samples across
+ a curve that is smooth by construction still catch a wrong range function, a
+ wrong arc tangent, a wrong bearing mapping or a wrong v-scale.
+
+  stride-pts : List Real, Integer -> List Real
+  stride-pts (ps) (i) =
+    if i * 2 >= list-length ps then []
+    else [list-at ps (i * 2), list-at ps (i * 2 + 1)] & stride-pts ps (i + 8)
+
+  cmd-coords : List DrawCmd, Integer -> List Real
+  cmd-coords (cs) (i) =
+    if i >= list-length cs then []
+    else (stride-pts (list-at cs i).pts 0) & cmd-coords cs (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-rel   "mt-crest      " (crests bearings 0) g-mt-crest 0.000001)
+    print-line-uni (grade-ints  "mt-rock       " (rocks dusks 0) g-mt-rock)
+    print-line-uni (grade-bools "mt-sun-behind " (behinds steps 0) g-mt-sun-behind)
+    print-line-uni (grade-ints  "mt-tags       " (cmd-tags all-cmds 0) g-mt-tags)
+    print-line-uni (grade-ints  "mt-colors     " (cmd-colors all-cmds 0) g-mt-colors)
+    print-line-uni (grade-ints  "mt-counts     " (cmd-counts all-cmds 0) g-mt-counts)
+    print-line-uni (grade-px    "mt-coords     " (cmd-coords all-cmds 0) g-mt-coords 0.001 0.000001)
+  end

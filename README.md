@@ -110,6 +110,7 @@ already narrows at.
 | `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
 | `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
 | `port/Sky.codex` | `wasm/sky.zig` | 148 values; **colours exact** |
+| `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed
@@ -142,6 +143,21 @@ the hole: `real-sqrt` is a scaled Heron iteration that touches no conversion, an
 `GuardRail` cites the real chapter for it and grades green. Before writing a
 stand-in for any foreword chapter, check which of *its functions* actually reach
 the hole — "this chapter is dark" is almost never true.
+
+**`Mountains` is where the arc tangent is graded.** `Trig` grew an `r-atan`,
+because `Gpu chapter DeviceMath` has none — its whole surface is min, max, abs,
+sqrt, sin and cos, and the foreword's other arc tangents are integer milli-unit
+routines. So that one is a gap in Codex's foreword rather than a hole in the
+plug, and it does **not** go away when the rest of `Trig` is retired. It matches
+zig's `atan` to 1e-9 over eighteen values including the reciprocal branch; the
+mountains check catches a 1e-5 relative error in it, so there are four decades of
+margin.
+
+Its coordinates are graded at **every eighth point**, and that is a toolchain
+ceiling rather than a choice: four frames at full density are 16,868 coordinates,
+and `codexzig` exhausts its own 4 GiB bump heap on a Real literal that size. Point
+counts stay exact, so a silhouette that gained or lost a column still fails hard.
+See `PORTING_NOTES` C7.
 
 `GuardRail` is graded on **both of its halves**, because `guard_rail.zig` is
 deliberately two. `emit` collects `RailPoly`s rather than drawing them, so the

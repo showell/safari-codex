@@ -62,6 +62,18 @@ const SunPosS = struct {
 };
 const SunPos = *SunPosS;
 
+fn real_min(a_: f64, b_: f64) f64 {
+    return (if ((a_ < b_)) a_ else b_);
+}
+
+fn real_max(a_: f64, b_: f64) f64 {
+    return (if ((a_ > b_)) a_ else b_);
+}
+
+fn real_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
 fn pi() f64 {
     return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
 }
@@ -132,18 +144,6 @@ fn min_gaze_focal_factor() f64 {
 
 fn cam_focal(lean_frac: f64, attention: f64) f64 {
     return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
-}
-
-fn real_min(a_: f64, b_: f64) f64 {
-    return (if ((a_ < b_)) a_ else b_);
-}
-
-fn real_max(a_: f64, b_: f64) f64 {
-    return (if ((a_ > b_)) a_ else b_);
-}
-
-fn real_abs(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
 }
 
 fn sun_bearing() f64 {

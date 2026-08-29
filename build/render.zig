@@ -130,7 +130,9 @@ const ScreenPt = *ScreenPtS;
 const DrawCmdS = struct {
     tag: i64,
     color: i64,
+    color2: i64,
     strength: f64,
+    geom: *CxList(f64),
     pts: *CxList(f64),
 };
 const DrawCmd = *DrawCmdS;
@@ -821,7 +823,7 @@ fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
 }
 
 fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
-    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .strength = @as(f64, @bitCast(@as(i64, 0))), .pts = flatten_screen(ps, 0) }) }));
+    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .color2 = 0, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_empty(f64), .pts = flatten_screen(ps, 0) }) }));
 }
 
 fn rail_height() f64 {

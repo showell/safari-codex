@@ -50,7 +50,9 @@ const ScreenPt = *ScreenPtS;
 const DrawCmdS = struct {
     tag: i64,
     color: i64,
+    color2: i64,
     strength: f64,
+    geom: *CxList(f64),
     pts: *CxList(f64),
 };
 const DrawCmd = *DrawCmdS;
@@ -149,11 +151,11 @@ fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
 }
 
 fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
-    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .strength = @as(f64, @bitCast(@as(i64, 0))), .pts = flatten_screen(ps, 0) }) }));
+    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .color2 = 0, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_empty(f64), .pts = flatten_screen(ps, 0) }) }));
 }
 
 fn push_beacon(color: i64, x: f64, y: f64, r_: f64, alpha: f64) *CxList(DrawCmd) {
-    return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .strength = alpha, .pts = cx_ll_of(f64, &[_]f64{ x, y, r_ }) }) });
+    return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .color2 = 0, .strength = alpha, .geom = cx_ll_of(f64, &[_]f64{ x, y, r_ }), .pts = cx_ll_empty(f64) }) });
 }
 
 fn floor_real(x: f64) f64 {
@@ -451,7 +453,7 @@ fn cmd_strengths(cs: *CxList(DrawCmd), i_: i64) *CxList(f64) {
 }
 
 fn cmd_coords(cs: *CxList(DrawCmd), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_list_at(cs, i_).pts, cmd_coords(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_concat(cx_list_at(cs, i_).geom, cx_list_at(cs, i_).pts), cmd_coords(cs, (i_ +% 1))));
 }
 
 fn opening() void {

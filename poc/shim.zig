@@ -74,15 +74,39 @@ pub export fn renderFrame() u32 {
         // and no point count, because the blitter draws a true arc for it and it
         // is the one command that is not opaque. Its x, y and r ride in pts and
         // its alpha in strength, which is how one DrawCmd shape carries it.
+        const g = cmd.geom.items.items;
+        // A BEACON IS A DISC, NOT A POLYGON -- [3][color][x][y][r][alpha], six
+        // words and no point count. Its centre and radius ride in `geom`, which is
+        // where every command's own parameters now live; `pts` is always the
+        // polygon and a disc has none.
         if (cmd.tag == 3) {
             if (w + 6 > CAP_WORDS) break;
             cx_paint[w] = 3;
             cx_paint[w + 1] = @intCast(cmd.color);
-            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(pts[0])));
-            cx_paint[w + 3] = @bitCast(@as(f32, @floatCast(pts[1])));
-            cx_paint[w + 4] = @bitCast(@as(f32, @floatCast(pts[2])));
+            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(g[0])));
+            cx_paint[w + 3] = @bitCast(@as(f32, @floatCast(g[1])));
+            cx_paint[w + 4] = @bitCast(@as(f32, @floatCast(g[2])));
             cx_paint[w + 5] = @bitCast(@as(f32, @floatCast(cmd.strength)));
             w += 6;
+            continue;
+        }
+        // THE GRADIENT FILLS: tag 4 is a radial fill (headlight beams), 5 and 6
+        // are 2-stop gradients (the bull's shading). All carry a second colour and
+        // their geometry ahead of the point count, and all use 0xAARRGGBB because
+        // they composite.
+        if (cmd.tag >= 4 and cmd.tag <= 6) {
+            const head: usize = 4 + g.len;
+            if (w + head + pts.len > CAP_WORDS) break;
+            cx_paint[w] = @intCast(cmd.tag);
+            cx_paint[w + 1] = @intCast(cmd.color);
+            cx_paint[w + 2] = @intCast(cmd.color2);
+            for (g, 0..) |v, i| cx_paint[w + 3 + i] = @bitCast(@as(f32, @floatCast(v)));
+            cx_paint[w + 3 + g.len] = @intCast(n);
+            w += head;
+            for (pts) |v| {
+                cx_paint[w] = @bitCast(@as(f32, @floatCast(v)));
+                w += 1;
+            }
             continue;
         }
         // tag 1 carries a strength word between the colour and the count; tag 0

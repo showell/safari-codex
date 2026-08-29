@@ -64,12 +64,17 @@ Section: The Scrub
 
  u runs 0..1 and the shim advances it. Everything on the page is a function of it.
 
- The sunset clock runs over the sweep, so a full pass takes the scene from day to
- dusk. It is the same clock Sky grades: sky-color, horizon-color and the sun's
- placement all read it.
+ The sunset clock for a SCRUBBED still, where there is no frame history to count.
+ The driven page keeps a real frame counter (see The Real Rider below); this maps
+ the scrub onto the same range by taking the route to be about 6,400 frames, which
+ is what it measures at the rider's own speeds. Near enough for a still, and the
+ stills are the only thing that still uses it.
+
+  route-frames : Real
+  route-frames = 6400.0
 
   scene-step-at : Real -> Real
-  scene-step-at (u) = 3600.0 + 1400.0 * u
+  scene-step-at (u) = route-frames * u
 
  HOW FAR u MOVES IN ONE FRAME, AND IT IS THE ROUTE THAT DECIDES, not a constant
  picked to look right. rider.zig measures speed in METRES PER FRAME -- v-base 0.3,
@@ -275,27 +280,32 @@ Section: Driving The Real Rider
   view-yaw-for : RiderState -> Real
   view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
 
- The sunset clock runs on ROUTE DISTANCE rather than a frame count, so the sweep
- from day to dusk covers the course however fast the rider takes it.
+ THE SUNSET CLOCK IS A PLAIN FRAME COUNT, which is what safari.zig does: step_clock
+ starts at 0 and gains one per frame. It is passed in rather than derived, because
+ it is state and this chapter is pure.
 
-  step-for : List Segment, RiderState -> Real
-  step-for (w) (s) =
-    3600.0 + 1400.0 * route-distance w s.segment s.along / course-length w
+ IT WAS DERIVED FROM ROUTE DISTANCE AND THAT WAS WRONG. The mapping -- 3600 plus
+ 1400 across the course -- came from the throwaway Scene, where it picked a
+ flattering slice of a tableau that never moved. On a real route it is badly off:
+ the sun drops 0.0613 px a frame from 244 to -46, so a full sunset is 4,734
+ frames, and 3600..4890 begins three quarters of the way through one and covers
+ barely a quarter of it. The sky changed by about one shade over thirteen seconds
+ -- which is to say it looked like it was not changing at all, because it wasn't,
+ to any eye.
+
+ A frame count instead puts the whole day-to-dusk sweep inside one drive: the route
+ takes about 6,400 frames and the sun is fully down by 4,734.
 
   heading-for : RiderState -> Real
   heading-for (s) = s.heading + view-yaw-for s
-
-  sun-for : List Segment, RiderState -> SunPos
-  sun-for (w) (s) = sun-pos (heading-for s) (step-for w s) focal camera-w
 
   pose-for : List Segment, RiderState -> Pose
   pose-for (w) (s) =
     Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
 
-  frame-for : List Segment, RiderState -> List DrawCmd
-  frame-for (w) (s) =
+  frame-for : List Segment, RiderState, Real -> List DrawCmd
+  frame-for (w) (s) (step) =
     let pose = pose-for w s
-    in let step = step-for w s
     in let ch = build-chain w s.segment
     in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
        & (frame-ground w s.segment pose focal camera-w)

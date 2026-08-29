@@ -32,6 +32,15 @@ var cx_world: ?*CxList(Segment) = null;
 var cx_rider: RiderStateS = undefined;
 var cx_hp_base: i64 = 0;
 
+// THE SUNSET CLOCK, a plain frame count exactly as safari.zig keeps it: it starts
+// at 0, gains one per advance and gives one back on the way out, and resets at the
+// finish line. Drive used to DERIVE it from route distance, which put the whole
+// drive inside a quarter of one sunset starting three quarters of the way in --
+// the sky changed by about a shade over thirteen seconds and looked static. The
+// sun drops 0.0613 px a frame from 244 to -46, so a sunset is 4,734 frames and the
+// route is about 6,400: one drive now takes it from day to dark.
+var cx_clock: f64 = 0;
+
 // A SHALLOW HISTORY, so the down arrow is not a dead key. The physics has no
 // inverse -- you cannot un-integrate a lean search -- and the real game keeps an
 // 8192-deep ring for exactly this. 2048 frames is about half the route at the
@@ -51,27 +60,52 @@ fn ensure() void {
 fn restart() void {
     cx_rider = initial_rider_state().*;
     cx_hn = 0;
+    cx_clock = 0;
 }
 
 pub export fn renderFrame() u32 {
     ensure();
     cx_hp = cx_hp_base;
     var w: usize = 0;
-    const cmds = frame_for(cx_world.?, &cx_rider);
+    const cmds = frame_for(cx_world.?, &cx_rider, cx_clock);
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
         // tag 3 is a DISC -- [3][color][x][y][r][alpha], six words and no point
         // count, because the blitter draws a true arc for it.
+        const g = cmd.geom.items.items;
+        // A BEACON IS A DISC, NOT A POLYGON -- [3][color][x][y][r][alpha], six
+        // words and no point count. Its centre and radius ride in `geom`, which is
+        // where every command's own parameters now live; `pts` is always the
+        // polygon and a disc has none.
         if (cmd.tag == 3) {
             if (w + 6 > CAP_WORDS) break;
             cx_paint[w] = 3;
             cx_paint[w + 1] = @intCast(cmd.color);
-            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(pts[0])));
-            cx_paint[w + 3] = @bitCast(@as(f32, @floatCast(pts[1])));
-            cx_paint[w + 4] = @bitCast(@as(f32, @floatCast(pts[2])));
+            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(g[0])));
+            cx_paint[w + 3] = @bitCast(@as(f32, @floatCast(g[1])));
+            cx_paint[w + 4] = @bitCast(@as(f32, @floatCast(g[2])));
             cx_paint[w + 5] = @bitCast(@as(f32, @floatCast(cmd.strength)));
             w += 6;
+            continue;
+        }
+        // THE GRADIENT FILLS: tag 4 is a radial fill (headlight beams), 5 and 6
+        // are 2-stop gradients (the bull's shading). All carry a second colour and
+        // their geometry ahead of the point count, and all use 0xAARRGGBB because
+        // they composite.
+        if (cmd.tag >= 4 and cmd.tag <= 6) {
+            const head: usize = 4 + g.len;
+            if (w + head + pts.len > CAP_WORDS) break;
+            cx_paint[w] = @intCast(cmd.tag);
+            cx_paint[w + 1] = @intCast(cmd.color);
+            cx_paint[w + 2] = @intCast(cmd.color2);
+            for (g, 0..) |v, i| cx_paint[w + 3 + i] = @bitCast(@as(f32, @floatCast(v)));
+            cx_paint[w + 3 + g.len] = @intCast(n);
+            w += head;
+            for (pts) |v| {
+                cx_paint[w] = @bitCast(@as(f32, @floatCast(v)));
+                w += 1;
+            }
             continue;
         }
         const head: usize = if (cmd.tag == 1) 4 else 3;
@@ -120,6 +154,7 @@ pub export fn advance() void {
         cx_hn += 1;
     }
     cx_rider = get_next_rider_state(&cx_rider, cx_world.?).*;
+    cx_clock += 1;
 }
 
 pub export fn back() void {
@@ -127,6 +162,7 @@ pub export fn back() void {
     if (cx_hn == 0) return;
     cx_hn -= 1;
     cx_rider = cx_hist[cx_hn];
+    if (cx_clock > 0) cx_clock -= 1;
 }
 
 // THE LEAN, WHICH THE PAGE USED TO THROW AWAY. blitter.js rotates the whole
@@ -147,8 +183,7 @@ pub export fn riderSeg() u32 {
 
 pub export fn clock() u32 {
     ensure();
-    cx_hp = cx_hp_base;
-    return @intFromFloat(step_for(cx_world.?, &cx_rider));
+    return @intFromFloat(cx_clock);
 }
 
 // Sky, horizon and sun are NOT polygons: blitter.js paints them itself and asks
@@ -163,17 +198,17 @@ pub export fn clock() u32 {
 // the shim against the real functions, and this is that.
 fn sunHere() SunPos {
     cx_hp = cx_hp_base;
-    return sun_pos(heading_for(&cx_rider), step_for(cx_world.?, &cx_rider), focal(), camera_w());
+    return sun_pos(heading_for(&cx_rider), cx_clock, focal(), camera_w());
 }
 pub export fn skyTop() u32 {
     ensure();
     cx_hp = cx_hp_base;
-    return @intCast(sky_color(step_for(cx_world.?, &cx_rider)));
+    return @intCast(sky_color(cx_clock));
 }
 pub export fn skyHorizon() u32 {
     ensure();
     cx_hp = cx_hp_base;
-    return @intCast(horizon_color(step_for(cx_world.?, &cx_rider)));
+    return @intCast(horizon_color(cx_clock));
 }
 pub export fn sunVisible() u32 {
     ensure();

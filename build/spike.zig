@@ -50,7 +50,9 @@ const ScreenPt = *ScreenPtS;
 const DrawCmdS = struct {
     tag: i64,
     color: i64,
+    color2: i64,
     strength: f64,
+    geom: *CxList(f64),
     pts: *CxList(f64),
 };
 const DrawCmd = *DrawCmdS;
@@ -602,15 +604,15 @@ fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
 }
 
 fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
-    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .strength = @as(f64, @bitCast(@as(i64, 0))), .pts = flatten_screen(ps, 0) }) }));
+    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 0, .color = color, .color2 = 0, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_empty(f64), .pts = flatten_screen(ps, 0) }) }));
 }
 
 fn push_round_poly(color: i64, strength: f64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
-    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 1, .color = color, .strength = strength, .pts = flatten_screen(ps, 0) }) }));
+    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 1, .color = color, .color2 = 0, .strength = strength, .geom = cx_ll_empty(f64), .pts = flatten_screen(ps, 0) }) }));
 }
 
 fn push_beacon(color: i64, x: f64, y: f64, r_: f64, alpha: f64) *CxList(DrawCmd) {
-    return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .strength = alpha, .pts = cx_ll_of(f64, &[_]f64{ x, y, r_ }) }) });
+    return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .color2 = 0, .strength = alpha, .geom = cx_ll_of(f64, &[_]f64{ x, y, r_ }), .pts = cx_ll_empty(f64) }) });
 }
 
 fn sun_radius_px() f64 {
@@ -2365,8 +2367,12 @@ fn draw(heading: f64, dusk: f64, _arg_cam_focal: f64, view_w: f64) *CxList(DrawC
     return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 b1: { const west = silhouette(b3: { const _Env3 = struct { fn call(_ctx3: *anyopaque, p0: f64) f64 { _ = _ctx3; return west_range(p0); } }; break :b3 CxFn1(f64, f64){ .ctx = cx_new(_Env3{  }), .call = &_Env3.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock_west(), dusk)); break :b1 b2: { const north = silhouette(b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return north_range(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock(), dusk)); break :b2 b3: { const cap = draw_snow(heading, _arg_cam_focal, view_w, v_scale, pack(lerp3(snow_day(), snow_night(), dusk))); break :b3 b4: { const ground = silhouette(b6: { const _Env6 = struct { fn call(_ctx6: *anyopaque, p0: f64) f64 { _ = _ctx6; return ground_base(p0); } }; break :b6 CxFn1(f64, f64){ .ctx = cx_new(_Env6{  }), .call = &_Env6.call }; }, heading, _arg_cam_focal, view_w, v_scale, land()); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(west, north), cap), ground); }; }; }; }; };
 }
 
+fn route_frames() f64 {
+    return @as(f64, @bitCast(@as(i64, 4663758889118859264)));
+}
+
 fn scene_step_at(u_: f64) f64 {
-    return (@as(f64, @bitCast(@as(i64, 4660134898793709568))) + (@as(f64, @bitCast(@as(i64, 4653872080561897472))) * u_));
+    return (route_frames() * u_);
 }
 
 fn pos_from(w: *CxList(Segment), dist: f64, i_: i64) RoutePos {

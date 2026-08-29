@@ -2052,6 +2052,182 @@ Section: Projection
       y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
     }
 
+Chapter: Sky
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+
+ The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
+ Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
+ heading.
+
+ A port of wasm/sky.zig.
+
+ THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
+ handed and does no clock or colour arithmetic, so this chapter is the whole of
+ the sunset. The sun draws BEHIND the mountains, because the blitter paints it
+ before the buffer whose first polygons are the ranges.
+
+ THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
+ round a lerped colour channel and to pack three of them into one integer. Until
+ 2026-08-29 the zig plug could emit neither conversion and this module was simply
+ unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
+ that closed it. Nothing here works around anything any more.
+
+ We say:
+
+Section: The Sun as a Clock
+
+ Its height drops linearly with the step, so it scrubs on reverse and freezes on
+ pause like everything else. Heights are PIXELS at the base focal, so they compare
+ directly with the mountain silhouettes.
+
+  sun-bearing : Real
+  sun-bearing = 0.0 - 2.2176
+
+  sun-radius-px : Real
+  sun-radius-px = 46.0
+
+ Step-0 height, calibrated to the route's timing in the TypeScript.
+
+  sun-start-px : Real
+  sun-start-px = 244.0
+
+  sun-drop-px-per-step : Real
+  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
+
+ The whole disc is below the horizon at this height.
+
+  sun-fully-set-px : Real
+  sun-fully-set-px = 0.0 - sun-radius-px
+
+ How far from the horizon the sunset red fades out, and how far off-heading the
+ sun may be before it is off-screen entirely.
+
+  warmth-falloff-px : Real
+  warmth-falloff-px = 110.0
+
+  visible-bearing-limit : Real
+  visible-bearing-limit = 1.4
+
+  sun-height-px : Real -> Real
+  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
+
+Section: Dusk
+
+ How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
+ darkening is a SQUARED ramp -- barely moving while it is high, accelerating
+ toward sunset -- so the sky stays bright until around sunset; once the disc is
+ fully set the rest fades linearly.
+
+  dusk-at-set : Real
+  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
+
+ The two arms are separate definitions rather than one expression, because Codex
+ refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
+ the fix and it reads better here anyway.
+
+  dusk-while-up : Real -> Real
+  dusk-while-up (h) =
+    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
+    in real-max 0.0 (dusk-at-set * p * p)
+
+  dusk-after-set : Real -> Real
+  dusk-after-set (h) =
+    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
+
+  sun-set-fraction : Real -> Real
+  sun-set-fraction (step) =
+    let h = sun-height-px step
+    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
+
+ How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
+ fades when the sun is high or deep below. This drives the warm band the sky mixes
+ into its lower edge.
+
+  sunset-warmth : Real -> Real
+  sunset-warmth (step) =
+    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
+
+Section: Colours
+
+ The upper sky dims ALL channels toward dusk, so it deepens rather than greying
+ out; the red mixes only into the lower horizon band.
+
+  Rgb = record {
+    r : Real,
+    g : Real,
+    b : Real
+  }
+
+  day-sky : Rgb
+  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
+
+  dusk-sky : Rgb
+  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
+
+  sunset-red : Rgb
+  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
+
+ How strongly the red mixes in at peak warmth.
+
+  sunset-glow : Real
+  sunset-glow = 0.85
+
+  lerp3 : Rgb, Rgb, Real -> Rgb
+  lerp3 (a) (b) (t) =
+    Rgb {
+      r = round-real (a.r + (b.r - a.r) * t),
+      g = round-real (a.g + (b.g - a.g) * t),
+      b = round-real (a.b + (b.b - a.b) * t)
+    }
+
+ The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
+ Arithmetic would give the same answer for channels this size, but the shift is
+ what the source says and the plug emits it.
+
+  pack : Rgb -> Integer
+  pack (c) =
+    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
+
+  sky-color : Real -> Integer
+  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
+
+  horizon-color : Real -> Integer
+  horizon-color (step) =
+    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
+    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
+
+Section: The Sun's Placement
+
+ `scale` is cam-focal over the base focal: it squeezes the disc and its glow
+ vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
+ radii by it. `visible` is False when the sun is too far off-heading to be on
+ screen, and the blitter then skips it entirely.
+
+  SunPos = record {
+    visible : Boolean,
+    x : Real,
+    y : Real,
+    scale : Real
+  }
+
+  sun-pos-visible : Real, Real, Real, Real -> SunPos
+  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
+
+ The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
+ keeps everywhere: a wider window sees more, it does not zoom.
+
+  sun-pos : Real, Real, Real, Real -> SunPos
+  sun-pos (heading) (step) (cam-focal) (view-w) =
+    let rel = wrap (sun-bearing - heading) 64
+    in if real-abs rel >= visible-bearing-limit
+      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
+      else sun-pos-visible rel step cam-focal view-w
+
 Chapter: Paint
   cites Safari chapter Camera
 
@@ -2067,6 +2243,9 @@ Chapter: Paint
    tag 0   [0][color][nPoints][x f32][y f32]...
    tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
    tag 3   [3][color][x f32][y f32][r f32][alpha f32]
+   tag 4   [4][rgbaCentre][rgbaEdge][cx][cy][r][nPoints][x][y]...
+   tag 5   [5][rgba0][rgba1][off0][off1][ax][ay][bx][by][nPoints][x][y]...
+   tag 6   [6][rgba0][rgba1][off0][off1][cx][cy][ux][uy][vx][vy][nPoints][x][y]...
 
  tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
  centre, dark edge across the polygon's x-extent -- with a per-polygon strength
@@ -2084,9 +2263,21 @@ Section: Commands
   DrawCmd = record {
     tag : Integer,
     color : Integer,
+    color2 : Integer,
     strength : Real,
+    geom : List Real,
     pts : List Real
   }
+
+ TWO FIELDS THE GRADIENT TAGS FORCED, and taking them changed the record's rule
+ for the better. `pts` is now ALWAYS the polygon and `geom` is always the
+ command's own parameters -- a beacon's centre and radius, a gradient's stops and
+ axes. Before, the beacon smuggled its x, y and r through `pts`, which meant `pts`
+ sometimes held points and sometimes did not, and every reader had to know which.
+ Now one rule covers every tag.
+
+ `color2` is the second stop. Tags 0, 1 and 3 leave it zero and leave `geom` empty
+ or short; nothing reads a field its tag does not define.
 
   flatten-screen : List ScreenPt, Integer -> List Real
   flatten-screen (ps) (i) =
@@ -2097,7 +2288,7 @@ Section: Commands
   push-poly : Integer, List ScreenPt -> List DrawCmd
   push-poly (color) (ps) =
     if list-length ps < 3 then []
-    else [DrawCmd { tag = 0, color = color, strength = 0.0, pts = flatten-screen ps 0 }]
+    else [DrawCmd { tag = 0, color = color, color2 = 0, strength = 0.0, geom = [], pts = flatten-screen ps 0 }]
 
  pushRoundPoly drops a polygon with fewer than three points rather than emitting
  a degenerate one; push-poly is given the same guard so the two agree.
@@ -2105,7 +2296,7 @@ Section: Commands
   push-round-poly : Integer, Real, List ScreenPt -> List DrawCmd
   push-round-poly (color) (strength) (ps) =
     if list-length ps < 3 then []
-    else [DrawCmd { tag = 1, color = color, strength = strength, pts = flatten-screen ps 0 }]
+    else [DrawCmd { tag = 1, color = color, color2 = 0, strength = strength, geom = [], pts = flatten-screen ps 0 }]
 
  THE BEACON IS NOT A POLYGON, and it is the first command here that is not. It is
  a disc -- a centre, a radius and an alpha -- and the blitter draws a true arc for
@@ -2121,7 +2312,38 @@ Section: Commands
 
   push-beacon : Integer, Real, Real, Real, Real -> List DrawCmd
   push-beacon (color) (x) (y) (r) (alpha) =
-    [DrawCmd { tag = 3, color = color, strength = alpha, pts = [x, y, r] }]
+    [DrawCmd { tag = 3, color = color, color2 = 0, strength = alpha, geom = [x, y, r], pts = [] }]
+
+Section: The Gradient Fills
+
+ Three more tags, all polygons with a gradient instead of a flat colour, and all
+ three carry TWO colours in 0xAARRGGBB rather than the 0xRRGGBB the solid path
+ uses -- because these composite, and the alpha is what makes a headlight beam a
+ beam rather than a white wedge.
+
+ Tag 4 is a RADIAL fill from a centre out to a radius: the truck's headlight beams
+ and their glow. Tags 5 and 6 are 2-stop gradients with explicit stop offsets --
+ 5 linear along an axis, 6 radial through an ELLIPSE given by two axis vectors --
+ and they are the bull's shading panels, the one animal whose art is the Fluent
+ Color variant rather than the Flat one.
+
+ All three drop a polygon with fewer than three points, exactly as the solid path
+ does and for the same reason.
+
+  push-grad-poly : Integer, Integer, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-grad-poly (rgba-center) (rgba-edge) (cx) (cy) (r) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 4, color = rgba-center, color2 = rgba-edge, strength = 0.0, geom = [cx, cy, r], pts = flatten-screen ps 0 }]
+
+  push-linear-grad-poly : Integer, Integer, Real, Real, Real, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-linear-grad-poly (rgba0) (rgba1) (off0) (off1) (ax) (ay) (bx) (by) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 5, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, ax, ay, bx, by], pts = flatten-screen ps 0 }]
+
+  push-radial-grad-poly : Integer, Integer, Real, Real, Real, Real, Real, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-radial-grad-poly (rgba0) (rgba1) (off0) (off1) (cx) (cy) (ux) (uy) (vx) (vy) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 6, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, cx, cy, ux, uy, vx, vy], pts = flatten-screen ps 0 }]
 
 Chapter: Tree
   cites Safari chapter Trig
@@ -2883,182 +3105,6 @@ Section: Ducks
       Duck { p = PondPt { cu = -4.0, cv = 6.0 }, face-right = True },
       Duck { p = PondPt { cu = -12.0, cv = 7.0 }, face-right = False },
       Duck { p = PondPt { cu = -20.0, cv = 8.0 }, face-right = True } ]
-
-Chapter: Sky
-  cites Gpu chapter DeviceMath
-  cites Safari chapter Num
-  cites Safari chapter Trig
-  cites Safari chapter Camera
-
- The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
- Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
- heading.
-
- A port of wasm/sky.zig.
-
- THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
- handed and does no clock or colour arithmetic, so this chapter is the whole of
- the sunset. The sun draws BEHIND the mountains, because the blitter paints it
- before the buffer whose first polygons are the ranges.
-
- THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
- round a lerped colour channel and to pack three of them into one integer. Until
- 2026-08-29 the zig plug could emit neither conversion and this module was simply
- unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
- that closed it. Nothing here works around anything any more.
-
- We say:
-
-Section: The Sun as a Clock
-
- Its height drops linearly with the step, so it scrubs on reverse and freezes on
- pause like everything else. Heights are PIXELS at the base focal, so they compare
- directly with the mountain silhouettes.
-
-  sun-bearing : Real
-  sun-bearing = 0.0 - 2.2176
-
-  sun-radius-px : Real
-  sun-radius-px = 46.0
-
- Step-0 height, calibrated to the route's timing in the TypeScript.
-
-  sun-start-px : Real
-  sun-start-px = 244.0
-
-  sun-drop-px-per-step : Real
-  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
-
- The whole disc is below the horizon at this height.
-
-  sun-fully-set-px : Real
-  sun-fully-set-px = 0.0 - sun-radius-px
-
- How far from the horizon the sunset red fades out, and how far off-heading the
- sun may be before it is off-screen entirely.
-
-  warmth-falloff-px : Real
-  warmth-falloff-px = 110.0
-
-  visible-bearing-limit : Real
-  visible-bearing-limit = 1.4
-
-  sun-height-px : Real -> Real
-  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
-
-Section: Dusk
-
- How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
- darkening is a SQUARED ramp -- barely moving while it is high, accelerating
- toward sunset -- so the sky stays bright until around sunset; once the disc is
- fully set the rest fades linearly.
-
-  dusk-at-set : Real
-  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
-
- The two arms are separate definitions rather than one expression, because Codex
- refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
- the fix and it reads better here anyway.
-
-  dusk-while-up : Real -> Real
-  dusk-while-up (h) =
-    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
-    in real-max 0.0 (dusk-at-set * p * p)
-
-  dusk-after-set : Real -> Real
-  dusk-after-set (h) =
-    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
-
-  sun-set-fraction : Real -> Real
-  sun-set-fraction (step) =
-    let h = sun-height-px step
-    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
-
- How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
- fades when the sun is high or deep below. This drives the warm band the sky mixes
- into its lower edge.
-
-  sunset-warmth : Real -> Real
-  sunset-warmth (step) =
-    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
-
-Section: Colours
-
- The upper sky dims ALL channels toward dusk, so it deepens rather than greying
- out; the red mixes only into the lower horizon band.
-
-  Rgb = record {
-    r : Real,
-    g : Real,
-    b : Real
-  }
-
-  day-sky : Rgb
-  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
-
-  dusk-sky : Rgb
-  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
-
-  sunset-red : Rgb
-  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
-
- How strongly the red mixes in at peak warmth.
-
-  sunset-glow : Real
-  sunset-glow = 0.85
-
-  lerp3 : Rgb, Rgb, Real -> Rgb
-  lerp3 (a) (b) (t) =
-    Rgb {
-      r = round-real (a.r + (b.r - a.r) * t),
-      g = round-real (a.g + (b.g - a.g) * t),
-      b = round-real (a.b + (b.b - a.b) * t)
-    }
-
- The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
- Arithmetic would give the same answer for channels this size, but the shift is
- what the source says and the plug emits it.
-
-  pack : Rgb -> Integer
-  pack (c) =
-    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
-
-  sky-color : Real -> Integer
-  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
-
-  horizon-color : Real -> Integer
-  horizon-color (step) =
-    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
-    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
-
-Section: The Sun's Placement
-
- `scale` is cam-focal over the base focal: it squeezes the disc and its glow
- vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
- radii by it. `visible` is False when the sun is too far off-heading to be on
- screen, and the blitter then skips it entirely.
-
-  SunPos = record {
-    visible : Boolean,
-    x : Real,
-    y : Real,
-    scale : Real
-  }
-
-  sun-pos-visible : Real, Real, Real, Real -> SunPos
-  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
-    let v-scale = cam-focal / focal
-    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
-
- The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
- keeps everywhere: a wider window sees more, it does not zoom.
-
-  sun-pos : Real, Real, Real, Real -> SunPos
-  sun-pos (heading) (step) (cam-focal) (view-w) =
-    let rel = wrap (sun-bearing - heading) 64
-    in if real-abs rel >= visible-bearing-limit
-      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
-      else sun-pos-visible rel step cam-focal view-w
 
 Chapter: Mountains
   cites Gpu chapter DeviceMath
@@ -5097,27 +5143,32 @@ Section: Driving The Real Rider
   view-yaw-for : RiderState -> Real
   view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
 
- The sunset clock runs on ROUTE DISTANCE rather than a frame count, so the sweep
- from day to dusk covers the course however fast the rider takes it.
+ THE SUNSET CLOCK IS A PLAIN FRAME COUNT, which is what safari.zig does: step_clock
+ starts at 0 and gains one per frame. It is passed in rather than derived, because
+ it is state and this chapter is pure.
 
-  step-for : List Segment, RiderState -> Real
-  step-for (w) (s) =
-    3600.0 + 1400.0 * route-distance w s.segment s.along / course-length w
+ IT WAS DERIVED FROM ROUTE DISTANCE AND THAT WAS WRONG. The mapping -- 3600 plus
+ 1400 across the course -- came from the throwaway Scene, where it picked a
+ flattering slice of a tableau that never moved. On a real route it is badly off:
+ the sun drops 0.0613 px a frame from 244 to -46, so a full sunset is 4,734
+ frames, and 3600..4890 begins three quarters of the way through one and covers
+ barely a quarter of it. The sky changed by about one shade over thirteen seconds
+ -- which is to say it looked like it was not changing at all, because it wasn't,
+ to any eye.
+
+ A frame count instead puts the whole day-to-dusk sweep inside one drive: the route
+ takes about 6,400 frames and the sun is fully down by 4,734.
 
   heading-for : RiderState -> Real
   heading-for (s) = s.heading + view-yaw-for s
-
-  sun-for : List Segment, RiderState -> SunPos
-  sun-for (w) (s) = sun-pos (heading-for s) (step-for w s) focal camera-w
 
   pose-for : List Segment, RiderState -> Pose
   pose-for (w) (s) =
     Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
 
-  frame-for : List Segment, RiderState -> List DrawCmd
-  frame-for (w) (s) =
+  frame-for : List Segment, RiderState, Real -> List DrawCmd
+  frame-for (w) (s) (step) =
     let pose = pose-for w s
-    in let step = step-for w s
     in let ch = build-chain w s.segment
     in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
        & (frame-ground w s.segment pose focal camera-w)
@@ -5127,6 +5178,8 @@ Chapter: DriveMain
   cites Foreword chapter Console
   cites Safari chapter Pose
   cites Safari chapter Rider
+  cites Safari chapter Camera
+  cites Safari chapter Sky
   cites Poc chapter Drive
 
  The entry point. The wasm build never calls it -- the shim exports renderFrame
@@ -5154,7 +5207,7 @@ Section: Entry
 
   opening : [Console] Nothing = act
     print-line-uni ("cmds  " & show (list-length frame))
-    print-line-uni ("rider " & show (list-length (frame-for build-world initial-rider-state)) & " cmds at the start line, tilt e-3 " & show (real-to-int (initial-rider-state.tilt * 1000.0)) & " sun-x " & show (real-to-int (sun-for build-world initial-rider-state).x) & " step " & show (real-to-int (step-for build-world initial-rider-state)) & " finished " & (if is-finished initial-rider-state build-world then "yes" else "no") & " next-v e-3 " & show (real-to-int ((get-next-rider-state initial-rider-state build-world).v * 1000.0)))
+    print-line-uni ("rider " & show (list-length (frame-for build-world initial-rider-state 0.0)) & " cmds at the start line, tilt e-3 " & show (real-to-int (initial-rider-state.tilt * 1000.0)) & " sun-x at step 0 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 0.0 focal camera-w).x) & " and at 4000 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 4000.0 focal camera-w).x) & " finished " & (if is-finished initial-rider-state build-world then "yes" else "no") & " next-v e-3 " & show (real-to-int ((get-next-rider-state initial-rider-state build-world).v * 1000.0)))
     print-line-uni ("m/frame " & show (real-to-int (u-per-step * 100000.0)) & " e-5 of the course")
     print-line-uni ("u=0.00 " & report 0.0)
     print-line-uni ("u=0.25 " & report 0.25)

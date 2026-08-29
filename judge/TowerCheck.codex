@@ -121,10 +121,15 @@ Section: Streams
     if i >= list-length cs then []
     else [(list-at cs i).strength] & cmd-strengths cs (i + 1)
 
+ GEOM THEN POINTS. Paint's DrawCmd now keeps a command's own parameters -- the
+ beacon's centre and radius here -- in `geom`, and `pts` is always the polygon.
+ The beacon has no polygon, so this stream is its geom; every other command here
+ has no geom, so it is its points. The wire is unchanged either way.
+
   cmd-coords : List DrawCmd, Integer -> List Real
   cmd-coords (cs) (i) =
     if i >= list-length cs then []
-    else (list-at cs i).pts & cmd-coords cs (i + 1)
+    else (list-at cs i).geom & (list-at cs i).pts & cmd-coords cs (i + 1)
 
 Section: Entry
 

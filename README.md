@@ -135,13 +135,14 @@ them into flat SVGs — no wasm, no blitter, no animation. A picture you can ope
 a faster loop than a page you have to drive to the right spot. `run.sh` does not
 call any of it; delete the three files and nothing else changes.
 
-What it adds to a normal frame is **markers for what is collected but invisible**.
-Cows, pigs, the corner animals and the ducks are placed, mapped, projected, culled
-and depth-sorted by the ported render, and then draw nothing, because their art is
-615KB of baked polygons that are not ported. A marker is a plain box at the
-billboard's own screen footprint — same anchor, same height, same depth order,
-coloured by species. It is not what the animal looks like; it is exactly *where*
-the animal is, which is the part this port is responsible for.
+**The art is the game's and the placement is the port's**, which is the split that
+makes these pictures worth looking at: a pig in the wrong spot is this port's
+fault, a pig that *looks* wrong is not. The animals and the cat draw nothing in the
+real frame, because their art is 615KB of baked polygons that are not ported — but
+the spike script is Python and throwaway, so it reads `emoji_frames.zig` and
+`cat_frames.zig` straight off disk and draws the real stills at the anchor, height
+and depth order the port computed. They ride on spike-only wire tags that nothing
+outside the spike ever sees.
 
 That turns out to check things. The pig-herd viewpoint draws **exactly 49 pig
 markers**, which is the 7×7 distraction block `w-npigs` records for segment 2, all

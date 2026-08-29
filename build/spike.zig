@@ -2301,12 +2301,12 @@ fn spike_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, 
     return switch (it.kind) { .KCow => marker_of(cx_list_at(c_.cows, it.i_), cf), .KCat => cat_marker(cx_list_at(c_.cats, it.i_), cf), .KTree => draw_one_tree(c_.trees, it.i_, cf), .KTower => draw_one_tower(w, ch, pose, cx_list_at(c_.towers, it.i_), cf, step), .KRail => rail_draw_poly(cx_list_at(c_.rails, it.i_), cf, camera_w()), .KTruck => cx_ll_empty(DrawCmd),  };
 }
 
-fn marker_cat() i64 {
-    return 3355443;
+fn cat_marker_tag() i64 {
+    return 10;
 }
 
 fn cat_marker(c_: CatItem, cf: f64) *CxList(DrawCmd) {
-    return b0: { const base_ = project(cx_new(Vec3S{ .right = c_.right, .forward = c_.fwd, .height = c_.lift }), cf, camera_w()); break :b0 b1: { const top_ = project(cx_new(Vec3S{ .right = c_.right, .forward = c_.fwd, .height = (c_.lift + c_.height) }), cf, camera_w()); break :b1 b2: { const h_: f64 = (base_.y - top_.y); break :b2 (if ((h_ < @as(f64, @bitCast(@as(i64, 4607182418800017408))))) cx_ll_empty(DrawCmd) else push_poly(marker_cat(), cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (base_.x - (h_ * @as(f64, @bitCast(@as(i64, 4599075939470750515))))), .y = base_.y }), cx_new(ScreenPtS{ .x = (base_.x + (h_ * @as(f64, @bitCast(@as(i64, 4599075939470750515))))), .y = base_.y }), cx_new(ScreenPtS{ .x = (base_.x + (h_ * @as(f64, @bitCast(@as(i64, 4599075939470750515))))), .y = top_.y }), cx_new(ScreenPtS{ .x = (base_.x - (h_ * @as(f64, @bitCast(@as(i64, 4599075939470750515))))), .y = top_.y }) }))); }; }; };
+    return b0: { const base_ = project(cx_new(Vec3S{ .right = c_.right, .forward = c_.fwd, .height = c_.lift }), cf, camera_w()); break :b0 b1: { const top_ = project(cx_new(Vec3S{ .right = c_.right, .forward = c_.fwd, .height = (c_.lift + c_.height) }), cf, camera_w()); break :b1 b2: { const h_: f64 = (base_.y - top_.y); break :b2 (if ((h_ < @as(f64, @bitCast(@as(i64, 4607182418800017408))))) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = cat_marker_tag(), .color = c_.pose_idx, .strength = @as(f64, @bitCast(@as(i64, 0))), .pts = cx_ll_of(f64, &[_]f64{ base_.x, base_.y, h_ }) }) })); }; }; };
 }
 
 fn spike_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, cf: f64, step: f64, i_: i64) *CxList(DrawCmd) {

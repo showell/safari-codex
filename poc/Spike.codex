@@ -105,13 +105,19 @@ Section: The Frame
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
     is KTruck -> []
 
-  marker-cat : Integer
-  marker-cat = 3355443
+  cat-marker-tag : Integer
+  cat-marker-tag = 10
 
- THE CAT KEEPS A BOX. Its stills live in cat_frames.zig, a bigger table in a
- different shape from the emoji one, and reading it too is more spike than this
- spike needs. The box is lifted by the hop, so the leap still reads: it rises and
- falls over the two airborne frames and slides from lane centre to the far grass.
+ THE CAT GETS ITS OWN SPIKE TAG because it is a FLIPBOOK, not a species: what has
+ to travel is which still to draw, so the pose index rides in the colour word
+ where the animals put their codepoint. cat_frames.zig turns out to be the same
+ shape of table as emoji_frames -- named pose arrays of solid polygons in the same
+ unit frame -- so the spike script reads it the same way.
+
+ THE ANCHOR ALREADY CARRIES THE HOP. The feet are projected at the lift, not at
+ the ground, so a mid-leap cat is drawn where it actually is in the air; and the
+ height is measured from lifted feet to lifted ears, so it does not grow as it
+ rises. That is what cat.zig's draw does with the same two numbers.
 
   cat-marker : CatItem, Real -> List DrawCmd
   cat-marker (c) (cf) =
@@ -119,7 +125,7 @@ Section: The Frame
     in let top = project (Vec3 { right = c.right, forward = c.fwd, height = c.lift + c.height }) cf camera-w
     in let h = base.y - top.y
     in if h < 1.0 then []
-      else push-poly marker-cat [ScreenPt { x = base.x - h * 0.3, y = base.y }, ScreenPt { x = base.x + h * 0.3, y = base.y }, ScreenPt { x = base.x + h * 0.3, y = top.y }, ScreenPt { x = base.x - h * 0.3, y = top.y }]
+      else [DrawCmd { tag = cat-marker-tag, color = c.pose-idx, strength = 0.0, pts = [base.x, base.y, h] }]
 
   spike-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
   spike-order (w) (ch) (pose) (c) (cf) (step) (i) =

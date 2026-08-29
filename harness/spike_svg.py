@@ -22,6 +22,7 @@ browser; if they disagree about a SHAPE, that is worth chasing.
 
 import html
 import pathlib
+import xml.etree.ElementTree as ET
 import re
 import subprocess
 import time
@@ -33,6 +34,24 @@ GRASS = "#4a8f43"
 
 
 EMOJI = pathlib.Path.home() / "showell_repos/angry-gopher/games/driving/wasm/emoji_frames.zig"
+
+
+def _poly_arrays(text):
+    """Every `const <name> = [_]Poly{...}` in a baked table, as
+    {name: [(color, [(x, y), ...])]}. Shared by both loaders because bake_emoji and
+    bake_cat emit the same shape."""
+    named = {}
+    for m in re.finditer(r"const (\w+) = \[_\]Poly\{(.*?)\n\};", text, re.S):
+        polys = []
+        for pm in re.finditer(r"\.color = 0x([0-9A-Fa-f]+).*?\.pts = &\[_\]Pt\{(.*?)\} \}",
+                              m.group(2), re.S):
+            pts = [(float(a), float(b)) for a, b in
+                   re.findall(r"\.x = (-?[\d.e-]+), \.y = (-?[\d.e-]+)", pm.group(2))]
+            if len(pts) >= 3:
+                polys.append((int(pm.group(1), 16), pts))
+        if polys:
+            named[m.group(1)] = polys
+    return named
 
 
 def load_emoji():
@@ -52,26 +71,52 @@ def load_emoji():
     """
     if not EMOJI.is_file():
         return {}
-    text = EMOJI.read_text()
-    named = {}
-    for m in re.finditer(r"const (\w+) = \[_\]Poly\{(.*?)\n\};", text, re.S):
-        polys = []
-        for pm in re.finditer(r"\.color = 0x([0-9A-Fa-f]+).*?\.pts = &\[_\]Pt\{(.*?)\} \}", pm_body := m.group(2), re.S):
-            pts = [(float(a), float(b)) for a, b in
-                   re.findall(r"\.x = (-?[\d.e-]+), \.y = (-?[\d.e-]+)", pm.group(2))]
-            if len(pts) >= 3:
-                polys.append((int(pm.group(1), 16), pts))
-        if polys:
-            named[m.group(1)] = polys
+    named = _poly_arrays(EMOJI.read_text())
     out = {}
-    for m in re.finditer(r"0x0([0-9A-F]{5}) => &(\w+),", text):
+    for m in re.finditer(r"0x0([0-9A-F]{5}) => &(\w+),", EMOJI.read_text()):
         cp = int(m.group(1), 16)
         if m.group(2) in named:
             out[cp] = named[m.group(2)]
     return out
 
 
+CATZ = pathlib.Path.home() / "showell_repos/angry-gopher/games/driving/wasm/cat_frames.zig"
+POSE_NAMES = ["pose_rest", "pose_stride", "pose_frozen", "pose_coil",
+              "pose_flight", "pose_land", "pose_collapse"]
+
+
+def load_cat():
+    """SPIKE-ONLY CHEAT, same one. cat_frames.zig is the same shape of table as
+    emoji_frames -- named arrays of solid polygons in the same unit frame -- so the
+    only difference is that the key is a POSE INDEX rather than a codepoint.
+
+    Returns {pose_index: [(color, [(x, y), ...])]}.
+    """
+    if not CATZ.is_file():
+        return {}
+    named = _poly_arrays(CATZ.read_text())
+    return {i: named[n] for i, n in enumerate(POSE_NAMES) if n in named}
+
+
 ART = None
+CAT = None
+
+
+def cat_still(pose_idx, bx, by, h):
+    """One baked cat still at a screen anchor. Same unit frame as the animals, and
+    no mirror -- the cat crosses one way and cat.zig passes no facing."""
+    global CAT
+    if CAT is None:
+        CAT = load_cat()
+    polys = CAT.get(pose_idx)
+    if not polys:
+        return [f'<rect x="{bx-h*0.3:.1f}" y="{by-h:.1f}" width="{h*0.6:.1f}" '
+                f'height="{h:.1f}" fill="#ff00ff"/>']
+    out = []
+    for color, pts in polys:
+        d = " ".join(f"{bx + x * h:.1f},{by - y * h:.1f}" for x, y in pts)
+        out.append(f'<polygon points="{d}" fill="{rgb(color)}"/>')
+    return out
 
 
 def billboard(cp, face_right, bx, by, h):
@@ -140,9 +185,15 @@ def graph(pts):
     out.append(f'<polyline points="{d}" fill="none" stroke="#5ec8f0" stroke-width="1.5"/>')
     tl = " ".join(f"{sx(p[0]):.1f},{sy(abs(p[2]) * 4):.1f}" for p in pts)
     out.append(f'<polyline points="{tl}" fill="none" stroke="#e08a4a" stroke-width="1"/>')
+    # NUMERIC ENTITY, NOT &mdash;. SVG is XML, and XML predefines only &amp; &lt;
+    # &gt; &quot; &apos; -- an HTML entity like &mdash; is UNDEFINED, which is a
+    # FATAL parse error, so the browser silently refuses to render the whole
+    # image. This graph was invisible for two rounds because of one em dash, and
+    # nothing anywhere reported it: the file existed, served with a 200, was the
+    # right size, and its coordinates were all on-canvas. Hence the gate below.
     out.append(f'<text x="40" y="{GH-10}" fill="#7c8798" font-size="10" '
-               f'font-family="system-ui">route distance 0..{dmax:.0f} m &mdash; '
-               f'blue: speed (m/frame) &mdash; orange: |lean| x4 &mdash; '
+               f'font-family="system-ui">route distance 0..{dmax:.0f} m &#8212; '
+               f'blue: speed (m/frame) &#8212; orange: |lean| x4 &#8212; '
                f'{len(pts)} frames</text>')
     out.append("</svg>")
     return "\n".join(out)
@@ -231,6 +282,12 @@ def svg(name, top, hor, cmds):
             bx, by, h = raw[0], raw[1], raw[2]
             out += billboard(color, st > 0.5, bx, by, h)
             continue
+        # TAG 10 IS SPIKE-ONLY: a cat still, pose index in the colour word.
+        if tag == 10:
+            if len(raw) < 3:
+                continue
+            out += cat_still(color, raw[0], raw[1], raw[2])
+            continue
         if tag == 3:  # a disc: x, y, r with alpha in strength
             if len(raw) < 3:
                 continue
@@ -249,6 +306,18 @@ def svg(name, top, hor, cmds):
         out.append(f'<polygon points="{d}" fill="{fill}"/>')
     out.append("</svg>")
     return "\n".join(out)
+
+
+def check_xml(path, text):
+    """EVERY SVG MUST PARSE AS XML BEFORE IT IS WRITTEN. A browser treats an
+    SVG with a parse error as no image at all -- no console noise, no broken-image
+    icon in some browsers, just nothing where the picture should be. Costly to
+    diagnose from the outside and free to catch here."""
+    try:
+        ET.fromstring(text)
+    except ET.ParseError as e:
+        raise SystemExit(f"{path.name}: not well-formed XML, browsers will not "
+                         f"render it: {e}")
 
 
 def main():
@@ -271,7 +340,9 @@ def main():
     stamp = int(time.time())
     rows = []
     if prof:
-        (out / "speed.svg").write_text(graph(prof))
+        svg_text = graph(prof)
+        check_xml(out / "speed.svg", svg_text)
+        (out / "speed.svg").write_text(svg_text)
         vs = [p[1] for p in prof]
         print(f"web/spikes/speed.svg  ({len(prof)} frames, "
               f"v {min(vs):.2f}..{max(vs):.2f} m/frame)")
@@ -279,7 +350,9 @@ def main():
                     'whole route &mdash; no animation involved</p>'
                     f'<img src="speed.svg?v={stamp}" width="{GW}" height="{GH}">')
     for name, top, hor, cmds in scenes:
-        (out / f"{name}.svg").write_text(svg(name, top, hor, cmds))
+        svg_text = svg(name, top, hor, cmds)
+        check_xml(out / f"{name}.svg", svg_text)
+        (out / f"{name}.svg").write_text(svg_text)
         print(f"web/spikes/{name}.svg  ({len(cmds)} commands)")
         rows.append(f'<h2>{html.escape(name)}</h2>'
                     f'<p>{len(cmds)} draw commands</p>'

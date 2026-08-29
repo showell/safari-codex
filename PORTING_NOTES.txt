@@ -748,3 +748,32 @@ B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
 
     Related to B12 -- both are the emitter treating a definition as a rewrite rule
     rather than a stored thing. B12's alias vanishes; this one duplicates.
+
+
+================================================================================
+C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
+================================================================================
+
+    The spike loop's speed graph did not render for two rounds, and everything
+    that could be checked from the outside said it was fine: the file existed, it
+    served with a 200 and the right byte count, its polylines were entirely
+    on-canvas, and the index referenced it. Steve hard-reloaded and still saw
+    nothing, which is what ruled out the cache and left the file itself.
+
+    ONE EM DASH. The graph's caption used `&mdash;`, which is an HTML entity. SVG
+    is XML, and XML predefines only &amp; &lt; &gt; &quot; and &apos; -- everything
+    else is an UNDEFINED ENTITY, which is a fatal parse error. A browser handed an
+    SVG that does not parse renders nothing at all: no console error visible from
+    outside, no broken-image icon, just empty space where the picture should be.
+    The scene stills were unaffected because they are pure polygons and carry no
+    text.
+
+    Use numeric references (&#8212;) or plain ASCII in generated SVG.
+
+    THE REAL LESSON IS THE GATE, NOT THE ENTITY. Every check available from
+    outside the file passed, so the loop that was built to shorten feedback
+    silently produced nothing twice. harness/spike_svg.py now parses each SVG with
+    ElementTree BEFORE writing it and refuses to write one that is not well-formed
+    -- free to check here, expensive to diagnose from a browser. Same shape as the
+    build_wasm gate that renders a thousand frames rather than one: a gate has to
+    exercise the thing the consumer actually does with the artifact.

@@ -1,0 +1,1434 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Cat
+
+ The cat's PLACEMENT, and only that.
+
+ A partial port of wasm/cat.zig: the `Cat` record, `CAT_ALONG` and `make`. That is
+ what world.zig needs to author a segment, and it is arithmetic over five
+ constants with no dependencies at all.
+
+ THE REST OF cat.zig IS DEFERRED AND THE REASON IS NOT DIFFICULTY. Its `state`,
+ `inDanger` and `draw` reach `cat_frames.zig`, which is 615 KB of BAKED polygons --
+ and baked means GENERATED, by ops/bake_cat running the real TypeScript drawing
+ code through a recorder. NOTES section 5 scopes that out and says how it should
+ arrive when it does: teach the baker a Codex emitter and the data ports itself.
+ Hand-porting 615 KB of generated coordinates would be the wrong shape of work
+ and would rot the moment the baker ran again.
+
+ So this chapter is honest about being a slice: the cat can be PLACED but not yet
+ animated or drawn.
+
+ We say:
+
+Section: Dimensions
+
+  cat-height : Real
+  cat-height = 1.7
+
+ The desired spot down the road. world.zig rounds it up to just past a tree, so a
+ tree stands between the rider and the cat.
+
+  cat-along : Real
+  cat-along = 105.0
+
+ Clearance beyond the roadside tree line, and how far past the rounding tree it
+ sits.
+
+  cat-road-gap : Real
+  cat-road-gap = 1.5
+
+  cat-beyond-tree : Real
+  cat-beyond-tree = 2.0
+
+ Head-centre x in the unit frame, from the cat's anatomy.
+
+  cat-head-x : Real
+  cat-head-x = 0.0 - 0.48
+
+ The hind paw's reach in the landing pose, and how far past the left edge it
+ settles.
+
+  land-hind-reach : Real
+  land-hind-reach = 0.70 * cat-height
+
+  grass-toehold : Real
+  grass-toehold = 0.3
+
+Section: Placement
+
+  Cat = record {
+    along : Real,
+    start-across : Real,
+    mid-across : Real,
+    end-across : Real,
+    height : Real
+  }
+
+ The waiting spot is right of the road; mid-across is the anchor offset that puts
+ the head centre on the lane; end-across puts the hind paw barely onto the left
+ grass.
+
+  cat-make : Real, Real, Real -> Cat
+  cat-make (lane-half) (tree-offset) (tree-along) =
+    let tree-x = lane-half + tree-offset
+    in Cat {
+      along = tree-along + cat-beyond-tree,
+      start-across = tree-x + cat-road-gap,
+      mid-across = (0.0 - cat-head-x) * cat-height,
+      end-across = (0.0 - (lane-half + grass-toehold)) - land-hind-reach,
+      height = cat-height
+    }
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Num
+
+ The Real primitives Codex's foreword does not have.
+
+ `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
+ surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
+ no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
+ GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
+ question. Everything here is a gap upstream rather than a hole in the zig plug,
+ and unlike `Safari chapter Trig` none of it is a stand-in for something that
+ already exists.
+
+ EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
+ before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
+ the honest reason this chapter did not exist earlier: the port had no way to
+ reach the integers at all.
+
+ We say:
+
+Section: Rounding
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
+ give, so the half is added before the conversion and the sign is handled. The
+ colour channels this rounds are all in 0..255 and never take the negative arm --
+ it is written because a round that is wrong for half its domain is a trap for
+ the next caller.
+
+  round-real : Real -> Real
+  round-real (x) =
+    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
+    else real-from-int (real-to-int (x + 0.5))
+
+ real-to-int truncates toward zero, so for a negative non-integral value it lands
+ ABOVE its argument and floor is one less. An exact integer is its own floor in
+ both arms, which is why the test is `>` and not `>=`.
+
+  floor-real : Real -> Real
+  floor-real (x) =
+    let t = real-from-int (real-to-int x)
+    in if t > x then t - 1.0 else t
+
+Section: Modulo
+
+ Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
+ and that is not the truncated remainder. Floored is x - m * floor (x / m), and
+ this is the faithful reading of what tower.zig asks for.
+
+ BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
+ than implying coverage this does not have. tower.zig writes
+
+     @mod(@mod(phase, P) + P, P)
+
+ which looks like belt and braces over an operator that is already non-negative,
+ and is in fact exactly what makes the two semantics AGREE. Floored gives m in
+ [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
+ adding P lands in (0, 2P); the second pass takes P off again when it overflowed
+ and leaves it alone when it did not -- and r + P is precisely floored's answer
+ whenever r was negative. So the double form is semantics-agnostic by
+ construction.
+
+ MEASURED, not reasoned about after the fact: replacing this with the truncated
+ remainder leaves TowerCheck entirely green, including its negative-phase case.
+ An earlier draft of this note claimed tower.zig "relies on" the floored form and
+ that the two "disagree there". Both were wrong, and the red test said so.
+
+ Floored stays because it is what @mod means and the next caller may not wrap its
+ argument twice. But nothing in this port grades the choice today.
+
+  mod-real : Real, Real -> Real
+  mod-real (x) (m) = x - m * floor-real (x / m)
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
+ and this is the same algorithm -- an argument reduction, a quadrant fold, and an
+ 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
+ transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
+ no emitter for it. The day that emitter lands, every function here is deleted and
+ the citers cite DeviceMath instead. Nothing else in the port should grow a
+ dependency on these names.
+
+ The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
+ converts back through the integers, which is exactly the call this arm cannot
+ emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
+ exact for the arguments this game has -- yaws, headings and tier angles, all
+ within a few turns of zero -- but it is NOT a general reduction, and it must not
+ outlive the emitter it works around.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Sine and Cosine
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+  r-tan : Real -> Real
+  r-tan (x) = r-sin x / r-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+Chapter: World
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Cat
+  cites Foreword chapter ListUtils
+
+ The road network as data: a chain of straight segments joined by turns. Each
+ segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
+ angle, direction, and the segment it leads to -- and build-world accumulates each
+ segment's heading relative to north.
+
+ A port of wasm/world.zig.
+
+ NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
+ draws nothing at all: it is authored data plus the deterministic generators that
+ expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
+ EXACTLY, because there is no arithmetic here whose width could differ except the
+ jitter sines and the turn angles.
+
+ The route is the full nineteen segments of the TypeScript. The baseline is
+ deliberately boring -- all-green trees and a cow herd -- so the rare departures
+ surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
+ gold trees on 4. Segment 19 terminates; the rider arrives and stops.
+
+ PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
+ PORTED -- critter.zig needs emoji_frames.zig, 615 KB of generated bakes that
+ NOTES scopes out. The placement data is still ported because it is the world's,
+ not the renderer's, and because it is what the exit-corner logic reads.
+
+ We say:
+
+Section: Palette and Dimensions
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  lane-width : Real
+  lane-width = 4.0
+
+ Longer segments stand their own tower halfway down.
+
+  mid-tower-min-length : Real
+  mid-tower-min-length = 1000.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Schemes and Creatures
+
+  Scheme =
+   | AllGreen
+   | YellowGreen
+   | RedGreen
+
+ The big animal parked at a segment's EXIT corner. Elephant is the unmarked
+ default; the rest are the rare departures. DuckPond is a hand-drawn scene rather
+ than an emoji pair, and NoCreature is the terminus, which has no exit corner.
+
+ The constructor is DuckPond rather than Pond because chapters share one flat
+ namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
+ port -- a collision that would only appear once something cited both.
+
+  Creature =
+   | NoCreature
+   | Elephant
+   | Giraffe
+   | Zebra
+   | Rhino
+   | DuckPond
+
+Section: Trees and Critters
+
+  Tree = record {
+    along : Real,
+    across : Real,
+    color : Integer,
+    height : Real
+  }
+
+ A roadside animal: an emoji billboard at along and across-from-centre.
+
+  Critter = record {
+    along : Real,
+    across : Real,
+    codepoint : Integer,
+    height : Real,
+    face-right : Boolean
+  }
+
+  accent-color : Scheme -> Integer
+  accent-color (s) =
+   when s
+    is YellowGreen -> conifer-gold
+    is RedGreen -> conifer-red
+    is AllGreen -> conifer-green
+
+ Conifers every tree-spacing metres from the start inset to the end-clear zone.
+ Even index is green and 1.3 times tall, odd is the scheme's accent. Red trees are
+ twice everything; gold three times and set about four times further off the road.
+
+ The pair is emitted together, so the cap is checked two at a time exactly as the
+ zig's `n_trees + 2 <= MAX_TREES` does.
+
+  tree-height-for : Integer, Boolean -> Real
+  tree-height-for (color) (even) =
+    let base = if even then small-height * big-scale else small-height
+    in if color == conifer-red then base * 2.0 else (if color == conifer-gold then base * 3.0 else base)
+
+  tree-x-for : Integer -> Real
+  tree-x-for (color) =
+    if color == conifer-gold then lane-width / 2.0 + 4.0 * tree-road-offset
+    else lane-width / 2.0 + tree-road-offset
+
+  fill-trees : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees (scheme) (length) (along) (k) (n) =
+    if along > length - tree-end-inset then []
+    else if n + 2 > max-trees then []
+    else fill-trees-pair scheme length along k n
+
+  fill-trees-pair : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees-pair (scheme) (length) (along) (k) (n) =
+    let even = k - ((k / 2) * 2) == 0
+    in let color = if even then conifer-green else accent-color scheme
+    in let height = tree-height-for color even
+    in let x = tree-x-for color
+    in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)
+
+Section: The Cow Herd
+
+ The boring CONSTANT on every segment, near the start and on the left: a bull
+ leading ten cows and four calves in a deterministic jittered grid. No randomness
+ anywhere -- the jitter is a sine of the index.
+
+  bull-cp : Integer
+  bull-cp = 128002
+
+  cow-cp : Integer
+  cow-cp = 128004
+
+  cow-height : Real
+  cow-height = 1.4
+
+  calf-height : Real
+  calf-height = cow-height / 2.0
+
+  bull-height : Real
+  bull-height = cow-height * 1.15
+
+  herd-road-offset : Real
+  herd-road-offset = 10.0
+
+  bull-dist : Real
+  bull-dist = 24.0
+
+  bull-tree-gap : Real
+  bull-tree-gap = 0.5
+
+  herd-gap-behind-bull : Real
+  herd-gap-behind-bull = 6.0
+
+  herd-col-spacing : Real
+  herd-col-spacing = 6.0
+
+  herd-row-stagger : Real
+  herd-row-stagger = 2.0
+
+  herd-row-depth : Real
+  herd-row-depth = 5.0
+
+  herd-jitter-along : Real
+  herd-jitter-along = 1.5
+
+  herd-jitter-across : Real
+  herd-jitter-across = 1.2
+
+ The bull is authored per segment in the route table, like the cat and the pigs,
+ so the whole schedule of surprises reads in one place.
+
+  bull-of : Boolean -> List Critter
+  bull-of (bull) =
+    if bull then [Critter { along = bull-dist, across = 0.0 - (lane-width / 2.0 + tree-road-offset + bull-height / 2.0 + bull-tree-gap), codepoint = bull-cp, height = bull-height, face-right = False }]
+    else []
+
+  cows-from : Integer -> List Critter
+  cows-from (i) =
+    if i >= 14 then []
+    else [cow-at i] & cows-from (i + 1)
+
+  cow-at : Integer -> Critter
+  cow-at (i) =
+    let fi = real-from-int i
+    in let col = real-from-int (i / 3)
+    in let row = real-from-int (i - ((i / 3) * 3))
+    in let along = bull-dist + herd-gap-behind-bull + col * herd-col-spacing + (row - 1.0) * herd-row-stagger + herd-jitter-along * r-sin (fi * 2.7)
+    in let across = 0.0 - (lane-width / 2.0 + herd-road-offset + row * herd-row-depth + herd-jitter-across * r-cos (fi * 1.9))
+    in Critter { along = along, across = across, codepoint = cow-cp, height = if i - ((i / 4) * 4) == 1 then calf-height else cow-height, face-right = True }
+
+  fill-cows : Boolean -> List Critter
+  fill-cows (bull) = (bull-of bull) & cows-from 0
+
+Section: The Pigs
+
+ The DISTRACTION herd is a deep seven-by-seven staggered block near the segment's
+ end, on the right, and the rider gawks at one designated pig as he passes. Only
+ the first two pig appearances distract -- the novelty wears off.
+
+  pig-cp : Integer
+  pig-cp = 128022
+
+  pig-height : Real
+  pig-height = 1.1
+
+  pig-novelty-count : Integer
+  pig-novelty-count = 2
+
+  pig-dist-before-end : Real
+  pig-dist-before-end = 60.0
+
+  gaze-pig-along-offset : Real
+  gaze-pig-along-offset = 2.0
+
+  big-herd-cols : Integer
+  big-herd-cols = 7
+
+  big-herd-rows : Integer
+  big-herd-rows = 7
+
+  pig-col-spacing : Real
+  pig-col-spacing = 4.0
+
+ Across-spacing AND the per-row along-shear, which is what slants the herd's sides
+ at forty-five degrees.
+
+  pig-row-depth : Real
+  pig-row-depth = 6.0
+
+  pig-jitter-along : Real
+  pig-jitter-along = 1.2
+
+  pig-jitter-across : Real
+  pig-jitter-across = 1.0
+
+  pig-herd-first-col : Real
+  pig-herd-first-col = 0.0 - 6.0
+
+  pig-back-row-offset : Real
+  pig-back-row-offset = 6.0
+
+ The ONE front-row pig the distracted rider fixes on, so the head-turn always aims
+ at a pig that is actually drawn.
+
+  gaze-pig : Real, Real -> Critter
+  gaze-pig (length) (lane-half) =
+    Critter { along = length - pig-dist-before-end + gaze-pig-along-offset, across = lane-half + herd-road-offset, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-pig-at : Real, Integer, Integer -> Critter
+  herd-pig-at (base) (r) (c) =
+    let i = real-from-int (r * big-herd-cols + c)
+    in let fr = real-from-int r
+    in let fc = real-from-int c
+    in let along = base + pig-herd-first-col + fc * pig-col-spacing + fr * pig-row-depth + pig-jitter-along * r-sin (i * 2.3)
+    in let across = lane-width / 2.0 + herd-road-offset + fr * pig-row-depth + pig-jitter-across * r-cos (i * 1.7)
+    in Critter { along = along, across = across, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-cols-from : Real, Integer, Integer -> List Critter
+  herd-cols-from (base) (r) (c) =
+    if c >= big-herd-cols then []
+    else [herd-pig-at base r c] & herd-cols-from base r (c + 1)
+
+  herd-rows-from : Real, Integer -> List Critter
+  herd-rows-from (base) (r) =
+    if r >= big-herd-rows then []
+    else (herd-cols-from base r 0) & herd-rows-from base (r + 1)
+
+  fill-pig-herd : Real -> List Critter
+  fill-pig-herd (length) = herd-rows-from (length - pig-dist-before-end) 0
+
+ The small non-distraction row: a front rank of four at the road edge and a back
+ rank of six further off. The rider does not gawk at these.
+
+  pig-row-front : List Real
+  pig-row-front = [0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0]
+
+  pig-row-back : List Real
+  pig-row-back = [0.0 - 10.0, 0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0, 10.0]
+
+  row-pigs-at : Real, Real, List Real, Integer -> List Critter
+  row-pigs-at (base) (across) (ds) (i) =
+    if i >= list-length ds then []
+    else [Critter { along = base + list-at ds i, across = across, codepoint = pig-cp, height = pig-height, face-right = False }] & row-pigs-at base across ds (i + 1)
+
+  fill-pig-row : Real -> List Critter
+  fill-pig-row (length) =
+    let base = length - pig-dist-before-end
+    in let edge = lane-width / 2.0 + herd-road-offset
+    in (row-pigs-at base edge pig-row-front 0) & row-pigs-at base (edge + pig-back-row-offset) pig-row-back 0
+
+Section: The Route
+
+  Cfg = record {
+    length : Real,
+    scheme : Scheme,
+    turn-deg : Real,
+    cat : Boolean,
+    pigs : Boolean,
+    bull : Boolean,
+    terminates : Boolean,
+    creature : Creature
+  }
+
+ turn-deg is the SIGNED exit turn onto the next segment, positive right and
+ negative left. The LAST entry has no turn: it is the terminus, the photo-finish
+ line.
+
+  cfg : Real, Scheme, Real, Boolean, Boolean, Boolean, Boolean, Creature -> Cfg
+  cfg (len) (sch) (turn) (c) (p) (b) (t) (cr) =
+    Cfg { length = len, scheme = sch, turn-deg = turn, cat = c, pigs = p, bull = b, terminates = t, creature = cr }
+
+  route : List Cfg
+  route = [cfg 500.0 AllGreen 50.0 False False False False Elephant, cfg 320.0 AllGreen (0.0 - 70.0) True False False False Elephant, cfg 400.0 AllGreen 20.0 False True False False Elephant, cfg 300.0 YellowGreen 20.0 False False False False Elephant, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Giraffe, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Elephant, cfg 1200.0 RedGreen 80.0 False False True False Rhino, cfg 300.0 AllGreen 15.0 False False True False Elephant, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Elephant, cfg 800.0 AllGreen 15.0 False False True False Elephant, cfg 300.0 AllGreen 15.0 False True True False Elephant, cfg 300.0 AllGreen 15.0 False True True False Elephant, cfg 300.0 RedGreen 15.0 True True True False DuckPond, cfg 400.0 AllGreen (0.0 - 50.0) False True True False Elephant, cfg 300.0 AllGreen 50.0 False True True False Elephant, cfg 300.0 RedGreen (0.0 - 50.0) False False True False Zebra, cfg 300.0 AllGreen 50.0 False True True False Elephant, cfg 300.0 AllGreen (0.0 - 50.0) False True True False Elephant, cfg 300.0 RedGreen 0.0 True True True True NoCreature]
+
+Section: Building
+
+ The smallest right-side tree `along` at or after `desired` -- the cat tucks just
+ past it, so a tree stands between the rider and the cat. The zig starts at
+ infinity and takes the minimum; this threads a Boolean instead, because Codex has
+ no infinity literal and a sentinel is a worse answer than saying what is meant.
+
+  next-tree-loop : List Tree, Real, Integer, Boolean, Real -> Real
+  next-tree-loop (ts) (desired) (i) (found) (best) =
+    if i >= list-length ts then (if found then best else desired)
+    else next-tree-step ts desired i found best
+
+  next-tree-step : List Tree, Real, Integer, Boolean, Real -> Real
+  next-tree-step (ts) (desired) (i) (found) (best) =
+    let t = list-at ts i
+    in let take = if t.across > 0.0 then (if t.along >= desired then (if found then t.along < best else True) else False) else False
+    in if take then next-tree-loop ts desired (i + 1) True t.along
+       else next-tree-loop ts desired (i + 1) found best
+
+  next-tree-along : List Tree, Real -> Real
+  next-tree-along (ts) (desired) = next-tree-loop ts desired 0 False 0.0
+
+ Each segment's heading vs north, accumulated from the previous segments' exit
+ turns. Segment 0 is zero.
+
+  heading-step : Integer -> Real
+  heading-step (i) =
+    let c = list-at route i
+    in (if c.turn-deg >= 0.0 then 1.0 else 0.0 - 1.0) * (real-abs c.turn-deg * deg)
+
+  heading-at : Integer -> Real
+  heading-at (i) = if i <= 0 then 0.0 else heading-at (i - 1) + heading-step (i - 1)
+
+ How many pig legs have appeared at or before this one -- the first
+ pig-novelty-count of them are the DISTRACTION herds.
+
+  pig-count-to : Integer, Integer -> Integer
+  pig-count-to (i) (acc) =
+    if i <= 0 then acc
+    else pig-count-to (i - 1) (if (list-at route (i - 1)).pigs then acc + 1 else acc)
+
+  Segment = record {
+    length : Real,
+    width : Real,
+    trees : List Tree,
+    cows : List Critter,
+    pigs : List Critter,
+    pigs-distract : Boolean,
+    exit-angle : Real,
+    exit-right : Boolean,
+    exit-to : Integer,
+    commit-along : Real,
+    north-heading : Real,
+    has-mid-tower : Boolean,
+    has-cat : Boolean,
+    cat : Cat,
+    terminates : Boolean,
+    exit-creature : Creature
+  }
+
+ The rider crosses the next segment's inner-edge extension half-a-width over
+ tan-theta before the segment's end and commits to the turn. The terminus has no
+ turn, so he commits at the end.
+
+  segment-at : Integer -> Segment
+  segment-at (i) =
+    let c = list-at route i
+    in let angle = real-abs c.turn-deg * deg
+    in let trees = fill-trees c.scheme c.length tree-start-inset 0 0
+    in let distract = if c.pigs then pig-count-to (i + 1) 0 <= pig-novelty-count else False
+    in Segment {
+      length = c.length,
+      width = lane-width,
+      trees = trees,
+      cows = fill-cows c.bull,
+      pigs = if c.pigs then (if distract then fill-pig-herd c.length else fill-pig-row c.length) else [],
+      pigs-distract = distract,
+      exit-angle = angle,
+      exit-right = c.turn-deg >= 0.0,
+      exit-to = if c.terminates then i else i + 1,
+      commit-along = if c.terminates then c.length else c.length - (lane-width / 2.0) / r-tan angle,
+      north-heading = heading-at i,
+      has-mid-tower = c.length > mid-tower-min-length,
+      has-cat = c.cat,
+      cat = cat-make (lane-width / 2.0) tree-road-offset (next-tree-along trees cat-along),
+      terminates = c.terminates,
+      exit-creature = if c.terminates then NoCreature else c.creature
+    }
+
+ THE CAT IS BUILT FOR EVERY SEGMENT, not only the ones that have one. The zig
+ leaves the field `undefined` when has_cat is false, which Codex has no way to
+ say and no reason to want; building it costs one record and reading it when
+ has-cat is false is the caller's error either way. Nothing observable changes.
+
+  segments-from : Integer -> List Segment
+  segments-from (i) =
+    if i >= list-length route then []
+    else [segment-at i] & segments-from (i + 1)
+
+  build-world : List Segment
+  build-world = segments-from 0
+
+Section: Distances
+
+ The sum of the segment lengths, with intersection arcs ignored as negligible --
+ the distance the truck's chase schedule lerps its lead down over.
+
+  course-length-from : List Segment, Integer -> Real
+  course-length-from (ss) (i) =
+    if i >= list-length ss then 0.0
+    else (list-at ss i).length + course-length-from ss (i + 1)
+
+  course-length : List Segment -> Real
+  course-length (ss) = course-length-from ss 0
+
+ How far along the course a point sits: the lengths of all earlier segments in
+ route order, plus the along. The segments ARE in route order, so the prefix is
+ just a sum.
+
+  route-distance-from : List Segment, Integer, Integer -> Real
+  route-distance-from (ss) (seg) (i) =
+    if i >= seg then 0.0
+    else (list-at ss i).length + route-distance-from ss seg (i + 1)
+
+  route-distance : List Segment, Integer, Real -> Real
+  route-distance (ss) (seg) (along) = route-distance-from ss seg 0 + along
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-abs (list-at got i - list-at want i) > tol then i
+    else first-real-diff got want tol (i + 1)
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+      else first-rel-diff got want tol (i + 1)
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Screen Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a projected coordinate. Neither half works alone, and both failures were
+ measured rather than guessed.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+      else first-px-diff got want atol rtol (i + 1)
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: WorldGold
+
+ GENERATED by harness/gen_gold.py from probe/probe_world.zig.
+ Every value here came from importing the real game module unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-w-nsegs : List Integer
+  g-w-nsegs = [19]
+
+  g-w-length : List Real
+  g-w-length = [500.0, 320.0, 400.0, 300.0, 300.0, 300.0, 1200.0, 300.0, 300.0, 800.0, 300.0, 300.0, 300.0, 400.0, 300.0, 300.0, 300.0, 300.0, 300.0]
+
+  g-w-ntrees : List Integer
+  g-w-ntrees = [28, 16, 22, 14, 14, 14, 74, 14, 14, 48, 14, 14, 14, 22, 14, 14, 14, 14, 14]
+
+  g-w-ncows : List Integer
+  g-w-ncows = [14, 14, 14, 14, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
+
+  g-w-npigs : List Integer
+  g-w-npigs = [0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 49, 10, 10, 10, 10, 0, 10, 10, 10]
+
+  g-w-distract : List Boolean
+  g-w-distract = [False, False, True, False, False, False, False, False, False, False, True, False, False, False, False, False, False, False, False]
+
+  g-w-terminates : List Boolean
+  g-w-terminates = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True]
+
+  g-w-hascat : List Boolean
+  g-w-hascat = [False, True, False, False, False, False, False, False, False, False, False, False, True, False, False, False, False, False, True]
+
+  g-w-midtower : List Boolean
+  g-w-midtower = [False, False, False, False, False, False, True, False, False, False, False, False, False, False, False, False, False, False, False]
+
+  g-w-exitright : List Boolean
+  g-w-exitright = [True, False, True, True, False, False, True, True, False, True, True, True, True, False, True, False, True, False, True]
+
+  g-w-exitto : List Integer
+  g-w-exitto = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 18]
+
+  g-w-creature : List Integer
+  g-w-creature = [1, 1, 1, 1, 2, 1, 4, 1, 1, 1, 1, 1, 5, 1, 1, 3, 1, 1, 0]
+
+  g-w-exitangle : List Real
+  g-w-exitangle = [0.87266463, 1.2217305, 0.34906584, 0.34906584, 1.2217305, 1.2217305, 1.3962634, 0.2617994, 1.2217305, 0.2617994, 0.2617994, 0.2617994, 0.2617994, 0.87266463, 0.87266463, 0.87266463, 0.87266463, 0.87266463, 0.0]
+
+  g-w-commit : List Real
+  g-w-commit = [498.3218, 319.27206, 394.50504, 294.50504, 299.27206, 299.27206, 1199.6473, 292.5359, 299.27206, 792.5359, 292.5359, 292.5359, 292.5359, 398.3218, 298.3218, 298.3218, 298.3218, 298.3218, 300.0]
+
+  g-w-heading : List Real
+  g-w-heading = [0.0, 0.87266463, -0.34906584, 0.0, 0.34906584, -0.87266463, -2.0943952, -0.6981318, -0.4363324, -1.6580629, -1.3962636, -1.1344643, -0.87266487, -0.6108655, -1.48353, -0.6108654, -1.48353, -0.6108654, -1.48353]
+
+  g-w-trees : List Real
+  g-w-trees = [6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 4.5, 216.0, 3.5, 4.5, 246.0, -3.5, 5.85, 246.0, 3.5, 5.85, 276.0, -3.5, 4.5, 276.0, 3.5, 4.5, 306.0, -3.5, 5.85, 306.0, 3.5, 5.85, 336.0, -3.5, 4.5, 336.0, 3.5, 4.5, 366.0, -3.5, 5.85, 366.0, 3.5, 5.85, 396.0, -3.5, 4.5, 396.0, 3.5, 4.5, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 4.5, 216.0, 3.5, 4.5, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 4.5, 216.0, 3.5, 4.5, 246.0, -3.5, 5.85, 246.0, 3.5, 5.85, 276.0, -3.5, 4.5, 276.0, 3.5, 4.5, 306.0, -3.5, 5.85, 306.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -8.0, 13.5, 36.0, 8.0, 13.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -8.0, 13.5, 96.0, 8.0, 13.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -8.0, 13.5, 156.0, 8.0, 13.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 9.0, 36.0, 3.5, 9.0, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 9.0, 96.0, 3.5, 9.0, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 9.0, 156.0, 3.5, 9.0, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 9.0, 216.0, 3.5, 9.0, 246.0, -3.5, 5.85, 246.0, 3.5, 5.85, 276.0, -3.5, 9.0, 276.0, 3.5, 9.0, 306.0, -3.5, 5.85, 306.0, 3.5, 5.85, 336.0, -3.5, 9.0, 336.0, 3.5, 9.0, 366.0, -3.5, 5.85, 366.0, 3.5, 5.85, 396.0, -3.5, 9.0, 396.0, 3.5, 9.0, 426.0, -3.5, 5.85, 426.0, 3.5, 5.85, 456.0, -3.5, 9.0, 456.0, 3.5, 9.0, 486.0, -3.5, 5.85, 486.0, 3.5, 5.85, 516.0, -3.5, 9.0, 516.0, 3.5, 9.0, 546.0, -3.5, 5.85, 546.0, 3.5, 5.85, 576.0, -3.5, 9.0, 576.0, 3.5, 9.0, 606.0, -3.5, 5.85, 606.0, 3.5, 5.85, 636.0, -3.5, 9.0, 636.0, 3.5, 9.0, 666.0, -3.5, 5.85, 666.0, 3.5, 5.85, 696.0, -3.5, 9.0, 696.0, 3.5, 9.0, 726.0, -3.5, 5.85, 726.0, 3.5, 5.85, 756.0, -3.5, 9.0, 756.0, 3.5, 9.0, 786.0, -3.5, 5.85, 786.0, 3.5, 5.85, 816.0, -3.5, 9.0, 816.0, 3.5, 9.0, 846.0, -3.5, 5.85, 846.0, 3.5, 5.85, 876.0, -3.5, 9.0, 876.0, 3.5, 9.0, 906.0, -3.5, 5.85, 906.0, 3.5, 5.85, 936.0, -3.5, 9.0, 936.0, 3.5, 9.0, 966.0, -3.5, 5.85, 966.0, 3.5, 5.85, 996.0, -3.5, 9.0, 996.0, 3.5, 9.0, 1026.0, -3.5, 5.85, 1026.0, 3.5, 5.85, 1056.0, -3.5, 9.0, 1056.0, 3.5, 9.0, 1086.0, -3.5, 5.85, 1086.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 4.5, 216.0, 3.5, 4.5, 246.0, -3.5, 5.85, 246.0, 3.5, 5.85, 276.0, -3.5, 4.5, 276.0, 3.5, 4.5, 306.0, -3.5, 5.85, 306.0, 3.5, 5.85, 336.0, -3.5, 4.5, 336.0, 3.5, 4.5, 366.0, -3.5, 5.85, 366.0, 3.5, 5.85, 396.0, -3.5, 4.5, 396.0, 3.5, 4.5, 426.0, -3.5, 5.85, 426.0, 3.5, 5.85, 456.0, -3.5, 4.5, 456.0, 3.5, 4.5, 486.0, -3.5, 5.85, 486.0, 3.5, 5.85, 516.0, -3.5, 4.5, 516.0, 3.5, 4.5, 546.0, -3.5, 5.85, 546.0, 3.5, 5.85, 576.0, -3.5, 4.5, 576.0, 3.5, 4.5, 606.0, -3.5, 5.85, 606.0, 3.5, 5.85, 636.0, -3.5, 4.5, 636.0, 3.5, 4.5, 666.0, -3.5, 5.85, 666.0, 3.5, 5.85, 696.0, -3.5, 4.5, 696.0, 3.5, 4.5, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 9.0, 36.0, 3.5, 9.0, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 9.0, 96.0, 3.5, 9.0, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 9.0, 156.0, 3.5, 9.0, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 216.0, -3.5, 4.5, 216.0, 3.5, 4.5, 246.0, -3.5, 5.85, 246.0, 3.5, 5.85, 276.0, -3.5, 4.5, 276.0, 3.5, 4.5, 306.0, -3.5, 5.85, 306.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 9.0, 36.0, 3.5, 9.0, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 9.0, 96.0, 3.5, 9.0, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 9.0, 156.0, 3.5, 9.0, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 4.5, 36.0, 3.5, 4.5, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 4.5, 96.0, 3.5, 4.5, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 4.5, 156.0, 3.5, 4.5, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85, 6.0, -3.5, 5.85, 6.0, 3.5, 5.85, 36.0, -3.5, 9.0, 36.0, 3.5, 9.0, 66.0, -3.5, 5.85, 66.0, 3.5, 5.85, 96.0, -3.5, 9.0, 96.0, 3.5, 9.0, 126.0, -3.5, 5.85, 126.0, 3.5, 5.85, 156.0, -3.5, 9.0, 156.0, 3.5, 9.0, 186.0, -3.5, 5.85, 186.0, 3.5, 5.85]
+
+  g-w-treecolor : List Integer
+  g-w-treecolor = [1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082, 11680298, 11680298, 1858082, 1858082]
+
+  g-w-cows : List Real
+  g-w-cows = [28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7, 24.0, -4.805, 1.6099999, 28.0, -13.2, 1.4, 30.64107, -16.612053, 0.7, 30.840853, -21.050838, 1.4, 35.454834, -13.001656, 1.4, 34.528595, -17.301512, 1.4, 39.205677, -20.803394, 0.7, 39.291367, -12.472189, 1.4, 42.075634, -17.891298, 1.4, 44.571877, -20.951515, 1.4, 44.890335, -11.78663, 0.7, 49.434563, -18.186445, 1.4, 48.51577, -21.44624, 1.4, 53.24914, -11.171603, 1.4, 53.225605, -18.089382, 0.7]
+
+  g-w-cowcp : List Integer
+  g-w-cowcp = [128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128002, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004, 128004]
+
+  g-w-cowface : List Boolean
+  g-w-cowface = [True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+
+  g-w-pigs : List Real
+  g-w-pigs = [334.0, 13.0, 338.89484, 11.871156, 340.80756, 11.033202, 346.69412, 12.377978, 350.26746, 12.869397, 352.94946, 11.397988, 359.13245, 11.285735, 339.5415, 18.78607, 343.47852, 18.511703, 349.15338, 17.08207, 350.98453, 17.724836, 356.19977, 18.988838, 360.74927, 18.02035, 362.80182, 17.005919, 346.8474, 24.235815, 350.06897, 24.933315, 353.06067, 23.523682, 359.1827, 23.189428, 361.36328, 24.685194, 365.66574, 24.634007, 371.08215, 23.15143, 350.89227, 29.584661, 356.39398, 30.955599, 360.58276, 30.16909, 362.82947, 29.000828, 368.97702, 30.088385, 371.8686, 30.976397, 375.1981, 29.660007, 359.19998, 35.111217, 361.20285, 36.569023, 365.86224, 36.742153, 370.9807, 35.239735, 372.8309, 35.45376, 378.57718, 36.901028, 382.4, 36.314056, 362.88983, 41.018044, 369.07938, 41.93898, 371.67184, 42.99768, 375.3579, 41.80393, 381.18378, 41.05285, 383.06464, 42.440144, 388.06262, 42.833733, 370.8519, 47.345013, 372.8022, 47.33505, 378.74426, 48.82634, 382.20605, 48.45201, 384.98117, 47.057182, 391.1516, 47.790943, 393.48425, 48.99669, 234.0, 13.0, 238.89485, 11.871156, 240.80757, 11.033202, 246.69412, 12.377978, 250.26747, 12.869397, 252.94946, 11.397988, 259.13245, 11.285735, 239.54152, 18.78607, 243.47852, 18.511703, 249.15338, 17.08207, 250.98454, 17.724836, 256.19977, 18.988838, 260.74927, 18.02035, 262.80182, 17.005919, 246.8474, 24.235815, 250.06898, 24.933315, 253.06067, 23.523682, 259.1827, 23.189428, 261.36328, 24.685194, 265.66574, 24.634007, 271.08215, 23.15143, 250.89226, 29.584661, 256.39398, 30.955599, 260.58276, 30.16909, 262.82947, 29.000828, 268.97702, 30.088385, 271.8686, 30.976397, 275.1981, 29.660007, 259.19998, 35.111217, 261.20285, 36.569023, 265.86224, 36.742153, 270.9807, 35.239735, 272.8309, 35.45376, 278.57718, 36.901028, 282.4, 36.314056, 262.88983, 41.018044, 269.07938, 41.93898, 271.67184, 42.99768, 275.3579, 41.80393, 281.18378, 41.05285, 283.06464, 42.440144, 288.06262, 42.833733, 270.8519, 47.345013, 272.8022, 47.33505, 278.74426, 48.82634, 282.20605, 48.45201, 284.98117, 47.057182, 291.1516, 47.790943, 293.48425, 48.99669, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0, 334.0, 12.0, 338.0, 12.0, 342.0, 12.0, 346.0, 12.0, 330.0, 18.0, 334.0, 18.0, 338.0, 18.0, 342.0, 18.0, 346.0, 18.0, 350.0, 18.0, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0, 234.0, 12.0, 238.0, 12.0, 242.0, 12.0, 246.0, 12.0, 230.0, 18.0, 234.0, 18.0, 238.0, 18.0, 242.0, 18.0, 246.0, 18.0, 250.0, 18.0]
+
+  g-w-gazepig : List Real
+  g-w-gazepig = [442.0, 12.0, 262.0, 12.0, 342.0, 12.0, 242.0, 12.0, 242.0, 12.0, 242.0, 12.0, 1142.0, 12.0, 242.0, 12.0, 242.0, 12.0, 742.0, 12.0, 242.0, 12.0, 242.0, 12.0, 242.0, 12.0, 342.0, 12.0, 242.0, 12.0, 242.0, 12.0, 242.0, 12.0, 242.0, 12.0, 242.0, 12.0]
+
+  g-w-cat : List Real
+  g-w-cat = [128.0, 5.0, 0.816, -3.49, 1.7, 128.0, 5.0, 0.816, -3.49, 1.7, 128.0, 5.0, 0.816, -3.49, 1.7]
+
+  g-w-course : List Real
+  g-w-course = [7520.0]
+
+  g-w-routedist : List Real
+  g-w-routedist = [137.5, 637.5, 1957.5, 5457.5, 7357.5]
+
+Chapter: WorldCheck
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Cat
+  cites Safari chapter World
+  cites Judge chapter Grade
+  cites Gold chapter WorldGold
+
+ Grade the World port against wasm/world.zig.
+
+ SEAM 2, AND THE PUREST INSTANCE OF IT HERE. world.zig draws nothing and projects
+ nothing: it is authored data plus the deterministic generators that expand it. So
+ almost everything is graded EXACTLY -- every count, every colour, every codepoint,
+ every flag, every segment's exit target. The only Reals whose width could differ
+ are the jitter sines in the herds, the turn angles in radians, and the commit
+ point that divides by a tangent, and those take the relative gate.
+
+ EVERYTHING IS DUMPED. Every tree, every cow, every pig, the gaze pig, and the cat
+ placement -- not a summary. A data module graded on a summary is a data module
+ not graded, and this one is 19 segments of hand-authored schedule where a single
+ transposed flag is a different route.
+
+ THE THINGS MOST WORTH GETTING WRONG, and what catches each:
+
+   the pig novelty rule -- only the first TWO pig legs are distraction herds, so
+   `w-npigs` reads 49 on segments 3 and 11 and 10 everywhere else pigs appear.
+   An off-by-one in the counter changes a 49 to a 10 and the count says so.
+
+   the bull's debut -- absent for four segments, then a staple. `w-ncows` steps
+   14 to 15 at segment 5, and `w-cowface` carries the one False among the Trues,
+   because the bull faces the other way.
+
+   the terminus -- segment 19 exits to ITSELF, has no creature, and commits at its
+   own end rather than short of a turn it does not have.
+
+   the accumulated heading -- each segment's is the previous one plus a signed
+   turn, so an error at segment 2 is still there at segment 19. The drift is
+   visible in the gold: segment 13's heading is -0.87266487 where segment 1's
+   angle is 0.87266463, and that is accumulation, not a typo.
+
+ We say:
+
+Section: The Segments
+
+  segs : List Segment
+  segs = build-world
+
+  lengths : List Segment, Integer -> List Real
+  lengths (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).length] & lengths ss (i + 1)
+
+  n-trees : List Segment, Integer -> List Integer
+  n-trees (ss) (i) =
+    if i >= list-length ss then []
+    else [list-length (list-at ss i).trees] & n-trees ss (i + 1)
+
+  n-cows : List Segment, Integer -> List Integer
+  n-cows (ss) (i) =
+    if i >= list-length ss then []
+    else [list-length (list-at ss i).cows] & n-cows ss (i + 1)
+
+  n-pigs : List Segment, Integer -> List Integer
+  n-pigs (ss) (i) =
+    if i >= list-length ss then []
+    else [list-length (list-at ss i).pigs] & n-pigs ss (i + 1)
+
+  distracts : List Segment, Integer -> List Boolean
+  distracts (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).pigs-distract] & distracts ss (i + 1)
+
+  terminates-of : List Segment, Integer -> List Boolean
+  terminates-of (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).terminates] & terminates-of ss (i + 1)
+
+  has-cats : List Segment, Integer -> List Boolean
+  has-cats (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).has-cat] & has-cats ss (i + 1)
+
+  mid-towers : List Segment, Integer -> List Boolean
+  mid-towers (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).has-mid-tower] & mid-towers ss (i + 1)
+
+  exit-rights : List Segment, Integer -> List Boolean
+  exit-rights (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).exit-right] & exit-rights ss (i + 1)
+
+  exit-tos : List Segment, Integer -> List Integer
+  exit-tos (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).exit-to] & exit-tos ss (i + 1)
+
+ The probe prints the enum's ordinal, so the port answers in the same order the
+ zig declares them: none, elephant, giraffe, zebra, rhino, pond.
+
+  creature-ord : Creature -> Integer
+  creature-ord (c) =
+   when c
+    is NoCreature -> 0
+    is Elephant -> 1
+    is Giraffe -> 2
+    is Zebra -> 3
+    is Rhino -> 4
+    is DuckPond -> 5
+
+  creatures : List Segment, Integer -> List Integer
+  creatures (ss) (i) =
+    if i >= list-length ss then []
+    else [creature-ord (list-at ss i).exit-creature] & creatures ss (i + 1)
+
+  exit-angles : List Segment, Integer -> List Real
+  exit-angles (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).exit-angle] & exit-angles ss (i + 1)
+
+  commits : List Segment, Integer -> List Real
+  commits (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).commit-along] & commits ss (i + 1)
+
+  headings : List Segment, Integer -> List Real
+  headings (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).north-heading] & headings ss (i + 1)
+
+Section: Every Tree, Cow and Pig
+
+  trees-of : List Tree, Integer -> List Real
+  trees-of (ts) (i) =
+    if i >= list-length ts then []
+    else let t = list-at ts i
+    in [t.along, t.across, t.height] & trees-of ts (i + 1)
+
+  all-trees : List Segment, Integer -> List Real
+  all-trees (ss) (i) =
+    if i >= list-length ss then []
+    else (trees-of (list-at ss i).trees 0) & all-trees ss (i + 1)
+
+  tree-colors-of : List Tree, Integer -> List Integer
+  tree-colors-of (ts) (i) =
+    if i >= list-length ts then []
+    else [(list-at ts i).color] & tree-colors-of ts (i + 1)
+
+  all-tree-colors : List Segment, Integer -> List Integer
+  all-tree-colors (ss) (i) =
+    if i >= list-length ss then []
+    else (tree-colors-of (list-at ss i).trees 0) & all-tree-colors ss (i + 1)
+
+  critters-of : List Critter, Integer -> List Real
+  critters-of (cs) (i) =
+    if i >= list-length cs then []
+    else let c = list-at cs i
+    in [c.along, c.across, c.height] & critters-of cs (i + 1)
+
+  all-cows : List Segment, Integer -> List Real
+  all-cows (ss) (i) =
+    if i >= list-length ss then []
+    else (critters-of (list-at ss i).cows 0) & all-cows ss (i + 1)
+
+  cps-of : List Critter, Integer -> List Integer
+  cps-of (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).codepoint] & cps-of cs (i + 1)
+
+  all-cow-cps : List Segment, Integer -> List Integer
+  all-cow-cps (ss) (i) =
+    if i >= list-length ss then []
+    else (cps-of (list-at ss i).cows 0) & all-cow-cps ss (i + 1)
+
+  faces-of : List Critter, Integer -> List Boolean
+  faces-of (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).face-right] & faces-of cs (i + 1)
+
+  all-cow-faces : List Segment, Integer -> List Boolean
+  all-cow-faces (ss) (i) =
+    if i >= list-length ss then []
+    else (faces-of (list-at ss i).cows 0) & all-cow-faces ss (i + 1)
+
+  pigs-of : List Critter, Integer -> List Real
+  pigs-of (cs) (i) =
+    if i >= list-length cs then []
+    else let c = list-at cs i
+    in [c.along, c.across] & pigs-of cs (i + 1)
+
+  all-pigs : List Segment, Integer -> List Real
+  all-pigs (ss) (i) =
+    if i >= list-length ss then []
+    else (pigs-of (list-at ss i).pigs 0) & all-pigs ss (i + 1)
+
+  gaze-pigs : List Segment, Integer -> List Real
+  gaze-pigs (ss) (i) =
+    if i >= list-length ss then []
+    else let s = list-at ss i
+    in let g = gaze-pig s.length (s.width / 2.0)
+    in [g.along, g.across] & gaze-pigs ss (i + 1)
+
+ The cat is read only where has-cat, which is the zig's own rule -- it leaves the
+ field undefined otherwise.
+
+  cats-of : List Segment, Integer -> List Real
+  cats-of (ss) (i) =
+    if i >= list-length ss then []
+    else cat-or-skip ss i
+
+  cat-or-skip : List Segment, Integer -> List Real
+  cat-or-skip (ss) (i) =
+    let s = list-at ss i
+    in let rest = cats-of ss (i + 1)
+    in if s.has-cat then [s.cat.along, s.cat.start-across, s.cat.mid-across, s.cat.end-across, s.cat.height] & rest else rest
+
+Section: Distances
+
+  route-dists : List Integer, Integer -> List Real
+  route-dists (ns) (i) =
+    if i >= list-length ns then []
+    else [route-distance segs (list-at ns i) 137.5] & route-dists ns (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "w-nsegs      " [list-length segs] g-w-nsegs)
+    print-line-uni (grade-reals "w-length     " (lengths segs 0) g-w-length 0.0)
+    print-line-uni (grade-ints  "w-ntrees     " (n-trees segs 0) g-w-ntrees)
+    print-line-uni (grade-ints  "w-ncows      " (n-cows segs 0) g-w-ncows)
+    print-line-uni (grade-ints  "w-npigs      " (n-pigs segs 0) g-w-npigs)
+    print-line-uni (grade-bools "w-distract   " (distracts segs 0) g-w-distract)
+    print-line-uni (grade-bools "w-terminates " (terminates-of segs 0) g-w-terminates)
+    print-line-uni (grade-bools "w-hascat     " (has-cats segs 0) g-w-hascat)
+    print-line-uni (grade-bools "w-midtower   " (mid-towers segs 0) g-w-midtower)
+    print-line-uni (grade-bools "w-exitright  " (exit-rights segs 0) g-w-exitright)
+    print-line-uni (grade-ints  "w-exitto     " (exit-tos segs 0) g-w-exitto)
+    print-line-uni (grade-ints  "w-creature   " (creatures segs 0) g-w-creature)
+    print-line-uni (grade-rel   "w-exitangle  " (exit-angles segs 0) g-w-exitangle 0.000001)
+    print-line-uni (grade-rel   "w-commit     " (commits segs 0) g-w-commit 0.000001)
+    print-line-uni (grade-rel   "w-heading    " (headings segs 0) g-w-heading 0.000001)
+    print-line-uni (grade-rel   "w-trees      " (all-trees segs 0) g-w-trees 0.000001)
+    print-line-uni (grade-ints  "w-treecolor  " (all-tree-colors segs 0) g-w-treecolor)
+    print-line-uni (grade-rel   "w-cows       " (all-cows segs 0) g-w-cows 0.000001)
+    print-line-uni (grade-ints  "w-cowcp      " (all-cow-cps segs 0) g-w-cowcp)
+    print-line-uni (grade-bools "w-cowface    " (all-cow-faces segs 0) g-w-cowface)
+    print-line-uni (grade-rel   "w-pigs       " (all-pigs segs 0) g-w-pigs 0.000001)
+    print-line-uni (grade-rel   "w-gazepig    " (gaze-pigs segs 0) g-w-gazepig 0.000001)
+    print-line-uni (grade-rel   "w-cat        " (cats-of segs 0) g-w-cat 0.000001)
+    print-line-uni (grade-reals "w-course     " [course-length segs] g-w-course 0.0)
+    print-line-uni (grade-rel   "w-routedist  " (route-dists [0, 1, 5, 12, 18] 0) g-w-routedist 0.000001)
+  end

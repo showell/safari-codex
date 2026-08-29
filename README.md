@@ -113,6 +113,8 @@ already narrows at.
 | `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
 | `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
+| `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
+| `port/Cat.codex` | `wasm/cat.zig` **placement only** | with World |
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed

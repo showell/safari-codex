@@ -41,6 +41,7 @@ const guard_rail = @import("wasm/guard_rail.zig");
 const paint = @import("wasm/paint.zig");
 const camera = @import("wasm/camera.zig");
 const truck = @import("wasm/truck.zig");
+const pond = @import("wasm/pond.zig");
 
 // COPIED from render.zig's private consts -- see the header. Nothing else here is.
 const LOOK_AHEAD: usize = 7;
@@ -69,6 +70,13 @@ var rail_n: [32]u32 = undefined;
 var path_n: [32]u32 = undefined;
 var nrf: usize = 0;
 var nrn: usize = 0;
+
+var g_tag: [4096]u32 = undefined;
+var g_col: [4096]u32 = undefined;
+var g_cnt: [4096]u32 = undefined;
+var g_xy: [65536]f32 = undefined;
+var ngt: usize = 0;
+var ngx: usize = 0;
 
 var sc_n: [32]u32 = undefined;
 var sc_cp: [64]u32 = undefined;
@@ -189,6 +197,97 @@ fn jointPath(w: *const world.World, ch: *const render.Chain, pose: render.Pose,
 }
 
 var store: guard_rail.RailStore = .{};
+
+// emitGroundColor, composed from the pub pieces: geom.groundDrop for the curvature
+// per vertex, geom.clipNear, camera.project, paint.pushPoly. render's own is
+// private; every arithmetic step below is the real function.
+fn emitGroundColor(pts: []const geom.RiderPt, color: u32, cam_focal: f32) void {
+    if (pts.len > 8) return;
+    var v: [8]geom.Vec3 = undefined;
+    for (pts, 0..) |p, i| v[i] = .{ .right = p.right, .forward = p.forward, .height = -geom.groundDrop(p.right, p.forward) };
+    var clipped: [16]geom.Vec3 = undefined;
+    const m = geom.clipNear(v[0..pts.len], camera.NEAR, &clipped);
+    if (m < 3) return;
+    var screen: [16]camera.ScreenPt = undefined;
+    var j: usize = 0;
+    while (j < m) : (j += 1) screen[j] = camera.project(clipped[j], cam_focal);
+    paint.pushPoly(color, screen[0..m]);
+}
+fn emitGround(pts: []const geom.RiderPt, cam_focal: f32) void {
+    emitGroundColor(pts, 0x34353c, cam_focal);
+}
+
+const ENTRY_ROAD_DIST: f32 = 40.0;
+const ROAD_CHUNK: f32 = 25.0;
+
+fn mapAny(w: *const world.World, ch: *const render.Chain, pose: render.Pose,
+          is_prev: bool, prev: world.Segment, d: usize, a: f32, x: f32) geom.RiderPt {
+    return if (is_prev) mapPrev(prev, pose, a, x) else mapChain(w, ch, pose, d, a, x);
+}
+
+fn jointGround(w: *const world.World, ch: *const render.Chain, pose: render.Pose,
+               from_prev: bool, prev: world.Segment, from_d: usize, to_d: usize,
+               from_len: f32, from_w: f32, to_w: f32, exit_right: bool, cf: f32) void {
+    const approach = [_]geom.RiderPt{
+        mapAny(w, ch, pose, from_prev, prev, from_d, from_len, 0),
+        mapAny(w, ch, pose, from_prev, prev, from_d, from_len, from_w),
+        mapAny(w, ch, pose, from_prev, prev, from_d, from_len - ENTRY_ROAD_DIST, from_w),
+        mapAny(w, ch, pose, from_prev, prev, from_d, from_len - ENTRY_ROAD_DIST, 0),
+    };
+    emitGround(approach[0..], cf);
+    const fcu: f32 = if (exit_right) 0 else from_w;
+    const tx: f32 = if (exit_right) 0 else to_w;
+    const inner = mapAny(w, ch, pose, from_prev, prev, from_d, from_len, if (exit_right) from_w else 0);
+    const outer_from = mapAny(w, ch, pose, from_prev, prev, from_d, from_len, fcu);
+    const outer_to = mapChain(w, ch, pose, to_d, 0, tx);
+    const q = geom.lineMeet(outer_from, mapAny(w, ch, pose, from_prev, prev, from_d, from_len + 1, fcu), outer_to, mapChain(w, ch, pose, to_d, 1, tx));
+    const quad = [_]geom.RiderPt{ inner, outer_from, q, outer_to };
+    emitGround(quad[0..], cf);
+}
+
+fn pondGround(w: *const world.World, ch: *const render.Chain, pose: render.Pose,
+              is_prev: bool, prev: world.Segment, d: usize, from_len: f32, cf: f32) void {
+    var pts: [8]geom.RiderPt = undefined;
+    for (pond.WATER_OUTLINE, 0..) |p, i| pts[i] = mapAny(w, ch, pose, is_prev, prev, d, from_len + p.cv, p.cu);
+    emitGroundColor(pts[0..pond.WATER_OUTLINE.len], pond.WATER, cf);
+    for (pond.BANK, 0..) |p, i| pts[i] = mapAny(w, ch, pose, is_prev, prev, d, from_len + p.cv, p.cu);
+    emitGroundColor(pts[0..pond.BANK.len], pond.BANK_COLOR, cf);
+}
+
+// One frame's whole floor, in render's own walk order.
+fn frameGround(w: *const world.World, ch: *const render.Chain, pose: render.Pose, seg_idx: usize, cf: f32) void {
+    const cur = w.segments[seg_idx];
+    var d: usize = 0;
+    while (d < ch.len) : (d += 1) {
+        const sg = w.segments[ch.idx[d]];
+        const chunks_f = @ceil(sg.length / ROAD_CHUNK);
+        const chunks: usize = @intFromFloat(@max(@as(f32, 1.0), chunks_f));
+        var ci: usize = 0;
+        while (ci < chunks) : (ci += 1) {
+            const fi: f32 = @floatFromInt(ci);
+            const fc: f32 = @floatFromInt(chunks);
+            const a0 = sg.length * fi / fc;
+            const a1 = sg.length * (fi + 1.0) / fc;
+            const quad = [_]geom.RiderPt{
+                mapChain(w, ch, pose, d, a0, 0),
+                mapChain(w, ch, pose, d, a0, sg.width),
+                mapChain(w, ch, pose, d, a1, sg.width),
+                mapChain(w, ch, pose, d, a1, 0),
+            };
+            emitGround(quad[0..], cf);
+        }
+        if (d + 1 < ch.len) {
+            const to = w.segments[ch.idx[d + 1]];
+            jointGround(w, ch, pose, false, cur, d, d + 1, sg.length, sg.width, to.width, sg.exit_right, cf);
+        }
+        if (sg.exit_creature == .pond) pondGround(w, ch, pose, false, cur, d, sg.length, cf);
+    }
+    if (seg_idx > 0) {
+        const pv = w.segments[seg_idx - 1];
+        jointGround(w, ch, pose, true, pv, 0, 0, pv.length, pv.width, cur.width, pv.exit_right, cf);
+        if (pv.exit_creature == .pond) pondGround(w, ch, pose, true, pv, 0, pv.length, cf);
+    }
+}
 
 pub fn main() void {
     var w = world.buildWorld();
@@ -323,6 +422,42 @@ pub fn main() void {
         }
     }
 
+    // THE GROUND for four of those states, chosen to cover the branches: segment 0
+    // has no joint behind it, segment 2 is mid-lean (a pulled-in focal moves every
+    // projected coordinate), segment 12 is the pond corner (water and bank as well
+    // as road), and segment 16 has the short chain. Four rather than eight keeps
+    // the gold well under the transpiler's Real-literal ceiling (C7).
+    for ([_]usize{ 0, 2, 6, 7 }) |si| {
+        const st = states[si];
+        var idx: [MAX_CHAIN]usize = undefined;
+        const len = chainOf(&w, st.seg, &idx);
+        const ch = toChain(idx[0..len]);
+        const cur = w.segments[st.seg];
+        const pose = render.Pose{ .along = st.along, .across = st.across, .yaw = st.yaw + st.vyaw, .hw = cur.width / 2.0 };
+        paint.reset();
+        frameGround(&w, &ch, pose, st.seg, st.focal);
+        const words = paint.frameWords();
+        var wi: usize = 0;
+        while (wi < words.len) {
+            const tag = words[wi];
+            wi += 1;
+            g_tag[ngt] = tag;
+            g_col[ngt] = words[wi];
+            wi += 1;
+            if (tag == 1) wi += 1; // ground is never gradient-filled; skip a strength if one appears
+            const np2 = words[wi];
+            wi += 1;
+            g_cnt[ngt] = np2;
+            ngt += 1;
+            var k: usize = 0;
+            while (k < np2 * 2) : (k += 1) {
+                g_xy[ngx] = @bitCast(words[wi]);
+                ngx += 1;
+                wi += 1;
+            }
+        }
+    }
+
     std.debug.print("I r-chainlen", .{});
     for (chain_len[0..ncl]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nI r-chain", .{});
@@ -343,6 +478,14 @@ pub fn main() void {
     for (rail_n[0..nrn]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR f-railfwd", .{});
     for (rail_fwd[0..nrf]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI f-gtag", .{});
+    for (g_tag[0..ngt]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI f-gcol", .{});
+    for (g_col[0..ngt]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI f-gcnt", .{});
+    for (g_cnt[0..ngt]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nR f-gxy", .{});
+    for (g_xy[0..ngx]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR sc-place", .{});
     for (sc_r[0..nsr]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\n", .{});

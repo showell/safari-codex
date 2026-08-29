@@ -4,6 +4,7 @@ Chapter: RenderCheck
   cites Safari chapter World
   cites Safari chapter Camera
   cites Safari chapter GuardRail
+  cites Safari chapter Paint
   cites Safari chapter Render
   cites Safari chapter SafariCritter
   cites Judge chapter Grade
@@ -342,6 +343,58 @@ Section: The Depth Order
   no-defects : List Integer
   no-defects = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
+Section: The Ground Streams
+
+ The floor of one frame: every road slice, every corner's approach and pavement,
+ and the pond's water and bank -- in render's own walk order, which is also the
+ order they are painted in and therefore the order they overlap in.
+
+ FOUR STATES RATHER THAN EIGHT, and the reason is C7 rather than coverage. Four
+ frames of ground are 3,226 coordinates; eight would be over six thousand and the
+ transpiler exhausts its own bump heap on a Real literal that size. The four cover
+ the branches anyway: segment 0 has no joint behind it, segment 2 is mid-lean so a
+ pulled-in focal moves every projected coordinate, segment 12 is the pond corner
+ and is the only state with water and bank in it, and segment 16 has the short
+ chain.
+
+ THE COLOURS ARE GRADED EXACTLY AND THERE ARE ONLY THREE, which makes this stream
+ a structural check as much as a colour one: road, pond water, pond bank, in that
+ vocabulary and no other. A joint that painted its pavement in the water's colour
+ would be caught here and nowhere else.
+
+  ground-states : List Integer
+  ground-states = [0, 2, 6, 7]
+
+  ground-of : Integer -> List DrawCmd
+  ground-of (i) =
+    let st = list-at states (list-at ground-states i)
+    in frame-ground segs st.seg (pose-of st) st.cf camera-w
+
+  ground-stream : Integer -> List DrawCmd
+  ground-stream (i) =
+    if i >= list-length ground-states then []
+    else (ground-of i) & ground-stream (i + 1)
+
+  g-tags : List DrawCmd, Integer -> List Integer
+  g-tags (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).tag] & g-tags cs (i + 1)
+
+  g-cols : List DrawCmd, Integer -> List Integer
+  g-cols (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).color] & g-cols cs (i + 1)
+
+  g-counts : List DrawCmd, Integer -> List Integer
+  g-counts (cs) (i) =
+    if i >= list-length cs then []
+    else [list-length (list-at cs i).pts / 2] & g-counts cs (i + 1)
+
+  g-coords : List DrawCmd, Integer -> List Real
+  g-coords (cs) (i) =
+    if i >= list-length cs then []
+    else (list-at cs i).pts & g-coords cs (i + 1)
+
 Section: Entry
 
  Chain indices, lengths, codepoints and counts take NO tolerance: they are
@@ -401,4 +454,8 @@ Section: Entry
     print-line-uni (grade-ints "f-railn   " (rail-count-stream 0) g-f-railn)
     print-line-uni (grade-px   "f-railfwd " (rail-fwd-stream 0) g-f-railfwd 0.00025 0.000001)
     print-line-uni (grade-ints "f-order   " (order-defects 0) no-defects)
+    print-line-uni (grade-ints "f-gtag    " (g-tags (ground-stream 0) 0) g-f-gtag)
+    print-line-uni (grade-ints "f-gcol    " (g-cols (ground-stream 0) 0) g-f-gcol)
+    print-line-uni (grade-ints "f-gcnt    " (g-counts (ground-stream 0) 0) g-f-gcnt)
+    print-line-uni (grade-px   "f-gxy     " (g-coords (ground-stream 0) 0) g-f-gxy 0.001 0.000001)
   end

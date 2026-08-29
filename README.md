@@ -139,7 +139,7 @@ already narrows at.
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 | `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
-| `port/Render.codex` | `wasm/render.zig`'s **spine + collection pass** | 3,957 values |
+| `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
 
 **`Render` is the first module whose CHECK was shaped by the zig's `pub`
 markers rather than by its own structure.** render.zig's entire public surface is
@@ -198,8 +198,15 @@ goes cubic in allocations. A *stable* merge sort gives the identical order — s
 comparison, same tie rule — at roughly a hundred megabytes. Porting an algorithm
 faithfully means porting its answer, not its cost model; `PORTING_NOTES` E4.
 
-Still not ported: `frame`'s draw dispatch, which reaches `critter.draw`, `cat.draw`
-and `truck.drawBody` — the three baked-frame billboard drawers.
+**The ground pass is in too**, so `frame` is now ported end to end apart from three
+calls: the road strips sliced every 25m so a bend reads smooth, each corner's
+approach road and pavement quad out to the apex, and the pond's water and bank. It
+graded green at the standard screen gate on the first run — no recalibration, which
+is what you would hope for by the tenth module.
+
+Still not ported: `frame`'s draw dispatch for critters, the cat and the truck body
+— `critter.draw`, `cat.draw` and `truck.drawBody`, the three that reach the baked
+frames. Everything else in a frame is now computable in Codex.
 
 **`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
 here had before. `at` composes a point down a kilometre of chain and hands back one

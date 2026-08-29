@@ -4,6 +4,8 @@ Chapter: Spike
   cites Safari chapter Paint
   cites Safari chapter World
   cites Safari chapter Render
+  cites Safari chapter Pose
+  cites Safari chapter Rider
   cites Poc chapter Drive
 
  SPIKE ONLY. THROWAWAY. NOT PART OF THE PORT AND GRADED BY NOTHING.
@@ -117,6 +119,16 @@ Section: The Viewpoints
  are route distance from the start; drive-dist-at divides by the same 0.995 the
  page uses, so these land where the page would if you drove to them.
 
+ THE STILL USES A LEVEL CAMERA -- dead centre of the lane, no lean, no gaze --
+ even though the page now runs the real rider and has all three. That is on
+ purpose. A still is for reading the SCENERY, and a leaned camera rotates the
+ whole frame and moves everything in it, which is exactly the confound you do not
+ want when the question is where the herd is.
+
+ They are also close in. The first set stood 90 to 470 m off, which put a 1.6 m
+ zebra at about two pixels -- right at the cull floor, which is to say invisible.
+ These stand 25 to 70 m short of what they are aimed at.
+
  THE BIG PIG HERD is a seven-by-seven block with jitter, placed 60 m before the
  end of a distraction segment. Segment 2 is the first of the two that carry one
  (49 pigs; every other segment has ten or none), it is 400 m long and starts at
@@ -129,24 +141,70 @@ Section: The Viewpoints
   u-at-metres (m) = m / spike-course
 
   u-pig-herd : Real
-  u-pig-herd = u-at-metres 1070.0
+  u-pig-herd = u-at-metres 1130.0
 
  THE MID-TOWER. Segment 6 is the 1200 m leg, the only one long enough to stand a
  tower halfway down its own length rather than at an intersection. It starts at
  2120 m so the tower is at 2720, and this stands 140 m short.
 
   u-mid-tower : Real
-  u-mid-tower = u-at-metres 2580.0
+  u-mid-tower = u-at-metres 2650.0
 
  THE DUCK POND at segment 12's exit corner, the one hand-drawn scene on the route:
  water, a mud bank, and three duck billboards floating on it. Segment 12 starts at
  5320 m and is 300 long, so the corner is at 5620 and this stands 70 m short.
 
   u-pond : Real
-  u-pond = u-at-metres 5550.0
+  u-pond = u-at-metres 5596.0
 
  A CORNER PAIR: segment 15's exit carries the zebras, and an adult stands at the
  far outer corner with its baby beyond the turn. Segment 15 starts at 5920 m.
 
   u-zebras : Real
-  u-zebras = u-at-metres 6150.0
+  u-zebras = u-at-metres 6560.0
+
+Section: The Speed Profile
+
+ SPIKE ONLY, and this one draws no scenery at all -- it is a GRAPH.
+
+ It exists because two different things were making the page move wrong and they
+ could not be told apart by watching it: whether the rider's own accel and decel
+ are right, and whether a frame is being shown at the right rate. This isolates
+ the first completely. It runs the real ported physics -- `get-next-rider-state`,
+ graded at 199 values one step from a shared state -- for as many frames as it
+ takes to cover the route, and reports the speed and lean at each. No animation is
+ involved, so nothing here can be blamed on the clock.
+
+ Read it as: v should sit near v-max on the long straights, dip into every corner
+ by the amount turn-speed allows for that turn's angle, and climb back out at
+ a-accel. A flat line means nothing is braking. A sawtooth with the dips in the
+ wrong places means the corner brake is reading the wrong segment.
+
+  ProfilePt = record {
+    dist : Real,
+    v : Real,
+    tilt : Real,
+    seg : Integer
+  }
+
+ One step of the real rider, recorded. The route distance is what the graph's x
+ axis wants and the state carries segment and along, so route-distance converts.
+
+  profile-pt : List Segment, RiderState -> ProfilePt
+  profile-pt (w) (s) =
+    ProfilePt { dist = route-distance w s.segment s.along, v = s.v, tilt = s.tilt, seg = s.segment }
+
+  profile-from : List Segment, RiderState, Integer -> List ProfilePt
+  profile-from (w) (s) (n) =
+    if n <= 0 then []
+    else if is-finished s w then [profile-pt w s]
+    else [profile-pt w s] & profile-from w (get-next-rider-state s w) (n - 1)
+
+ Four thousand frames is comfortably more than the route takes at v-max, and the
+ walk stops early at the finish line anyway.
+
+  profile-frames : Integer
+  profile-frames = 4000
+
+  speed-profile : List ProfilePt
+  speed-profile = profile-from build-world initial-rider-state profile-frames

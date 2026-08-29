@@ -42,6 +42,67 @@ def shade(v, f):
     return f"#{c(r):02x}{c(g):02x}{c(b):02x}"
 
 
+GW, GH = 960, 300
+
+
+def graph(pts):
+    """SPIKE ONLY. Speed and lean against route distance -- one variable, no clock.
+
+    pts is [(dist_m, v, tilt, seg)]. Draws v against distance with the segment
+    boundaries marked, so a corner dip can be read against the corner it is for.
+    """
+    if not pts:
+        return ""
+    dmax = max(p[0] for p in pts) or 1
+    vmax = max(max(p[1] for p in pts), 2.5)
+    sx = lambda d: 40 + (GW - 60) * d / dmax
+    sy = lambda v: GH - 30 - (GH - 50) * v / vmax
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{GW}" height="{GH}" '
+           f'viewBox="0 0 {GW} {GH}">',
+           f'<rect width="{GW}" height="{GH}" fill="#14171c"/>']
+    # segment boundaries: where seg changes, so a dip can be read against its corner
+    last = pts[0][3]
+    for d, v, t, sg in pts:
+        if sg != last:
+            out.append(f'<line x1="{sx(d):.1f}" y1="20" x2="{sx(d):.1f}" y2="{GH-30}" '
+                       f'stroke="#3a4250"/>')
+            out.append(f'<text x="{sx(d)+3:.1f}" y="32" fill="#5d6675" '
+                       f'font-size="9" font-family="system-ui">{sg}</text>')
+            last = sg
+    for v, lbl in ((2.5, "v-max 2.5"), (0.3, "v-base 0.3")):
+        out.append(f'<line x1="40" y1="{sy(v):.1f}" x2="{GW-20}" y2="{sy(v):.1f}" '
+                   f'stroke="#454d5c" stroke-dasharray="3 3"/>')
+        out.append(f'<text x="4" y="{sy(v)+3:.1f}" fill="#7c8798" font-size="10" '
+                   f'font-family="system-ui">{lbl}</text>')
+    d = " ".join(f"{sx(p[0]):.1f},{sy(p[1]):.1f}" for p in pts)
+    out.append(f'<polyline points="{d}" fill="none" stroke="#5ec8f0" stroke-width="1.5"/>')
+    tl = " ".join(f"{sx(p[0]):.1f},{sy(abs(p[2]) * 4):.1f}" for p in pts)
+    out.append(f'<polyline points="{tl}" fill="none" stroke="#e08a4a" stroke-width="1"/>')
+    out.append(f'<text x="40" y="{GH-10}" fill="#7c8798" font-size="10" '
+               f'font-family="system-ui">route distance 0..{dmax:.0f} m &mdash; '
+               f'blue: speed (m/frame) &mdash; orange: |lean| x4 &mdash; '
+               f'{len(pts)} frames</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def parse_profile(text):
+    for line in text.splitlines():
+        if line.startswith("PROFILE "):
+            continue
+        if " ; " in line and not line.startswith("C "):
+            pts = []
+            for chunk in line.split(" ; "):
+                f = chunk.split()
+                if len(f) != 4:
+                    continue
+                pts.append((float(f[0]), int(f[1]) / 1000.0,
+                            int(f[2]) / 1000.0, int(f[3])))
+            if pts:
+                return pts
+    return []
+
+
 def parse(text):
     """-> [(name, sky_top, sky_horizon, [(tag, color, strength, [(x, y), ...])])]"""
     scenes, cur = [], None
@@ -119,12 +180,21 @@ def main():
         raise SystemExit("build/spike not built -- run ./harness/spike.sh")
     text = subprocess.run([str(exe)], cwd=ROOT / "build",
                           capture_output=True, text=True, check=True).stderr
+    prof = parse_profile(text)
     scenes = parse(text)
     if not scenes:
         raise SystemExit("no SCENE blocks in the spike output")
     out = ROOT / "web" / "spikes"
     out.mkdir(parents=True, exist_ok=True)
     rows = []
+    if prof:
+        (out / "speed.svg").write_text(graph(prof))
+        vs = [p[1] for p in prof]
+        print(f"web/spikes/speed.svg  ({len(prof)} frames, "
+              f"v {min(vs):.2f}..{max(vs):.2f} m/frame)")
+        rows.append('<h2>speed profile</h2><p>the real ported physics over the '
+                    'whole route &mdash; no animation involved</p>'
+                    f'<img src="speed.svg" width="{GW}" height="{GH}">')
     for name, top, hor, cmds in scenes:
         (out / f"{name}.svg").write_text(svg(name, top, hor, cmds))
         print(f"web/spikes/{name}.svg  ({len(cmds)} commands)")

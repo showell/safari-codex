@@ -226,3 +226,59 @@ Section: The Frame
 
   frame : List DrawCmd
   frame = frame-at 0.0
+
+Section: Driving The Real Rider
+
+ THE MOTION IS NO LONGER INVENTED. Everything above this section answers from a
+ scrub `u` at a constant speed, which was a stand-in for the physics while the
+ shim had nowhere to keep state. `Safari chapter Rider` is ported and graded at
+ 199 values one step from a shared state, so the page can simply run it -- and
+ measuring what it actually does is what made clear that the stand-in was wrong.
+ Over the first 4,000 frames the real rider averages 1.18 m/frame and ranges from
+ 0.53 on the tight second leg to 1.75 on the long sixth. The scrub ran a flat 2.0.
+
+ What driving the real rider fixes, all at once and all as consequences rather
+ than as separate patches:
+
+   the SPEED is the game's, corner by corner, instead of one average;
+   there IS acceleration and braking, which a constant cannot have;
+   the LEAN comes out of it -- tilt is a field on the state, nonzero on 1,552 of
+     those 4,000 frames and reaching 17.6 degrees, and the page simply never asked;
+   the HEADING is the rider's own, so the blended stand-in above -- the one number
+     on this page that was invented -- is no longer needed.
+
+ The head turn is the rider's gaze plus a fraction of his lean, exactly as
+ safari.zig folds it before building the pose: the whole view swings, backdrop
+ included.
+
+  head-yaw-frac : Real
+  head-yaw-frac = 0.15
+
+  view-yaw-for : RiderState -> Real
+  view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
+
+ The sunset clock runs on ROUTE DISTANCE rather than a frame count, so the sweep
+ from day to dusk covers the course however fast the rider takes it.
+
+  step-for : List Segment, RiderState -> Real
+  step-for (w) (s) =
+    3600.0 + 1400.0 * route-distance w s.segment s.along / course-length w
+
+  heading-for : RiderState -> Real
+  heading-for (s) = s.heading + view-yaw-for s
+
+  sun-for : List Segment, RiderState -> SunPos
+  sun-for (w) (s) = sun-pos (heading-for s) (step-for w s) focal camera-w
+
+  pose-for : List Segment, RiderState -> Pose
+  pose-for (w) (s) =
+    Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
+
+  frame-for : List Segment, RiderState -> List DrawCmd
+  frame-for (w) (s) =
+    let pose = pose-for w s
+    in let step = step-for w s
+    in let ch = build-chain w s.segment
+    in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
+       & (frame-ground w s.segment pose focal camera-w)
+       & (draw-order w ch pose (collect w s.segment pose focal s.along 0.0) focal step 0)

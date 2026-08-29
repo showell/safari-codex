@@ -54,7 +54,18 @@ Section: Entry
   scene-line (name) (u) =
     "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
 
+  prof-pt : ProfilePt -> Text
+  prof-pt (p) =
+    show (real-to-int p.dist) & " " & show (real-to-int (p.v * 1000.0)) & " " & show (real-to-int (p.tilt * 1000.0)) & " " & show p.seg
+
+  prof-all : List ProfilePt, Integer -> Text
+  prof-all (ps) (i) =
+    if i >= list-length ps then ""
+    else prof-pt (list-at ps i) & " ; " & prof-all ps (i + 1)
+
   opening : [Console] Nothing = act
+    print-line-uni ("PROFILE " & show (list-length speed-profile))
+    print-line-uni (prof-all speed-profile 0)
     print-line-uni (scene-line "pig-herd" u-pig-herd)
     print-line-uni (all-cmds (spike-frame-at u-pig-herd) 0)
     print-line-uni (scene-line "mid-tower" u-mid-tower)

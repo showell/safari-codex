@@ -24,6 +24,12 @@ mkdir -p build web/driving
 #     ./harness/build_wasm.sh SceneMain  # the old hand-placed proof of concept
 entry="${1:-DriveMain}"
 [ -f "poc/$entry.codex" ] || { echo "no poc/$entry.codex" >&2; exit 1; }
+# The shim is per scene: Drive carries state (the world, the rider, a history
+# ring) while Scene is a pure function of a scrub.
+case "$entry" in
+  DriveMain) shim=drive_shim.zig ;;
+  *)         shim=shim.zig ;;
+esac
 
 python3 harness/bundle.py "poc/$entry.codex" build/scene-unit.codex
 "$codexzig" < build/scene-unit.codex 2> build/scene.zig > build/scene.diag
@@ -36,7 +42,7 @@ if ! grep -q "^// THE PRELUDE" build/scene.zig; then
   exit 1
 fi
 
-python3 harness/wasmify.py build/scene.zig build/scene_wasm.zig
+python3 harness/wasmify.py build/scene.zig build/scene_wasm.zig 32 "$shim"
 ( cd build && "$zig" build-exe scene_wasm.zig \
     -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseSmall \
     -femit-bin=safari_codex.wasm )

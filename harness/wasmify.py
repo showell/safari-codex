@@ -64,7 +64,7 @@ def sub_once(text, old, new, what):
     return text.replace(old, new)
 
 
-def wasmify(text, heap_mb):
+def wasmify(text, heap_mb, shim='shim.zig'):
     text = sub_once(text, HOSTED_ENTRY, FREESTANDING_ENTRY, 'hosted entry')
     text = sub_once(text, HOSTED_PRINT, FREESTANDING_PRINT, 'hosted print pair')
 
@@ -81,15 +81,19 @@ def wasmify(text, heap_mb):
                       text, flags=re.S)
     if n != 1:
         raise SystemExit(f'wasmify: expected one cx_heap_base, found {n}')
-    return base + (ROOT / 'poc' / 'shim.zig').read_text()
+    return base + (ROOT / 'poc' / shim).read_text()
 
 
 def main():
-    if len(sys.argv) not in (3, 4):
-        raise SystemExit('usage: wasmify.py <in.zig> <out.zig> [heap-mb]')
-    heap_mb = int(sys.argv[3]) if len(sys.argv) == 4 else 32
+    # The SHIM IS PER SCENE now. It was hardcoded to poc/shim.zig while there was
+    # one scene; Drive needs a different one because it carries state -- the world,
+    # the rider, a history ring -- while Scene is a pure function of a scrub.
+    if len(sys.argv) not in (3, 4, 5):
+        raise SystemExit('usage: wasmify.py <in.zig> <out.zig> [heap-mb] [shim]')
+    heap_mb = int(sys.argv[3]) if len(sys.argv) >= 4 else 32
+    shim = sys.argv[4] if len(sys.argv) == 5 else 'shim.zig'
     out = pathlib.Path(sys.argv[2])
-    out.write_text(wasmify(pathlib.Path(sys.argv[1]).read_text(), heap_mb))
+    out.write_text(wasmify(pathlib.Path(sys.argv[1]).read_text(), heap_mb, shim))
     print(f'{out}  (heap {heap_mb} MB)')
     return 0
 

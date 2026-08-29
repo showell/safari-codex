@@ -277,6 +277,23 @@ B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
     something, silently, and both surface as a missing name downstream rather than
     as a diagnostic.
 
+    IT HAPPENED AGAIN WIRING THE REAL RIDER INTO THE BROWSER, which is worth
+    recording because the shape was identical and the note did not prevent it.
+    Drive grew
+
+        sun-for (w) (s) = sun-pos (heading-for s) (step-for w s) focal camera-w
+
+    -- one application, so inlined, so absent -- and the shim failed on four
+    undeclared identifiers. Its neighbours `heading-for` and `step-for` DID emit,
+    because both are arithmetic rather than a single call, which is exactly what
+    makes the rule easy to trip: two definitions written together in the same
+    style, one survives and one does not, and nothing says which.
+
+    The fix is B12's own advice taken literally: the shim calls sun-pos, and the
+    wrapper stays for the Codex side to read. Check every name the shim uses with
+    `grep -n "^fn <mangled>(" build/scene.zig` BEFORE building the wasm; the error
+    otherwise arrives from the zig compiler, three steps downstream.
+
 B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
 
     mountains.zig normalises a fraction it calls `above`. Porting that name

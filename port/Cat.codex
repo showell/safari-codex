@@ -77,3 +77,36 @@ Section: Placement
       end-across = (0.0 - (lane-half + grass-toehold)) - land-hind-reach,
       height = cat-height
     }
+
+Section: The Crossing Window
+
+ The cat's crossing takes this many frames end to end: ten to enter the road,
+ twenty-four frozen in the headlight, and four to escape -- coil, airborne twice,
+ land, collapse. The rider's throttle gate reads it, which is why these three are
+ here while the poses they name are not.
+
+  enters-road-steps : Real
+  enters-road-steps = 10.0
+
+  frozen-steps : Real
+  frozen-steps = 24.0
+
+  escapes-steps : Real
+  escapes-steps = 4.0
+
+  cross-frames : Real
+  cross-frames = enters-road-steps + frozen-steps + escapes-steps
+
+ Metres of clear road kept between rider and cat.
+
+  road-buffer : Real
+  road-buffer = 3.0
+
+ Is the cat still ahead, beyond the buffer, AND inside the crossing window -- that
+ is, crossing in front of us right now? The rider's accel gate holds the throttle
+ while this holds: he stops CLOSING on the cat but never brakes.
+
+  cat-in-danger : Real, Real -> Boolean
+  cat-in-danger (gap-along) (v) =
+    let e = gap-along - road-buffer
+    in if e > 0.0 then e <= cross-frames * v else False

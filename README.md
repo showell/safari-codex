@@ -114,7 +114,10 @@ already narrows at.
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
 | `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
 | `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
-| `port/Cat.codex` | `wasm/cat.zig` **placement only** | with World |
+| `port/Cat.codex` | `wasm/cat.zig` **placement + danger** | with World and Rider |
+| `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
+| `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
+| `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed
@@ -147,6 +150,18 @@ the hole: `real-sqrt` is a scaled Heron iteration that touches no conversion, an
 `GuardRail` cites the real chapter for it and grades green. Before writing a
 stand-in for any foreword chapter, check which of *its functions* actually reach
 the hole — "this chapter is dark" is almost never true.
+
+**`Rider` is seam 4, and it is graded the only way that works.** The lean comes
+from a binary search — twelve iterations, each deciding on one float comparison
+after simulating up to two thousand physics steps — so a 1e-7 f32/f64 difference
+will eventually flip one and put the two rides on different trajectories. A trace
+comparison would go red and mean nothing. Both sides are handed **the same state
+N** and only **state N+1** is compared, so drift cannot accumulate and a failure
+points at one step. That is NOTES' prescription for this seam.
+
+`Pose` exists to cut a cycle: the zig has `rider.zig` and `gaze.zig` importing
+each other, which Codex cites cannot do, so the record they share gets its own
+chapter. No logic moves.
 
 **`Mountains` is where the arc tangent is graded.** `Trig` grew an `r-atan`,
 because `Gpu chapter DeviceMath` has none — its whole surface is min, max, abs,

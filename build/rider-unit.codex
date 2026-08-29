@@ -1,0 +1,2027 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Pose
+
+ The rider's state, and nothing else.
+
+ THIS CHAPTER EXISTS TO CUT A CYCLE. In the zig, rider.zig imports gaze.zig for the
+ gawk brake and the gaze step, and gaze.zig imports rider.zig for the state type --
+ a mutual import zig permits and Codex cites do not. The cycle has to be cut
+ somewhere, and the honest place is the thing they actually share: the record.
+ Neither module's LOGIC moves, so this is a packaging adaptation and not a change
+ of behaviour, in the same family as Camera threading view-w because Codex has no
+ mutable global.
+
+ A port of the RiderState in wasm/rider.zig.
+
+ We say:
+
+Section: State
+
+ `yaw` is the heading against the CURRENT segment -- frame-relative, which is what
+ the road geometry reads -- and is reset into each new segment's frame at a
+ crossing.
+
+ `heading` is the bike's ABSOLUTE world heading, integrated continuously and left
+ untouched by the crossing. The backdrop reads this one, so the horizon turns
+ exactly as much as the bike does rather than jumping when the frame changes.
+
+ `gaze-yaw` and `focus` are the distracted rider, and both are VIEW-ONLY: an extra
+ camera yaw toward the roadside pigs, and the camera's focus-narrowing progress as
+ he gawks. They are advanced after the bike has moved.
+
+  RiderState = record {
+    segment : Integer,
+    along : Real,
+    across : Real,
+    yaw : Real,
+    v : Real,
+    tilt : Real,
+    heading : Real,
+    gaze-yaw : Real,
+    focus : Real
+  }
+
+  v-base : Real
+  v-base = 0.3
+
+  initial-rider-state : RiderState
+  initial-rider-state =
+    RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Num
+
+ The Real primitives Codex's foreword does not have.
+
+ `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
+ surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
+ no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
+ GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
+ question. Everything here is a gap upstream rather than a hole in the zig plug,
+ and unlike `Safari chapter Trig` none of it is a stand-in for something that
+ already exists.
+
+ EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
+ before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
+ the honest reason this chapter did not exist earlier: the port had no way to
+ reach the integers at all.
+
+ We say:
+
+Section: Rounding
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
+ give, so the half is added before the conversion and the sign is handled. The
+ colour channels this rounds are all in 0..255 and never take the negative arm --
+ it is written because a round that is wrong for half its domain is a trap for
+ the next caller.
+
+  round-real : Real -> Real
+  round-real (x) =
+    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
+    else real-from-int (real-to-int (x + 0.5))
+
+ real-to-int truncates toward zero, so for a negative non-integral value it lands
+ ABOVE its argument and floor is one less. An exact integer is its own floor in
+ both arms, which is why the test is `>` and not `>=`.
+
+  floor-real : Real -> Real
+  floor-real (x) =
+    let t = real-from-int (real-to-int x)
+    in if t > x then t - 1.0 else t
+
+Section: Modulo
+
+ Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
+ and that is not the truncated remainder. Floored is x - m * floor (x / m), and
+ this is the faithful reading of what tower.zig asks for.
+
+ BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
+ than implying coverage this does not have. tower.zig writes
+
+     @mod(@mod(phase, P) + P, P)
+
+ which looks like belt and braces over an operator that is already non-negative,
+ and is in fact exactly what makes the two semantics AGREE. Floored gives m in
+ [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
+ adding P lands in (0, 2P); the second pass takes P off again when it overflowed
+ and leaves it alone when it did not -- and r + P is precisely floored's answer
+ whenever r was negative. So the double form is semantics-agnostic by
+ construction.
+
+ MEASURED, not reasoned about after the fact: replacing this with the truncated
+ remainder leaves TowerCheck entirely green, including its negative-phase case.
+ An earlier draft of this note claimed tower.zig "relies on" the floored form and
+ that the two "disagree there". Both were wrong, and the red test said so.
+
+ Floored stays because it is what @mod means and the next caller may not wrap its
+ argument twice. But nothing in this port grades the choice today.
+
+  mod-real : Real, Real -> Real
+  mod-real (x) (m) = x - m * floor-real (x / m)
+
+Section: The Exponential
+
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
+ argument reaches -100 and a bare Taylor series is useless there. The standard
+ reduction: take k as the nearest integer to x / ln 2, so the remainder r is
+ within half a ln 2 of zero, sum the series there, and scale by 2^k.
+
+ THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
+ -- so like everything else here it could not have been written before the
+ conversion emitters landed.
+
+  ln2 : Real
+  ln2 = 0.6931471805599453
+
+ Twelve terms over |r| <= 0.347 leaves a remainder around 1e-17, which is under an
+ f64 ulp at 1, so the scaling cannot magnify anything that matters.
+
+  exp-poly : Real -> Real
+  exp-poly (r) =
+    let t1 = r
+    in let t2 = t1 * r / 2.0
+    in let t3 = t2 * r / 3.0
+    in let t4 = t3 * r / 4.0
+    in let t5 = t4 * r / 5.0
+    in let t6 = t5 * r / 6.0
+    in let t7 = t6 * r / 7.0
+    in let t8 = t7 * r / 8.0
+    in let t9 = t8 * r / 9.0
+    in let t10 = t9 * r / 10.0
+    in let t11 = t10 * r / 11.0
+    in let t12 = t11 * r / 12.0
+    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+
+ 2^k by repeated multiplication rather than by assembling an exponent field: the
+ bit-level route would need real-to-bits, which this arm still has no emitter for,
+ and k is small enough here that the loop is exact anyway -- every step multiplies
+ by a power of two, which is exact in binary until it underflows.
+
+  pow2-up : Integer, Real -> Real
+  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
+
+  pow2-down : Integer, Real -> Real
+  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
+
+  pow2-int : Integer -> Real
+  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
+
+  exp-real : Real -> Real
+  exp-real (x) =
+    let k = real-to-int (round-real (x / ln2))
+    in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
+ and this is the same algorithm -- an argument reduction, a quadrant fold, and an
+ 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
+ transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
+ no emitter for it. The day that emitter lands, every function here is deleted and
+ the citers cite DeviceMath instead. Nothing else in the port should grow a
+ dependency on these names.
+
+ The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
+ converts back through the integers, which is exactly the call this arm cannot
+ emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
+ exact for the arguments this game has -- yaws, headings and tier angles, all
+ within a few turns of zero -- but it is NOT a general reduction, and it must not
+ outlive the emitter it works around.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = 3.141592653589793
+
+  two-pi : Real
+  two-pi = 6.283185307179586
+
+  half-pi : Real
+  half-pi = 1.570796326794897
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Sine and Cosine
+
+  sin-poly : Real -> Real
+  sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  fold-quadrant : Real -> Real
+  fold-quadrant (r) =
+    if r > half-pi then pi - r
+    else if r < 0.0 - half-pi then 0.0 - pi - r
+    else r
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+  r-sin : Real -> Real
+  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+
+  r-cos : Real -> Real
+  r-cos (x) = r-sin (x + half-pi)
+
+  r-tan : Real -> Real
+  r-tan (x) = r-sin x / r-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
+
+Chapter: Cat
+
+ The cat's PLACEMENT, and only that.
+
+ A partial port of wasm/cat.zig: the `Cat` record, `CAT_ALONG` and `make`. That is
+ what world.zig needs to author a segment, and it is arithmetic over five
+ constants with no dependencies at all.
+
+ THE REST OF cat.zig IS DEFERRED AND THE REASON IS NOT DIFFICULTY. Its `state`,
+ `inDanger` and `draw` reach `cat_frames.zig`, which is 615 KB of BAKED polygons --
+ and baked means GENERATED, by ops/bake_cat running the real TypeScript drawing
+ code through a recorder. NOTES section 5 scopes that out and says how it should
+ arrive when it does: teach the baker a Codex emitter and the data ports itself.
+ Hand-porting 615 KB of generated coordinates would be the wrong shape of work
+ and would rot the moment the baker ran again.
+
+ So this chapter is honest about being a slice: the cat can be PLACED but not yet
+ animated or drawn.
+
+ We say:
+
+Section: Dimensions
+
+  cat-height : Real
+  cat-height = 1.7
+
+ The desired spot down the road. world.zig rounds it up to just past a tree, so a
+ tree stands between the rider and the cat.
+
+  cat-along : Real
+  cat-along = 105.0
+
+ Clearance beyond the roadside tree line, and how far past the rounding tree it
+ sits.
+
+  cat-road-gap : Real
+  cat-road-gap = 1.5
+
+  cat-beyond-tree : Real
+  cat-beyond-tree = 2.0
+
+ Head-centre x in the unit frame, from the cat's anatomy.
+
+  cat-head-x : Real
+  cat-head-x = 0.0 - 0.48
+
+ The hind paw's reach in the landing pose, and how far past the left edge it
+ settles.
+
+  land-hind-reach : Real
+  land-hind-reach = 0.70 * cat-height
+
+  grass-toehold : Real
+  grass-toehold = 0.3
+
+Section: Placement
+
+  Cat = record {
+    along : Real,
+    start-across : Real,
+    mid-across : Real,
+    end-across : Real,
+    height : Real
+  }
+
+ The waiting spot is right of the road; mid-across is the anchor offset that puts
+ the head centre on the lane; end-across puts the hind paw barely onto the left
+ grass.
+
+  cat-make : Real, Real, Real -> Cat
+  cat-make (lane-half) (tree-offset) (tree-along) =
+    let tree-x = lane-half + tree-offset
+    in Cat {
+      along = tree-along + cat-beyond-tree,
+      start-across = tree-x + cat-road-gap,
+      mid-across = (0.0 - cat-head-x) * cat-height,
+      end-across = (0.0 - (lane-half + grass-toehold)) - land-hind-reach,
+      height = cat-height
+    }
+
+Section: The Crossing Window
+
+ The cat's crossing takes this many frames end to end: ten to enter the road,
+ twenty-four frozen in the headlight, and four to escape -- coil, airborne twice,
+ land, collapse. The rider's throttle gate reads it, which is why these three are
+ here while the poses they name are not.
+
+  enters-road-steps : Real
+  enters-road-steps = 10.0
+
+  frozen-steps : Real
+  frozen-steps = 24.0
+
+  escapes-steps : Real
+  escapes-steps = 4.0
+
+  cross-frames : Real
+  cross-frames = enters-road-steps + frozen-steps + escapes-steps
+
+ Metres of clear road kept between rider and cat.
+
+  road-buffer : Real
+  road-buffer = 3.0
+
+ Is the cat still ahead, beyond the buffer, AND inside the crossing window -- that
+ is, crossing in front of us right now? The rider's accel gate holds the throttle
+ while this holds: he stops CLOSING on the cat but never brakes.
+
+  cat-in-danger : Real, Real -> Boolean
+  cat-in-danger (gap-along) (v) =
+    let e = gap-along - road-buffer
+    in if e > 0.0 then e <= cross-frames * v else False
+
+Chapter: World
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Cat
+  cites Foreword chapter ListUtils
+
+ The road network as data: a chain of straight segments joined by turns. Each
+ segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
+ angle, direction, and the segment it leads to -- and build-world accumulates each
+ segment's heading relative to north.
+
+ A port of wasm/world.zig.
+
+ NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
+ draws nothing at all: it is authored data plus the deterministic generators that
+ expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
+ EXACTLY, because there is no arithmetic here whose width could differ except the
+ jitter sines and the turn angles.
+
+ The route is the full nineteen segments of the TypeScript. The baseline is
+ deliberately boring -- all-green trees and a cow herd -- so the rare departures
+ surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
+ gold trees on 4. Segment 19 terminates; the rider arrives and stops.
+
+ PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
+ PORTED -- critter.zig needs emoji_frames.zig, 615 KB of generated bakes that
+ NOTES scopes out. The placement data is still ported because it is the world's,
+ not the renderer's, and because it is what the exit-corner logic reads.
+
+ We say:
+
+Section: Palette and Dimensions
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  lane-width : Real
+  lane-width = 4.0
+
+ Longer segments stand their own tower halfway down.
+
+  mid-tower-min-length : Real
+  mid-tower-min-length = 1000.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Schemes and Creatures
+
+  Scheme =
+   | AllGreen
+   | YellowGreen
+   | RedGreen
+
+ The big animal parked at a segment's EXIT corner. Elephant is the unmarked
+ default; the rest are the rare departures. DuckPond is a hand-drawn scene rather
+ than an emoji pair, and NoCreature is the terminus, which has no exit corner.
+
+ The constructor is DuckPond rather than Pond because chapters share one flat
+ namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
+ port -- a collision that would only appear once something cited both.
+
+  Creature =
+   | NoCreature
+   | Elephant
+   | Giraffe
+   | Zebra
+   | Rhino
+   | DuckPond
+
+Section: Trees and Critters
+
+  Tree = record {
+    along : Real,
+    across : Real,
+    color : Integer,
+    height : Real
+  }
+
+ A roadside animal: an emoji billboard at along and across-from-centre.
+
+  Critter = record {
+    along : Real,
+    across : Real,
+    codepoint : Integer,
+    height : Real,
+    face-right : Boolean
+  }
+
+  accent-color : Scheme -> Integer
+  accent-color (s) =
+   when s
+    is YellowGreen -> conifer-gold
+    is RedGreen -> conifer-red
+    is AllGreen -> conifer-green
+
+ Conifers every tree-spacing metres from the start inset to the end-clear zone.
+ Even index is green and 1.3 times tall, odd is the scheme's accent. Red trees are
+ twice everything; gold three times and set about four times further off the road.
+
+ The pair is emitted together, so the cap is checked two at a time exactly as the
+ zig's `n_trees + 2 <= MAX_TREES` does.
+
+  tree-height-for : Integer, Boolean -> Real
+  tree-height-for (color) (even) =
+    let base = if even then small-height * big-scale else small-height
+    in if color == conifer-red then base * 2.0 else (if color == conifer-gold then base * 3.0 else base)
+
+  tree-x-for : Integer -> Real
+  tree-x-for (color) =
+    if color == conifer-gold then lane-width / 2.0 + 4.0 * tree-road-offset
+    else lane-width / 2.0 + tree-road-offset
+
+  fill-trees : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees (scheme) (length) (along) (k) (n) =
+    if along > length - tree-end-inset then []
+    else if n + 2 > max-trees then []
+    else fill-trees-pair scheme length along k n
+
+  fill-trees-pair : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees-pair (scheme) (length) (along) (k) (n) =
+    let even = k - ((k / 2) * 2) == 0
+    in let color = if even then conifer-green else accent-color scheme
+    in let height = tree-height-for color even
+    in let x = tree-x-for color
+    in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)
+
+Section: The Cow Herd
+
+ The boring CONSTANT on every segment, near the start and on the left: a bull
+ leading ten cows and four calves in a deterministic jittered grid. No randomness
+ anywhere -- the jitter is a sine of the index.
+
+  bull-cp : Integer
+  bull-cp = 128002
+
+  cow-cp : Integer
+  cow-cp = 128004
+
+  cow-height : Real
+  cow-height = 1.4
+
+  calf-height : Real
+  calf-height = cow-height / 2.0
+
+  bull-height : Real
+  bull-height = cow-height * 1.15
+
+  herd-road-offset : Real
+  herd-road-offset = 10.0
+
+  bull-dist : Real
+  bull-dist = 24.0
+
+  bull-tree-gap : Real
+  bull-tree-gap = 0.5
+
+  herd-gap-behind-bull : Real
+  herd-gap-behind-bull = 6.0
+
+  herd-col-spacing : Real
+  herd-col-spacing = 6.0
+
+  herd-row-stagger : Real
+  herd-row-stagger = 2.0
+
+  herd-row-depth : Real
+  herd-row-depth = 5.0
+
+  herd-jitter-along : Real
+  herd-jitter-along = 1.5
+
+  herd-jitter-across : Real
+  herd-jitter-across = 1.2
+
+ The bull is authored per segment in the route table, like the cat and the pigs,
+ so the whole schedule of surprises reads in one place.
+
+  bull-of : Boolean -> List Critter
+  bull-of (bull) =
+    if bull then [Critter { along = bull-dist, across = 0.0 - (lane-width / 2.0 + tree-road-offset + bull-height / 2.0 + bull-tree-gap), codepoint = bull-cp, height = bull-height, face-right = False }]
+    else []
+
+  cows-from : Integer -> List Critter
+  cows-from (i) =
+    if i >= 14 then []
+    else [cow-at i] & cows-from (i + 1)
+
+  cow-at : Integer -> Critter
+  cow-at (i) =
+    let fi = real-from-int i
+    in let col = real-from-int (i / 3)
+    in let row = real-from-int (i - ((i / 3) * 3))
+    in let along = bull-dist + herd-gap-behind-bull + col * herd-col-spacing + (row - 1.0) * herd-row-stagger + herd-jitter-along * r-sin (fi * 2.7)
+    in let across = 0.0 - (lane-width / 2.0 + herd-road-offset + row * herd-row-depth + herd-jitter-across * r-cos (fi * 1.9))
+    in Critter { along = along, across = across, codepoint = cow-cp, height = if i - ((i / 4) * 4) == 1 then calf-height else cow-height, face-right = True }
+
+  fill-cows : Boolean -> List Critter
+  fill-cows (bull) = (bull-of bull) & cows-from 0
+
+Section: The Pigs
+
+ The DISTRACTION herd is a deep seven-by-seven staggered block near the segment's
+ end, on the right, and the rider gawks at one designated pig as he passes. Only
+ the first two pig appearances distract -- the novelty wears off.
+
+  pig-cp : Integer
+  pig-cp = 128022
+
+  pig-height : Real
+  pig-height = 1.1
+
+  pig-novelty-count : Integer
+  pig-novelty-count = 2
+
+  pig-dist-before-end : Real
+  pig-dist-before-end = 60.0
+
+  gaze-pig-along-offset : Real
+  gaze-pig-along-offset = 2.0
+
+  big-herd-cols : Integer
+  big-herd-cols = 7
+
+  big-herd-rows : Integer
+  big-herd-rows = 7
+
+  pig-col-spacing : Real
+  pig-col-spacing = 4.0
+
+ Across-spacing AND the per-row along-shear, which is what slants the herd's sides
+ at forty-five degrees.
+
+  pig-row-depth : Real
+  pig-row-depth = 6.0
+
+  pig-jitter-along : Real
+  pig-jitter-along = 1.2
+
+  pig-jitter-across : Real
+  pig-jitter-across = 1.0
+
+  pig-herd-first-col : Real
+  pig-herd-first-col = 0.0 - 6.0
+
+  pig-back-row-offset : Real
+  pig-back-row-offset = 6.0
+
+ The ONE front-row pig the distracted rider fixes on, so the head-turn always aims
+ at a pig that is actually drawn.
+
+  gaze-pig : Real, Real -> Critter
+  gaze-pig (length) (lane-half) =
+    Critter { along = length - pig-dist-before-end + gaze-pig-along-offset, across = lane-half + herd-road-offset, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-pig-at : Real, Integer, Integer -> Critter
+  herd-pig-at (base) (r) (c) =
+    let i = real-from-int (r * big-herd-cols + c)
+    in let fr = real-from-int r
+    in let fc = real-from-int c
+    in let along = base + pig-herd-first-col + fc * pig-col-spacing + fr * pig-row-depth + pig-jitter-along * r-sin (i * 2.3)
+    in let across = lane-width / 2.0 + herd-road-offset + fr * pig-row-depth + pig-jitter-across * r-cos (i * 1.7)
+    in Critter { along = along, across = across, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-cols-from : Real, Integer, Integer -> List Critter
+  herd-cols-from (base) (r) (c) =
+    if c >= big-herd-cols then []
+    else [herd-pig-at base r c] & herd-cols-from base r (c + 1)
+
+  herd-rows-from : Real, Integer -> List Critter
+  herd-rows-from (base) (r) =
+    if r >= big-herd-rows then []
+    else (herd-cols-from base r 0) & herd-rows-from base (r + 1)
+
+  fill-pig-herd : Real -> List Critter
+  fill-pig-herd (length) = herd-rows-from (length - pig-dist-before-end) 0
+
+ The small non-distraction row: a front rank of four at the road edge and a back
+ rank of six further off. The rider does not gawk at these.
+
+  pig-row-front : List Real
+  pig-row-front = [0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0]
+
+  pig-row-back : List Real
+  pig-row-back = [0.0 - 10.0, 0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0, 10.0]
+
+  row-pigs-at : Real, Real, List Real, Integer -> List Critter
+  row-pigs-at (base) (across) (ds) (i) =
+    if i >= list-length ds then []
+    else [Critter { along = base + list-at ds i, across = across, codepoint = pig-cp, height = pig-height, face-right = False }] & row-pigs-at base across ds (i + 1)
+
+  fill-pig-row : Real -> List Critter
+  fill-pig-row (length) =
+    let base = length - pig-dist-before-end
+    in let edge = lane-width / 2.0 + herd-road-offset
+    in (row-pigs-at base edge pig-row-front 0) & row-pigs-at base (edge + pig-back-row-offset) pig-row-back 0
+
+Section: The Route
+
+  Cfg = record {
+    length : Real,
+    scheme : Scheme,
+    turn-deg : Real,
+    cat : Boolean,
+    pigs : Boolean,
+    bull : Boolean,
+    terminates : Boolean,
+    creature : Creature
+  }
+
+ turn-deg is the SIGNED exit turn onto the next segment, positive right and
+ negative left. The LAST entry has no turn: it is the terminus, the photo-finish
+ line.
+
+  cfg : Real, Scheme, Real, Boolean, Boolean, Boolean, Boolean, Creature -> Cfg
+  cfg (len) (sch) (turn) (c) (p) (b) (t) (cr) =
+    Cfg { length = len, scheme = sch, turn-deg = turn, cat = c, pigs = p, bull = b, terminates = t, creature = cr }
+
+  route : List Cfg
+  route = [cfg 500.0 AllGreen 50.0 False False False False Elephant, cfg 320.0 AllGreen (0.0 - 70.0) True False False False Elephant, cfg 400.0 AllGreen 20.0 False True False False Elephant, cfg 300.0 YellowGreen 20.0 False False False False Elephant, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Giraffe, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Elephant, cfg 1200.0 RedGreen 80.0 False False True False Rhino, cfg 300.0 AllGreen 15.0 False False True False Elephant, cfg 300.0 AllGreen (0.0 - 70.0) False False True False Elephant, cfg 800.0 AllGreen 15.0 False False True False Elephant, cfg 300.0 AllGreen 15.0 False True True False Elephant, cfg 300.0 AllGreen 15.0 False True True False Elephant, cfg 300.0 RedGreen 15.0 True True True False DuckPond, cfg 400.0 AllGreen (0.0 - 50.0) False True True False Elephant, cfg 300.0 AllGreen 50.0 False True True False Elephant, cfg 300.0 RedGreen (0.0 - 50.0) False False True False Zebra, cfg 300.0 AllGreen 50.0 False True True False Elephant, cfg 300.0 AllGreen (0.0 - 50.0) False True True False Elephant, cfg 300.0 RedGreen 0.0 True True True True NoCreature]
+
+Section: Building
+
+ The smallest right-side tree `along` at or after `desired` -- the cat tucks just
+ past it, so a tree stands between the rider and the cat. The zig starts at
+ infinity and takes the minimum; this threads a Boolean instead, because Codex has
+ no infinity literal and a sentinel is a worse answer than saying what is meant.
+
+  next-tree-loop : List Tree, Real, Integer, Boolean, Real -> Real
+  next-tree-loop (ts) (desired) (i) (found) (best) =
+    if i >= list-length ts then (if found then best else desired)
+    else next-tree-step ts desired i found best
+
+  next-tree-step : List Tree, Real, Integer, Boolean, Real -> Real
+  next-tree-step (ts) (desired) (i) (found) (best) =
+    let t = list-at ts i
+    in let take = if t.across > 0.0 then (if t.along >= desired then (if found then t.along < best else True) else False) else False
+    in if take then next-tree-loop ts desired (i + 1) True t.along
+       else next-tree-loop ts desired (i + 1) found best
+
+  next-tree-along : List Tree, Real -> Real
+  next-tree-along (ts) (desired) = next-tree-loop ts desired 0 False 0.0
+
+ Each segment's heading vs north, accumulated from the previous segments' exit
+ turns. Segment 0 is zero.
+
+  heading-step : Integer -> Real
+  heading-step (i) =
+    let c = list-at route i
+    in (if c.turn-deg >= 0.0 then 1.0 else 0.0 - 1.0) * (real-abs c.turn-deg * deg)
+
+  heading-at : Integer -> Real
+  heading-at (i) = if i <= 0 then 0.0 else heading-at (i - 1) + heading-step (i - 1)
+
+ How many pig legs have appeared at or before this one -- the first
+ pig-novelty-count of them are the DISTRACTION herds.
+
+  pig-count-to : Integer, Integer -> Integer
+  pig-count-to (i) (acc) =
+    if i <= 0 then acc
+    else pig-count-to (i - 1) (if (list-at route (i - 1)).pigs then acc + 1 else acc)
+
+  Segment = record {
+    length : Real,
+    width : Real,
+    trees : List Tree,
+    cows : List Critter,
+    pigs : List Critter,
+    pigs-distract : Boolean,
+    exit-angle : Real,
+    exit-right : Boolean,
+    exit-to : Integer,
+    commit-along : Real,
+    north-heading : Real,
+    has-mid-tower : Boolean,
+    has-cat : Boolean,
+    cat : Cat,
+    terminates : Boolean,
+    exit-creature : Creature
+  }
+
+ The rider crosses the next segment's inner-edge extension half-a-width over
+ tan-theta before the segment's end and commits to the turn. The terminus has no
+ turn, so he commits at the end.
+
+  segment-at : Integer -> Segment
+  segment-at (i) =
+    let c = list-at route i
+    in let angle = real-abs c.turn-deg * deg
+    in let trees = fill-trees c.scheme c.length tree-start-inset 0 0
+    in let distract = if c.pigs then pig-count-to (i + 1) 0 <= pig-novelty-count else False
+    in Segment {
+      length = c.length,
+      width = lane-width,
+      trees = trees,
+      cows = fill-cows c.bull,
+      pigs = if c.pigs then (if distract then fill-pig-herd c.length else fill-pig-row c.length) else [],
+      pigs-distract = distract,
+      exit-angle = angle,
+      exit-right = c.turn-deg >= 0.0,
+      exit-to = if c.terminates then i else i + 1,
+      commit-along = if c.terminates then c.length else c.length - (lane-width / 2.0) / r-tan angle,
+      north-heading = heading-at i,
+      has-mid-tower = c.length > mid-tower-min-length,
+      has-cat = c.cat,
+      cat = cat-make (lane-width / 2.0) tree-road-offset (next-tree-along trees cat-along),
+      terminates = c.terminates,
+      exit-creature = if c.terminates then NoCreature else c.creature
+    }
+
+ THE CAT IS BUILT FOR EVERY SEGMENT, not only the ones that have one. The zig
+ leaves the field `undefined` when has_cat is false, which Codex has no way to
+ say and no reason to want; building it costs one record and reading it when
+ has-cat is false is the caller's error either way. Nothing observable changes.
+
+  segments-from : Integer -> List Segment
+  segments-from (i) =
+    if i >= list-length route then []
+    else [segment-at i] & segments-from (i + 1)
+
+  build-world : List Segment
+  build-world = segments-from 0
+
+Section: Distances
+
+ The sum of the segment lengths, with intersection arcs ignored as negligible --
+ the distance the truck's chase schedule lerps its lead down over.
+
+  course-length-from : List Segment, Integer -> Real
+  course-length-from (ss) (i) =
+    if i >= list-length ss then 0.0
+    else (list-at ss i).length + course-length-from ss (i + 1)
+
+  course-length : List Segment -> Real
+  course-length (ss) = course-length-from ss 0
+
+ How far along the course a point sits: the lengths of all earlier segments in
+ route order, plus the along. The segments ARE in route order, so the prefix is
+ just a sum.
+
+  route-distance-from : List Segment, Integer, Integer -> Real
+  route-distance-from (ss) (seg) (i) =
+    if i >= seg then 0.0
+    else (list-at ss i).length + route-distance-from ss seg (i + 1)
+
+  route-distance : List Segment, Integer, Real -> Real
+  route-distance (ss) (seg) (along) = route-distance-from ss seg 0 + along
+
+Chapter: Gaze
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Pose
+  cites Safari chapter World
+
+ The distracted rider: his head swivels toward the roadside pigs and drifts back
+ to the road, and his focus narrows while he gawks.
+
+ A port of wasm/gaze.zig.
+
+ BOTH OUTPUTS ARE VIEW-ONLY except one. `gaze-yaw` is an extra camera yaw and
+ `focus` feeds the focal pull-in; neither moves the bike. The single reach into
+ the motion is `pig-gaze-brake`, which the rider folds into its min-of-brakes --
+ and that is the whole of the distraction's cost in metres.
+
+ It takes the RiderState from `Safari chapter Pose` rather than from Rider,
+ because the zig has rider.zig and gaze.zig importing each other and Codex cites
+ cannot. See Pose for why the record is the right place to cut it.
+
+ We say:
+
+Section: Thresholds
+
+  gaze-look-dist : Real
+  gaze-look-dist = 150.0
+
+ The gaze peaks here; once the pig swings this far off his heading he looks back.
+
+  gaze-release-angle : Real
+  gaze-release-angle = 35.0 * deg
+
+ The most his head turns TOWARD the pig in one frame -- a gentle swivel -- against
+ the slow, unhurried drift BACK to the road.
+
+  gaze-swivel-rate : Real
+  gaze-swivel-rate = 4.0 * deg
+
+  gaze-return-rate : Real
+  gaze-return-rate = 0.2 * deg
+
+ Near straight the return step shrinks to this fraction of the remaining angle, so
+ it decelerates in; below the snap angle the last sliver goes to zero, which keeps
+ the focus trigger exact.
+
+  gaze-return-ease : Real
+  gaze-return-ease = 0.05
+
+  gaze-return-snap : Real
+  gaze-return-snap = 0.02 * deg
+
+  focus-decay : Real
+  focus-decay = 0.0012
+
+ The slow gawk speed he eases to and then HOLDS for the rest of the segment, and
+ how far before the pig he finishes slowing.
+
+  pig-gaze-speed : Real
+  pig-gaze-speed = 0.20
+
+  pig-gaze-settle-dist : Real
+  pig-gaze-settle-dist = 25.0
+
+ Pointed more than this off the lane means mid-corner, and his eyes snap back to
+ the road.
+
+  eyes-on-road-yaw : Real
+  eyes-on-road-yaw = 6.0 * deg
+
+Section: Focus
+
+  smoothstep : Real -> Real
+  smoothstep (t) = t * t * (3.0 - 2.0 * t)
+
+ state.focus is a LINEAR progress; this smoothsteps it so the narrow and the
+ re-widen ease gently in and out.
+
+  gaze-focus : Real -> Real
+  gaze-focus (f) = smoothstep f
+
+Section: Looking
+
+ Is the designated pig still AHEAD and inside the looking window: a distraction
+ leg, eyes not committed to a corner, the pig within the look distance, and not
+ yet swung past the release angle off his heading.
+
+ The zig returns an optional distance. Codex has no null, so the two answers are a
+ record -- `looking` says whether there is any pig interest at all, and every
+ caller checks it before reading `dist`.
+
+  PigLook = record {
+    looking : Boolean,
+    dist : Real
+  }
+
+  no-look : PigLook
+  no-look = PigLook { looking = False, dist = 0.0 }
+
+  pig-ahead : RiderState, Segment -> PigLook
+  pig-ahead (state) (seg) =
+    if seg.pigs-distract == False then no-look
+    else if real-abs state.yaw > eyes-on-road-yaw then no-look
+    else pig-ahead-near state seg
+
+  pig-ahead-near : RiderState, Segment -> PigLook
+  pig-ahead-near (state) (seg) =
+    let pig = gaze-pig seg.length (seg.width / 2.0)
+    in let dist = pig.along - state.along
+    in if dist > gaze-look-dist then no-look
+    else pig-ahead-bearing state pig dist
+
+  pig-ahead-bearing : RiderState, Critter, Real -> PigLook
+  pig-ahead-bearing (state) (pig) (dist) =
+    let bearing = r-atan2 (pig.across - state.across) dist - state.yaw
+    in if real-abs bearing >= gaze-release-angle then no-look
+       else PigLook { looking = True, dist = dist }
+
+ Where he WANTS to look this frame: the bearing to the designated pig relative to
+ his heading, or zero when he has no pig interest. A BEARING, not a fixed angle,
+ so his gaze tracks the pig as he creeps past it.
+
+  desired-gaze : RiderState, Segment -> Real
+  desired-gaze (state) (seg) =
+    if (pig-ahead state seg).looking == False then 0.0
+    else desired-gaze-at state (gaze-pig seg.length (seg.width / 2.0))
+
+  desired-gaze-at : RiderState, Critter -> Real
+  desired-gaze-at (state) (pig) =
+    r-atan2 (pig.across - state.across) (pig.along - state.along) - state.yaw
+
+Section: The Gaze Step
+
+ Run AFTER the bike has moved: swivel his head one frame toward where he wants to
+ look. Toward the pig is a gentle fixed-rate swivel; the drift back to the road
+ lingers, then decelerates into straight, snapping the last sliver to zero.
+
+ The `want /= 0` test is a Real comparison the zig writes as `want != 0`, which is
+ bitwise, so it is ~0 here and not ~. desired-gaze returns a LITERAL zero when
+ there is no interest, so the two answers really are exactly zero or not, and a
+ 4-ULP tolerance would swallow a genuinely tiny bearing and send his eyes back to
+ the road a frame early.
+
+  next-gaze-yaw : RiderState, Real -> Real
+  next-gaze-yaw (state) (want) =
+    if (want ~0 0.0) == False then state.gaze-yaw + real-max (0.0 - gaze-swivel-rate) (real-min gaze-swivel-rate (want - state.gaze-yaw))
+    else if real-abs state.gaze-yaw <= gaze-return-snap then 0.0
+    else state.gaze-yaw - r-sign state.gaze-yaw * real-min gaze-return-rate (real-abs state.gaze-yaw * gaze-return-ease)
+
+ While his head is turned the focus rises with the turn and HOLDS its peak; it
+ eases out only once he is fully straightened.
+
+  next-focus : RiderState, Real -> Real
+  next-focus (state) (gaze-yaw) =
+    if gaze-yaw ~0 0.0 then real-max 0.0 (state.focus - focus-decay)
+    else real-max state.focus (real-min (real-abs gaze-yaw / gaze-release-angle) 1.0)
+
+  next-rider-gaze : RiderState, List Segment -> RiderState
+  next-rider-gaze (state) (segs) =
+    let want = desired-gaze state (list-at segs state.segment)
+    in let gy = next-gaze-yaw state want
+    in RiderState { segment = state.segment, along = state.along, across = state.across, yaw = state.yaw, v = state.v, tilt = state.tilt, heading = state.heading, gaze-yaw = gy, focus = next-focus state gy }
+
+Section: The Gawk
+
+ Once he has NOTICED the pigs he is committed to the slow gawk for the REST of the
+ segment: sticky and purely positional, and the crossing resets him next segment.
+ Distinct from pig-ahead, which is the HEAD turn and ends once the pig is beside
+ him; this is the MOTION hold, so it ignores the eyes-on-road gate and persists
+ into the turn.
+
+  gawk-engaged : RiderState, Segment -> Boolean
+  gawk-engaged (state) (seg) =
+    if seg.pigs-distract == False then False
+    else state.along >= (gaze-pig seg.length (seg.width / 2.0)).along - gaze-look-dist
+
+ THE GAWK BRAKE, which the rider folds into its min-of-brakes. Not engaged until
+ he has noticed the pigs; from then on he eases toward the gawk speed by the same
+ kinematic law the corner brake uses, timed to settle a little before the pig so
+ he creeps PAST it at that speed, and then holds.
+
+ `engaged` is the optional the zig returns: nothing at all until he notices.
+
+  GazeBrake = record {
+    engaged : Boolean,
+    accel : Real
+  }
+
+  pig-gaze-brake : RiderState, Segment -> GazeBrake
+  pig-gaze-brake (state) (seg) =
+    if gawk-engaged state seg == False then GazeBrake { engaged = False, accel = 0.0 }
+    else if state.v <= pig-gaze-speed then GazeBrake { engaged = True, accel = 0.0 }
+    else pig-gaze-brake-easing state seg
+
+  pig-gaze-brake-easing : RiderState, Segment -> GazeBrake
+  pig-gaze-brake-easing (state) (seg) =
+    let d = (gaze-pig seg.length (seg.width / 2.0)).along - state.along - pig-gaze-settle-dist
+    in GazeBrake { engaged = True, accel = (pig-gaze-speed * pig-gaze-speed - state.v * state.v) / (2.0 * real-max d 1.0) }
+
+Chapter: Rider
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Cat
+  cites Safari chapter Gaze
+  cites Foreword chapter ListUtils
+
+ The RIDER: his state and how he decides to move, one frame at a time.
+
+ A port of wasm/rider.zig.
+
+ THREE THINGS HAPPEN EACH FRAME. He picks a lean by BINARY SEARCH -- the held lean
+ whose projected arc stays on the road and ends nearest an asymptotic centre
+ target. He picks a forward acceleration, taking the most restrictive of several
+ brakes. Then the physics integrates both, and if his real position has crossed
+ into the next segment he is re-expressed in that segment's frame.
+
+ THE BINARY SEARCH IS THE HAZARD NOTES WARNS ABOUT. Twelve iterations, each
+ deciding on a float comparison after simulating up to two thousand physics steps.
+ A difference of 1e-7 between f32 and f64 will eventually flip one of those
+ comparisons, and from there the two rides are on different trajectories -- so a
+ long trace comparison WILL go red and it will NOT mean the port is wrong. The
+ check therefore compares ONE STEP FROM A SHARED STATE and never a trajectory.
+
+ Deferred exactly as the zig defers them, and for the same reason: the cat's
+ drawing and pose machinery is out of scope, but `cat-in-danger` is arithmetic and
+ is ported, so the throttle hold is real here rather than a no-op.
+
+ We say:
+
+Section: Physics Constants
+
+  yaw-per-tilt : Real
+  yaw-per-tilt = 0.1
+
+ The route never banks past this, and the focal pull-in normalises the lean by it.
+
+  max-lean : Real
+  max-lean = 20.0 * deg
+
+  a-accel : Real
+  a-accel = 0.010
+
+  v-max : Real
+  v-max = 2.5
+
+  approach-intersection-dist : Real
+  approach-intersection-dist = 60.0
+
+  straighten-margin : Real
+  straighten-margin = 0.05
+
+  turn-danger-steps : Integer
+  turn-danger-steps = 2000
+
+  min-forward-progress : Real
+  min-forward-progress = 25.0
+
+  tilt-hold : Real
+  tilt-hold = 2.0 * deg
+
+  brake-decay : Real
+  brake-decay = 20.0
+
+  asymptote-tuning : Real
+  asymptote-tuning = 0.30
+
+  center-lane-epsilon : Real
+  center-lane-epsilon = 0.04
+
+  max-tilt-correction : Real
+  max-tilt-correction = 1.0 * deg
+
+  lean-search-iters : Integer
+  lean-search-iters = 12
+
+Section: One Physics Step
+
+ A lean tip and an acceleration, integrated. He leans FIRST, then that tilt yaws
+ the heading, then the new speed along the MID heading moves the position -- which
+ is a midpoint rule, not an Euler step, and the halving is load-bearing.
+
+ The absolute heading turns by the same delta as the frame-relative yaw.
+
+  simulate-rider-step : RiderState, Real, Real -> RiderState
+  simulate-rider-step (s) (tilt-step) (accel) =
+    let tilt = s.tilt + tilt-step
+    in let v = s.v + accel
+    in let heading-change = yaw-per-tilt * tilt
+    in let mid = s.yaw + heading-change / 2.0
+    in RiderState { segment = s.segment, along = s.along + v * r-cos mid, across = s.across + v * r-sin mid, yaw = s.yaw + heading-change, v = v, tilt = tilt, heading = s.heading + heading-change, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
+Section: Projecting the Arc
+
+ Project the held-lean, constant-speed arc forward and score how it plays out: off
+ a shoulder is a bad lean, net-backward is a disaster, and clearing the forward
+ progress is a good lean -- all pinned to the SAME forward, so survivors tie and
+ the search then separates them on where they end up across the road.
+
+ Side is which shoulder he left, if any.
+
+  Side =
+   | SideLeft
+   | SideNone
+   | SideRight
+
+  PathSim = record {
+    side : Side,
+    forward : Real,
+    crossed : Boolean,
+    end-across : Real,
+    frames : Real
+  }
+
+ The zig uses 1e9 as the frames answer for the arms that did not leave the road,
+ and the shoulder brake only reads frames when side is not none, so the value is a
+ placeholder rather than a number. It is kept because it is what the zig stores.
+
+  no-frames : Real
+  no-frames = 1000000000.0
+
+  sim-loop : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> PathSim
+  sim-loop (start) (left-bound) (right-bound) (start-side) (start-along) (crossed) (i) (phys) =
+    if i >= turn-danger-steps then PathSim { side = SideNone, forward = phys.along - start-along, crossed = crossed, end-across = phys.across, frames = no-frames }
+    else sim-step start left-bound right-bound start-side start-along crossed i (simulate-rider-step phys 0.0 0.0)
+
+  sim-step : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> PathSim
+  sim-step (start) (left-bound) (right-bound) (start-side) (start-along) (crossed0) (i) (phys) =
+    let across = phys.across
+    in let forward = phys.along - start-along
+    in let crossed = if across * start-side < 0.0 then True else crossed0
+    in if across < left-bound then PathSim { side = SideLeft, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if across > right-bound then PathSim { side = SideRight, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if forward < 0.0 then PathSim { side = SideNone, forward = forward, crossed = crossed, end-across = across, frames = no-frames }
+    else if forward >= min-forward-progress then PathSim { side = SideNone, forward = min-forward-progress, crossed = crossed, end-across = across, frames = no-frames }
+    else sim-loop start left-bound right-bound start-side start-along crossed (i + 1) phys
+
+ The bounds widen to wherever he already is, so a rider who starts outside the
+ inset is not instantly judged to have left the road.
+
+  simulate-rider-path : RiderState, Segment -> PathSim
+  simulate-rider-path (state) (seg) =
+    let inset-hw = seg.width / 2.0 - straighten-margin
+    in let right-bound = real-max inset-hw state.across
+    in let left-bound = real-min (0.0 - inset-hw) state.across
+    in sim-loop state left-bound right-bound (r-sign state.across) state.along False 0 state
+
+Section: The Lean Search
+
+  want-more-right : PathSim, Real -> Boolean
+  want-more-right (sim) (target) =
+   when sim.side
+    is SideLeft -> True
+    is SideRight -> False
+    is SideNone -> sim.end-across < target
+
+ Binary-search the held lean whose arc stays on the road and ends closest to the
+ asymptotic centre target. TWELVE ITERATIONS, each running a fresh path
+ simulation, and each deciding on one float comparison -- which is exactly why the
+ judge never compares a trajectory.
+
+ The target is an asymptote rather than the centre line: he aims at a fraction of
+ his current offset, so he converges on the middle without ever committing to a
+ lean that would overshoot it. Dead centre gets a signed epsilon instead, because
+ a target of exactly zero has no side to lean toward.
+
+  lean-target : Real -> Real
+  lean-target (across) =
+    if real-abs across < center-lane-epsilon then (if across >= 0.0 then center-lane-epsilon else 0.0 - center-lane-epsilon)
+    else across * asymptote-tuning
+
+  with-tilt : RiderState, Real -> RiderState
+  with-tilt (s) (t) =
+    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
+  search-lean : RiderState, Segment, Real, Real, Real, Integer -> Real
+  search-lean (state) (seg) (target) (lo) (hi) (i) =
+    if i >= lean-search-iters then (lo + hi) / 2.0
+    else search-step state seg target lo hi i ((lo + hi) / 2.0)
+
+  search-step : RiderState, Segment, Real, Real, Real, Integer, Real -> Real
+  search-step (state) (seg) (target) (lo) (hi) (i) (mid) =
+    if want-more-right (simulate-rider-path (with-tilt state mid) seg) target
+      then search-lean state seg target mid hi (i + 1)
+      else search-lean state seg target lo mid (i + 1)
+
+  best-tilt-correction : RiderState, Segment -> Real
+  best-tilt-correction (state) (seg) =
+    search-lean state seg (lean-target state.across) (state.tilt - max-tilt-correction) (state.tilt + max-tilt-correction) 0
+
+Section: Throttle and Brakes
+
+ The safe entry speed for a turn angle: the table from the TypeScript, and every
+ angle on this route is tabulated. The comparison is on the ROUNDED degrees, which
+ is what makes an exact match on a Real safe here.
+
+  turn-speed : Real -> Real
+  turn-speed (angle-rad) =
+    let d = round-real (angle-rad * 180.0 / pi)
+    in if d ~0 15.0 then 1.297
+    else if d ~0 20.0 then 0.840
+    else if d ~0 30.0 then 0.461
+    else if d ~0 50.0 then 0.222
+    else if d ~0 70.0 then 0.139
+    else if d ~0 80.0 then 0.117
+    else 0.222
+
+ Accelerate, but only while near-upright, and then take the MOST RESTRICTIVE of
+ the brakes: reach the corner's entry speed by the commit point, hold the throttle
+ for a crossing cat, ease down for the pigs, and do not run off the shoulder.
+
+ The order is the zig's and matters: the cat gate sits after the corner brake and
+ before the shoulder brake.
+
+  corner-brake : RiderState, Segment, Real, Real -> Real
+  corner-brake (state) (seg) (v-end) (a) =
+    let d = seg.commit-along - state.along
+    in let corner-a = if d <= 0.000001 then 0.0 else (v-end * v-end - state.v * state.v) / (2.0 * d)
+    in if corner-a < a then corner-a else a
+
+ While the cat is in its danger window he stops CLOSING on it -- the acceleration
+ goes to zero -- but he never brakes. Coasting in slows his approach, so he reaches
+ the final segment later and there is more time for the sunset.
+
+  cat-gate : RiderState, Segment, Real -> Real
+  cat-gate (state) (seg) (a) =
+    if seg.has-cat then (if a > 0.0 then (if cat-in-danger (seg.cat.along - state.along) state.v then 0.0 else a) else a) else a
+
+  pig-gate : RiderState, Segment, Real -> Real
+  pig-gate (state) (seg) (a) =
+    let b = pig-gaze-brake state seg
+    in if b.engaged then (if b.accel < a then b.accel else a) else a
+
+ The decayed kinematic stop: the further ahead the shoulder is, the gentler the
+ brake, and the decay makes a distant shoulder almost free.
+
+  shoulder-brake : RiderState, Segment, Real -> Real
+  shoulder-brake (state) (seg) (a) =
+    let sim = simulate-rider-path state seg
+    in if side-none sim then a else shoulder-brake-at state sim a
+
+  side-none : PathSim -> Boolean
+  side-none (sim) =
+   when sim.side
+    is SideNone -> True
+    is SideLeft -> False
+    is SideRight -> False
+
+  shoulder-brake-at : RiderState, PathSim, Real -> Real
+  shoulder-brake-at (state) (sim) (a) =
+    let n = sim.frames
+    in let sa = (0.0 - state.v) / (2.0 * real-max n 1.0) * exp-real ((0.0 - n) / brake-decay)
+    in if sa < a then sa else a
+
+ Do not crawl below the corner's entry speed approaching it -- UNLESS he is
+ gawking at the pigs, where staying at the slow gawk speed and taking the corner
+ slow beats snapping back up, because he never re-accelerates.
+
+  clamp-v : RiderState, Segment, Real, Real, Boolean -> Real
+  clamp-v (state) (seg) (v-end) (v0) (near) =
+    let v1 = if v0 > v-max then v-max else v0
+    in let v2 = if v1 < 0.0 then 0.0 else v1
+    in if near then (if v2 < v-end then (if gawk-engaged state seg then v2 else v-end) else v2) else v2
+
+  get-forward-accel-decel : RiderState, Segment -> Real
+  get-forward-accel-decel (state) (seg) =
+    let a0 = if real-abs state.tilt >= tilt-hold then 0.0 else a-accel
+    in let v-end = if seg.terminates then 0.0 else turn-speed seg.exit-angle
+    in let near = (seg.length - state.along) <= approach-intersection-dist
+    in let a1 = if near then corner-brake state seg v-end a0 else a0
+    in let a3 = pig-gate state seg (cat-gate state seg a1)
+    in let a4 = shoulder-brake state seg a3
+    in clamp-v state seg v-end (state.v + a4) near - state.v
+
+Section: Deciding
+
+  Decision = record {
+    tilt-step : Real,
+    accel : Real
+  }
+
+ The acceleration is chosen for the LEANED state, not the current one: he commits
+ to the lean first, and the throttle then answers the bike he is about to be.
+
+  decide : RiderState, Segment -> Decision
+  decide (state) (seg) =
+    let tilt-step = best-tilt-correction state seg - state.tilt
+    in Decision { tilt-step = tilt-step, accel = get-forward-accel-decel (with-tilt state (state.tilt + tilt-step)) seg }
+
+Section: Crossing a Seam
+
+ Re-express the rider onto the next segment as he commits to the turn: the same
+ physical point, read in the next frame. Speed and lean carry; the frame-relative
+ yaw rotates by the turn while the ABSOLUTE heading does not, because the crossing
+ changes the frame and not the bearing.
+
+ His eyes go back on the road across the seam, but the FOCUS carries, so its slow
+ re-widen keeps easing out instead of snapping open.
+
+  rider-state-for-next-segment : RiderState, List Segment -> RiderState
+  rider-state-for-next-segment (rs) (segs) =
+    let seg = list-at segs rs.segment
+    in let hw = seg.width / 2.0
+    in let theta = seg.exit-angle
+    in let sgn = if seg.exit-right then 1.0 else 0.0 - 1.0
+    in let c = r-cos theta
+    in let s = r-sin theta
+    in let da = rs.along - (seg.length + hw * s)
+    in let dx = rs.across - sgn * hw * (1.0 - c)
+    in RiderState { segment = seg.exit-to, along = c * da + sgn * s * dx, across = (0.0 - sgn) * s * da + c * dx, yaw = rs.yaw - sgn * theta, v = rs.v, tilt = rs.tilt, heading = rs.heading, gaze-yaw = 0.0, focus = rs.focus }
+
+Section: One Frame
+
+ Decide the controls, run them through the physics, then resolve the road graph BY
+ POSITION: commit to the next segment the moment his real point is inside it.
+
+ At the terminus there is no segment to lead out, so he is clamped to the end and
+ stopped. The snap fires once he has crept to the line OR slowed to a crawl inside
+ the braking zone -- because the kinematic brake would otherwise Zeno-stall him a
+ hair short and leave him stopped forever, never finished.
+
+  finish-clamp : RiderState, Segment -> RiderState
+  finish-clamp (moved) (seg) =
+    let in-zone = (seg.length - moved.along) < approach-intersection-dist
+    in if moved.along >= seg.length then stopped-at moved seg.length
+       else if in-zone then (if moved.v < 0.1 then stopped-at moved seg.length else moved)
+       else moved
+
+  stopped-at : RiderState, Real -> RiderState
+  stopped-at (s) (at) =
+    RiderState { segment = s.segment, along = at, across = s.across, yaw = s.yaw, v = 0.0, tilt = s.tilt, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
+  resolve-cross : RiderState, Segment, List Segment -> RiderState
+  resolve-cross (moved) (seg) (segs) =
+    let on-next = rider-state-for-next-segment moved segs
+    in if real-abs on-next.across < (list-at segs seg.exit-to).width / 2.0 then on-next else moved
+
+ The gaze is its own step and runs AFTER the bike has moved, because it reads the
+ RESOLVED segment and position.
+
+  get-next-rider-state : RiderState, List Segment -> RiderState
+  get-next-rider-state (state) (segs) =
+    let seg = list-at segs state.segment
+    in let dec = decide state seg
+    in let moved = simulate-rider-step state dec.tilt-step dec.accel
+    in let resolved = if seg.terminates then finish-clamp moved seg else resolve-cross moved seg segs
+    in next-rider-gaze resolved segs
+
+  is-finished : RiderState, List Segment -> Boolean
+  is-finished (s) (segs) =
+    let seg = list-at segs s.segment
+    in if seg.terminates then s.along >= seg.length else False
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-abs (list-at got i - list-at want i) > tol then i
+    else first-real-diff got want tol (i + 1)
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+      else first-rel-diff got want tol (i + 1)
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Screen Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a projected coordinate. Neither half works alone, and both failures were
+ measured rather than guessed.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else let w = list-at want i
+      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+      else first-px-diff got want atol rtol (i + 1)
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: RiderGold
+
+ GENERATED by harness/gen_gold.py from probe/probe_rider.zig.
+ Every value here came from importing the real game module unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-rd-seg : List Integer
+  g-rd-seg = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 1, 18, 18, 0]
+
+  g-rd-along : List Real
+  g-rd-along = [0.31, 121.40974, 121.40974, 2.5, 472.11542, 497.48245, 61.21, 111.2, 201.58923, 301.52582, 335.23874, 360.23874, -1.9938776, 250.7936, 300.0, 201.01]
+
+  g-rd-across : List Real
+  g-rd-across = [0.0000058781293, 0.92725015, -0.92725015, 0.0003307646, 0.09953263, 0.09996803, 0.19968008, 0.19968273, 0.29918504, 0.31392738, 0.30234417, 0.2999803, 1.3425452, 0.0999322, 0.099999785, 1.7991188]
+
+  g-rd-yaw : List Real
+  g-rd-yaw = [0.000037923415, 0.018655097, -0.018655097, 0.00026461168, -0.00044187167, -0.0001325189, -0.0005287972, -0.0005287972, -0.0010256366, 0.008255096, 0.009637384, -0.00016490293, -0.8726889, -0.00017086843, -0.000011504856, -0.0017449033]
+
+  g-rd-v : List Real
+  g-rd-v = [0.31, 1.41, 1.41, 2.5, 2.1154237, 0.48246554, 1.21, 1.2, 1.5892308, 1.5258824, 0.23875, 0.23875, 0.222, 0.7936, 0.0, 1.01]
+
+  g-rd-tilt : List Real
+  g-rd-tilt = [0.00037923414, -0.01344903, 0.01344903, 0.0026461168, -0.0044187168, -0.0013251889, -0.0052879723, -0.0052879723, -0.010256366, -0.017449033, -0.00362616, -0.0016490293, -0.00024288028, -0.0017086843, -0.00011504856, -0.017449033]
+
+  g-rd-heading : List Real
+  g-rd-heading = [0.30003792, 0.29865512, 0.3013449, 0.30026463, 0.29955813, 0.29986748, 0.29947123, 0.29947123, 0.29897436, 0.29825512, 0.2996374, 0.29983512, 0.29997572, 0.29982916, 0.2999885, 0.29825512]
+
+  g-rd-gazeyaw : List Real
+  g-rd-gazeyaw = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.06981317, 0.06981317, 0.19650935, 0.49650934, 0.0, 0.0, 0.0, 0.0]
+
+  g-rd-focus : List Real
+  g-rd-focus = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.114285715, 0.114285715, 0.4, 0.9, 0.0, 0.0, 0.0, 0.0]
+
+  g-rd-finished : List Boolean
+  g-rd-finished = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
+
+  g-rd-turnspeed : List Real
+  g-rd-turnspeed = [1.297, 0.84, 0.461, 0.222, 0.139, 0.117, 0.222]
+
+  g-rd-gawk : List Boolean
+  g-rd-gawk = [False, False, False, False, False, False, False, False, True, True, True, True, False, False, False, False]
+
+  g-rd-pigbrake : List Real
+  g-rd-pigbrake = [12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, 12345.0, -0.010769231, -0.07411765, -0.011249999, -0.011249999, 12345.0, 12345.0, 12345.0, 12345.0]
+
+  g-rd-gazefocus : List Real
+  g-rd-gazefocus = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35200003, 0.97199994, 0.0, 0.0, 0.0, 0.0]
+
+Chapter: RiderCheck
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Gaze
+  cites Safari chapter Rider
+  cites Judge chapter Grade
+  cites Gold chapter RiderGold
+
+ Grade the Rider and Gaze ports against wasm/rider.zig and wasm/gaze.zig.
+
+ SEAM 4, AND IT IS GRADED THE ONLY WAY THAT WORKS. rider's lean comes from a
+ binary search: twelve iterations, each deciding on ONE float comparison after
+ simulating up to two thousand physics steps. A 1e-7 difference between the game's
+ f32 and this port's Real will eventually flip one of those comparisons, and from
+ there the two rides are on genuinely different trajectories. A long trace
+ comparison would go red and it would mean nothing about correctness.
+
+ So both sides are handed THE SAME STATE N and only state N+1 is compared. Drift
+ cannot accumulate, and a failure points at one step and one module. That is
+ NOTES' prescription for this seam and it is the whole design of this check.
+
+ THE STATES SIT ON BRANCHES, and two of them show behaviour that is otherwise
+ invisible:
+
+   the cat throttle hold -- at `along` 60 on the cat segment his speed goes
+   1.2 to 1.21, and at 110, inside the crossing window, it goes 1.2 to 1.2. He
+   stops CLOSING on the cat without ever braking, and the difference between those
+   two rows is the entire gate.
+
+   the finish clamp -- creeping at 0.05 inside the terminus braking zone, he snaps
+   to exactly the segment length with v = 0. Without that arm the kinematic brake
+   Zeno-stalls him a hair short and he is stopped forever, never finished.
+
+ The rest: dead centre and off-centre with the mirror pair, upright and leaned, at
+ V_MAX, inside the corner approach, at the commit point, a hair short of a seam so
+ the crossing fires, and one state already OUTSIDE the road inset -- which must not
+ be judged instantly off the road, because the bounds widen to wherever he is.
+
+ EVERY FIELD OF THE NEXT STATE IS GRADED. A port that got the position right and
+ the tilt wrong would be a port whose next frame is wrong, and the tilt is the
+ binary search's whole answer.
+
+ We say:
+
+Section: The States
+
+  segs : List Segment
+  segs = build-world
+
+  mk : Integer, Real, Real, Real, Real, Real, Real, Real -> RiderState
+  mk (seg) (along) (across) (yaw) (v) (tilt) (gy) (focus) =
+    RiderState { segment = seg, along = along, across = across, yaw = yaw, v = v, tilt = tilt, heading = 0.3, gaze-yaw = gy, focus = focus }
+
+  cases : List RiderState
+  cases = [mk 0 0.0 0.0 0.0 v-base 0.0 0.0 0.0, mk 0 120.0 0.9 0.02 1.4 0.004 0.0 0.0, mk 0 120.0 (0.0 - 0.9) (0.0 - 0.02) 1.4 (0.0 - 0.004) 0.0 0.0, mk 0 0.0 0.0 0.0 2.5 0.0 0.0 0.0, mk 0 470.0 0.1 0.0 2.2 0.0 0.0 0.0, mk 0 497.0 0.1 0.0 0.6 0.0 0.0 0.0, mk 1 60.0 0.2 0.0 1.2 0.0 0.0 0.0, mk 1 110.0 0.2 0.0 1.2 0.0 0.0 0.0, mk 2 200.0 0.3 0.0 1.6 0.0 0.0 0.0, mk 2 300.0 0.3 0.01 1.6 0.0 0.0 0.0, mk 2 335.0 0.3 0.01 0.25 0.0 0.2 0.4, mk 2 360.0 0.3 0.0 0.25 0.0 0.5 0.9, mk 0 499.0 0.05 0.0 0.22 0.0 0.0 0.0, mk 18 250.0 0.1 0.0 0.8 0.0 0.0 0.0, mk 18 299.9 0.1 0.0 0.05 0.0 0.0 0.0, mk 0 200.0 1.8 0.0 1.0 0.0 0.0 0.0]
+
+  nexts : List RiderState, Integer -> List RiderState
+  nexts (cs) (i) =
+    if i >= list-length cs then []
+    else [get-next-rider-state (list-at cs i) segs] & nexts cs (i + 1)
+
+  outs : List RiderState
+  outs = nexts cases 0
+
+Section: Streams
+
+  f-seg : List RiderState, Integer -> List Integer
+  f-seg (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).segment] & f-seg ss (i + 1)
+
+  f-along : List RiderState, Integer -> List Real
+  f-along (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).along] & f-along ss (i + 1)
+
+  f-across : List RiderState, Integer -> List Real
+  f-across (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).across] & f-across ss (i + 1)
+
+  f-yaw : List RiderState, Integer -> List Real
+  f-yaw (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).yaw] & f-yaw ss (i + 1)
+
+  f-v : List RiderState, Integer -> List Real
+  f-v (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).v] & f-v ss (i + 1)
+
+  f-tilt : List RiderState, Integer -> List Real
+  f-tilt (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).tilt] & f-tilt ss (i + 1)
+
+  f-heading : List RiderState, Integer -> List Real
+  f-heading (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).heading] & f-heading ss (i + 1)
+
+  f-gazeyaw : List RiderState, Integer -> List Real
+  f-gazeyaw (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).gaze-yaw] & f-gazeyaw ss (i + 1)
+
+  f-focus : List RiderState, Integer -> List Real
+  f-focus (ss) (i) =
+    if i >= list-length ss then []
+    else [(list-at ss i).focus] & f-focus ss (i + 1)
+
+  finished : List RiderState, Integer -> List Boolean
+  finished (cs) (i) =
+    if i >= list-length cs then []
+    else [is-finished (list-at cs i) segs] & finished cs (i + 1)
+
+  angles : List Real
+  angles = [15.0, 20.0, 30.0, 50.0, 70.0, 80.0, 45.0]
+
+  turn-speeds : List Real, Integer -> List Real
+  turn-speeds (ds) (i) =
+    if i >= list-length ds then []
+    else [turn-speed (list-at ds i * pi / 180.0)] & turn-speeds ds (i + 1)
+
+  gawks : List RiderState, Integer -> List Boolean
+  gawks (cs) (i) =
+    if i >= list-length cs then []
+    else [gawk-engaged (list-at cs i) (list-at segs (list-at cs i).segment)] & gawks cs (i + 1)
+
+ The probe prints 12345 where the zig's optional is null, so the port answers the
+ same sentinel for a brake that is not engaged. It is a marker, not a number, and
+ nothing computes with it.
+
+  pig-brakes : List RiderState, Integer -> List Real
+  pig-brakes (cs) (i) =
+    if i >= list-length cs then []
+    else brake-of (list-at cs i) & pig-brakes cs (i + 1)
+
+  brake-of : RiderState -> List Real
+  brake-of (c) =
+    let b = pig-gaze-brake c (list-at segs c.segment)
+    in if b.engaged then [b.accel] else [12345.0]
+
+  focuses : List RiderState, Integer -> List Real
+  focuses (cs) (i) =
+    if i >= list-length cs then []
+    else [gaze-focus (list-at cs i).focus] & focuses cs (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "rd-seg       " (f-seg outs 0) g-rd-seg)
+    print-line-uni (grade-px    "rd-along     " (f-along outs 0) g-rd-along 0.0001 0.000001)
+    print-line-uni (grade-px    "rd-across    " (f-across outs 0) g-rd-across 0.0001 0.000001)
+    print-line-uni (grade-px    "rd-yaw       " (f-yaw outs 0) g-rd-yaw 0.0000001 0.000001)
+    print-line-uni (grade-rel   "rd-v         " (f-v outs 0) g-rd-v 0.000001)
+    print-line-uni (grade-px    "rd-tilt      " (f-tilt outs 0) g-rd-tilt 0.0000001 0.000001)
+    print-line-uni (grade-rel   "rd-heading   " (f-heading outs 0) g-rd-heading 0.000001)
+    print-line-uni (grade-px    "rd-gazeyaw   " (f-gazeyaw outs 0) g-rd-gazeyaw 0.0000001 0.000001)
+    print-line-uni (grade-px    "rd-focus     " (f-focus outs 0) g-rd-focus 0.0000001 0.000001)
+    print-line-uni (grade-bools "rd-finished  " (finished cases 0) g-rd-finished)
+    print-line-uni (grade-rel   "rd-turnspeed " (turn-speeds angles 0) g-rd-turnspeed 0.000001)
+    print-line-uni (grade-bools "rd-gawk      " (gawks cases 0) g-rd-gawk)
+    print-line-uni (grade-rel   "rd-pigbrake  " (pig-brakes cases 0) g-rd-pigbrake 0.000001)
+    print-line-uni (grade-px    "rd-gazefocus " (focuses cases 0) g-rd-gazefocus 0.0000001 0.000001)
+  end

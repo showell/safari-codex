@@ -118,3 +118,24 @@ Section: Arc Tangent
     if t > 1.0 then half-pi - atan-core (1.0 / t)
     else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
     else atan-core t
+
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)

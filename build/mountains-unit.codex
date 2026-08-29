@@ -331,6 +331,27 @@ Section: Arc Tangent
     else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
     else atan-core t
 
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
+
 Chapter: Geom
   cites Safari chapter Trig
 
@@ -705,6 +726,58 @@ Section: Modulo
 
   mod-real : Real, Real -> Real
   mod-real (x) (m) = x - m * floor-real (x / m)
+
+Section: The Exponential
+
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
+ argument reaches -100 and a bare Taylor series is useless there. The standard
+ reduction: take k as the nearest integer to x / ln 2, so the remainder r is
+ within half a ln 2 of zero, sum the series there, and scale by 2^k.
+
+ THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
+ -- so like everything else here it could not have been written before the
+ conversion emitters landed.
+
+  ln2 : Real
+  ln2 = 0.6931471805599453
+
+ Twelve terms over |r| <= 0.347 leaves a remainder around 1e-17, which is under an
+ f64 ulp at 1, so the scaling cannot magnify anything that matters.
+
+  exp-poly : Real -> Real
+  exp-poly (r) =
+    let t1 = r
+    in let t2 = t1 * r / 2.0
+    in let t3 = t2 * r / 3.0
+    in let t4 = t3 * r / 4.0
+    in let t5 = t4 * r / 5.0
+    in let t6 = t5 * r / 6.0
+    in let t7 = t6 * r / 7.0
+    in let t8 = t7 * r / 8.0
+    in let t9 = t8 * r / 9.0
+    in let t10 = t9 * r / 10.0
+    in let t11 = t10 * r / 11.0
+    in let t12 = t11 * r / 12.0
+    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+
+ 2^k by repeated multiplication rather than by assembling an exponent field: the
+ bit-level route would need real-to-bits, which this arm still has no emitter for,
+ and k is small enough here that the loop is exact anyway -- every step multiplies
+ by a power of two, which is exact in binary until it underflows.
+
+  pow2-up : Integer, Real -> Real
+  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
+
+  pow2-down : Integer, Real -> Real
+  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
+
+  pow2-int : Integer -> Real
+  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
+
+  exp-real : Real -> Real
+  exp-real (x) =
+    let k = real-to-int (round-real (x / ln2))
+    in exp-poly (x - real-from-int k * ln2) * pow2-int k
 
 Chapter: Sky
   cites Gpu chapter DeviceMath

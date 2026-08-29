@@ -6155,52 +6155,40 @@ Section: Printing
   scene-line (name) (u) =
     "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
 
-Chapter: SpikeMain
+Chapter: SpikeTruckMain
   cites Foreword chapter Console
   cites Safari chapter Sky
   cites Poc chapter Spike
   cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. Prints one still frame's draw commands as text, for
- harness/spike_svg.py to turn into a picture. Nothing grades this and nothing
- depends on it.
+ SPIKE ONLY. THROWAWAY. The two truck stills, and a SECOND ENTRY rather than two
+ more lines in SpikeMain, for one reason: THE BUMP HEAP.
 
- SIX VIEWPOINTS IS WHAT ONE PROCESS HOLDS. The prelude never reclaims (C6) and a
- native binary has no arena rewind, so the frames of one run accumulate; six comes
- to just under the 4 GiB reserve. The truck's two stills therefore live in
- `Poc chapter SpikeTruckMain`, which cites the printing below rather than
- repeating it, and harness/spike.sh runs both binaries.
+ The transpiled prelude bump-allocates and never reclaims (PORTING_NOTES C6), and
+ the wasm shim's per-frame arena rewind (C8) is a thing the SHIM does -- a native
+ spike binary has no shim and no rewind, so one process pays for every frame it
+ prints, for the whole run. Six viewpoints came to within a rounding error of the
+ 4 GiB reserve; adding a seventh exhausted it and the binary aborted with
 
- The printing itself is `Poc chapter SpikePrint`, shared with the truck entry.
+     cx heap: exhausted at 4294965457 + 7000 of 4294967296
+
+ which is a page-perfect illustration of C6 and not a bug in anything. A second
+ process starts with a fresh 4 GiB, so the fix is a second entry and one more line
+ in harness/spike.sh. It is also the cheapest fix available: raising the reserve
+ would make the RUN cost real memory rather than address space, on a two-core box.
+
+ The printing is `Poc chapter SpikePrint`, cited rather than restated, so the two
+ binaries emit the same format and spike_svg.py reads them concatenated without
+ knowing there were two. It is a chapter rather than a cite of SpikeMain because a
+ bundle is one flat namespace and two `opening`s collide -- B5, found by trying it.
 
  We say:
 
 Section: Entry
 
- One block per viewpoint.
-
-  prof-pt : ProfilePt -> Text
-  prof-pt (p) =
-    show (real-to-int p.dist) & " " & show (real-to-int (p.v * 1000.0)) & " " & show (real-to-int (p.tilt * 1000.0)) & " " & show p.seg
-
-  prof-all : List ProfilePt, Integer -> Text
-  prof-all (ps) (i) =
-    if i >= list-length ps then ""
-    else prof-pt (list-at ps i) & " ; " & prof-all ps (i + 1)
-
   opening : [Console] Nothing = act
-    print-line-uni ("PROFILE " & show (list-length speed-profile))
-    print-line-uni (prof-all speed-profile 0)
-    print-line-uni (scene-line "pig-herd" u-pig-herd)
-    print-line-uni (all-cmds (spike-frame-at u-pig-herd) 0)
-    print-line-uni (scene-line "mid-tower" u-mid-tower)
-    print-line-uni (all-cmds (spike-frame-at u-mid-tower) 0)
-    print-line-uni (scene-line "duck-pond" u-pond)
-    print-line-uni (all-cmds (spike-frame-at u-pond) 0)
-    print-line-uni (scene-line "zebras" u-zebras)
-    print-line-uni (all-cmds (spike-frame-at u-zebras) 0)
-    print-line-uni (scene-line "cat-frozen" u-cat-frozen)
-    print-line-uni (all-cmds (spike-frame-at u-cat-frozen) 0)
-    print-line-uni (scene-line "cat-leap" u-cat-leap)
-    print-line-uni (all-cmds (spike-frame-at u-cat-leap) 0)
+    print-line-uni (scene-line "truck-day" u-truck-day)
+    print-line-uni (all-cmds (spike-frame-near u-truck-day spike-truck-lead) 0)
+    print-line-uni (scene-line "truck-dusk" u-truck-dusk)
+    print-line-uni (all-cmds (spike-frame-near u-truck-dusk spike-truck-lead) 0)
   end

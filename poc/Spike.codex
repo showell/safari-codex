@@ -6,6 +6,8 @@ Chapter: Spike
   cites Safari chapter Critter
   cites Safari chapter CatDraw
   cites Safari chapter Render
+  cites Safari chapter Truck
+  cites Safari chapter TruckBody
   cites Safari chapter Pose
   cites Safari chapter Rider
   cites Poc chapter Drive
@@ -54,6 +56,12 @@ Section: The Frame
  in the REAL depth order rather than being painted on top afterwards. That is the
  whole point: a pig behind a tree must be behind the tree.
 
+ THE TRUCK IS DRAWN BY DRIVE'S OWN ARM, not a marker: `Safari chapter TruckBody`
+ is real geometry rather than a baked still, so there is nothing here to stand in
+ for. A spike still never brakes -- braking is a comparison against a previous
+ speed and a still has no previous -- so its brake lights are always off, and its
+ headlights follow the sunset clock exactly as the page's do.
+
   spike-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
   spike-item (w) (ch) (pose) (c) (it) (cf) (step) =
    when it.kind
@@ -62,25 +70,39 @@ Section: The Frame
     is KTree -> draw-one-tree c.trees it.i cf
     is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
-    is KTruck -> []
+    is KTruck -> draw-one-truck w ch pose c.truck False cf step
 
   spike-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
   spike-order (w) (ch) (pose) (c) (cf) (step) (i) =
     if i >= list-length c.order then []
     else (spike-item w ch pose c (list-at c.order i) cf step) & spike-order w ch pose c cf step (i + 1)
 
-  spike-frame-at : Real -> List DrawCmd
-  spike-frame-at (u) = spike-frame-in build-world u
+ THE LEAD IS A PARAMETER HERE AND NOWHERE ELSE, which is the one liberty this
+ chapter takes with the chase. Every viewpoint below passes the truck's own
+ SCHEDULE, so what a still shows is what the page would show at that spot -- a
+ speck four hundred metres down the road, mostly. The truck viewpoint passes
+ twenty-six metres instead, because a still exists to put one thing in front of a
+ human at a size they can read, and the schedule never brings the truck that close
+ until the finish.
 
-  spike-frame-in : List Segment, Real -> List DrawCmd
-  spike-frame-in (w) (u) =
+  spike-frame-at : Real -> List DrawCmd
+  spike-frame-at (u) = spike-frame-in build-world u (spike-scheduled build-world u)
+
+  spike-scheduled : List Segment, Real -> Real
+  spike-scheduled (w) (u) = truck-schedule (drive-dist-at w u) (course-length w)
+
+  spike-frame-near : Real, Real -> List DrawCmd
+  spike-frame-near (u) (lead) = spike-frame-in build-world u (drive-dist-at build-world u + lead)
+
+  spike-frame-in : List Segment, Real, Real -> List DrawCmd
+  spike-frame-in (w) (u) (truck-pos) =
     let p = drive-pos-at w u
     in let pose = pose-in w u
     in let step = scene-step-at u
     in let ch = build-chain w p.seg
     in (draw (heading-in w u) (sun-set-fraction step) focal camera-w)
        & (frame-ground w p.seg pose focal camera-w)
-       & (spike-order w ch pose (collect w p.seg pose focal p.along spike-v 0.0) focal step 0)
+       & (spike-order w ch pose (collect w p.seg pose focal p.along spike-v truck-pos) focal step 0)
 
 Section: The Viewpoints
 
@@ -154,6 +176,25 @@ Section: The Viewpoints
 
   u-cat-leap : Real
   u-cat-leap = u-at-metres 622.5
+
+ THE TRUCK, TWICE, and the pair is the point: the same box in daylight and at
+ dusk, so the headlight wedges can be looked at against a body whose faces are
+ already known to be right. 2,400 m is mid-route on the long sixth leg, well clear
+ of a corner, so the box stands square-on and its own painter sort is what decides
+ which side is visible. 6,900 m is late enough that the sun is behind the crest and
+ the beams are lit.
+
+  u-truck-day : Real
+  u-truck-day = u-at-metres 2400.0
+
+  u-truck-dusk : Real
+  u-truck-dusk = u-at-metres 6900.0
+
+ Twenty-six metres: far enough that the whole trailer and cab fit the frame, close
+ enough to see the tires are round.
+
+  spike-truck-lead : Real
+  spike-truck-lead = 26.0
 
 Section: The Speed Profile
 

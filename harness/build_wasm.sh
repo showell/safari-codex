@@ -75,14 +75,21 @@ const fs=require("fs");
 const i=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync("web/driving/safari.wasm")),{});
 const {renderFrame,bufPtr,memory}=i.exports;
 const len=renderFrame(), u32=new Uint32Array(memory.buffer,bufPtr(),len/4), f32=new Float32Array(memory.buffer,bufPtr(),len/4);
-let w=0,n=0,bad=0,solid=0,round=0,disc=0;
+let w=0,n=0,bad=0,solid=0,round=0,disc=0,grad=0;
 while(w*4<len){
   const tag=u32[w++]; w++;                       // tag, colour
   // tag 3 is a DISC: [3][color][x][y][r][alpha], six words and no point count.
   // Decoding it as a polygon reads its x as a count and reports a nonsense
   // 1141299789 points, which is what it did before this arm existed.
   if(tag===3){ for(let k=0;k<3;k++){const v=f32[w++]; if(!isFinite(v))bad++;} const al=f32[w++]; if(!isFinite(al)||al<0||al>1){console.error(`bad beacon alpha ${al} at command ${n}`);process.exit(1);} disc++; n++; continue; }
-  if(tag===1){w++; round++;} else solid++;       // tag 1 carries a strength word
+  // THE GRADIENT POLYGONS: tag 4 is radial (the truck headlight beams and the
+  // brake glow), 5 linear and 6 elliptical (the bulls). Each carries a SECOND
+  // colour word and then its own geometry -- 3, 6 and 8 floats -- ahead of the
+  // point count. Walking one as a plain polygon reads its second colour as a
+  // count, which desyncs the wire rather than reporting anything useful.
+  const GRAD={4:3,5:6,6:8};
+  if(GRAD[tag]!==undefined){ w++; for(let k=0;k<GRAD[tag];k++){const v=f32[w++]; if(!isFinite(v))bad++;} grad++; }
+  else if(tag===1){w++; round++;} else solid++;  // tag 1 carries a strength word
   const np=u32[w++];
   // 2048 is the pts[] bound in mountains.zig itself: a silhouette is 683 points,
   // one per column across the widest view plus two to close it to the horizon.
@@ -93,7 +100,7 @@ while(w*4<len){
   for(let k=0;k<np*2;k++){const v=f32[w++]; if(!isFinite(v))bad++;} n++;}
 if(w*4!==len){console.error(`wire desync: walked ${w*4} of ${len} bytes`);process.exit(1);}
 if(!n||bad){console.error(`bad frame: ${n} commands, ${bad} non-finite coords`);process.exit(1);}
-console.log(`frame: ${n} commands (${solid} solid, ${round} round, ${disc} disc), ${len} bytes, wire walks exactly`);
+console.log(`frame: ${n} commands (${solid} solid, ${round} round, ${disc} disc, ${grad} gradient), ${len} bytes, wire walks exactly`);
 // Now the endurance leg: advance and re-render the way the page does. 1200 frames
 // is twenty seconds at 60fps, and comfortably past the 42 that used to be fatal.
 const FRAMES=1200;
@@ -102,6 +109,6 @@ try{ for(;k<FRAMES;k++){ if(i.exports.advance) i.exports.advance(); const l=rend
 catch(err){ console.error(`DIED at frame ${k} of ${FRAMES}: ${String(err).split(String.fromCharCode(10))[0]}`); console.error(`the heap is not being reclaimed between frames -- see PORTING_NOTES C8`); process.exit(1); }
 // and the wire must still be walkable after all that churn
 const l2=renderFrame(), v32=new Uint32Array(memory.buffer,bufPtr(),l2/4);
-let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===3){z+=4;m++;continue;}if(t===1)z++;const np=v32[z++];z+=np*2;m++;}
+const G2={4:4,5:7,6:9}; let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===3){z+=4;m++;continue;}if(G2[t]!==undefined)z+=G2[t];else if(t===1)z++;const np=v32[z++];z+=np*2;m++;}
 if(z*4!==l2){console.error(`wire desync after ${FRAMES} frames`);process.exit(1);}
 console.log(`endurance: ${FRAMES} frames advanced and rendered, then ${m} commands still walk exactly`);'

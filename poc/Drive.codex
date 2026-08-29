@@ -16,6 +16,8 @@ Chapter: Drive
   cites Safari chapter CatDraw
   cites Safari chapter Rider
   cites Safari chapter Render
+  cites Safari chapter Truck
+  cites Safari chapter TruckBody
 
  A browser frame of the REAL route, driven by the ported render.
 
@@ -39,9 +41,14 @@ Chapter: Drive
 
  THE CAT DRAWS TOO, from `Safari chapter CatStills` -- seven stills, not seven
  hundred, with `Safari chapter Cat` picking one per crossing step and computing the
- lateral travel and the hop continuously. Only the truck's body is still missing,
- and it is unblocked rather than blocked: it reaches chain machinery that is ported
- now and one paint tag that is not.
+ lateral travel and the hop continuously.
+
+ AND THE TRUCK IS HERE, which is the last drawing code in the game to arrive. It
+ took three separate wirings and none of them alone changed anything visible: the
+ route position handed to `collect` was a hardcoded zero, so its lead was always
+ negative and it was never collected; the shim kept no truck state, so nothing
+ called `truck-next` to move it; and the `KTruck` arm below drew nothing. All
+ three are done, and `Safari chapter TruckBody` is what the arm calls.
 
  The rider is not simulated. `Safari chapter Rider` is ported and graded, but it is
  a step function over a mutable state and the shim's scrub is PURE -- frame-at (u)
@@ -166,10 +173,9 @@ Section: The Pose
 
 Section: Drawing What Is Sorted
 
- The depth order Render produced, painted far to near. Three of the six kinds draw:
- trees, towers and rails. Billboards and the truck body reach the baked frames and
- render nothing, which is why the frame has correctly-ordered holes rather than
- misplaced animals.
+ The depth order Render produced, painted far to near. ALL SIX KINDS DRAW NOW --
+ trees, towers, rails, the animals, the cat and the truck -- so the sort is doing
+ the job it was built for rather than ordering holes.
 
   tree-fwd-of : List TreeItem, Integer -> Real
   tree-fwd-of (ts) (i) = (list-at ts i).fwd
@@ -214,20 +220,32 @@ Section: Drawing What Is Sorted
   draw-one-cat : CatItem, Real -> List DrawCmd
   draw-one-cat (k) (cf) = cat-draw k.right k.fwd k.height k.pose-idx k.lift cf camera-w
 
-  draw-item : List Segment, List Integer, Pose, Collected, Item, Real, Real -> List DrawCmd
-  draw-item (w) (ch) (pose) (c) (it) (cf) (step) =
+ THE TRUCK TAKES TWO THINGS THE COLLECTOR DOES NOT CARRY, and both come from
+ outside the depth sort: whether it is braking, which is a field on the state the
+ shim steps, and whether its headlights are on, which is the sunset clock -- the
+ same `sun-behind-mountains` the backdrop uses, so the beams come on at the moment
+ the sun leaves the crest rather than at a time of their own. Its half width is
+ the width of the segment its CENTRE landed on, chain index `tk.d`, not the
+ rider's own.
+
+  draw-one-truck : List Segment, List Integer, Pose, TruckAt, Boolean, Real, Real -> List DrawCmd
+  draw-one-truck (w) (ch) (pose) (tk) (braking) (cf) (step) =
+    truck-draw-body w ch pose tk.d tk.along ((list-at w (list-at ch tk.d)).width / 2.0) braking (sun-behind-mountains step) cf camera-w
+
+  draw-item : List Segment, List Integer, Pose, Collected, Item, Boolean, Real, Real -> List DrawCmd
+  draw-item (w) (ch) (pose) (c) (it) (braking) (cf) (step) =
    when it.kind
     is KTree -> draw-one-tree c.trees it.i cf
     is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
     is KCow -> draw-one-critter (list-at c.cows it.i) cf
     is KCat -> draw-one-cat (list-at c.cats it.i) cf
-    is KTruck -> []
+    is KTruck -> draw-one-truck w ch pose c.truck braking cf step
 
-  draw-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
-  draw-order (w) (ch) (pose) (c) (cf) (step) (i) =
+  draw-order : List Segment, List Integer, Pose, Collected, Boolean, Real, Real, Integer -> List DrawCmd
+  draw-order (w) (ch) (pose) (c) (braking) (cf) (step) (i) =
     if i >= list-length c.order then []
-    else (draw-item w ch pose c (list-at c.order i) cf step) & draw-order w ch pose c cf step (i + 1)
+    else (draw-item w ch pose c (list-at c.order i) braking cf step) & draw-order w ch pose c braking cf step (i + 1)
 
 Section: The Frame
 
@@ -237,15 +255,23 @@ Section: The Frame
   frame-at : Real -> List DrawCmd
   frame-at (u) = frame-in build-world u
 
+ THE SCRUBBED TRUCK RIDES ITS SCHEDULE. There is no state to step here -- a still
+ has to answer from u alone -- so it is placed where the chase says it should be
+ for this rider distance, which is `truck-schedule` and not a number invented on
+ this page. It never brakes, because braking is a comparison against a previous
+ speed and a still has no previous. Same shape as the scrubbed rider above, and
+ the driven page below does not use any of it.
+
   frame-in : List Segment, Real -> List DrawCmd
   frame-in (w) (u) =
     let p = drive-pos-at w u
     in let pose = pose-in w u
     in let step = scene-step-at u
     in let ch = build-chain w p.seg
+    in let tk = truck-schedule (drive-dist-at w u) (course-length w)
     in (draw (heading-in w u) (sun-set-fraction step) focal camera-w)
        & (frame-ground w p.seg pose focal camera-w)
-       & (draw-order w ch pose (collect w p.seg pose focal p.along 0.0 0.0) focal step 0)
+       & (draw-order w ch pose (collect w p.seg pose focal p.along 0.0 tk) False focal step 0)
 
   frame : List DrawCmd
   frame = frame-at 0.0
@@ -303,10 +329,15 @@ Section: Driving The Real Rider
   pose-for (w) (s) =
     Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
 
-  frame-for : List Segment, RiderState, Real -> List DrawCmd
-  frame-for (w) (s) (step) =
+ THE TRUCK STATE COMES IN THE WAY THE RIDER'S DOES, as a value the shim keeps and
+ steps, because this chapter is pure and the chase is a simulation. `collect` wants
+ its route position and the body wants its brake flag, and they are two fields of
+ one record rather than two arguments that could drift apart.
+
+  frame-for : List Segment, RiderState, TruckState, Real -> List DrawCmd
+  frame-for (w) (s) (tk) (step) =
     let pose = pose-for w s
     in let ch = build-chain w s.segment
     in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
        & (frame-ground w s.segment pose focal camera-w)
-       & (draw-order w ch pose (collect w s.segment pose focal s.along s.v 0.0) focal step 0)
+       & (draw-order w ch pose (collect w s.segment pose focal s.along s.v tk.pos) tk.braking focal step 0)

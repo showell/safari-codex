@@ -164,8 +164,8 @@ is the only thing that differs from the real game.
 hand: the road and its corners, the conifers, the intersection towers, the guard
 rails and the pond all come out of `Safari chapter World` — the same nineteen
 segments graded at 3,822 values — mapped by `Render`'s chain, ordered by `Render`'s
-depth sort, and floored by `Render`'s ground pass. 2,132 draw commands in the
-opening frame. `u` runs 0..1 and walks the whole course by arc length; Space
+depth sort, and floored by `Render`'s ground pass. 2,430 draw commands in the
+opening frame, sixteen of them the truck. `u` runs 0..1 and walks the whole course by arc length; Space
 auto-plays, the arrows step, J jumps a segment.
 
 `poc/Scene.codex` is the original throwaway that placed its own scenery, kept
@@ -173,22 +173,33 @@ because it still builds and is the way to compare:
 
     ./harness/build_wasm.sh SceneMain
 
-**What is not real about the Drive page, precisely.** One thing: **the truck.** It
-is not wired, in three independent ways, and none of them is the clock —
+**The truck is on the page now, and it was the last thing missing.** It needed
+three separate wirings, and the reason it had sat unfinished is that none of them
+alone changes anything visible:
 
-- `Drive.codex` passes a hardcoded `0.0` for the truck's route position into
-  `collect`, so its lead is always negative and it is never collected at all;
-- `poc/drive_shim.zig` keeps no truck state, so nothing calls the ported
+- `Drive.codex` passed a hardcoded `0.0` for the truck's route position into
+  `collect`, so its lead was always negative and it was never collected;
+- `poc/drive_shim.zig` kept no truck state, so nothing called the ported
   `truck-next` to move it;
-- `draw-item`'s `KTruck` arm returns nothing, because `truck.drawBody` is not
+- `draw-item`'s `KTruck` arm returned nothing, because `truck.drawBody` was not
   ported.
 
-Fixing any one of those alone changes nothing visible. `truck.zig`'s motion half
-*is* ported and graded; the body is the last unported drawing code in the game,
-and it now needs only `Paint`'s tag 4, which exists.
+All three are done. The shim keeps a `TruckStateS` beside the rider's and steps it
+in lockstep against the **new** rider distance, which is `safari.zig`'s own order;
+the history ring scrubs both together, so the down arrow rewinds the chase as well
+as the ride; and `port/TruckBody.codex` draws the body, graded at 2,962 values
+against `truck.drawBody` itself.
 
-Everything else on the page is the real thing: the route, the rider's own physics
-and lean, the animals, the cat, the sky clock.
+Measured over one drive: the lead runs 500 m at the line down to 68 m by frame
+6,000 — the photo finish the schedule is written for — the brake lights fire on
+846 of 6,400 frames, and the headlights come on around frame 4,500 when the sun
+drops behind the crest. `truckLead`, `truckV` and `truckBraking` are exported for
+a probe, as `safari.zig` exports them for its HUD.
+
+**So nothing on the page is a stand-in any more**: the route, the rider's own
+physics and lean, the animals, the cat, the sky clock and the chase are all the
+real thing. What remains not-real is one *rendering* gap rather than a wiring one —
+the bull's gradients still flatten to their first stop in the baked table.
 
 **NOTES §5 said a browser build through zig was "not close". It is four
 substitutions in the fixed prelude**, and `harness/wasmify.py` makes them: the
@@ -224,8 +235,19 @@ not generated yet.
 That turns out to check things. The pig-herd viewpoint draws **exactly 49 pig
 markers**, which is the 7×7 distraction block `w-npigs` records for segment 2, all
 of them surviving the culls; the duck pond draws six ducks and the corner pairs
-draw two apiece. Four viewpoints ship: the big pig herd, the mid-tower on the
-1200m leg, the duck pond, and a corner zebra pair.
+draw two apiece. Eight viewpoints ship: the big pig herd, the mid-tower on the
+1200m leg, the duck pond, a corner zebra pair, the cat frozen and mid-leap, and the
+truck in daylight and at dusk.
+
+**The truck stills are a second BINARY, and the reason is PORTING_NOTES C6.** The
+spike prints one frame per viewpoint and never rewinds its arena — the per-frame
+reset is a thing the wasm shim does, and a native binary has no shim — so a run
+holds every frame it has printed, at about 700 MB each. Six came to within 1.8 KB
+of the 4 GiB reserve and the seventh aborted. A second process starts fresh, so
+`poc/SpikeTruckMain.codex` carries the two truck viewpoints, `poc/SpikePrint.codex`
+holds the printing both entries share, and `harness/spike.sh` runs both. Sharing by
+citing the *first entry* is what does not work: two `opening`s in one bundle
+collide on the flat namespace.
 
 ## Ported so far
 
@@ -248,6 +270,7 @@ draw two apiece. Four viewpoints ship: the big pig herd, the mid-tower on the
 | `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 | `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
+| `port/TruckBody.codex` | `wasm/truck.zig`'s `drawBody` | 2,962 values, **113 commands in order** |
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
 | `port/EmojiStills.codex` | `wasm/emoji_frames.zig` | **generated**, 5,267 points |
 | `port/Critter.codex` | `wasm/critter.zig` | 6,174 values, 7 species exact |
@@ -317,8 +340,9 @@ approach road and pavement quad out to the apex, and the pond's water and bank. 
 graded green at the standard screen gate on the first run — no recalibration, which
 is what you would hope for by the tenth module.
 
-Still not ported: `truck.drawBody`, and nothing else in `render.zig`. The critter
-and cat drawers that used to sit beside it in this sentence are done.
+Every drawer `render.zig` dispatches to is ported now. `truck.drawBody` was the
+last one, and `port/TruckBody.codex` has it; the critter and cat drawers that used
+to sit beside it in this sentence went first.
 
 **`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
 here had before. `at` composes a point down a kilometre of chain and hands back one
@@ -328,6 +352,28 @@ of the answer. That makes the floor a representation granularity, and it is set 
 one: one f32 ulp at the range each seam reaches, 2.5e-4 m for the chain and 6e-5 m
 for the behind joint. Both are load-bearing; each reddens within about 2x below its
 setting. `PORTING_NOTES` D6 has the numbers.
+
+**`TruckBody` grades a command SEQUENCE, and that is a stronger assertion than a
+picture.** `truck.drawBody` is `pub` — render.zig's own comment says so and names
+the truck as the reason — so the probe calls the game's function and reads the
+words it wrote on paint's wire. The order of the 113 commands across six cases
+carries the depth sort, the sixteen faces, and the three-phase sequence (beams,
+body, lights) all at once: a face sorted one place wrong shows up as two swapped
+colours before any coordinate moves, and a beam pushed after the body instead of
+before it moves a tag 4 past sixteen tag 0s.
+
+Two things about it are worth carrying forward. **The zig's comments say the
+headlight wedges and the brake glow are still deferred, and they are stale** — the
+code calls both and pushes tag 4 for each. A port written from the comments would
+have emitted sixteen faces where the game emits twenty-four commands; read a
+comment for intent and the code for behaviour (`PORTING_NOTES` E5). And **the
+clipping case sets the loosest screen gate in the port**, 1.5e-5 against everyone
+else's 1e-6, on one tire vertex in the case where the truck is two metres ahead and
+the trailer rear is behind the eye. A clipped vertex sits at `forward = near = 0.4`
+by construction, so the projection amplifies an error in metres by 1,713x; one f32
+ulp at the rider's own 100 m `along` is 0.013 px at an x of −1300, which is the
+1e-5 measured. It is the near plane's looseness, not the truck's — the same seam
+holds at 1e-6 wherever nothing is clipped (`PORTING_NOTES` D8).
 
 **`SafariCritter` is a whole file, and it is worth noting why** when its neighbours
 arrive in halves: it is placement only, so nothing in it reaches the baked frames.
@@ -493,15 +539,8 @@ are in `price-b/`.
 
 ## Where to pick this up
 
-Parked 2026-08-29 with the sweep green. In rough order of value:
-
-**The truck is the last unported drawing code in the game**, and it needs three
-separate things, none of which is the clock. All are described under *What is not
-real about the Drive page* above: a hardcoded `0.0` route position in
-`Drive.codex`, no truck state in `poc/drive_shim.zig`, and `truck.drawBody` itself.
-The body is otherwise unblocked — it reaches `render.at` and `paint.pushPoly`,
-both ported, plus `pushGradPoly` for the headlight beams, which `Paint` now has as
-tag 4. **Wire all three at once or nothing changes visibly.**
+Parked 2026-08-29 with the sweep green, **and with every drawer in the game
+ported** — the truck was the last one. In rough order of value:
 
 **The bull draws flat, and the pieces to fix it now exist.** `Paint` has tags 5
 and 6; what is missing is that `harness/bake_stills.py` flattens each gradient to
@@ -520,9 +559,11 @@ section above. Expect to re-measure tolerances rather than assume they carry.
 
 **Four findings are owed upstream** and none is written up; they are listed below.
 
-Two things that are *done* and might not look it from the commit log: the cat is
-fully ported including its flipbook, and the animals draw from generated stills.
-Only the truck body is missing from a frame.
+Three things that are *done* and might not look it from the commit log: the cat is
+fully ported including its flipbook, the animals draw from generated stills, and
+the truck now drives, brakes and lights the road. **Nothing is missing from a
+frame** — the remaining gaps are fidelity (the bull's gradients) and coverage
+(`safari.zig` itself), not absence.
 
 ## Findings owed upstream
 

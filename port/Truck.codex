@@ -11,9 +11,10 @@ Chapter: Truck
  zig's own. `State`, `initial`, `nextTurn` and `next` reach nothing but the world
  and a few of the rider's constants. The drawing half -- the trailer box, its
  tires, the headlight wedges -- reaches `render.Chain`, `render.Pose` and
- `render.at`, which is the road-chain machinery that maps a segment-local point
- into the rider's frame, and render.zig is not ported. So the truck can DRIVE and
- not yet be seen, exactly as the cat can be placed and not yet animated.
+ `render.at`, and it is `Safari chapter TruckBody`, which cites Render for exactly
+ that. The split is what keeps World's cite of this chapter cheap: placing a truck
+ costs five constants, and only the chapters that DRAW one pay for the mapping
+ spine. Cat and CatDraw are split for the same reason.
 
  THREE RULES AND NOTHING ELSE: brake before a turn, accelerate when behind
  schedule, cruise when ahead. The schedule is a lerp -- it starts the truck five
@@ -107,9 +108,20 @@ Section: One Frame
  while it is ACTUALLY slowing -- the flag is a comparison against the previous
  speed, not against the intent.
 
+ WHERE THE TRUCK "SHOULD" BE, given how far the rider has come: the lerp the
+ whole chase hangs on, named rather than left inside `truck-next` because the
+ browser's SCRUB needs it too. A scrubbed still has no state to step, so it places
+ the truck on its schedule and accepts that the schedule is where the truck is
+ AIMING rather than where three rules would have put it -- the same stand-in, and
+ the same honesty about it, that the scrubbed rider gets.
+
+  truck-schedule : Real, Real -> Real
+  truck-schedule (rider-dist) (l) =
+    rider-dist + finish-lead + (start-ahead - finish-lead) * (1.0 - rider-dist / l)
+
   truck-next : TruckState, Real, List Segment, Real -> TruckState
   truck-next (truck) (rider-dist) (segs) (l) =
-    let scheduled = rider-dist + finish-lead + (start-ahead - finish-lead) * (1.0 - rider-dist / l)
+    let scheduled = truck-schedule rider-dist l
     in let turn = next-turn segs truck.pos
     in if turn.found then (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
        else truck-free truck scheduled

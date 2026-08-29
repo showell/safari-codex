@@ -241,6 +241,14 @@ B5. CDX3001 — chapters share ONE FLAT NAMESPACE inside a bundle.
     Citing a foreword chapter is not free of a port's own type names. The hull
     was ported instead, which is more faithful anyway.
 
+    IT BITES ENTRY CHAPTERS TOO, and there the collision is on a name you did not
+    write. A second spike entry cited the first for its printing helpers and got
+    "CDX3001 Duplicate definition: opening" — both are entry chapters, both define
+    `opening`, and one bundle cannot hold two. The fix is the ordinary one for a
+    flat namespace: the shared part becomes its own chapter (poc/SpikePrint) and
+    both entries cite that. Worth knowing before writing the second entry, because
+    the natural first move — cite the working one — cannot work.
+
 B6. The emitter emits only what the entry can REACH, and silently.
     A first attempt at the scene chapter had an `opening` that referenced nothing
     in it. Result: exit 0, no diagnostic, and a ZERO-BYTE program. If a chapter
@@ -408,6 +416,19 @@ C5. wasm32-freestanding is FOUR SUBSTITUTIONS IN THE FIXED PRELUDE away, not the
 C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
     frame; a long-running process rebuilding a scene per frame will exhaust it.
     Design for one probe process per short horizon.
+
+    SIX SPIKE VIEWPOINTS IS WHAT ONE NATIVE PROCESS HOLDS, measured by exceeding
+    it. The spike binary prints one still per viewpoint and never rewinds — C8's
+    arena reset is a thing the wasm SHIM does, and a native binary has no shim —
+    so a run accumulates every frame it has printed. Six came to within 1.8 KB of
+    the reserve; a seventh aborted with
+
+        cx heap: exhausted at 4294965457 + 7000 of 4294967296
+
+    at about 700 MB a frame. The fix is a second process, not a bigger reserve: a
+    second entry chapter and one more line in the script, where raising the
+    reserve would turn address space into resident memory on a two-core box. "One
+    process per short horizon" now has a number attached to it.
 
 C7. THE TRANSPILER'S BUMP HEAP IS A CEILING ON HOW MUCH ONE UNIT CAN CARRY.
 
@@ -783,6 +804,33 @@ D7. THE CAT'S LEAP IS THE PORT'S ONE DELIBERATE APPROXIMATION, AND IT IS BOUNDED
     foreword gap like r-atan, and Num already has its other half. It would need
     its own accuracy calibration. One call site is not much reason on its own.
 
+D8. A NEAR-PLANE CLIPPED VERTEX IS THE LOOSEST SCREEN GATE IN THE PORT, AND THE
+    RATIO IS ARITHMETIC RATHER THAN A MYSTERY.
+
+    TruckBodyCheck grades coordinates at 1.5e-5 relative where every other screen
+    seam holds at 1e-6. One vertex sets it: a tire in the case where the truck is
+    two metres ahead of the rider, so the trailer rear is BEHIND the eye and the
+    face is clipped.
+
+    A clipped vertex sits at forward = near = 0.4 m EXACTLY, by construction — the
+    clip puts it there. So the projection divides by 0.4 and multiplies by the 685
+    px focal: a 1,713x amplification of any error in metres, and the error in
+    metres is one f32 ulp at the largest coordinate the rider transform passed
+    through. In that case it is his own `along` of 100 m, where an ulp is 7.6e-6 m.
+    7.6e-6 x 1713 = 0.013 px against an x of about -1300, which is 1e-5 relative.
+    Measured: the stream reddens at 7.5e-6 and passes above it.
+
+    THIS IS D6 IN A THIRD UNIT. D3 amplified by a small screen y, D6 by a long
+    chain in metres; this one amplifies by the near plane. The common shape is
+    that the gate must track the LARGEST coordinate a composition passes through,
+    never the size of the answer. The floor is what changes; here it is not even
+    load-bearing, because every coordinate in the case is hundreds of pixels.
+
+    And it is the near plane's looseness, not the truck's: the same seam holds at
+    1e-6 in every case where nothing is clipped. The cost of the tighter gate
+    would be dropping the clipping case, which is the only structural assertion in
+    the check about what happens when the chase closes.
+
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
 ================================================================================
@@ -862,3 +910,21 @@ E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
     gain a whole complexity class, and on this arm that is a crash rather than a
     wait. Check the cost model of anything that mutates in place before porting it
     line for line — the ANSWER is what has to match.
+
+E5. THE GAME'S COMMENTS GO STALE AND THE CODE IS THE ORACLE. Not a defect in
+    anything, and worth stating once because this port reads comments closely and
+    they are usually excellent.
+
+    truck.zig says three times that the headlight wedges and the brake-light glow
+    are DEFERRED — the file header calls the truck "a placeholder blue dot",
+    drawBody's own header says the wedges "need alpha/gradient seam tags the
+    polygon-only blitter doesn't have yet", and the brake block says the halo is
+    "deferred (needs a gradient/alpha seam tag)". All three are stale: the code
+    calls drawWedge and drawBrakeGlow and pushes tag 4 for both, and paint.zig has
+    had the tag for as long as the bull has.
+
+    A port written from the comments would have emitted sixteen faces where the
+    game emits twenty-four commands. The check would have caught it — a missing
+    wedge is a missing command and structure is graded exactly — but only after
+    the fact. The rule is cheap: read a comment for INTENT and the code for
+    BEHAVIOUR, and when they disagree, grade the code.

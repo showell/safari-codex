@@ -1,0 +1,68 @@
+Chapter: SpikePrint
+  cites Safari chapter Num
+  cites Safari chapter Paint
+  cites Safari chapter Sky
+  cites Poc chapter Spike
+
+ SPIKE ONLY. THROWAWAY. How a still frame goes out as text, for
+ harness/spike_svg.py to turn into a picture. Nothing grades this.
+
+ A CHAPTER OF ITS OWN BECAUSE THERE ARE TWO ENTRIES NOW, and one of them cannot
+ simply cite the other: a bundle is ONE FLAT NAMESPACE (PORTING_NOTES B5), so
+ SpikeTruckMain citing SpikeMain for `all-cmds` collided on `opening` --
+ "CDX3001 Duplicate definition: opening" -- which is the namespace rule doing
+ exactly what it says. The printing moves here, both entries cite it, and neither
+ restates it.
+
+ COORDINATES GO OUT AS SCALED INTEGERS because `show` on a Real is still refused
+ by the zig plug -- it needs a __real_to_text it does not have. real-to-int landed
+ in 2026-08-29's plug work, so hundredths of a pixel is a plain multiply and a
+ truncation, and a hundredth of a pixel is far finer than anything an SVG viewed
+ at 960 by 600 can show.
+
+ ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
+ print per command. A Codex `act` has no recursive loop shape, and a chapter is
+ not the place to discover one for a throwaway: building the text purely and
+ handing it to a single print is the boring option and it is fine here, because a
+ frame is about a hundred kilobytes of digits.
+
+   C <tag> <colour> <strength e-3> <n> <x e-2> <y e-2> ... [<colour2> <geom e-2>...]
+
+ We say:
+
+Section: Printing
+
+  scaled : Real -> Text
+  scaled (v) = show (real-to-int (v * 100.0))
+
+  coords : List Real, Integer -> Text
+  coords (ps) (i) =
+    if i >= list-length ps then ""
+    else " " & scaled (list-at ps i) & coords ps (i + 1)
+
+ THE GRADIENT TAGS TRAIL THEIR EXTRAS, so a tag 0 or 1 line is byte-identical to
+ what this printed before them and the reader needs no new rule for the common
+ case. A tag 4, 5 or 6 line carries its second colour and then its own geometry
+ AFTER the polygon: the reader knows from the tag how many numbers to expect and
+ the point count already told it where the polygon ended.
+
+  extras : DrawCmd -> Text
+  extras (c) =
+    if c.tag >= 4 then " " & show c.color2 & coords c.geom 0 else ""
+
+  cmd-line : DrawCmd -> Text
+  cmd-line (c) =
+    "C " & show c.tag & " " & show c.color & " " & show (real-to-int (c.strength * 1000.0)) & " " & show (list-length c.pts / 2) & coords c.pts 0 & extras c
+
+  all-cmds : List DrawCmd, Integer -> Text
+  all-cmds (cs) (i) =
+    if i >= list-length cs then ""
+    else cmd-line (list-at cs i) & " ; " & all-cmds cs (i + 1)
+
+ One SCENE header per viewpoint, and it carries the sky and horizon colours too,
+ because blitter.js paints those itself from the module's numbers and an SVG has
+ to do the same or the frame floats on nothing.
+
+  scene-line : Text, Real -> Text
+  scene-line (name) (u) =
+    "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))

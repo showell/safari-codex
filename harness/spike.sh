@@ -11,8 +11,16 @@ cd "$(dirname "$here")"
 export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
-python3 harness/bundle.py poc/SpikeMain.codex build/spike-unit.codex
-"$codexzig" < build/spike-unit.codex 2> build/spike.zig > build/spike.diag
-grep -q "^// THE PRELUDE" build/spike.zig || { echo "codexzig emitted no program:" >&2; head -3 build/spike.diag >&2; exit 1; }
-( cd build && "$zig" build-exe spike.zig )
-python3 harness/spike_svg.py
+# ONE BINARY PER GROUP OF VIEWPOINTS, and the reason is the bump heap rather than
+# taste: the prelude never reclaims (PORTING_NOTES C6) and a native binary has no
+# arena rewind, so every frame a process prints is still held when it prints the
+# next. Six viewpoints came to within 1.8 KB of the 4 GiB reserve. A second process
+# starts fresh, which is the whole trick.
+for pair in SpikeMain:spike SpikeTruckMain:spike_truck; do
+  entry="${pair%%:*}"; out="${pair##*:}"
+  python3 harness/bundle.py "poc/$entry.codex" "build/$out-unit.codex"
+  "$codexzig" < "build/$out-unit.codex" 2> "build/$out.zig" > "build/$out.diag"
+  grep -q "^// THE PRELUDE" "build/$out.zig" || { echo "codexzig emitted no program for $entry:" >&2; head -3 "build/$out.diag" >&2; exit 1; }
+  ( cd build && "$zig" build-exe "$out.zig" )
+done
+python3 harness/spike_svg.py spike spike_truck

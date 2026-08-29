@@ -4,6 +4,8 @@ Chapter: DriveMain
   cites Safari chapter Rider
   cites Safari chapter Camera
   cites Safari chapter Sky
+  cites Safari chapter World
+  cites Safari chapter Truck
   cites Poc chapter Drive
 
  The entry point. The wasm build never calls it -- the shim exports renderFrame
@@ -15,6 +17,13 @@ Chapter: DriveMain
  buffer at all, because blitter.js paints them itself and only asks the module for
  the numbers. Nothing else reaches them. Touching them below is the whole reason
  they survive into the module.
+
+ THE TRUCK'S MOTION IS THE SECOND INSTANCE AND IT IS EXACTLY THE SAME SHAPE. The
+ shim steps the chase itself -- `truck-initial` at the start line, `truck-next`
+ once a frame against the rider's route distance -- and no Codex caller reaches
+ either, because the drawing side takes a position rather than computing one. Both
+ names, and the `route-distance` and `course-length` the step needs, are touched
+ below so that they exist to be called.
 
  It doubles as a native smoke test: run this on the host and it says how many
  commands each point of the sweep holds, which is the fastest way to see whether a
@@ -31,8 +40,9 @@ Section: Entry
 
   opening : [Console] Nothing = act
     print-line-uni ("cmds  " & show (list-length frame))
-    print-line-uni ("rider " & show (list-length (frame-for build-world initial-rider-state 0.0)) & " cmds at the start line, tilt e-3 " & show (real-to-int (initial-rider-state.tilt * 1000.0)) & " sun-x at step 0 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 0.0 focal camera-w).x) & " and at 4000 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 4000.0 focal camera-w).x) & " finished " & (if is-finished initial-rider-state build-world then "yes" else "no") & " next-v e-3 " & show (real-to-int ((get-next-rider-state initial-rider-state build-world).v * 1000.0)))
+    print-line-uni ("rider " & show (list-length (frame-for build-world initial-rider-state truck-initial 0.0)) & " cmds at the start line, tilt e-3 " & show (real-to-int (initial-rider-state.tilt * 1000.0)) & " sun-x at step 0 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 0.0 focal camera-w).x) & " and at 4000 " & show (real-to-int (sun-pos (heading-for initial-rider-state) 4000.0 focal camera-w).x) & " finished " & (if is-finished initial-rider-state build-world then "yes" else "no") & " next-v e-3 " & show (real-to-int ((get-next-rider-state initial-rider-state build-world).v * 1000.0)))
     print-line-uni ("m/frame " & show (real-to-int (u-per-step * 100000.0)) & " e-5 of the course")
+    print-line-uni ("truck " & show (real-to-int truck-initial.pos) & " m ahead at the line, and after one frame " & show (real-to-int (truck-next truck-initial (route-distance build-world initial-rider-state.segment initial-rider-state.along) build-world (course-length build-world)).pos) & " m, over a course of " & show (real-to-int (course-length build-world)) & " m")
     print-line-uni ("u=0.00 " & report 0.0)
     print-line-uni ("u=0.25 " & report 0.25)
     print-line-uni ("u=0.50 " & report 0.5)

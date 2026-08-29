@@ -188,6 +188,20 @@ const SunPosS = struct {
 };
 const SunPos = *SunPosS;
 
+const TruckStateS = struct {
+    pos: f64,
+    v_: f64,
+    braking: bool,
+};
+const TruckState = *TruckStateS;
+
+const NextTurnS = struct {
+    found: bool,
+    dist: f64,
+    v_turn: f64,
+};
+const NextTurn = *NextTurnS;
+
 const DrawCmdS = struct {
     tag: i64,
     color: i64,
@@ -343,6 +357,23 @@ const CollectedS = struct {
     cull_size: i64,
 };
 const Collected = *CollectedS;
+
+const TruckBoxS = struct {
+    a0: f64,
+    a1: f64,
+    a2: f64,
+    a_roof: f64,
+    xl: f64,
+    xr: f64,
+};
+const TruckBox = *TruckBoxS;
+
+const TruckFaceS = struct {
+    color: i64,
+    fwd: f64,
+    v_: *CxList(Vec3),
+};
+const TruckFace = *TruckFaceS;
 
 const RoutePosS = struct {
     seg: i64,
@@ -927,6 +958,10 @@ fn route_distance_from(ss: *CxList(Segment), seg: i64, i_: i64) f64 {
     return @as(f64, (if ((i_ >= seg)) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ss, i_).length + route_distance_from(ss, seg, (i_ +% 1)))));
 }
 
+fn route_distance(ss: *CxList(Segment), seg: i64, along: f64) f64 {
+    return (route_distance_from(ss, seg, 0) + along);
+}
+
 fn gaze_look_dist() f64 {
     return @as(f64, @bitCast(@as(i64, 4639481672377565184)));
 }
@@ -1311,6 +1346,66 @@ fn sun_pos(heading: f64, step: f64, _arg_cam_focal: f64, view_w: f64) SunPos {
     return b0: { const rel: f64 = wrap((sun_bearing() - heading), 64); break :b0 (if ((real_abs(rel) >= visible_bearing_limit())) cx_new(SunPosS{ .visible = false, .x = @as(f64, @bitCast(@as(i64, 0))), .y = @as(f64, @bitCast(@as(i64, 0))), .scale = @as(f64, @bitCast(@as(i64, 0))) }) else sun_pos_visible(rel, step, _arg_cam_focal, view_w)); };
 }
 
+fn start_ahead() f64 {
+    return @as(f64, @bitCast(@as(i64, 4647503709213818880)));
+}
+
+fn finish_lead() f64 {
+    return @as(f64, @bitCast(@as(i64, 4636737291354636288)));
+}
+
+fn truck_turn_caution() f64 {
+    return @as(f64, @bitCast(@as(i64, 4605380978949069210)));
+}
+
+fn truck_brake_distance() f64 {
+    return approach_intersection_dist();
+}
+
+fn truck_chase_accel() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4607632778762754458))) * a_accel());
+}
+
+fn truck_max_v() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4607632778762754458))) * v_max());
+}
+
+fn truck_initial() TruckState {
+    return cx_new(TruckStateS{ .pos = start_ahead(), .v_ = v_base(), .braking = false });
+}
+
+fn no_turn() NextTurn {
+    return cx_new(NextTurnS{ .found = false, .dist = @as(f64, @bitCast(@as(i64, 0))), .v_turn = @as(f64, @bitCast(@as(i64, 0))) });
+}
+
+fn next_turn_loop(segs: *CxList(Segment), pos: f64, i_: i64, cum0: f64) NextTurn {
+    return (if ((i_ >= cx_list_len(segs))) no_turn() else next_turn_step(segs, pos, i_, (cum0 + cx_list_at(segs, i_).length)));
+}
+
+fn next_turn_step(segs: *CxList(Segment), pos: f64, i_: i64, cum: f64) NextTurn {
+    return b0: { const s_ = cx_list_at(segs, i_); break :b0 (if ((pos < cum)) (if (s_.terminates) no_turn() else cx_new(NextTurnS{ .found = true, .dist = (cum - pos), .v_turn = turn_speed(s_.exit_angle) })) else next_turn_loop(segs, pos, (i_ +% 1), cum)); };
+}
+
+fn next_turn(segs: *CxList(Segment), pos: f64) NextTurn {
+    return next_turn_loop(segs, pos, 0, @as(f64, @bitCast(@as(i64, 0))));
+}
+
+fn truck_schedule(rider_dist: f64, l_: f64) f64 {
+    return ((rider_dist + finish_lead()) + ((start_ahead() - finish_lead()) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (rider_dist / l_))));
+}
+
+fn truck_next(truck: TruckState, rider_dist: f64, segs: *CxList(Segment), l_: f64) TruckState {
+    return b0: { const scheduled: f64 = truck_schedule(rider_dist, l_); break :b0 b1: { const turn = next_turn(segs, truck.pos); break :b1 (if (turn.found) (if ((turn.dist <= truck_brake_distance())) truck_braking(truck, turn) else truck_free(truck, scheduled)) else truck_free(truck, scheduled)); }; };
+}
+
+fn truck_braking(truck: TruckState, turn: NextTurn) TruckState {
+    return b0: { const target: f64 = (turn.v_turn * truck_turn_caution()); break :b0 b1: { const a_: f64 = @as(f64, (if ((turn.dist > @as(f64, @bitCast(@as(i64, 4517329193108106637))))) (((target * target) - (truck.v_ * truck.v_)) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * turn.dist)) else @as(f64, @bitCast(@as(i64, 0))))); break :b1 b2: { const v_: f64 = real_max(target, (truck.v_ + a_)); break :b2 cx_new(TruckStateS{ .pos = (truck.pos + v_), .v_ = v_, .braking = (v_ < truck.v_) }); }; }; };
+}
+
+fn truck_free(truck: TruckState, scheduled: f64) TruckState {
+    return b0: { const v_: f64 = (if ((truck.pos < scheduled)) real_min(truck_max_v(), (truck.v_ + truck_chase_accel())) else truck.v_); break :b0 cx_new(TruckStateS{ .pos = (truck.pos + v_), .v_ = v_, .braking = false }); };
+}
+
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.x, p_.y }), flatten_screen(ps, (i_ +% 1))); });
 }
@@ -1325,6 +1420,10 @@ fn push_round_poly(color: i64, strength: f64, ps: *CxList(ScreenPt)) *CxList(Dra
 
 fn push_beacon(color: i64, x: f64, y: f64, r_: f64, alpha: f64) *CxList(DrawCmd) {
     return cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 3, .color = color, .color2 = 0, .strength = alpha, .geom = cx_ll_of(f64, &[_]f64{ x, y, r_ }), .pts = cx_ll_empty(f64) }) });
+}
+
+fn push_grad_poly(rgba_center: i64, rgba_edge: i64, cx: f64, cy: f64, r_: f64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
+    return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 4, .color = rgba_center, .color2 = rgba_edge, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ cx, cy, r_ }), .pts = flatten_screen(ps, 0) }) }));
 }
 
 fn tier_top() *CxList(f64) {
@@ -1763,6 +1862,10 @@ fn snowline_at(bearing: f64, peak: f64) f64 {
 
 fn bearing_at(x: f64, heading: f64, _arg_cam_focal: f64, view_w: f64) f64 {
     return (heading + r_atan(((x - (view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) / _arg_cam_focal)));
+}
+
+fn horizon_crest_px(bearing: f64) f64 {
+    return real_max(west_range(bearing), real_max(north_range(bearing), ground_base(bearing)));
 }
 
 fn crest_pts(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, x: f64) *CxList(ScreenPt) {
@@ -2268,7 +2371,7 @@ fn sort_items(xs: *CxList(Item)) *CxList(Item) {
 }
 
 fn collect(segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, along: f64, v_: f64, truck_pos: f64) Collected {
-    return b0: { const ch = build_chain(segs, seg_idx); break :b0 b1: { const placed = (if ((seg_idx > 0)) cx_ll_concat(walk_billboards(segs, ch, pose, 0), behind_billboards(segs, ch, pose, (seg_idx -% 1))) else walk_billboards(segs, ch, pose, 0)); break :b1 b2: { const trees = list_take(TreeItem, walk_trees(segs, ch, pose, cf, 0), max_vis_trees()); break :b2 b3: { const towers = list_take(TowerItem, (if ((seg_idx > 0)) cx_ll_concat(walk_towers(segs, ch, pose, 0), behind_tower(segs, ch, pose, (seg_idx -% 1))) else walk_towers(segs, ch, pose, 0)), max_vis_towers()); break :b3 b4: { const cows = list_take(Billboard, kept_of(placed, 0), max_vis_critters()); break :b4 b5: { const cats = list_take(CatItem, walk_cats(segs, ch, pose, cf, along, v_, 0), max_vis_cats()); break :b5 b6: { const rails = (if ((seg_idx > 0)) cx_ll_concat(walk_rails(segs, ch, pose, 0), behind_rails(segs, ch, pose, (seg_idx -% 1))) else walk_rails(segs, ch, pose, 0)); break :b6 b7: { const tk = truck_at(segs, ch, pose, along, (truck_pos - (route_distance_from(segs, seg_idx, 0) + along))); break :b7 cx_new(CollectedS{ .trees = trees, .towers = towers, .cows = cows, .cats = cats, .rails = rails, .truck = tk, .order = sort_items(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(tree_items(trees, 0), tower_items(towers, 0)), cow_items(cows, 0)), cat_items(cats, 0)), (if (tk.present) cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = tk.fwd, .kind = Kind.KTruck, .i_ = 0 }) }) else cx_ll_empty(Item))), rail_items(rails, 0))), .cull_seg = walk_seg_cull(segs, ch, 0), .cull_size = size_culled_of(placed, 0) }); }; }; }; }; }; }; }; };
+    return b0: { const ch = build_chain(segs, seg_idx); break :b0 b1: { const placed = (if ((seg_idx > 0)) cx_ll_concat(walk_billboards(segs, ch, pose, 0), behind_billboards(segs, ch, pose, (seg_idx -% 1))) else walk_billboards(segs, ch, pose, 0)); break :b1 b2: { const trees = list_take(TreeItem, walk_trees(segs, ch, pose, cf, 0), max_vis_trees()); break :b2 b3: { const towers = list_take(TowerItem, (if ((seg_idx > 0)) cx_ll_concat(walk_towers(segs, ch, pose, 0), behind_tower(segs, ch, pose, (seg_idx -% 1))) else walk_towers(segs, ch, pose, 0)), max_vis_towers()); break :b3 b4: { const cows = list_take(Billboard, kept_of(placed, 0), max_vis_critters()); break :b4 b5: { const cats = list_take(CatItem, walk_cats(segs, ch, pose, cf, along, v_, 0), max_vis_cats()); break :b5 b6: { const rails = (if ((seg_idx > 0)) cx_ll_concat(walk_rails(segs, ch, pose, 0), behind_rails(segs, ch, pose, (seg_idx -% 1))) else walk_rails(segs, ch, pose, 0)); break :b6 b7: { const tk = truck_at(segs, ch, pose, along, (truck_pos - route_distance(segs, seg_idx, along))); break :b7 cx_new(CollectedS{ .trees = trees, .towers = towers, .cows = cows, .cats = cats, .rails = rails, .truck = tk, .order = sort_items(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(tree_items(trees, 0), tower_items(towers, 0)), cow_items(cows, 0)), cat_items(cats, 0)), (if (tk.present) cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = tk.fwd, .kind = Kind.KTruck, .i_ = 0 }) }) else cx_ll_empty(Item))), rail_items(rails, 0))), .cull_seg = walk_seg_cull(segs, ch, 0), .cull_size = size_culled_of(placed, 0) }); }; }; }; }; }; }; }; };
 }
 
 fn road_color() i64 {
@@ -2371,8 +2474,271 @@ fn frame_ground(segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_
     return b0: { const ch = build_chain(segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(segs, ch, pose, cf, view_w, 0), behind_ground(segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(segs, ch, pose, cf, view_w, 0)); };
 }
 
+fn truck_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4620918397663497421)));
+}
+
+fn truck_width() f64 {
+    return @as(f64, @bitCast(@as(i64, 4612586738352862003)));
+}
+
+fn truck_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4615288898129284301)));
+}
+
+fn cab_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4615063718147915776)));
+}
+
+fn cab_roof_frac() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
+}
+
+fn tire_radius() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn trailer_bottom() f64 {
+    return ((@as(f64, @bitCast(@as(i64, 4611686018427387904))) * tire_radius()) + @as(f64, @bitCast(@as(i64, 4593311331947716280))));
+}
+
+fn cab_bottom() f64 {
+    return tire_radius();
+}
+
+fn tire_pair_gap() f64 {
+    return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
+}
+
+fn trailer_axle_inset() f64 {
+    return @as(f64, @bitCast(@as(i64, 4609884578576439706)));
+}
+
+fn cab_axle_frac() f64 {
+    return @as(f64, @bitCast(@as(i64, 4603129179135383962)));
+}
+
+fn tire_sides() i64 {
+    return 16;
+}
+
+fn body_color() i64 {
+    return 1846886;
+}
+
+fn roof_color() i64 {
+    return 3822248;
+}
+
+fn side_color() i64 {
+    return 1384784;
+}
+
+fn brake_color() i64 {
+    return 16722456;
+}
+
+fn tire_color() i64 {
+    return 1381658;
+}
+
+fn headlight_h() f64 {
+    return @as(f64, @bitCast(@as(i64, 4607182418800017408)));
+}
+
+fn headlight_inset() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
+}
+
+fn cone_near_half() f64 {
+    return @as(f64, @bitCast(@as(i64, 4598175219545276416)));
+}
+
+fn cone_far_center() f64 {
+    return @as(f64, @bitCast(@as(i64, 4604480259023595110)));
+}
+
+fn cone_far_half() f64 {
+    return @as(f64, @bitCast(@as(i64, 4606281698874543309)));
+}
+
+fn cone_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4626435307207026278)));
+}
+
+fn beam_core() i64 {
+    return 3288332502;
+}
+
+fn beam_edge() i64 {
+    return 1174403286;
+}
+
+fn glow_core() i64 {
+    return 3875491900;
+}
+
+fn glow_edge() i64 {
+    return 16722456;
+}
+
+fn glow_sides() i64 {
+    return 16;
+}
+
+fn truck_p3(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, along: f64, x: f64, h_: f64) Vec3 {
+    return b0: { const r_ = at(segs, ch, pose, d_, along, x); break :b0 cx_new(Vec3S{ .right = r_.right, .forward = r_.forward, .height = (h_ - ground_drop(r_.right, r_.forward)) }); };
+}
+
+fn truck_box(center_along: f64, hw: f64) TruckBox {
+    return b0: { const a0: f64 = (center_along - (truck_length() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const a1: f64 = (center_along + (truck_length() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b1 cx_new(TruckBoxS{ .a0 = a0, .a1 = a1, .a2 = (a1 + cab_length()), .a_roof = (a1 + (cab_length() * cab_roof_frac())), .xl = (hw - (truck_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), .xr = (hw + (truck_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) }); }; };
+}
+
+fn sum_fwd(ps: *CxList(Vec3), i_: i64) f64 {
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).forward + sum_fwd(ps, (i_ +% 1)))));
+}
+
+fn truck_face(color: i64, ps: *CxList(Vec3)) TruckFace {
+    return cx_new(TruckFaceS{ .color = color, .fwd = (sum_fwd(ps, 0) / cx_real_from_int(cx_list_len(ps))), .v_ = ps });
+}
+
+fn truck_side(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox, x: f64) TruckFace {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a0, x, trailer_bottom()); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a0, x, truck_height()); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, bx.a_roof, x, truck_height()); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, bx.a2, x, (truck_height() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 b4: { const p4 = truck_p3(segs, ch, pose, d_, bx.a2, x, cab_bottom()); break :b4 b5: { const p5 = truck_p3(segs, ch, pose, d_, bx.a1, x, cab_bottom()); break :b5 b6: { const p6 = truck_p3(segs, ch, pose, d_, bx.a1, x, trailer_bottom()); break :b6 truck_face(side_color(), cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3, p4, p5, p6 })); }; }; }; }; }; }; };
+}
+
+fn truck_rear(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox) TruckFace {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xl, trailer_bottom()); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xr, trailer_bottom()); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xr, truck_height()); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xl, truck_height()); break :b3 truck_face(body_color(), cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 })); }; }; }; };
+}
+
+fn truck_roof(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox) TruckFace {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xl, truck_height()); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a0, bx.xr, truck_height()); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, bx.a_roof, bx.xr, truck_height()); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, bx.a_roof, bx.xl, truck_height()); break :b3 truck_face(roof_color(), cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 })); }; }; }; };
+}
+
+fn truck_windshield(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox) TruckFace {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a_roof, bx.xl, truck_height()); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a_roof, bx.xr, truck_height()); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xr, (truck_height() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xl, (truck_height() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 truck_face(body_color(), cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 })); }; }; }; };
+}
+
+fn truck_nose(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox) TruckFace {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xl, (truck_height() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xr, (truck_height() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xr, cab_bottom()); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, bx.a2, bx.xl, cab_bottom()); break :b3 truck_face(body_color(), cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 })); }; }; }; };
+}
+
+fn truck_axles(bx: TruckBox) *CxList(f64) {
+    return b0: { const rear: f64 = (bx.a0 + trailer_axle_inset()); break :b0 b1: { const front: f64 = (bx.a1 - trailer_axle_inset()); break :b1 b2: { const cab: f64 = (bx.a1 + (cab_length() * cab_axle_frac())); break :b2 cx_ll_of(f64, &[_]f64{ (rear - (tire_pair_gap() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), (rear + (tire_pair_gap() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), (front - (tire_pair_gap() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), (front + (tire_pair_gap() / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), cab }); }; }; };
+}
+
+fn tire_pt(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, ac: f64, x: f64, i_: i64) Vec3 {
+    return b0: { const th: f64 = ((cx_real_from_int(i_) / cx_real_from_int(tire_sides())) * two_pi()); break :b0 truck_p3(segs, ch, pose, d_, (ac + (tire_radius() * r_cos(th))), x, (tire_radius() + (tire_radius() * r_sin(th)))); };
+}
+
+fn tire_pts(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, ac: f64, x: f64, i_: i64) *CxList(Vec3) {
+    return (if ((i_ >= tire_sides())) cx_ll_empty(Vec3) else cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ tire_pt(segs, ch, pose, d_, ac, x, i_) }), tire_pts(segs, ch, pose, d_, ac, x, (i_ +% 1))));
+}
+
+fn side_tires(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, axles: *CxList(f64), x: f64, i_: i64) *CxList(TruckFace) {
+    return (if ((i_ >= cx_list_len(axles))) cx_ll_empty(TruckFace) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ truck_face(tire_color(), tire_pts(segs, ch, pose, d_, cx_list_at(axles, i_), x, 0)) }), side_tires(segs, ch, pose, d_, axles, x, (i_ +% 1))));
+}
+
+fn truck_faces(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox) *CxList(TruckFace) {
+    return b0: { const axles = truck_axles(bx); break :b0 cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ truck_side(segs, ch, pose, d_, bx, bx.xl), truck_side(segs, ch, pose, d_, bx, bx.xr) }), cx_ll_of(TruckFace, &[_]TruckFace{ truck_rear(segs, ch, pose, d_, bx), truck_roof(segs, ch, pose, d_, bx) })), cx_ll_of(TruckFace, &[_]TruckFace{ truck_windshield(segs, ch, pose, d_, bx), truck_nose(segs, ch, pose, d_, bx) })), side_tires(segs, ch, pose, d_, axles, bx.xl, 0)), side_tires(segs, ch, pose, d_, axles, bx.xr, 0)); };
+}
+
+fn face_rest(ys: *CxList(TruckFace), j: i64) *CxList(TruckFace) {
+    return (if ((j >= cx_list_len(ys))) cx_ll_empty(TruckFace) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(ys, j) }), face_rest(ys, (j +% 1))));
+}
+
+fn merge_faces(a_: *CxList(TruckFace), b_: *CxList(TruckFace), i_: i64, j: i64) *CxList(TruckFace) {
+    return (if ((i_ >= cx_list_len(a_))) face_rest(b_, j) else (if ((j >= cx_list_len(b_))) face_rest(a_, i_) else (if ((cx_list_at(b_, j).fwd > cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(b_, j) }), merge_faces(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(a_, i_) }), merge_faces(a_, b_, (i_ +% 1), j)))));
+}
+
+fn sort_faces(xs: *CxList(TruckFace)) *CxList(TruckFace) {
+    return (if ((cx_list_len(xs) <= 1)) xs else merge_faces(sort_faces(list_take(TruckFace, xs, @divTrunc(cx_list_len(xs), 2))), sort_faces(list_drop(TruckFace, xs, @divTrunc(cx_list_len(xs), 2))), 0, 0));
+}
+
+fn truck_fill(color: i64, ps: *CxList(Vec3), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return push_poly(color, project_all(clip_near(ps, near()), cf, view_w, 0));
+}
+
+fn draw_faces(fs: *CxList(TruckFace), cf: f64, view_w: f64, i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(fs))) cx_ll_empty(DrawCmd) else cx_ll_concat(truck_fill(cx_list_at(fs, i_).color, cx_list_at(fs, i_).v_, cf, view_w), draw_faces(fs, cf, view_w, (i_ +% 1))));
+}
+
+fn any_behind(ps: *CxList(Vec3), i_: i64) bool {
+    var _tl_i = i_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(ps))) { return false; } else { if ((cx_list_at(ps, _tl_i).forward <= near())) { return true; } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+    }
+}
+
+fn mid_vec(p_: Vec3, q: Vec3) Vec3 {
+    return cx_new(Vec3S{ .right = ((p_.right + q.right) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), .forward = ((p_.forward + q.forward) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), .height = ((p_.height + q.height) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) });
+}
+
+fn pt_dist(p_: ScreenPt, c_: ScreenPt) f64 {
+    return real_sqrt((((p_.x - c_.x) * (p_.x - c_.x)) + ((p_.y - c_.y) * (p_.y - c_.y))));
+}
+
+fn max_radius(sp: *CxList(ScreenPt), c_: ScreenPt, i_: i64) f64 {
+    return @as(f64, (if ((i_ >= cx_list_len(sp))) @as(f64, @bitCast(@as(i64, 0))) else real_max(pt_dist(cx_list_at(sp, i_), c_), max_radius(sp, c_, (i_ +% 1)))));
+}
+
+fn truck_wedge(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox, src_x: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const p0 = truck_p3(segs, ch, pose, d_, bx.a2, src_x, (headlight_h() - cone_near_half())); break :b0 b1: { const p1 = truck_p3(segs, ch, pose, d_, bx.a2, src_x, (headlight_h() + cone_near_half())); break :b1 b2: { const p2 = truck_p3(segs, ch, pose, d_, (bx.a2 + cone_length()), src_x, (cone_far_center() + cone_far_half())); break :b2 b3: { const p3 = truck_p3(segs, ch, pose, d_, (bx.a2 + cone_length()), src_x, (cone_far_center() - cone_far_half())); break :b3 wedge_emit(cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 }), cf, view_w); }; }; }; };
+}
+
+fn wedge_emit(ps: *CxList(Vec3), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if (any_behind(ps, 0)) cx_ll_empty(DrawCmd) else wedge_cmd(ps, cf, view_w));
+}
+
+fn wedge_cmd(ps: *CxList(Vec3), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const sp = project_all(ps, cf, view_w, 0); break :b0 b1: { const lamp = project(mid_vec(cx_list_at(ps, 0), cx_list_at(ps, 1)), cf, view_w); break :b1 push_grad_poly(beam_core(), beam_edge(), lamp.x, lamp.y, max_radius(sp, lamp, 0), sp); }; };
+}
+
+fn truck_wedges(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat(truck_wedge(segs, ch, pose, d_, bx, (bx.xl + headlight_inset()), cf, view_w), truck_wedge(segs, ch, pose, d_, bx, (bx.xr - headlight_inset()), cf, view_w));
+}
+
+fn sum_x(ps: *CxList(ScreenPt), i_: i64) f64 {
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).x + sum_x(ps, (i_ +% 1)))));
+}
+
+fn sum_y(ps: *CxList(ScreenPt), i_: i64) f64 {
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).y + sum_y(ps, (i_ +% 1)))));
+}
+
+fn glow_pt(cx: f64, cy: f64, rad: f64, i_: i64) ScreenPt {
+    return b0: { const th: f64 = ((cx_real_from_int(i_) / cx_real_from_int(glow_sides())) * two_pi()); break :b0 cx_new(ScreenPtS{ .x = (cx + (rad * r_cos(th))), .y = (cy + (rad * r_sin(th))) }); };
+}
+
+fn glow_circle(cx: f64, cy: f64, rad: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= glow_sides())) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ glow_pt(cx, cy, rad, i_) }), glow_circle(cx, cy, rad, (i_ +% 1))));
+}
+
+fn glow_cmd(panel: *CxList(Vec3), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const sp = project_all(panel, cf, view_w, 0); break :b0 b1: { const cx: f64 = (sum_x(sp, 0) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b1 b2: { const cy: f64 = (sum_y(sp, 0) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b2 b3: { const rad: f64 = (max_radius(sp, cx_new(ScreenPtS{ .x = cx, .y = cy }), 0) * @as(f64, @bitCast(@as(i64, 4614388178203810202)))); break :b3 push_grad_poly(glow_core(), glow_edge(), cx, cy, rad, glow_circle(cx, cy, rad, 0)); }; }; }; };
+}
+
+fn brake_light(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, a0: f64, x0: f64, x1: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const bl: f64 = (trailer_bottom() + (@as(f64, @bitCast(@as(i64, 4596373779694328218))) * (truck_height() - trailer_bottom()))); break :b0 b1: { const bh: f64 = (trailer_bottom() + (@as(f64, @bitCast(@as(i64, 4602678819172646912))) * (truck_height() - trailer_bottom()))); break :b1 b2: { const q0 = truck_p3(segs, ch, pose, d_, a0, x0, bl); break :b2 b3: { const q1 = truck_p3(segs, ch, pose, d_, a0, x1, bl); break :b3 b4: { const q2 = truck_p3(segs, ch, pose, d_, a0, x1, bh); break :b4 b5: { const q3 = truck_p3(segs, ch, pose, d_, a0, x0, bh); break :b5 emit_brake(cx_ll_of(Vec3, &[_]Vec3{ q0, q1, q2, q3 }), cf, view_w); }; }; }; }; }; };
+}
+
+fn emit_brake(panel: *CxList(Vec3), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat((if (any_behind(panel, 0)) cx_ll_empty(DrawCmd) else glow_cmd(panel, cf, view_w)), truck_fill(brake_color(), panel, cf, view_w));
+}
+
+fn brake_lights(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, bx: TruckBox, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat(brake_light(segs, ch, pose, d_, bx.a0, (bx.xl + (@as(f64, @bitCast(@as(i64, 4591870180066957722))) * truck_width())), (bx.xl + (@as(f64, @bitCast(@as(i64, 4600156803381319434))) * truck_width())), cf, view_w), brake_light(segs, ch, pose, d_, bx.a0, (bx.xr - (@as(f64, @bitCast(@as(i64, 4600156803381319434))) * truck_width())), (bx.xr - (@as(f64, @bitCast(@as(i64, 4591870180066957722))) * truck_width())), cf, view_w));
+}
+
+fn truck_draw_body(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, center_along: f64, hw: f64, braking: bool, headlights: bool, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const bx = truck_box(center_along, hw); break :b0 b1: { const beams = (if (headlights) truck_wedges(segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b1 b2: { const body = draw_faces(sort_faces(truck_faces(segs, ch, pose, d_, bx)), cf, view_w, 0); break :b2 b3: { const lights = (if (braking) brake_lights(segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b3 cx_ll_concat(cx_ll_concat(beams, body), lights); }; }; }; };
+}
+
+fn route_frames() f64 {
+    return @as(f64, @bitCast(@as(i64, 4663758889118859264)));
+}
+
 fn scene_step_at(u_: f64) f64 {
-    return (@as(f64, @bitCast(@as(i64, 4660134898793709568))) + (@as(f64, @bitCast(@as(i64, 4653872080561897472))) * u_));
+    return (route_frames() * u_);
 }
 
 fn drive_speed() f64 {
@@ -2381,6 +2747,10 @@ fn drive_speed() f64 {
 
 fn u_per_step() f64 {
     return (drive_speed() / (course_length(build_world()) * @as(f64, @bitCast(@as(i64, 4607137382803743703)))));
+}
+
+fn drive_dist_at(w: *CxList(Segment), u_: f64) f64 {
+    return ((course_length(w) * u_) * @as(f64, @bitCast(@as(i64, 4607137382803743703))));
 }
 
 fn pos_from(w: *CxList(Segment), dist: f64, i_: i64) RoutePos {
@@ -2392,7 +2762,7 @@ fn pos_from(w: *CxList(Segment), dist: f64, i_: i64) RoutePos {
 }
 
 fn drive_pos_at(w: *CxList(Segment), u_: f64) RoutePos {
-    return pos_from(w, ((course_length(w) * u_) * @as(f64, @bitCast(@as(i64, 4607137382803743703)))), 0);
+    return pos_from(w, drive_dist_at(w, u_), 0);
 }
 
 fn turn_blend_dist() f64 {
@@ -2450,12 +2820,16 @@ fn draw_one_cat(k_: CatItem, cf: f64) *CxList(DrawCmd) {
     return cat_draw(k_.right, k_.fwd, k_.height, k_.pose_idx, k_.lift, cf, camera_w());
 }
 
-fn draw_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, it: Item, cf: f64, step: f64) *CxList(DrawCmd) {
-    return switch (it.kind) { .KTree => draw_one_tree(c_.trees, it.i_, cf), .KTower => draw_one_tower(w, ch, pose, cx_list_at(c_.towers, it.i_), cf, step), .KRail => rail_draw_poly(cx_list_at(c_.rails, it.i_), cf, camera_w()), .KCow => draw_one_critter(cx_list_at(c_.cows, it.i_), cf), .KCat => draw_one_cat(cx_list_at(c_.cats, it.i_), cf), .KTruck => cx_ll_empty(DrawCmd),  };
+fn draw_one_truck(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tk: TruckAt, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
+    return truck_draw_body(w, ch, pose, tk.d_, tk.along, (cx_list_at(w, cx_list_at(ch, tk.d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), braking, ((sun_height_px(step) + sun_radius_px()) < horizon_crest_px(sun_bearing())), cf, camera_w());
 }
 
-fn draw_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, cf: f64, step: f64, i_: i64) *CxList(DrawCmd) {
-    return (if ((i_ >= cx_list_len(c_.order))) cx_ll_empty(DrawCmd) else cx_ll_concat(draw_item(w, ch, pose, c_, cx_list_at(c_.order, i_), cf, step), draw_order(w, ch, pose, c_, cf, step, (i_ +% 1))));
+fn draw_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, it: Item, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
+    return switch (it.kind) { .KTree => draw_one_tree(c_.trees, it.i_, cf), .KTower => draw_one_tower(w, ch, pose, cx_list_at(c_.towers, it.i_), cf, step), .KRail => rail_draw_poly(cx_list_at(c_.rails, it.i_), cf, camera_w()), .KCow => draw_one_critter(cx_list_at(c_.cows, it.i_), cf), .KCat => draw_one_cat(cx_list_at(c_.cats, it.i_), cf), .KTruck => draw_one_truck(w, ch, pose, c_.truck, braking, cf, step),  };
+}
+
+fn draw_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, braking: bool, cf: f64, step: f64, i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(c_.order))) cx_ll_empty(DrawCmd) else cx_ll_concat(draw_item(w, ch, pose, c_, cx_list_at(c_.order, i_), braking, cf, step), draw_order(w, ch, pose, c_, braking, cf, step, (i_ +% 1))));
 }
 
 fn frame_at(u_: f64) *CxList(DrawCmd) {
@@ -2463,7 +2837,7 @@ fn frame_at(u_: f64) *CxList(DrawCmd) {
 }
 
 fn frame_in(w: *CxList(Segment), u_: f64) *CxList(DrawCmd) {
-    return b0: { const p_ = drive_pos_at(w, u_); break :b0 b1: { const pose = pose_in(w, u_); break :b1 b2: { const step: f64 = scene_step_at(u_); break :b2 b3: { const ch = build_chain(w, p_.seg); break :b3 cx_ll_concat(cx_ll_concat(draw(heading_in(w, u_), sun_set_fraction(step), focal(), camera_w()), frame_ground(w, p_.seg, pose, focal(), camera_w())), draw_order(w, ch, pose, collect(w, p_.seg, pose, focal(), p_.along, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0)))), focal(), step, 0)); }; }; }; };
+    return b0: { const p_ = drive_pos_at(w, u_); break :b0 b1: { const pose = pose_in(w, u_); break :b1 b2: { const step: f64 = scene_step_at(u_); break :b2 b3: { const ch = build_chain(w, p_.seg); break :b3 b4: { const tk: f64 = truck_schedule(drive_dist_at(w, u_), course_length(w)); break :b4 cx_ll_concat(cx_ll_concat(draw(heading_in(w, u_), sun_set_fraction(step), focal(), camera_w()), frame_ground(w, p_.seg, pose, focal(), camera_w())), draw_order(w, ch, pose, collect(w, p_.seg, pose, focal(), p_.along, @as(f64, @bitCast(@as(i64, 0))), tk), false, focal(), step, 0)); }; }; }; }; };
 }
 
 fn frame() *CxList(DrawCmd) {
@@ -2482,8 +2856,8 @@ fn heading_for(s_: RiderState) f64 {
     return (s_.heading + view_yaw_for(s_));
 }
 
-fn frame_for(w: *CxList(Segment), s_: RiderState, step: f64) *CxList(DrawCmd) {
-    return b0: { const pose = cx_new(PoseS{ .along = s_.along, .across = s_.across, .yaw = (s_.yaw + view_yaw_for(s_)), .hw = (cx_list_at(w, s_.segment).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }); break :b0 b1: { const ch = build_chain(w, s_.segment); break :b1 cx_ll_concat(cx_ll_concat(draw(heading_for(s_), sun_set_fraction(step), focal(), camera_w()), frame_ground(w, s_.segment, pose, focal(), camera_w())), draw_order(w, ch, pose, collect(w, s_.segment, pose, focal(), s_.along, s_.v_, @as(f64, @bitCast(@as(i64, 0)))), focal(), step, 0)); }; };
+fn frame_for(w: *CxList(Segment), s_: RiderState, tk: TruckState, step: f64) *CxList(DrawCmd) {
+    return b0: { const pose = cx_new(PoseS{ .along = s_.along, .across = s_.across, .yaw = (s_.yaw + view_yaw_for(s_)), .hw = (cx_list_at(w, s_.segment).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }); break :b0 b1: { const ch = build_chain(w, s_.segment); break :b1 cx_ll_concat(cx_ll_concat(draw(heading_for(s_), sun_set_fraction(step), focal(), camera_w()), frame_ground(w, s_.segment, pose, focal(), camera_w())), draw_order(w, ch, pose, collect(w, s_.segment, pose, focal(), s_.along, s_.v_, tk.pos), tk.braking, focal(), step, 0)); }; };
 }
 
 fn report(u_: f64) []const u8 {
@@ -2491,7 +2865,7 @@ fn report(u_: f64) []const u8 {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x11\x16\x0d\x15\x02", cx_show_int(cx_list_len(frame_for(build_world(), initial_rider_state(), @as(f64, @bitCast(@as(i64, 0))))))), "\x02\x18\x1a\x16\x13\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x13\x0e\x0f\x15\x0e\x02\x17\x11\x12\x0d\x42\x02\x0e\x11\x17\x0e\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((initial_rider_state().tilt * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x13\x19\x12\x49\x24\x02\x0f\x0e\x02\x13\x0e\x0d\x1f\x02\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 0))), focal(), camera_w()).x))), "\x02\x0f\x12\x16\x02\x0f\x0e\x02\x07\x03\x03\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 4661014508095930368))), focal(), camera_w()).x))), "\x02\x1c\x11\x12\x11\x13\x14\x0d\x16\x02"), (if (is_finished(initial_rider_state(), build_world())) "\x1e\x0d\x13" else "\x12\x10")), "\x02\x12\x0d\x24\x0e\x49\x21\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((get_next_rider_state(initial_rider_state(), build_world()).v_ * @as(f64, @bitCast(@as(i64, 4652007308841189376)))))))); _ = cx_print_line(cx_concat(cx_concat("\x1a\x51\x1c\x15\x0f\x1a\x0d\x02", cx_show_int(cx_real_to_int((u_per_step() * @as(f64, @bitCast(@as(i64, 4681608360884174848))))))), "\x02\x0d\x49\x08\x02\x10\x1c\x02\x0e\x14\x0d\x02\x18\x10\x19\x15\x13\x0d")); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
+    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x11\x16\x0d\x15\x02", cx_show_int(cx_list_len(frame_for(build_world(), initial_rider_state(), truck_initial(), @as(f64, @bitCast(@as(i64, 0))))))), "\x02\x18\x1a\x16\x13\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x13\x0e\x0f\x15\x0e\x02\x17\x11\x12\x0d\x42\x02\x0e\x11\x17\x0e\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((initial_rider_state().tilt * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x13\x19\x12\x49\x24\x02\x0f\x0e\x02\x13\x0e\x0d\x1f\x02\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 0))), focal(), camera_w()).x))), "\x02\x0f\x12\x16\x02\x0f\x0e\x02\x07\x03\x03\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 4661014508095930368))), focal(), camera_w()).x))), "\x02\x1c\x11\x12\x11\x13\x14\x0d\x16\x02"), (if (is_finished(initial_rider_state(), build_world())) "\x1e\x0d\x13" else "\x12\x10")), "\x02\x12\x0d\x24\x0e\x49\x21\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((get_next_rider_state(initial_rider_state(), build_world()).v_ * @as(f64, @bitCast(@as(i64, 4652007308841189376)))))))); _ = cx_print_line(cx_concat(cx_concat("\x1a\x51\x1c\x15\x0f\x1a\x0d\x02", cx_show_int(cx_real_to_int((u_per_step() * @as(f64, @bitCast(@as(i64, 4681608360884174848))))))), "\x02\x0d\x49\x08\x02\x10\x1c\x02\x0e\x14\x0d\x02\x18\x10\x19\x15\x13\x0d")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x0e\x15\x19\x18\x22\x02", cx_show_int(cx_real_to_int(truck_initial().pos))), "\x02\x1a\x02\x0f\x14\x0d\x0f\x16\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x17\x11\x12\x0d\x42\x02\x0f\x12\x16\x02\x0f\x1c\x0e\x0d\x15\x02\x10\x12\x0d\x02\x1c\x15\x0f\x1a\x0d\x02"), cx_show_int(cx_real_to_int(truck_next(truck_initial(), route_distance(build_world(), initial_rider_state().segment, initial_rider_state().along), build_world(), course_length(build_world())).pos))), "\x02\x1a\x42\x02\x10\x21\x0d\x15\x02\x0f\x02\x18\x10\x19\x15\x13\x0d\x02\x10\x1c\x02"), cx_show_int(cx_real_to_int(course_length(build_world())))), "\x02\x1a")); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
 }
 
 fn cx_entry() void {

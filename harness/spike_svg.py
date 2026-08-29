@@ -142,6 +142,13 @@ def rgb(v):
     return f"#{v & 0xFFFFFF:06x}"
 
 
+def alpha(v):
+    """The alpha byte of an 0xAARRGGBB colour word, as a 0..1 opacity. Only tags 4
+    to 6 carry one; every other command's colour is 0xRRGGBB and opaque, and
+    passing one of those here would read its RED as an alpha."""
+    return ((v >> 24) & 0xFF) / 255.0
+
+
 def shade(v, f):
     """blitter.js's shade(): scale each channel, clamped. Used for the tag-1 ends."""
     r, g, b = (v >> 16) & 255, (v >> 8) & 255, v & 255
@@ -217,7 +224,7 @@ def parse_profile(text):
 
 
 def parse(text):
-    """-> [(name, sky_top, sky_horizon, [(tag, color, strength, pairs, raw)])]
+    """-> [(name, sky_top, sky_horizon, [(tag, color, strength, pairs, raw, color2, geom)])]
 
     BOTH the (x, y) pairs AND the flat number list, because not every command is a
     polygon. Tag 3 is a disc carrying x, y, r -- three numbers -- and spike tag 9
@@ -238,9 +245,17 @@ def parse(text):
                 if not f or f[0] != "C":
                     continue
                 tag, color, strength, n = int(f[1]), int(f[2]), int(f[3]), int(f[4])
-                nums = [int(x) / 100.0 for x in f[5:]]
+                body, tail = f[5:5 + 2 * n], f[5 + 2 * n:]
+                nums = [int(x) / 100.0 for x in body]
                 pts = list(zip(nums[0::2], nums[1::2]))
-                cur[3].append((tag, color, strength / 1000.0, pts, nums))
+                # TAGS 4-6 TRAIL A SECOND COLOUR AND THEIR OWN GEOMETRY, after the
+                # polygon rather than before it, so every other tag's line is
+                # unchanged. Tag 4 -- the truck's headlight beams and brake glow --
+                # is the only one this renders; 5 and 6 are the bull's, and the
+                # baked table still flattens those to their first stop.
+                color2 = int(tail[0]) if tag >= 4 and tail else 0
+                geom = [int(x) / 100.0 for x in tail[1:]] if tag >= 4 else []
+                cur[3].append((tag, color, strength / 1000.0, pts, nums + geom, color2, geom))
     return scenes
 
 
@@ -254,7 +269,7 @@ def svg(name, top, hor, cmds):
     # tag 1 is a horizontal round gradient across the polygon's own x-extent:
     # dark edge, bright centre, dark edge, with a per-polygon strength.
     grads = []
-    for i, (tag, color, st, pts, raw) in enumerate(cmds):
+    for i, (tag, color, st, pts, raw, color2, geom) in enumerate(cmds):
         if tag != 1 or not pts:
             continue
         xs = [p[0] for p in pts]
@@ -268,13 +283,28 @@ def svg(name, top, hor, cmds):
             f'<stop offset="0.5" stop-color="{shade(color, 1 + 0.25 * st)}"/>'
             f'<stop offset="1" stop-color="{shade(color, 1 - 0.4 * st)}"/>'
             f'</linearGradient>')
+    # TAG 4 IS A RADIAL FILL WITH ALPHA IN BOTH STOPS -- the headlight beams and the
+    # brake-light halo, whose whole character is that they are LIGHT rather than
+    # paint. Its centre and radius arrive in screen pixels, which is what
+    # userSpaceOnUse takes, so the SVG can draw the real thing rather than an
+    # approximation of it for once.
+    for i, (tag, color, st, pts, raw, color2, geom) in enumerate(cmds):
+        if tag != 4 or len(geom) < 3 or geom[2] < 0.5:
+            continue
+        cx, cy, r = geom[0], geom[1], geom[2]
+        grads.append(
+            f'<radialGradient id="g{i}" gradientUnits="userSpaceOnUse" '
+            f'cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}">'
+            f'<stop offset="0" stop-color="{rgb(color)}" stop-opacity="{alpha(color):.3f}"/>'
+            f'<stop offset="1" stop-color="{rgb(color2)}" stop-opacity="{alpha(color2):.3f}"/>'
+            f'</radialGradient>')
     out += grads
     out.append("</defs>")
     out.append(f'<rect width="{W}" height="{H}" fill="url(#sky)"/>')
     # The grass is painted under everything, as the blitter does; the ground quads
     # then cover it wherever there is road.
     out.append(f'<rect y="{H//2}" width="{W}" height="{H//2}" fill="{GRASS}"/>')
-    for i, (tag, color, st, pts, raw) in enumerate(cmds):
+    for i, (tag, color, st, pts, raw, color2, geom) in enumerate(cmds):
         if tag == 3:  # a disc: x, y, r with alpha in strength
             if len(raw) < 3:
                 continue
@@ -288,7 +318,7 @@ def svg(name, top, hor, cmds):
             continue
         d = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         xs = [p[0] for p in pts]
-        use_grad = tag == 1 and (max(xs) - min(xs)) >= 1
+        use_grad = (tag == 1 and (max(xs) - min(xs)) >= 1) or (tag == 4 and len(geom) >= 3 and geom[2] >= 0.5)
         fill = f"url(#g{i})" if use_grad else rgb(color)
         out.append(f'<polygon points="{d}" fill="{fill}"/>')
     out.append("</svg>")
@@ -308,11 +338,19 @@ def check_xml(path, text):
 
 
 def main():
-    exe = ROOT / "build" / "spike"
-    if not exe.exists():
-        raise SystemExit("build/spike not built -- run ./harness/spike.sh")
-    text = subprocess.run([str(exe)], cwd=ROOT / "build",
-                          capture_output=True, text=True, check=True).stderr
+    # ONE BINARY PER GROUP OF VIEWPOINTS. Named on the command line, output
+    # concatenated: the prelude's bump heap never reclaims and a native binary has
+    # no arena rewind, so six frames is what one process holds (C6). Nothing here
+    # cares which binary a SCENE block came from.
+    names = sys.argv[1:] or ["spike"]
+    chunks = []
+    for name in names:
+        exe = ROOT / "build" / name
+        if not exe.exists():
+            raise SystemExit(f"build/{name} not built -- run ./harness/spike.sh")
+        chunks.append(subprocess.run([str(exe)], cwd=ROOT / "build",
+                                     capture_output=True, text=True, check=True).stderr)
+    text = "\n".join(chunks)
     prof = parse_profile(text)
     scenes = parse(text)
     if not scenes:

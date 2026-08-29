@@ -32,6 +32,18 @@ var cx_world: ?*CxList(Segment) = null;
 var cx_rider: RiderStateS = undefined;
 var cx_hp_base: i64 = 0;
 
+// THE CHASE, kept out here for the same reason the rider is: it is state, the
+// program is pure, and a record returned by the transpiled side is a pointer into
+// an arena that renderFrame rewinds. TruckStateS is three flat scalars -- route
+// position, speed, braking -- so the shim holds a VALUE and passes its address.
+//
+// It is stepped in LOCKSTEP with the rider and against the NEW rider distance,
+// which is safari.zig's own order and not an arbitrary one: the truck's schedule
+// anchors to where the rider is NOW, so stepping it against the old distance
+// would leave the chase one frame stale at exactly the moments it is tightest.
+var cx_truck: TruckStateS = undefined;
+var cx_course: f64 = 0;
+
 // THE SUNSET CLOCK, a plain frame count exactly as safari.zig keeps it: it starts
 // at 0, gains one per advance and gives one back on the way out, and resets at the
 // finish line. Drive used to DERIVE it from route distance, which put the whole
@@ -47,18 +59,22 @@ var cx_clock: f64 = 0;
 // speeds measured above, which is plenty for stepping back to look at something.
 const HIST: usize = 2048;
 var cx_hist: [HIST]RiderStateS = undefined;
+var cx_thist: [HIST]TruckStateS = undefined;
 var cx_hn: usize = 0;
 
 fn ensure() void {
     if (cx_world != null) return;
     cx_world = build_world();
     cx_rider = initial_rider_state().*;
+    cx_truck = truck_initial().*;
+    cx_course = course_length(cx_world.?);
     // AFTER the world, never before: the rewind goes back to here.
     cx_hp_base = cx_hp;
 }
 
 fn restart() void {
     cx_rider = initial_rider_state().*;
+    cx_truck = truck_initial().*;
     cx_hn = 0;
     cx_clock = 0;
 }
@@ -67,7 +83,7 @@ pub export fn renderFrame() u32 {
     ensure();
     cx_hp = cx_hp_base;
     var w: usize = 0;
-    const cmds = frame_for(cx_world.?, &cx_rider, cx_clock);
+    const cmds = frame_for(cx_world.?, &cx_rider, &cx_truck, cx_clock);
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
@@ -151,9 +167,11 @@ pub export fn advance() void {
     }
     if (cx_hn < HIST) {
         cx_hist[cx_hn] = cx_rider;
+        cx_thist[cx_hn] = cx_truck;
         cx_hn += 1;
     }
     cx_rider = get_next_rider_state(&cx_rider, cx_world.?).*;
+    cx_truck = truck_next(&cx_truck, route_distance(cx_world.?, cx_rider.segment, cx_rider.along), cx_world.?, cx_course).*;
     cx_clock += 1;
 }
 
@@ -162,6 +180,7 @@ pub export fn back() void {
     if (cx_hn == 0) return;
     cx_hn -= 1;
     cx_rider = cx_hist[cx_hn];
+    cx_truck = cx_thist[cx_hn];
     if (cx_clock > 0) cx_clock -= 1;
 }
 
@@ -231,4 +250,21 @@ pub export fn sunScale() f32 {
 pub export fn riderV() f32 {
     ensure();
     return @floatCast(cx_rider.v_);
+}
+
+// THE CHASE, read out the way safari.zig reads it out: the LEAD rather than the
+// position, because the lead is what the page is about and the position on its own
+// says nothing without the rider's. Negative means the rider is past it.
+pub export fn truckLead() f32 {
+    ensure();
+    cx_hp = cx_hp_base;
+    return @floatCast(cx_truck.pos - route_distance(cx_world.?, cx_rider.segment, cx_rider.along));
+}
+pub export fn truckV() f32 {
+    ensure();
+    return @floatCast(cx_truck.v_);
+}
+pub export fn truckBraking() u32 {
+    ensure();
+    return @intFromBool(cx_truck.braking);
 }

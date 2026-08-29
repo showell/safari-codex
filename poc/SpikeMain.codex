@@ -1,58 +1,26 @@
 Chapter: SpikeMain
   cites Foreword chapter Console
-  cites Safari chapter Num
-  cites Safari chapter Paint
   cites Safari chapter Sky
   cites Poc chapter Spike
+  cites Poc chapter SpikePrint
 
  SPIKE ONLY. THROWAWAY. Prints one still frame's draw commands as text, for
  harness/spike_svg.py to turn into a picture. Nothing grades this and nothing
  depends on it.
 
- COORDINATES GO OUT AS SCALED INTEGERS because `show` on a Real is still refused
- by the zig plug -- it needs a __real_to_text it does not have. real-to-int landed
- in 2026-08-29's plug work, so hundredths of a pixel is a plain multiply and a
- truncation, and a hundredth of a pixel is far finer than anything an SVG viewed
- at 960 by 600 can show.
+ SIX VIEWPOINTS IS WHAT ONE PROCESS HOLDS. The prelude never reclaims (C6) and a
+ native binary has no arena rewind, so the frames of one run accumulate; six comes
+ to just under the 4 GiB reserve. The truck's two stills therefore live in
+ `Poc chapter SpikeTruckMain`, which cites the printing below rather than
+ repeating it, and harness/spike.sh runs both binaries.
 
- ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
- print per command. A Codex `act` has no recursive loop shape, and a chapter is
- not the place to discover one for a throwaway: building the text purely and
- handing it to a single print is the boring option and it is fine here, because a
- frame is about a hundred kilobytes of digits.
-
-   C <tag> <colour> <strength e-3> <n> <x e-2> <y e-2> ... ; C ... ; C ...
+ The printing itself is `Poc chapter SpikePrint`, shared with the truck entry.
 
  We say:
 
-Section: Printing
-
-  scaled : Real -> Text
-  scaled (v) = show (real-to-int (v * 100.0))
-
-  coords : List Real, Integer -> Text
-  coords (ps) (i) =
-    if i >= list-length ps then ""
-    else " " & scaled (list-at ps i) & coords ps (i + 1)
-
-  cmd-line : DrawCmd -> Text
-  cmd-line (c) =
-    "C " & show c.tag & " " & show c.color & " " & show (real-to-int (c.strength * 1000.0)) & " " & show (list-length c.pts / 2) & coords c.pts 0
-
-  all-cmds : List DrawCmd, Integer -> Text
-  all-cmds (cs) (i) =
-    if i >= list-length cs then ""
-    else cmd-line (list-at cs i) & " ; " & all-cmds cs (i + 1)
-
 Section: Entry
 
- One block per viewpoint. The SCENE line carries the sky and horizon colours too,
- because blitter.js paints those itself from the module's numbers and an SVG has
- to do the same or the frame floats on nothing.
-
-  scene-line : Text, Real -> Text
-  scene-line (name) (u) =
-    "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
+ One block per viewpoint.
 
   prof-pt : ProfilePt -> Text
   prof-pt (p) =

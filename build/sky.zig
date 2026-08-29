@@ -319,7 +319,7 @@ fn g_sun_visible() *CxList(bool) {
 }
 
 fn g_sun_x() *CxList(f64) {
-    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4647151865492930560))), (-@as(f64, @bitCast(@as(i64, 4619469358178351485)))), (-@as(f64, @bitCast(@as(i64, 4653781888062875658)))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4655276928327925472))), @as(f64, @bitCast(@as(i64, 4652822761639929446))), @as(f64, @bitCast(@as(i64, 4647151865492930560))), @as(f64, @bitCast(@as(i64, 4640813477211214908))), (-@as(f64, @bitCast(@as(i64, 4648802853098545983)))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4653096508369310790))), @as(f64, @bitCast(@as(i64, 4651029601375421192))) });
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4647151865492930560))), (-@as(f64, @bitCast(@as(i64, 4619469392630888635)))), (-@as(f64, @bitCast(@as(i64, 4653781888062875658)))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4655276928327925472))), @as(f64, @bitCast(@as(i64, 4652822761639929446))), @as(f64, @bitCast(@as(i64, 4647151865492930560))), @as(f64, @bitCast(@as(i64, 4640813477211214908))), (-@as(f64, @bitCast(@as(i64, 4648802853098545983)))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4653096508369310790))), @as(f64, @bitCast(@as(i64, 4651029601375421192))) });
 }
 
 fn g_sun_y() *CxList(f64) {

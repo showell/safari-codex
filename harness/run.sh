@@ -34,7 +34,13 @@ for check in judge/*Check.codex; do
   python3 harness/gen_gold.py "$base" >/dev/null
   python3 harness/bundle.py "$check" "build/$mod-unit.codex"
   "$codexzig" < "build/$mod-unit.codex" 2> "build/$mod.zig" > "build/$mod.diag"
-  ( cd build && "$zig" build-exe "$mod.zig" -O ReleaseFast )
+  # DEBUG, like the probe. Nothing here is a benchmark -- these are correctness
+  # checks -- and Debug additionally turns ON zig's safety checks, which is what a
+  # correctness harness wants. ReleaseFast cost 22 s a module against Debug's 1 s,
+  # LLVM optimising the Codex runtime prelude, and zig does not cache it between
+  # runs. angry-gopher splits it the same way: its shipping builds are optimised,
+  # every one of its checks runs a bare `zig test`. PORTING_NOTES C9.
+  ( cd build && "$zig" build-exe "$mod.zig" )
 
   echo "--- $base ---"
   # The graded program writes to stderr (std.debug.print), so that is what is read.

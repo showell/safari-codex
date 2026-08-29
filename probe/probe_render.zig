@@ -37,6 +37,10 @@ const geom = @import("wasm/geom.zig");
 const world = @import("wasm/world.zig");
 const render = @import("wasm/render.zig");
 const safari_critter = @import("wasm/safari_critter.zig");
+const guard_rail = @import("wasm/guard_rail.zig");
+const paint = @import("wasm/paint.zig");
+const camera = @import("wasm/camera.zig");
+const truck = @import("wasm/truck.zig");
 
 // COPIED from render.zig's private consts -- see the header. Nothing else here is.
 const LOOK_AHEAD: usize = 7;
@@ -57,6 +61,14 @@ var na: usize = 0;
 
 var prevs: [512]f32 = undefined;
 var npv: usize = 0;
+
+var cull: [64]u32 = undefined;
+var ncu: usize = 0;
+var rail_fwd: [8192]f32 = undefined;
+var rail_n: [32]u32 = undefined;
+var path_n: [32]u32 = undefined;
+var nrf: usize = 0;
+var nrn: usize = 0;
 
 var sc_n: [32]u32 = undefined;
 var sc_cp: [64]u32 = undefined;
@@ -115,6 +127,68 @@ fn samplePrev(prev: world.Segment, pose: render.Pose) void {
         }
     }
 }
+
+// emitJointRail's path, composed from the pub pieces: render.at for a chain-side
+// mapper, geom.curToNext then geom.toRider for the behind one, geom.lineMeet for
+// the apex, and pushLeg's own ~1 m spacing. guard_rail.emit IS pub, so the store
+// it raises is a real oracle even though the path that feeds it is a composition.
+fn mapChain(w: *const world.World, ch: *const render.Chain, pose: render.Pose, d: usize, a: f32, x: f32) geom.RiderPt {
+    return render.at(w, ch, pose, d, a, x);
+}
+fn mapPrev(prev: world.Segment, pose: render.Pose, a: f32, x: f32) geom.RiderPt {
+    const q = geom.curToNext(a, x, prev.length, prev.exit_angle, prev.exit_right, prev.width);
+    return geom.toRider(q.a, q.x, pose.along, pose.across, pose.yaw, pose.hw);
+}
+
+var path: [512]geom.RiderPt = undefined;
+var pn: usize = 0;
+
+fn pushLeg(from: geom.RiderPt, to: geom.RiderPt) void {
+    const dr = to.right - from.right;
+    const df = to.forward - from.forward;
+    const dist = @sqrt(dr * dr + df * df);
+    const steps: usize = @intFromFloat(@max(1.0, @round(dist)));
+    var i: usize = 1;
+    while (i <= steps and pn < path.len) : (i += 1) {
+        const t: f32 = @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(steps));
+        path[pn] = .{ .right = from.right + dr * t, .forward = from.forward + df * t };
+        pn += 1;
+    }
+}
+
+// from_prev selects the behind mapper for the `from` side; the `to` side is always
+// a chain index here, as it is in render.
+fn jointPath(w: *const world.World, ch: *const render.Chain, pose: render.Pose,
+             from_prev: bool, prev: world.Segment, from_d: usize, to_d: usize,
+             from_len: f32, from_w: f32, to_w: f32, exit_right: bool) void {
+    const fcu: f32 = if (exit_right) 0 else from_w;
+    const tx: f32 = if (exit_right) 0 else to_w;
+    const of_pt = if (from_prev) mapPrev(prev, pose, from_len, fcu) else mapChain(w, ch, pose, from_d, from_len, fcu);
+    const of_1 = if (from_prev) mapPrev(prev, pose, from_len + 1, fcu) else mapChain(w, ch, pose, from_d, from_len + 1, fcu);
+    const ot_pt = mapChain(w, ch, pose, to_d, 0, tx);
+    const ot_1 = mapChain(w, ch, pose, to_d, 1, tx);
+    const q = geom.lineMeet(of_pt, of_1, ot_pt, ot_1);
+    pn = 0;
+    var m: usize = guard_rail.RAIL_RUNOUT;
+    while (true) : (m -= 1) {
+        const mm: f32 = @floatFromInt(m);
+        if (pn < path.len) {
+            path[pn] = if (from_prev) mapPrev(prev, pose, from_len - mm, fcu) else mapChain(w, ch, pose, from_d, from_len - mm, fcu);
+            pn += 1;
+        }
+        if (m == 0) break;
+    }
+    pushLeg(of_pt, q);
+    pushLeg(q, ot_pt);
+    var mo: usize = 1;
+    while (mo <= guard_rail.RAIL_RUNOUT and pn < path.len) : (mo += 1) {
+        const mm: f32 = @floatFromInt(mo);
+        path[pn] = mapChain(w, ch, pose, to_d, mm, tx);
+        pn += 1;
+    }
+}
+
+var store: guard_rail.RailStore = .{};
 
 pub fn main() void {
     var w = world.buildWorld();
@@ -179,6 +253,76 @@ pub fn main() void {
         }
     }
 
+    // THE CULL COUNTERS, THROUGH THE REAL frame(). These two are render.zig's only
+    // pub output besides the paint buffer, and between them they observe most of
+    // the collection: cull_size counts every farm animal, corner creature and duck
+    // that was placed, mapped, projected and then found too small, and cull_seg
+    // sums the herds on chain segments past the farm reach -- a function of the
+    // chain's own EXTENT, so it is the oracle E1 said would close the caps.
+    //
+    // The states span the branches: seg 0 has no joint behind it, the long seg 6
+    // carries a mid-tower, seg 12 is the pond corner, seg 16 sits three from the
+    // terminus so the chain runs short. Two are mid-lean (a pulled-in focal), and
+    // the truck is placed both behind the rider and ahead of him.
+    const States = struct { seg: usize, along: f32, across: f32, yaw: f32, v: f32, focal: f32, vyaw: f32, tpos: f32 };
+    const states = [_]States{
+        .{ .seg = 0, .along = 12.0, .across = 0.0, .yaw = 0.0, .v = 1.2, .focal = camera.FOCAL, .vyaw = 0.0, .tpos = 0.0 },
+        .{ .seg = 0, .along = 460.0, .across = 1.1, .yaw = 0.09, .v = 1.4, .focal = camera.FOCAL, .vyaw = 0.03, .tpos = 700.0 },
+        .{ .seg = 2, .along = 150.0, .across = -0.8, .yaw = -0.12, .v = 1.6, .focal = camera.FOCAL * 0.6, .vyaw = -0.05, .tpos = 0.0 },
+        .{ .seg = 5, .along = 40.0, .across = 0.3, .yaw = 0.02, .v = 1.1, .focal = camera.FOCAL, .vyaw = 0.0, .tpos = 2400.0 },
+        .{ .seg = 6, .along = 600.0, .across = 0.0, .yaw = 0.0, .v = 2.0, .focal = camera.FOCAL, .vyaw = 0.0, .tpos = 0.0 },
+        .{ .seg = 9, .along = 700.0, .across = -1.5, .yaw = 0.25, .v = 0.9, .focal = camera.FOCAL * 0.35, .vyaw = 0.11, .tpos = 0.0 },
+        .{ .seg = 12, .along = 280.0, .across = 0.6, .yaw = -0.3, .v = 1.3, .focal = camera.FOCAL, .vyaw = 0.0, .tpos = 0.0 },
+        .{ .seg = 16, .along = 100.0, .across = 0.0, .yaw = 0.0, .v = 1.0, .focal = camera.FOCAL, .vyaw = 0.0, .tpos = 0.0 },
+    };
+    for (states) |st| {
+        paint.reset();
+        const tk = truck.State{ .pos = st.tpos, .v = 1.2, .braking = false };
+        render.frame(&w, st.seg, st.along, st.across, st.yaw, 0.0, 30.0, st.v, st.focal, st.vyaw, tk);
+        cull[ncu] = render.cull_seg;
+        cull[ncu + 1] = render.cull_size;
+        ncu += 2;
+    }
+
+    // THE RAILS each of those states collects, in render's own joint order: every
+    // forward joint down the chain, then the joint behind. Depth only -- the
+    // corners are already graded in GuardRailCheck; what is new is that the path
+    // is built off the CHAIN, so a wrong join puts the whole corner at the wrong
+    // depth and sorts it against the wrong trees. f-pathn is the longest path any
+    // joint produced, which is what says whether render's private 192-point cap
+    // is anywhere near being reached.
+    for (states) |st| {
+        var idx: [MAX_CHAIN]usize = undefined;
+        const len = chainOf(&w, st.seg, &idx);
+        const ch = toChain(idx[0..len]);
+        const cur = w.segments[st.seg];
+        const pose = render.Pose{ .along = st.along, .across = st.across, .yaw = st.yaw + st.vyaw, .hw = cur.width / 2.0 };
+        store.reset();
+        var longest: usize = 0;
+        var d: usize = 0;
+        while (d + 1 < len) : (d += 1) {
+            const fs = w.segments[idx[d]];
+            const ts = w.segments[idx[d + 1]];
+            jointPath(&w, &ch, pose, false, cur, d, d + 1, fs.length, fs.width, ts.width, fs.exit_right);
+            if (pn > longest) longest = pn;
+            guard_rail.emit(&store, path[0..pn]);
+        }
+        if (st.seg > 0) {
+            const pv = w.segments[st.seg - 1];
+            jointPath(&w, &ch, pose, true, pv, 0, 0, pv.length, pv.width, cur.width, pv.exit_right);
+            if (pn > longest) longest = pn;
+            guard_rail.emit(&store, path[0..pn]);
+        }
+        rail_n[nrn] = @intCast(store.n);
+        path_n[nrn] = @intCast(longest);
+        nrn += 1;
+        var i: usize = 0;
+        while (i < store.n) : (i += 1) {
+            rail_fwd[nrf] = store.polys[i].fwd;
+            nrf += 1;
+        }
+    }
+
     std.debug.print("I r-chainlen", .{});
     for (chain_len[0..ncl]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nI r-chain", .{});
@@ -193,6 +337,12 @@ pub fn main() void {
     for (sc_cp[0..nsc]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nB sc-face", .{});
     for (sc_face[0..nsc]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI f-cull", .{});
+    for (cull[0..ncu]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI f-railn", .{});
+    for (rail_n[0..nrn]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nR f-railfwd", .{});
+    for (rail_fwd[0..nrf]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR sc-place", .{});
     for (sc_r[0..nsr]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\n", .{});

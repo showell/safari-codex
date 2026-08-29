@@ -2,6 +2,8 @@ Chapter: RenderCheck
   cites Foreword chapter Console
   cites Safari chapter Geom
   cites Safari chapter World
+  cites Safari chapter Camera
+  cites Safari chapter GuardRail
   cites Safari chapter Render
   cites Safari chapter SafariCritter
   cites Judge chapter Grade
@@ -229,6 +231,117 @@ Section: The Corner Pair Streams
     else let c = list-at cs i
     in [c.along, c.across, c.height] & cr-place cs (i + 1)
 
+Section: The Frame States
+
+ Eight rider states, chosen as branches. Segment 0 has NO joint behind it, which
+ is the one place the behind-joint pass is skipped entirely. Segment 6 is the
+ 1200 m leg that carries a mid-tower. Segment 12 is the pond corner. Segment 16
+ sits three from the terminus, so the chain runs SHORT -- and that state is the
+ one that makes the chain's extent visible, because a three-long chain never
+ reaches the farm cull's third index and its seg tally is therefore zero. Two
+ states are mid-lean, at 0.6 and 0.35 of the base focal, so the tree cull moves
+ while the critter cull -- measured against the stable focal -- does not. The
+ truck is placed behind the rider in six of them and ahead in two.
+
+  State = record {
+    seg : Integer,
+    along : Real,
+    across : Real,
+    yaw : Real,
+    cf : Real,
+    vyaw : Real,
+    tpos : Real
+  }
+
+  states : List State
+  states = [State { seg = 0, along = 12.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 0, along = 460.0, across = 1.1, yaw = 0.09, cf = focal, vyaw = 0.03, tpos = 700.0 }, State { seg = 2, along = 150.0, across = 0.0 - 0.8, yaw = 0.0 - 0.12, cf = focal * 0.6, vyaw = 0.0 - 0.05, tpos = 0.0 }, State { seg = 5, along = 40.0, across = 0.3, yaw = 0.02, cf = focal, vyaw = 0.0, tpos = 2400.0 }, State { seg = 6, along = 600.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 9, along = 700.0, across = 0.0 - 1.5, yaw = 0.25, cf = focal * 0.35, vyaw = 0.11, tpos = 0.0 }, State { seg = 12, along = 280.0, across = 0.6, yaw = 0.0 - 0.3, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 16, along = 100.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }]
+
+  pose-of : State -> Pose
+  pose-of (st) =
+    Pose { along = st.along, across = st.across, yaw = st.yaw + st.vyaw, hw = (list-at segs st.seg).width / 2.0 }
+
+  collect-of : State -> Collected
+  collect-of (st) = collect segs st.seg (pose-of st) st.cf st.along st.tpos
+
+Section: The Cull Stream
+
+ The seg tally then the size tally, per state. These two integers are the ONLY
+ thing render.zig makes observable about its collection, and between them they
+ constrain most of it: a size tally is wrong unless every farm animal, corner
+ creature and duck was placed in the right frame, mapped, projected and measured
+ against the right focal, and a seg tally is wrong unless the chain stopped in
+ exactly the right place.
+
+  cull-stream : Integer -> List Integer
+  cull-stream (i) =
+    if i >= list-length states then []
+    else (cull-pair (collect-of (list-at states i))) & cull-stream (i + 1)
+
+  cull-pair : Collected -> List Integer
+  cull-pair (c) = [c.cull-seg, c.cull-size]
+
+Section: The Rail Streams
+
+ The rail polys each state collects, in render's own joint order -- every forward
+ joint down the chain, then the joint behind -- and the depth each one sorts by.
+ The corners themselves are already graded in GuardRailCheck; what is new is that
+ the path is now built off the CHAIN, so a wrong join puts a whole corner at the
+ wrong depth and sorts it against the wrong trees.
+
+  rail-count-stream : Integer -> List Integer
+  rail-count-stream (i) =
+    if i >= list-length states then []
+    else [list-length (collect-of (list-at states i)).rails] & rail-count-stream (i + 1)
+
+  fwds-of : List RailPoly, Integer -> List Real
+  fwds-of (rs) (i) =
+    if i >= list-length rs then []
+    else [(list-at rs i).fwd] & fwds-of rs (i + 1)
+
+  rail-fwd-stream : Integer -> List Real
+  rail-fwd-stream (i) =
+    if i >= list-length states then []
+    else (fwds-of (collect-of (list-at states i)).rails 0) & rail-fwd-stream (i + 1)
+
+Section: The Depth Order
+
+ THIS ONE HAS NO ORACLE AND IS A PROPERTY, NOT A COMPARISON, and it is labelled so
+ rather than dressed up. The sorted item list lives inside render.zig's `frame` as
+ locals and never leaves it; the wire it eventually writes carries commands from
+ three drawers this port cannot produce, so there is nothing to compare against.
+ What CAN be asserted is what the sort promises: the order is non-increasing in
+ depth, and it neither gains nor loses items.
+
+ That is worth asserting even without an oracle. Every depth in it came from `at`,
+ which IS graded against the real function, so the inputs are known good; what the
+ property covers is the merge and the sort itself. An unstable sort or a merge that
+ dropped the truck would show here.
+
+  inversions : List Item, Integer -> Integer
+  inversions (xs) (i) =
+    if i + 1 >= list-length xs then 0
+    else if (list-at xs i).fwd < (list-at xs (i + 1)).fwd then 1 + inversions xs (i + 1)
+    else inversions xs (i + 1)
+
+  merged-count : Collected -> Integer
+  merged-count (c) =
+    list-length c.trees + list-length c.towers + list-length c.cows + list-length c.rails + list-length (truck-items c.truck)
+
+  order-defects : Integer -> List Integer
+  order-defects (i) =
+    if i >= list-length states then []
+    else (defect-pair (collect-of (list-at states i))) & order-defects (i + 1)
+
+  defect-pair : Collected -> List Integer
+  defect-pair (c) = [inversions c.order 0, list-length c.order - merged-count c]
+
+ Both numbers are zero for every state, and the expected list is written HERE
+ rather than read from gold, because the probe measures nothing for it. Sixteen
+ zeros, two per state.
+
+  no-defects : List Integer
+  no-defects = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
 Section: Entry
 
  Chain indices, lengths, codepoints and counts take NO tolerance: they are
@@ -284,4 +397,8 @@ Section: Entry
     print-line-uni (grade-ints "sc-cp     " (cr-cps (sc-all 0) 0) g-sc-cp)
     print-line-uni (grade-bools "sc-face   " (cr-faces (sc-all 0) 0) g-sc-face)
     print-line-uni (grade-rel  "sc-place  " (cr-place (sc-all 0) 0) g-sc-place 0.000001)
+    print-line-uni (grade-ints "f-cull    " (cull-stream 0) g-f-cull)
+    print-line-uni (grade-ints "f-railn   " (rail-count-stream 0) g-f-railn)
+    print-line-uni (grade-px   "f-railfwd " (rail-fwd-stream 0) g-f-railfwd 0.00025 0.000001)
+    print-line-uni (grade-ints "f-order   " (order-defects 0) no-defects)
   end

@@ -21,8 +21,14 @@ and prints `GREEN` or `RED`. For each module it:
 3. bundles the check with `harness/bundle.py`;
 4. transpiles it with `codexzig`, builds the Zig, runs it, and grades.
 
-About five seconds per module. **Nothing here boots a QEMU guest** — this is not
-the ladder's usual cadence, and none of the ladder's compute rules apply.
+**About three seconds per module, and it used to be fifty.** All of the difference
+was `zig build-exe -O ReleaseFast` — 22s for even a 495-line generated file, LLVM
+optimising the Codex runtime prelude that every one embeds, run twice per module
+and *not* cached between sweeps. Nothing here is a benchmark, so both builds are
+Debug now, which also turns on the safety checks a correctness harness wants.
+`PORTING_NOTES` C9 has the measurements, including the one value in the whole port
+that the optimisation level moves. **Nothing here boots a QEMU guest** — this is
+not the ladder's usual cadence, and none of the ladder's compute rules apply.
 
 ## Layout
 
@@ -120,7 +126,7 @@ already narrows at.
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 | `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
-| `port/Render.codex` | `wasm/render.zig`'s **mapping spine** | 1,475 values |
+| `port/Render.codex` | `wasm/render.zig`'s **spine + collection pass** | 3,957 values |
 
 **`Render` is the first module whose CHECK was shaped by the zig's `pub`
 markers rather than by its own structure.** render.zig's entire public surface is
@@ -138,11 +144,42 @@ pub and sums the herds over chain indices 3 and up, so the collection pass turns
 the chain's extent into a number WorldCheck's graded counts predict. See
 `PORTING_NOTES` E1.
 
-What is ported is the spine, not yet the frame: `frame` itself is 431 lines that
-collect, cull, depth-sort and draw, and its draw dispatch reaches `critter.draw`,
-`cat.draw` and `truck.drawBody` — the three baked-frame billboard drawers. The
-chain walk, the joins and the mappers are what everything else in the module
-stands on, and they are what is graded here.
+**The collection pass is in: the chain walk, both culls, and the unified depth
+sort.** What `frame` gathers — trees, towers, the cow and pig herds, the corner
+safari pairs, the pond ducks, the guard rails and the chased truck — and the one
+back-to-front order over the lot. What is *not* here is the ground: the road
+strips, corner pavement and the pond's water and bank are painted inside the same
+walk, but they are quads on the floor that never enter the sort, so they belong to
+the paint pass.
+
+**`cull_seg` and `cull_size` turned out to be a much stronger check than two
+integers sound like**, and they are what closed E1's transcribed caps. A size tally
+is wrong unless every farm animal, corner creature and duck was placed in the right
+frame, mapped, projected and measured against the right focal — and the critters
+cull on the *stable* base focal while the trees cull on the live one, so a port that
+used the same focal for both fails. A seg tally is wrong unless the chain stopped in
+exactly the right place: the state on segment 16 has a three-long chain that never
+reaches the farm cull's third index, so its tally is zero, and that is the chain's
+extent made observable from outside render.zig.
+
+**The cat is the one collected kind still missing, and it is blocked rather than
+skipped.** `cat.state` is otherwise portable — its pose indices are plain constants,
+not baked polygons — but the airborne branch interpolates by `pow(b, 0.7)` and Codex
+has no power function. `Num` already grew `exp-real`; what is missing is its other
+half, a logarithm. So that is a third gap in the foreword beside `r-atan`, not a
+hole in the plug. The depth-order seam is graded on chains the route itself makes
+cat-free — cats sit on segments 1, 12 and 18 only.
+
+**The sort is the one place the port departs from the zig on purpose.** render.zig
+insertion-sorts, which is right for a mutable array. Carried literally onto Codex
+lists it exhausted the whole 4 GiB bump heap: there is nothing to shift, so
+rebuilding the tail past each insertion allocates a list per element and the sort
+goes cubic in allocations. A *stable* merge sort gives the identical order — same
+comparison, same tie rule — at roughly a hundred megabytes. Porting an algorithm
+faithfully means porting its answer, not its cost model; `PORTING_NOTES` E4.
+
+Still not ported: `frame`'s draw dispatch, which reaches `critter.draw`, `cat.draw`
+and `truck.drawBody` — the three baked-frame billboard drawers.
 
 **`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
 here had before. `at` composes a point down a kilometre of chain and hands back one

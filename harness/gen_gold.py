@@ -49,8 +49,17 @@ def build_and_run(chapter):
     src = f'probe_{snake(chapter)}.zig'
     if not (probe / src).is_file():
         raise SystemExit(f'no probe/{src}')
-    subprocess.run([str(ZIG), 'build-exe', src, '-O', 'ReleaseFast'],
-                   cwd=probe, check=True)
+    # DEBUG. There is no optimisation level that makes this binary "the" oracle, so
+    # it may as well be the cheap one -- see PORTING_NOTES C9. The game ships TWICE,
+    # at two levels on two targets: the browser wasm at -O ReleaseSmall and the
+    # native screensaver at ReleaseFast. A native ReleaseFast probe matches neither
+    # authoritatively, so this is a REFERENCE computation of the game's algorithm,
+    # and what makes the port trustworthy is the calibrated tolerance, not the last
+    # bit of one build. Measured: the level moves exactly one value in the whole
+    # port, sky's sun_x, by about 36 ulps, and the check is green either way.
+    # zig does not cache this -- a warm rebuild of an unchanged probe was 28 s
+    # against a 22 s cold one -- so ReleaseFast was 25 s per module on EVERY sweep.
+    subprocess.run([str(ZIG), 'build-exe', src], cwd=probe, check=True)
     # The probes write to stderr: zig 0.16 removed std.io.getStdOut() and
     # std.debug.print is what the rest of this harness uses.
     out = subprocess.run([f'./probe_{snake(chapter)}'], cwd=probe,

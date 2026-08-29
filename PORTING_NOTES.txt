@@ -542,3 +542,82 @@ E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
     body -- and that worked because those splits were also visibility splits. It
     is not guaranteed. Read the pub markers first; they are the real contract,
     and they can make a natural seam ungradeable and an awkward one free.
+
+E3. RENDER'S PRIVATE RAIL-PATH CAP IS NOWHERE NEAR LIVE. RAIL_PATH_CAP is 192
+    points and the longest path any joint produced across eight rider states was
+    27 — run-up 11, both legs into and out of the apex, run-out 10. So the port
+    leaves the cap out rather than porting a truncation that cannot fire, and
+    that is now a measurement instead of an assumption. Same for the collection
+    caps: MAX_VIS_TREES is 640 against a peak render itself puts near 37 percent.
+
+E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
+
+    render.zig depth-sorts its scenery with an insertion sort, which is right for
+    a mutable array of a few hundred items. Ported literally onto Codex lists it
+    exhausted the whole 4 GiB bump heap and killed the check.
+
+    The reason is that an insertion sort has nothing to shift. Rebuilding the tail
+    past the insertion point allocates a list PER ELEMENT, so one insert is
+    quadratic in allocations and the sort is cubic — about 700 items across eight
+    frames, and the heap that never reclaims (C6) turns that from slow into fatal.
+
+    A STABLE MERGE SORT GIVES THE IDENTICAL ORDER. Same comparison, same tie rule,
+    so nothing observable changes; the cost falls to quadratic in copies, roughly
+    a hundred megabytes. The port takes the merge and says so at the definition.
+
+    The general shape: an in-place algorithm carried across to persistent lists can
+    gain a whole complexity class, and on this arm that is a crash rather than a
+    wait. Check the cost model of anything that mutates in place before porting it
+    line for line — the ANSWER is what has to match.
+
+
+================================================================================
+C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
+================================================================================
+
+    Per module the loop was flat at about 50 s no matter how big the port was --
+    Pond's 495 lines of generated zig cost the same as Render's 1,714. All of it
+    was `zig build-exe -O ReleaseFast`, run TWICE per module (probe and check):
+
+        pond.zig, 495 lines   ReleaseFast 22 s     Debug 1 s
+        transpile                          2 s
+        the graded program itself running  0.5 s
+
+    So an eleven-module sweep was nine minutes, of which about eight and a half
+    were LLVM optimising the Codex runtime prelude that every generated file
+    embeds. README's "about five seconds per module" was never right.
+
+    AND ZIG DOES NOT CACHE IT. Rebuilding an UNCHANGED probe a second time took
+    28 s against the cold build's 22 s -- slower, not cached. So this was not a
+    one-time cost being amortised; it was 25 s per module on every single sweep,
+    forever.
+
+    THE FIRST ATTEMPT AT THIS NOTE CLAIMED THE LEVEL CHANGES NO ANSWER. That was
+    wrong, and how it was wrong is the interesting part. It moves exactly one
+    value in the whole port:
+
+        sky's sun_x    ReleaseFast -6.9129944     Debug -6.913025
+
+    about 36 ulps, or 4.4e-6 relative -- thirty times the f32 width gap. One value
+    out of 13,637, and it is in the seam D5 built its floor for: a sun height that
+    is 244 minus a term of nearly the same size, carrying 38,180x cancellation.
+    The optimiser reassociates, and the only place that survives to a visible
+    difference is the one place designed to amplify it. Everything else in the
+    port is bitwise identical between the two levels.
+
+    THE FIX IS NOT TO CHASE THE "RIGHT" LEVEL, BECAUSE THERE ISN'T ONE. The game
+    ships TWICE, at two levels on two targets -- the browser wasm at -O
+    ReleaseSmall (ops/build_safari_wasm), the native screensaver at ReleaseFast
+    (games/driving/build.zig:15). A native ReleaseFast probe is not "the shipping
+    arithmetic"; it matches neither shipped binary authoritatively. The gold is a
+    REFERENCE computation of the game's algorithm, and what makes the port
+    trustworthy is the calibrated tolerance, not the last bit of one build.
+
+    So: Debug for both, and the sweep went 9m06s -> 38s cold, still GREEN on all
+    107 seams. angry-gopher splits it the same way -- shipping builds optimised,
+    every check a bare `zig test`.
+
+    AND THE 36-ULP SPREAD IS A RESULT, NOT A NUISANCE. It measures how far the
+    oracle itself is allowed to wobble between honest builds of the same source,
+    and D5's gate already admits it with room to spare. A port graded tightly
+    enough to fail on a build-mode change would be a port measuring the compiler.

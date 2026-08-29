@@ -4,9 +4,82 @@ A port of the Safari driving screensaver from Zig to **Codex**, verified against
 the Zig it came from.
 
 The Zig version stays intact and keeps running on lynrummy.com/driving. This is a
-parallel port, not a migration. `NOTES.txt` is the research brief that opened the
-project and is still the best single orientation; this file is the part that has
-been built.
+parallel port, not a migration.
+
+Four documents, and they do not overlap. **This file** is the orientation: what
+exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
+— forty-five numbered notes on the toolchain, the language, the tolerances and the
+seams, and the first thing to read before writing a Codex chapter.
+**`PLUG_WORK.md`** records the emitter change the port needed and why it was
+branched where it was. **`NOTES.txt`** is the research brief that opened the
+project; it is history now and several of its predictions were wrong in useful
+ways, which this file notes where it matters.
+
+## The trees this builds against
+
+Four checkouts, and the port is only one of them. Branches matter here: two of
+these are on branches made for this work and the port does not build on `master`.
+
+| tree | branch | what it is |
+|---|---|---|
+| `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. No remote; local checkpoints only. |
+| `~/showell_repos/angry-gopher` | `master` | **the game being ported.** `games/driving/wasm/*.zig` is the Zig under test; `probe/wasm` here is a symlink to it. Read-only from this project — the port never edits the game. |
+| `~/showell_repos/NewRepository` | `u52-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
+| `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. |
+| `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | a **worktree of NewRepository** holding the plug work — the emitter changes the port needed. `PLUG_WORK.md` is its record. |
+| `~/showell_repos/codex-zig-ladder` | `master` | borrowed for one file: `cite_resolve.py`, which `harness/bundle.py` imports rather than restating. Override with `SAFARI_LADDER`. |
+
+**`codexzig` is why this project moves at all.** It is one program — Codex source
+in, Zig out — built by `codex-zig-transpiler/build.py` into
+`generated/local/codexzig`, and `harness/run.sh` takes it from `$CODEXZIG` or that
+path. Building it the first time costs QEMU guests, because the seed compiler
+emits x86 rather than Zig and the emitter has to be booted before there is any Zig
+to compile. **Once it exists, nothing in this project boots a guest.** That is the
+whole reason a sweep is thirty seconds instead of a ladder-scale job, and it is
+why the transpiler's branch is worth knowing: the binary on disk was built from a
+specific commit, and `codex-zig-transpiler/generated/PROVENANCE` names it.
+
+Two environment variables and one tool path are all the loop needs:
+
+    CODEX_ROOT    ~/showell_repos/NewRepository       the foreword chapters
+    SAFARI_LADDER ~/showell_repos/codex-zig-ladder    cite_resolve.py
+    CODEXZIG      .../generated/local/codexzig        the transpiler
+    ZIG           ~/zig-0.16.0/zig                    0.16.0
+
+## Porting philosophy: pragmatic best effort
+
+**Find the seams in the game, cross-check both sides at them, and be explicit
+about every place the two are allowed to differ.** That is the whole method, and
+the second half matters as much as the first.
+
+A seam is a place where the game computes something a probe can read: a returned
+value, a collected store, the draw-command buffer. At each one, a Zig probe
+imports the **real, unmodified** game module and prints what it computed; the
+Codex port computes the same thing; a grader compares them. Where a function is
+`pub`, the probe calls it and the comparison is exact in kind. Where it is not,
+the check says so and grades what it can — `PORTING_NOTES` E1 works through what
+`render.zig`'s four public names did to its check.
+
+**This is not a bit-exact port and does not try to be.** Codex `Real` is f64 in
+every plug while the game computes in f32, so every computed number differs
+somewhere in the last bits, and the tolerances that absorb that are measured
+rather than chosen — section D of `PORTING_NOTES` is the record of what each one
+had to admit and why. Structure never gets a tolerance: point counts, colours,
+tags and indices compare exactly, because a wrong count is a wrong shape and no
+coordinate slack should be able to hide one.
+
+Where the port deliberately differs from the game, it says so at the definition
+and the check gates it at a measured bound rather than waving it through. There is
+exactly one such place today — the cat's airborne arc, which uses `b^0.75` where
+the game uses `pow(b, 0.7)`, bounded at 0.109m and zero at both ends.
+
+Three rules that fell out of doing it:
+
+- **The game is never edited to suit the port.** It is the oracle and it ships.
+- **Port the answer, not the cost model.** An in-place algorithm carried literally
+  onto persistent lists can gain a whole complexity class (`PORTING_NOTES` E4).
+- **Where a name is not pinned by a check, take the better name.** Where it is
+  pinned, fidelity wins.
 
 ## The loop
 
@@ -100,25 +173,32 @@ because it still builds and is the way to compare:
 
     ./harness/build_wasm.sh SceneMain
 
-**What is not real about the Drive page, precisely.** The animals are missing —
-cows, pigs, the corner elephants and giraffes, the ducks and the cat all reach the
-baked polygon tables, so they are collected and depth-sorted but draw nothing, and
-a frame has correctly-ordered holes where each one stands. The truck drives and its
-body reaches unported chain machinery. And the rider is not simulated: `Rider` is
-ported and graded, but it is a step function over mutable state while the shim's
-scrub is pure — `frame-at (u)` must answer from `u` alone — so the camera runs dead
-centre of the lane at constant speed with no lean, no gaze and no throttle. The one
-invented number on the page is the backdrop heading, blended across each corner
-because a segment's `north-heading` is a step function and the mountains would
-otherwise snap sideways at every joint.
+**What is not real about the Drive page, precisely.** One thing: **the truck.** It
+is not wired, in three independent ways, and none of them is the clock —
 
-**NOTES §5 said a browser build through zig was "not close". It is three prelude
-functions**, and `harness/wasmify.py` replaces them: the entry spawns a thread
-only to get a 512 MB stack, the heap reserves 4 GiB through `page_allocator`
-(the whole of a wasm32 address space), and printing drags in `std.Io`. Nothing
-in the *transpiled program* changes — only the fixed prelude, which is why this
-is a text pass over three known shapes and not a fork of the emitter. Each
-substitution must match exactly once or the script refuses.
+- `Drive.codex` passes a hardcoded `0.0` for the truck's route position into
+  `collect`, so its lead is always negative and it is never collected at all;
+- `poc/drive_shim.zig` keeps no truck state, so nothing calls the ported
+  `truck-next` to move it;
+- `draw-item`'s `KTruck` arm returns nothing, because `truck.drawBody` is not
+  ported.
+
+Fixing any one of those alone changes nothing visible. `truck.zig`'s motion half
+*is* ported and graded; the body is the last unported drawing code in the game,
+and it now needs only `Paint`'s tag 4, which exists.
+
+Everything else on the page is the real thing: the route, the rider's own physics
+and lean, the animals, the cat, the sky clock.
+
+**NOTES §5 said a browser build through zig was "not close". It is four
+substitutions in the fixed prelude**, and `harness/wasmify.py` makes them: the
+entry, which spawns a thread only to get a 512MB stack; the two print functions,
+which drag in `std.Io`; the heap reserve, which asks for 4GiB (the whole of a
+wasm32 address space); and `cx_heap_base`, which wants a `page_allocator` that
+does not exist there and becomes a static `.bss` region. Nothing in the
+*transpiled program* changes, which is why this is a text pass over four known
+shapes rather than a fork of the emitter. Each must match exactly once or the
+script refuses, so a drifting prelude fails loudly.
 
 `poc/shim.zig` walks the Codex list and writes `paint.zig`'s wire. **The f64 ->
 f32 narrowing happens there and only there** — the seam the hand-written zig
@@ -237,9 +317,8 @@ approach road and pavement quad out to the apex, and the pond's water and bank. 
 graded green at the standard screen gate on the first run — no recalibration, which
 is what you would hope for by the tenth module.
 
-Still not ported: `frame`'s draw dispatch for critters, the cat and the truck body
-— `critter.draw`, `cat.draw` and `truck.drawBody`, the three that reach the baked
-frames. Everything else in a frame is now computable in Codex.
+Still not ported: `truck.drawBody`, and nothing else in `render.zig`. The critter
+and cat drawers that used to sit beside it in this sentence are done.
 
 **`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
 here had before. `at` composes a point down a kilometre of chain and hands back one
@@ -271,14 +350,13 @@ answers −0.506, which means `dm-reduce`'s reduction over sixteen turns is runn
 Nothing in DeviceMath is dark to this arm any more.
 
 So `Trig` is retirable, and it has NOT been retired. That is a deliberate hold,
-not an oversight: **the swap is not a no-op.** Trig's `wrap` subtracts in a
-bounded loop where `dm-reduce` divides by two-pi and converts back through the
-integers, so the two disagree in the last bits, and four graded chapters
-(`Geom`, `Camera`, `Tree`, and the browser `Scene`) cite Trig today. Retiring it
-is its own change with its own regrade, worth doing on purpose rather than as a
-footnote to a colour port. It is the same
-algorithm. **Delete it and cite DeviceMath the day that emitter lands**, and do
-not let anything else grow a dependency on its names.
+not an oversight: **the swap is not a no-op.** Trig's `wrap` subtracts in a bounded
+loop where `dm-reduce` divides by two-pi and converts back through the integers, so
+the two disagree in the last bits — and a lot of the port now cites Trig, directly
+or through `Geom`. Retiring it means regrading every one of those, which is its own
+change and deserves to be made on purpose rather than as a footnote to something
+else. **Do not let anything new grow a dependency on its names**, and when it goes,
+expect tolerances to need re-measuring rather than assuming they carry over.
 
 It owes upstream **sine and cosine, and nothing else**. Emission is per-function,
 not per-chapter, so a chapter can cite DeviceMath for the parts that do not reach
@@ -413,11 +491,55 @@ are in `price-b/`.
   `real-from-int` alone is why `Gpu chapter DeviceMath` cannot be transpiled, so
   those rows also unlock `real-sqrt`, `real-sin` and `real-cos`.
 
+## Where to pick this up
+
+Parked 2026-08-29 with the sweep green. In rough order of value:
+
+**The truck is the last unported drawing code in the game**, and it needs three
+separate things, none of which is the clock. All are described under *What is not
+real about the Drive page* above: a hardcoded `0.0` route position in
+`Drive.codex`, no truck state in `poc/drive_shim.zig`, and `truck.drawBody` itself.
+The body is otherwise unblocked — it reaches `render.at` and `paint.pushPoly`,
+both ported, plus `pushGradPoly` for the headlight beams, which `Paint` now has as
+tag 4. **Wire all three at once or nothing changes visibly.**
+
+**The bull draws flat, and the pieces to fix it now exist.** `Paint` has tags 5
+and 6; what is missing is that `harness/bake_stills.py` flattens each gradient to
+its first stop rather than emitting it, and `Critter` has no gradient arm. Doing
+both makes the bull gradeable, which is why `CritterCheck` excludes it today.
+
+**`safari.zig` is not ported**, and `poc/drive_shim.zig` currently reimplements a
+slice of it — the restart at the finish line, the history ring, the frame clock —
+in Zig, ungraded. Porting it would move that logic behind a check. It is also
+where the camera's focal pull-in during a lean and gaze lives (`cam-focal`,
+`focal-for-lean`, `focal-for-gaze` are all ported and none is wired), and that in
+turn wants `cat.focus`, which is not ported.
+
+**`Trig` is retirable and retiring it is a real change**, not a cleanup — see the
+section above. Expect to re-measure tolerances rather than assume they carry.
+
+**Four findings are owed upstream** and none is written up; they are listed below.
+
+Two things that are *done* and might not look it from the commit log: the cat is
+fully ported including its flipbook, and the animals draw from generated stills.
+Only the truck body is missing from a frame.
+
 ## Findings owed upstream
 
-Three, all found while pricing, none yet written up:
+Four. None yet written up, and they are owed to two different projects.
 
-1. `OvError` silently becomes wrapping `*%` in the zig plug.
-2. `Cordic`'s accuracy claim is wrong by 4.5x and its test never calls it.
+To **Cobblestone / the Zig plug**:
+
+1. `OvError` silently becomes a wrapping `*%`. `4000000000 * 4000000000` returns
+   `-2446744073709551616`, exit 0, no diagnostic.
+2. `Math chapter Cordic`'s accuracy claim is wrong by 4.5x — the docstring says
+   ~0.1%, measured worst is 0.45% — and its test never calls a Cordic function.
 3. A Codex function named `d` emits `fn d_` and collides with `Tup4`'s comptime
-   parameter — single-letter names `a`–`d` are unusable in the zig arm.
+   parameter, so single-letter names `a`–`d` are unusable in the Zig arm.
+
+To **angry-gopher**, found while reading `paint.zig` for the gradient layouts:
+
+4. `pushGradPoly` writes **seven** header words — tag, two colours, cx, cy, r,
+   count — but bounds-checks against `6 + pts.len * 2`. It under-counts by one
+   word, so it can overrun by one with the buffer one word from full. Latent, and
+   the sibling `pushLinearGradPoly` / `pushRadialGradPoly` both count correctly.

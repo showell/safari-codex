@@ -19,10 +19,20 @@ Nothing here has been sent upstream. The ladder's protocol is that a finding
 reaches Damian only via a PR carrying a compiler-backlog.md / plugs-backlog.md
 row — see NewRepository/contrib/README.md.
 
+================================================================================
+HOW TO READ THIS
+================================================================================
+
+    Notes are grouped by letter and numbered in the order they were found, so a
+    low number is an early lesson and not a more important one. They were being
+    appended in discovery order regardless of section, which made the file hard
+    to use; this is the same content, sorted.
 
 ================================================================================
 A. DEFECTS AND HOLES
 ================================================================================
+
+    Things that are wrong, or missing, in the toolchain.
 
 A1. real-to-int and real-from-int have no zig emitter.        [HOLE - FIXED]
 
@@ -186,15 +196,24 @@ A7. Real is f64 in every plug; bare metal computes f32 in f32.       [KNOWN]
     builtins are all missing too, which is why the collapse has never been
     observable from this arm: the hole hides the wrong answer.
 
-
 ================================================================================
-B. CORRECT BUT SURPRISING — read before writing Codex
+B. CORRECT BUT SURPRISING -- read before writing Codex
 ================================================================================
 
-B1. CDX1070 — an application may not span a newline.
+    The language and the emitter behaving as designed, in ways that cost time.
+
+B1. CDX1070 -- AN APPLICATION MAY NOT SPAN A NEWLINE, AND NEITHER MAY A LIST.
     "Application ended at newline; '[' on line N is not parsed as an argument."
     Wrap the application in parentheses, bind it with a let, or put the arguments
-    on one line. Cost two builds. See A5 for the case where it is NOT diagnosed.
+    on one line. See A5 for the case where it is NOT diagnosed.
+
+    THE SAME HOLDS FOR A LIST LITERAL, which is worth saying because the code that
+    hits it is usually being formatted for readability -- exactly when you break a
+    line. Broken across lines it halts with CDX1025 "Unclosed list literal:
+    expected ',' or ']'". Each list is one line, however long: the generated
+    EmojiStills bull runs to about 200 KB on a single line, which is fine in a
+    file and is a fair argument for generating that kind of chapter rather than
+    typing it.
 
 B2. CDX1023 — a `let` nested inside an `if` arm inside a `let` is refused.
     "Expected 'in' after let bindings." Flatten it: hoist the inner computation
@@ -256,6 +275,38 @@ B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
     which of ITS functions actually reach the hole. "This chapter is dark" is
     almost never true; "these functions are dark" usually is.
 
+B10. B3's ~0 comes up again, and the second instance is more dangerous than the
+    first. guard_rail.zig guards a division by a run length:
+
+        if (len == 0) len = 1;
+
+    Codex refuses the bare == (CDX2085) and the caller must choose. It is ~0,
+    bitwise, because the zig's == is. Choosing the 4-ULP ~ instead would fire the
+    fallback on path points that are merely CLOSE, swinging that post from its own
+    run direction to the fixed one -- a post visibly rotated on screen, not a
+    rounding difference. Unlike the hull case in B3 it would not change any point
+    count, so the structural half of the judge would not catch it: only the
+    coordinate gate would, and only because the error is large.
+
+B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
+
+    mountains.zig normalises a fraction it calls `above`. Porting that name
+    verbatim halts codegen with
+
+        CDX1023 Expected 'in' after let bindings
+
+    over a `let` that has its `in`, on the line above the real problem. `above` is
+    a KEYWORD -- Lexer.codex:333, `else if w == "above" then AboveKeyword`, sitting
+    with the proof-language set beside `cites`, `claim`, `proof`, `qed` and
+    `induction`. The refusal is right; the message names the wrong construct and
+    does not mention the keyword or its position.
+
+    Cost a bisect: no error line is reported anywhere, codexzig writes only the
+    HALT summary, so the chapter had to be truncated repeatedly to find which
+    definition carried it. Watch for it whenever a zig identifier is copied
+    across -- `above` is an ordinary word in graphics code and not an obvious
+    keyword. Renaming to `above-frac` is the whole fix.
+
 B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
 
     A Codex definition whose body is a single application does not become a zig
@@ -294,42 +345,34 @@ B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
     `grep -n "^fn <mangled>(" build/scene.zig` BEFORE building the wasm; the error
     otherwise arrives from the zig compiler, three steps downstream.
 
-B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
+B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
 
-    mountains.zig normalises a fraction it calls `above`. Porting that name
-    verbatim halts codegen with
+    `segs : List Segment` / `segs = build-world` reads like a constant. It emits:
 
-        CDX1023 Expected 'in' after let bindings
+        fn segs() *CxList(Segment) { return build_world(); }
 
-    over a `let` that has its `in`, on the line above the real problem. `above` is
-    a KEYWORD -- Lexer.codex:333, `else if w == "above" then AboveKeyword`, sitting
-    with the proof-language set beside `cites`, `claim`, `proof`, `qed` and
-    `induction`. The refusal is right; the message names the wrong construct and
-    does not mention the keyword or its position.
+    so every mention REBUILDS all nineteen segments with their trees, herds and
+    cat placements. The browser scene's `pos-from` mentions it twice per loop
+    iteration, so one frame rebuilt the world hundreds of times.
 
-    Cost a bisect: no error line is reported anywhere, codexzig writes only the
-    HALT summary, so the chapter had to be truncated repeatedly to find which
-    definition carried it. Watch for it whenever a zig identifier is copied
-    across -- `above` is an ordinary word in graphics code and not an obvious
-    keyword. Renaming to `above-frac` is the whole fix.
+    Measured: 270 ms a frame, about four per second. Threading the world down as
+    a parameter -- which every graded chapter in the port already does, because a
+    check has to hand it in anyway -- took the same frame to 25 ms. SIX TIMES,
+    for a change that moved no arithmetic and produced byte-identical output.
 
-B10. B3's ~0 comes up again, and the second instance is more dangerous than the
-    first. guard_rail.zig guards a division by a run length:
+    The tell is that it is invisible in the Codex. `segs` looks free at every use
+    site and the cost is entirely in the emitter's choice. Worth a look at the
+    generated zig whenever a nullary binding wraps real work: the fix is always to
+    pass it, and passing it is what the port does everywhere else anyway.
 
-        if (len == 0) len = 1;
-
-    Codex refuses the bare == (CDX2085) and the caller must choose. It is ~0,
-    bitwise, because the zig's == is. Choosing the 4-ULP ~ instead would fire the
-    fallback on path points that are merely CLOSE, swinging that post from its own
-    run direction to the fixed one -- a post visibly rotated on screen, not a
-    rounding difference. Unlike the hull case in B3 it would not change any point
-    count, so the structural half of the judge would not catch it: only the
-    coordinate gate would, and only because the error is large.
-
+    Related to B12 -- both are the emitter treating a definition as a rewrite rule
+    rather than a stored thing. B12's alias vanishes; this one duplicates.
 
 ================================================================================
 C. ENVIRONMENT
 ================================================================================
+
+    The transpiler, the heap, the harness, and the browser.
 
 C1. codexzig writes the ZIG TO STDERR and diagnostics to stdout.
     ON A HALT IT WRITES THE REASON TO STDERR TOO — so the output file is short
@@ -350,11 +393,45 @@ C4. Codex has no libm, and its foreword is mostly INTEGER fixed point.
     is one of only ten files in the whole foreword that use Real. Cordic,
     Easing, Color, GameCamera and Numeric are all Integer milli-units.
 
-C5. wasm32-freestanding is THREE PRELUDE FUNCTIONS away, not the gulf NOTES
-    section 5 describes. The entry spawns a thread purely for a 512 MB stack; the
-    heap reserves 4 GiB through page_allocator, which is the whole of a wasm32
-    address space; printing reaches std.Io and drags in posix. Nothing in the
-    TRANSPILED PROGRAM needs changing. See harness/wasmify.py.
+C5. wasm32-freestanding is FOUR SUBSTITUTIONS IN THE FIXED PRELUDE away, not the
+    gulf NOTES section 5 describes. They are: the entry, which spawns a thread
+    purely to get a 512 MB stack; the two print functions, which reach std.Io and
+    drag in posix; the heap reserve constant, which asks for 4 GiB, the whole of a
+    wasm32 address space; and cx_heap_base, which wants a page_allocator that does
+    not exist there and becomes a static .bss region instead.
+
+    NOTHING IN THE TRANSPILED PROGRAM CHANGES -- only the fixed prelude, which is
+    why this is a text pass over four known shapes rather than a fork of the
+    emitter. Each substitution must match EXACTLY ONCE or harness/wasmify.py
+    refuses, so a prelude that drifts fails loudly instead of silently.
+
+C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
+    frame; a long-running process rebuilding a scene per frame will exhaust it.
+    Design for one probe process per short horizon.
+
+C7. THE TRANSPILER'S BUMP HEAP IS A CEILING ON HOW MUCH ONE UNIT CAN CARRY.
+
+    Mountains' four frames are fifteen polygons of up to 683 points, which is
+    16,868 coordinates. As a Codex list literal that is a 139 KB gold and a 187 KB
+    unit, and codexzig dies transpiling it:
+
+        thread panic: cx heap: exhausted at 4294926367 + 614587 of 4294967296
+
+    Not a slow build -- an abort, from the same never-reclaiming bump region C6
+    describes, hit by the TRANSPILER on its own input rather than by a transpiled
+    program. Tree's 628 coordinates and a 43 KB unit are nowhere near it; the
+    ceiling sits somewhere between.
+
+    THIS IS NOT THE ONLY WAY A BIG UNIT DIES -- see C14, where codexzig aborts
+    with plenty of deck left, on a different mechanism. Watching the CX-DECK lines
+    predicts this failure and not that one.
+
+    The fix that keeps the grading honest is to stride the COORDINATES and keep
+    everything else: point counts stay exact, so a silhouette that gained or lost
+    a column is still a hard failure, and what thins is only the sampling density
+    of a curve that is smooth by construction. Every eighth point took the unit
+    from 187 KB to 34 KB. Prefer that over dropping a frame -- the frames are the
+    BRANCHES, and branch coverage is worth more than coordinate density.
 
 C8. A PER-FRAME PURE PROGRAM NEEDS AN ARENA RESET, AND THE SHIM IS THE PLACE.
 
@@ -395,202 +472,7 @@ C8. A PER-FRAME PURE PROGRAM NEEDS AN ARENA RESET, AND THE SHIM IS THE PLACE.
     transpiled program can know it; that is exactly the knowledge an arena needs,
     and it is why this belongs at the boundary rather than upstream.
 
-C7. THE 4 GiB BUMP HEAP IS A CEILING ON HOW MUCH GOLD ONE UNIT CAN CARRY.
-
-    Mountains' four frames are fifteen polygons of up to 683 points, which is
-    16,868 coordinates. As a Codex list literal that is a 139 KB gold and a 187 KB
-    unit, and codexzig dies transpiling it:
-
-        thread panic: cx heap: exhausted at 4294926367 + 614587 of 4294967296
-
-    Not a slow build -- an abort, from the same never-reclaiming bump region C6
-    describes, hit by the TRANSPILER on its own input rather than by a transpiled
-    program. Tree's 628 coordinates and a 43 KB unit are nowhere near it; the
-    ceiling sits somewhere between.
-
-    The fix that keeps the grading honest is to stride the COORDINATES and keep
-    everything else: point counts stay exact, so a silhouette that gained or lost
-    a column is still a hard failure, and what thins is only the sampling density
-    of a curve that is smooth by construction. Every eighth point took the unit
-    from 187 KB to 34 KB. Prefer that over dropping a frame -- the frames are the
-    BRANCHES, and branch coverage is worth more than coordinate density.
-
-C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
-    frame; a long-running process rebuilding a scene per frame will exhaust it.
-    Design for one probe process per short horizon.
-
-
-================================================================================
-D. NUMERIC CALIBRATION — what the tolerances are actually measuring
-================================================================================
-
-D1. The f32/f64 gap is about 1.2e-7 relative, and that is the floor. The port
-    computes in Real (f64); the game computes in f32; the gold reaches Codex as
-    the shortest decimal that round-trips the f32, re-parsed at f64.
-
-D2. Camera and Geom hold at 1e-6 RELATIVE over 375 values. Tightened to 1e-7,
-    six of nine seams go red — so the gate sits one decade above the width gap
-    and nothing more. It is calibrated, not slack.
-
-D3. SCREEN COORDINATES NEED A MIXED GATE, atol + rtol*|want|. Both halves were
-    measured, and each covers the other's failure:
-      - relative fails at the horizon. A screen y is 300 minus a term of about
-        the same size, so y = 20.6068 is a small DIFFERENCE OF TWO LARGE NUMBERS
-        and cancellation amplifies the relative error by the 300/20.6 between
-        them — 1.3e-6, about fifteen times f32 epsilon.
-      - absolute fails at the near plane. A point 37 m to the side at 0.4 m
-        forward projects to x = -62929, where ONE f32 ULP IS ALREADY 0.0075 px,
-        seven times a thousandth-of-a-pixel floor.
-    In use: atol 1e-3 px, rtol 1e-6. At a hundred pixels that is about a
-    thousandth of a pixel, which is the precision worth asserting.
-
-D5. A TOLERANCE FLOOR IS CALIBRATED PER SEAM, not copied from another one.
-
-    D3 set the screen-coordinate gate at atol 1e-3 + rtol 1e-6 and that is right
-    for the tree, whose coordinates run to -62929 where one f32 ulp is already
-    0.0075 px. Sky's heights are screen pixels too and take the same SHAPE of
-    gate, for the same cancellation reason -- but copying the 1e-3 floor with it
-    would have been slack, and measurably so.
-
-    The cancellation here is the worst yet seen. A sun height is 244 minus a term
-    of nearly the same size, so with the disc's centre on the horizon it is
-    244 - 243.993609 = 0.006391, and the f32/f64 gap there is:
-
-        absolute   2.6e-6 px           nothing
-        relative   4.1e-4              four hundred times a 1e-6 relative gate
-        amplified  244/0.0064 = 38180x  (the tree's horizon case was 15x)
-
-    So the floor has to admit 2.6e-6 and nothing else on that seam comes near
-    zero. 1e-4 admits it with forty times to spare; 1e-3 sits four hundred times
-    above the gap it exists for, and that is not free -- MEASURED: at 1e-3 a
-    perturbation of sun-start-px by 2e-4 left sky-height GREEN while two other
-    seams reddened. At 1e-4 the same perturbation reddens it.
-
-    The rule: take the SHAPE of the gate from the failure mode, take the NUMBER
-    from what that seam actually has to admit. A floor inherited from a seam with
-    different magnitudes is a floor nobody calibrated.
-
-D4. Structure is graded EXACTLY and must stay that way. Tags, colours and point
-    counts take no tolerance. A wrong point count is a structural error and no
-    coordinate tolerance should ever be able to hide one.
-
-D6. THE CHAIN IS THE THIRD DISTINCT CANCELLATION, and the first in METRES.
-
-    D3 and D5 both amplified at the screen: a coordinate near the horizon, a sun
-    height near zero. Render's `at` does it in world space and for a different
-    reason -- not because the answer is near zero, but because the COMPOSITION
-    passes through coordinates a thousand times larger than the answer.
-
-    Measured, at the rider's second chain segment, 160 m past its end:
-
-        composed bottom-left frame   a = 1235.67 m, x = 56.91 m
-        rider frame                  right = -1.5169 m
-        right is                     -1115.7*sin(yaw) + 54.3*cos(yaw)
-                                     two ~55 m terms that nearly cancel
-        amplification                1235.7 / 1.52 = 815x
-        absolute error               2.9e-5 m   (29 microns, a km away)
-        relative error               1.9e-5     (20x every other metre seam)
-
-    SO THE ERROR TRACKS THE LARGEST COORDINATE THE COMPOSITION TOUCHES, not the
-    size of the answer -- that is what f32 has to hold on the way through. Which
-    makes the floor a representation granularity and not a fudge factor, and it
-    is set as one: one f32 ulp at the range the seam reaches.
-
-        r-at    reaches 2015 m; one ulp there is 1.22e-4. Floor 2.5e-4 (two ulp).
-                Reddens at 1e-4, passes at 1.2e-4.
-        r-prev  composes ONE join, reaches 660 m; one ulp there is 6.1e-5.
-                Floor 6e-5 (one ulp). Reddens at 1e-5, passes at 2e-5.
-
-    The two differ because the two reaches differ, which is D5 applied rather
-    than restated. Giving the behind joint the chain's floor would have been four
-    times slacker than anything it needs.
-
-    AND THE PORT'S OWN MATH IS NOT THE CAUSE. Recomputing `at` in f64 with the
-    language's own @sin/@cos and comparing to the real f32 render.at gives the
-    same picture -- 3.9e-7 at d = 0, 1.9e-5 at d = 2 -- so this is the f32/f64
-    width gap amplified by the composition, and Trig is innocent. Note also that
-    the error does NOT grow with depth: it peaks at d = 1 and d = 2 and falls
-    away by d = 6. It is cancellation at particular geometry, not accumulation,
-    so a deeper chain is not a worse chain.
-
-
-================================================================================
-E. WHAT A MODULE'S PRIVATE SURFACE DOES TO ITS CHECK
-================================================================================
-
-E1. RENDER.ZIG EXPOSES FOUR NAMES, AND THAT DECIDES HOW RENDER CAN BE GRADED.
-
-    Its whole public surface is `Chain`, `Pose`, `at`, and `frame` (plus the two
-    cull counters). buildChain, MapKind, Mapper, mapPt, emitGround,
-    emitGroundColor, emitPondGround, emitJointGround, pushLeg and emitJointRail
-    are all private to the file. A probe imports the module; it cannot reach any
-    of them.
-
-    Every other module in this port had a pub function per seam, so "the probe
-    calls the real thing" was free. Here it is not, and the check has to say
-    which of its rows is backed by what. RenderCheck grades three strengths:
-
-      a REAL ORACLE      r-at. render.at is pub; the probe calls it.
-      THE DEFINITION     r-prev. mapPt's prev branch is private, but it is
-                         geom.curToNext then geom.toRider and both ARE pub, so
-                         the probe composes the two real functions in that order.
-                         Every arithmetic step is oracled; the ORDER is not.
-      TRANSCRIBED        r-chain. buildChain is private AND `at` never consults
-                         the caps -- hand `at` a chain of any length and it
-                         composes it -- so the chain's EXTENT is not observable
-                         through the public surface at all. LOOK_AHEAD (7) and
-                         MAX_CHAIN (8) are copied from render.zig's source. Those
-                         two integers are the only value in this port that is
-                         transcribed rather than measured.
-
-    THE WAY OUT IS ALREADY IN THE FILE, and it is worth taking when the
-    collection lands. `render.cull_seg` IS pub, and frame() accumulates into it
-    `n_cows + n_pigs` for every chain index at or beyond FARM_SEG_REACH. Both
-    counts are graded exactly in WorldCheck. So one frame() call turns the
-    chain's extent into a number the world's own graded data predicts: a chain
-    one segment longer or shorter changes cull_seg by that segment's herd. That
-    is a real oracle for the cap, built out of a counter that exists for
-    instrumentation, and it closes the last transcribed value.
-
-E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
-
-    The generalisation of E1. This port's seams have so far been chosen from the
-    zig's own structure -- guard_rail's collect-then-draw, truck's motion-versus-
-    body -- and that worked because those splits were also visibility splits. It
-    is not guaranteed. Read the pub markers first; they are the real contract,
-    and they can make a natural seam ungradeable and an awkward one free.
-
-E3. RENDER'S PRIVATE RAIL-PATH CAP IS NOWHERE NEAR LIVE. RAIL_PATH_CAP is 192
-    points and the longest path any joint produced across eight rider states was
-    27 — run-up 11, both legs into and out of the apex, run-out 10. So the port
-    leaves the cap out rather than porting a truncation that cannot fire, and
-    that is now a measurement instead of an assumption. Same for the collection
-    caps: MAX_VIS_TREES is 640 against a peak render itself puts near 37 percent.
-
-E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
-
-    render.zig depth-sorts its scenery with an insertion sort, which is right for
-    a mutable array of a few hundred items. Ported literally onto Codex lists it
-    exhausted the whole 4 GiB bump heap and killed the check.
-
-    The reason is that an insertion sort has nothing to shift. Rebuilding the tail
-    past the insertion point allocates a list PER ELEMENT, so one insert is
-    quadratic in allocations and the sort is cubic — about 700 items across eight
-    frames, and the heap that never reclaims (C6) turns that from slow into fatal.
-
-    A STABLE MERGE SORT GIVES THE IDENTICAL ORDER. Same comparison, same tie rule,
-    so nothing observable changes; the cost falls to quadratic in copies, roughly
-    a hundred megabytes. The port takes the merge and says so at the definition.
-
-    The general shape: an in-place algorithm carried across to persistent lists can
-    gain a whole complexity class, and on this arm that is a crash rather than a
-    wait. Check the cost model of anything that mutates in place before porting it
-    line for line — the ANSWER is what has to match.
-
-
-================================================================================
 C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
-================================================================================
 
     Per module the loop was flat at about 50 s no matter how big the port was --
     Pond's 495 lines of generated zig cost the same as Render's 1,714. All of it
@@ -667,10 +549,7 @@ C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
     and D5's gate already admits it with room to spare. A port graded tightly
     enough to fail on a build-mode change would be a port measuring the compiler.
 
-
-================================================================================
 C10. THE SWEEP SKIPS WHAT HAS NOT CHANGED, AND THE KEY IS THE BUNDLED UNIT
-================================================================================
 
     Debug took the sweep to 29 s, and every second of that was still being paid
     on runs where nothing had changed. Two stamp files per module in build/ take
@@ -702,57 +581,7 @@ C10. THE SWEEP SKIPS WHAT HAS NOT CHANGED, AND THE KEY IS THE BUNDLED UNIT
     two cores -- for interleaved output and a harder failure check. The stamp skip
     subsumes it on the common case.
 
-
-================================================================================
-D7. THE CAT'S LEAP NEEDS A LOGARITHM, AND IT IS PARKED ON PURPOSE
-================================================================================
-
-    cat.zig's airborne branch interpolates the cat's lateral travel by
-    `pow(b, 0.7)` -- the "front-loaded" lerp of a two-frame hop. It is the ONLY
-    `pow` in the whole game; the only other transcendental outside the trig is
-    rider.zig's `@exp`, which Num already ports as exp-real. So the missing half
-    is a logarithm, since pow is exp of a log.
-
-    THE GAME IS NOT BEING CHANGED FOR THE PORT'S CONVENIENCE (Steve). It would be
-    easy to: 0.75 is dyadic where 0.7 is not, so `@sqrt(b * @sqrt(b))` is exactly
-    b^0.75 using nothing but a square root both languages already have, and it
-    differs from b^0.7 by at most 0.025 -- about 8.6 cm of lateral position at
-    mid-flight, zero at both ends. But cat.zig is the ORACLE and the deployed
-    screensaver, and this port's premise is that the zig stays intact.
-
-    So the cat stays out of the collection, and this is a note rather than a plan:
-    WE MAY COME BACK AND WRITE ln-real. Num is where it would go, beside exp-real,
-    and it would need its own accuracy calibration like everything else here. One
-    call site is not much reason on its own -- but a logarithm is a foreword gap
-    like r-atan, and the next module that wants one will find it already argued.
-
-B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
-
-    `segs : List Segment` / `segs = build-world` reads like a constant. It emits:
-
-        fn segs() *CxList(Segment) { return build_world(); }
-
-    so every mention REBUILDS all nineteen segments with their trees, herds and
-    cat placements. The browser scene's `pos-from` mentions it twice per loop
-    iteration, so one frame rebuilt the world hundreds of times.
-
-    Measured: 270 ms a frame, about four per second. Threading the world down as
-    a parameter -- which every graded chapter in the port already does, because a
-    check has to hand it in anyway -- took the same frame to 25 ms. SIX TIMES,
-    for a change that moved no arithmetic and produced byte-identical output.
-
-    The tell is that it is invisible in the Codex. `segs` looks free at every use
-    site and the cost is entirely in the emitter's choice. Worth a look at the
-    generated zig whenever a nullary binding wraps real work: the fix is always to
-    pass it, and passing it is what the port does everywhere else anyway.
-
-    Related to B12 -- both are the emitter treating a definition as a rewrite rule
-    rather than a stored thing. B12's alias vanishes; this one duplicates.
-
-
-================================================================================
 C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
-================================================================================
 
     The spike loop's speed graph did not render for two rounds, and everything
     that could be checked from the outside said it was fine: the file existed, it
@@ -778,23 +607,6 @@ C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
     build_wasm gate that renders a thousand frames rather than one: a gate has to
     exercise the thing the consumer actually does with the artifact.
 
-
-================================================================================
-C12. A CODEX LIST LITERAL MAY NOT SPAN A NEWLINE, EITHER
-================================================================================
-
-    B1 records that an APPLICATION may not span a newline. The same holds for a
-    list literal, and it is worth its own line because the generator that hit it
-    was formatting for readability, which is exactly when you break a line:
-
-        duck-polys =
-         [EmojiPoly { ... },
-          EmojiPoly { ... }]
-
-    halts with CDX1025 "Unclosed list literal: expected ',' or ']'". Each list has
-    to be ONE line. The bull's is about 200 KB long, which is fine in a file and
-    is a good argument for generating this kind of chapter rather than typing it.
-
 C13. THE WASM HEAP IS SIZED BY ONE FRAME'S HIGH-WATER, NOT BY A LEAK.
 
     Adding the animals' stills took the browser page from 2,132 draw commands to
@@ -809,10 +621,7 @@ C13. THE WASM HEAP IS SIZED BY ONE FRAME'S HIGH-WATER, NOT BY A LEAK.
     touched, so reserving generously is nearly free, and wasm32 caps the whole
     address space at 4 GiB. build_wasm.sh takes HEAP_MB to re-measure.
 
-
-================================================================================
 C14. C7 SHAPES STRUCTURE, NOT JUST TOLERANCES
-================================================================================
 
     C7 recorded the bump-heap ceiling as a reason to grade Mountains at every
     eighth point. It also decides how CHECKS ARE DIVIDED, which is a bigger
@@ -850,3 +659,206 @@ C15. A NEW MODULE MUST NOT BE ABLE TO KILL THE SWEEP SILENTLY.
 
     The general shape is worth keeping: an optimisation that assumes steady state
     has to be checked against the FIRST run, not just the second.
+
+================================================================================
+D. NUMERIC CALIBRATION -- what the tolerances are actually measuring
+================================================================================
+
+    Every gate in judge/ traces to one of these.
+
+D1. The f32/f64 gap is about 1.2e-7 relative, and that is the floor. The port
+    computes in Real (f64); the game computes in f32; the gold reaches Codex as
+    the shortest decimal that round-trips the f32, re-parsed at f64.
+
+D2. Camera and Geom hold at 1e-6 RELATIVE over 375 values. Tightened to 1e-7,
+    six of nine seams go red — so the gate sits one decade above the width gap
+    and nothing more. It is calibrated, not slack.
+
+D3. SCREEN COORDINATES NEED A MIXED GATE, atol + rtol*|want|. Both halves were
+    measured, and each covers the other's failure:
+      - relative fails at the horizon. A screen y is 300 minus a term of about
+        the same size, so y = 20.6068 is a small DIFFERENCE OF TWO LARGE NUMBERS
+        and cancellation amplifies the relative error by the 300/20.6 between
+        them — 1.3e-6, about fifteen times f32 epsilon.
+      - absolute fails at the near plane. A point 37 m to the side at 0.4 m
+        forward projects to x = -62929, where ONE f32 ULP IS ALREADY 0.0075 px,
+        seven times a thousandth-of-a-pixel floor.
+    In use: atol 1e-3 px, rtol 1e-6. At a hundred pixels that is about a
+    thousandth of a pixel, which is the precision worth asserting.
+
+D4. Structure is graded EXACTLY and must stay that way. Tags, colours and point
+    counts take no tolerance. A wrong point count is a structural error and no
+    coordinate tolerance should ever be able to hide one.
+
+D5. A TOLERANCE FLOOR IS CALIBRATED PER SEAM, not copied from another one.
+
+    D3 set the screen-coordinate gate at atol 1e-3 + rtol 1e-6 and that is right
+    for the tree, whose coordinates run to -62929 where one f32 ulp is already
+    0.0075 px. Sky's heights are screen pixels too and take the same SHAPE of
+    gate, for the same cancellation reason -- but copying the 1e-3 floor with it
+    would have been slack, and measurably so.
+
+    The cancellation here is the worst yet seen. A sun height is 244 minus a term
+    of nearly the same size, so with the disc's centre on the horizon it is
+    244 - 243.993609 = 0.006391, and the f32/f64 gap there is:
+
+        absolute   2.6e-6 px           nothing
+        relative   4.1e-4              four hundred times a 1e-6 relative gate
+        amplified  244/0.0064 = 38180x  (the tree's horizon case was 15x)
+
+    So the floor has to admit 2.6e-6 and nothing else on that seam comes near
+    zero. 1e-4 admits it with forty times to spare; 1e-3 sits four hundred times
+    above the gap it exists for, and that is not free -- MEASURED: at 1e-3 a
+    perturbation of sun-start-px by 2e-4 left sky-height GREEN while two other
+    seams reddened. At 1e-4 the same perturbation reddens it.
+
+    The rule: take the SHAPE of the gate from the failure mode, take the NUMBER
+    from what that seam actually has to admit. A floor inherited from a seam with
+    different magnitudes is a floor nobody calibrated.
+
+D6. THE CHAIN IS THE THIRD DISTINCT CANCELLATION, and the first in METRES.
+
+    D3 and D5 both amplified at the screen: a coordinate near the horizon, a sun
+    height near zero. Render's `at` does it in world space and for a different
+    reason -- not because the answer is near zero, but because the COMPOSITION
+    passes through coordinates a thousand times larger than the answer.
+
+    Measured, at the rider's second chain segment, 160 m past its end:
+
+        composed bottom-left frame   a = 1235.67 m, x = 56.91 m
+        rider frame                  right = -1.5169 m
+        right is                     -1115.7*sin(yaw) + 54.3*cos(yaw)
+                                     two ~55 m terms that nearly cancel
+        amplification                1235.7 / 1.52 = 815x
+        absolute error               2.9e-5 m   (29 microns, a km away)
+        relative error               1.9e-5     (20x every other metre seam)
+
+    SO THE ERROR TRACKS THE LARGEST COORDINATE THE COMPOSITION TOUCHES, not the
+    size of the answer -- that is what f32 has to hold on the way through. Which
+    makes the floor a representation granularity and not a fudge factor, and it
+    is set as one: one f32 ulp at the range the seam reaches.
+
+        r-at    reaches 2015 m; one ulp there is 1.22e-4. Floor 2.5e-4 (two ulp).
+                Reddens at 1e-4, passes at 1.2e-4.
+        r-prev  composes ONE join, reaches 660 m; one ulp there is 6.1e-5.
+                Floor 6e-5 (one ulp). Reddens at 1e-5, passes at 2e-5.
+
+    The two differ because the two reaches differ, which is D5 applied rather
+    than restated. Giving the behind joint the chain's floor would have been four
+    times slacker than anything it needs.
+
+    AND THE PORT'S OWN MATH IS NOT THE CAUSE. Recomputing `at` in f64 with the
+    language's own @sin/@cos and comparing to the real f32 render.at gives the
+    same picture -- 3.9e-7 at d = 0, 1.9e-5 at d = 2 -- so this is the f32/f64
+    width gap amplified by the composition, and Trig is innocent. Note also that
+    the error does NOT grow with depth: it peaks at d = 1 and d = 2 and falls
+    away by d = 6. It is cancellation at particular geometry, not accumulation,
+    so a deeper chain is not a worse chain.
+
+D7. THE CAT'S LEAP IS THE PORT'S ONE DELIBERATE APPROXIMATION, AND IT IS BOUNDED.
+
+    cat.zig front-loads the airborne lerp with `pow(b, 0.7)`. It is the ONLY pow
+    in the whole game -- the sole other transcendental outside the trig is
+    rider.zig's `@exp`, which Num ports as exp-real -- so what was missing was a
+    LOGARITHM, since pow is exp of a log, and the foreword has none.
+
+    The port does not write one. 0.75 is DYADIC where 0.7 is not, so b^0.75 is
+    `sqrt(b * sqrt(b))` -- verified exact to 1.1e-16 -- using a square root both
+    languages already have.
+
+    THE COST IS MEASURED, NOT WAVED AT. |b^0.7 - b^0.75| peaks at 0.02537 near
+    b = 0.252 and is ZERO at both ends, so the cat launches and lands in exactly
+    the right places and only the arc between them bows. The leap spans
+    mid-across 0.816 to end-across -3.490, which is 4.306 m, so nothing can be
+    more than 0.1093 m out. CatDrawCheck splits the stream to gate it honestly:
+    235 non-airborne samples at the ordinary width tolerance, 7 airborne ones at
+    0.12, and the POSE INDEX exactly on all 242 -- an approximation to the arc
+    must never be allowed to flip which still is drawn.
+
+    THE GAME IS NOT EDITED FOR THE PORT'S CONVENIENCE (Steve). Changing cat.zig to
+    b^0.75 would make this exact, and cat.zig is the oracle and the deployed
+    screensaver, so it stays as it is and the PORT carries the difference.
+
+    ln-real remains a reasonable thing to write one day -- a logarithm is a
+    foreword gap like r-atan, and Num already has its other half. It would need
+    its own accuracy calibration. One call site is not much reason on its own.
+
+================================================================================
+E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
+================================================================================
+
+    Seams are chosen by the zig, not by the porter.
+
+E1. RENDER.ZIG EXPOSES FOUR NAMES, AND THAT DECIDES HOW RENDER CAN BE GRADED.
+
+    Its whole public surface is `Chain`, `Pose`, `at`, and `frame` (plus the two
+    cull counters). buildChain, MapKind, Mapper, mapPt, emitGround,
+    emitGroundColor, emitPondGround, emitJointGround, pushLeg and emitJointRail
+    are all private to the file. A probe imports the module; it cannot reach any
+    of them.
+
+    Every other module in this port had a pub function per seam, so "the probe
+    calls the real thing" was free. Here it is not, and the check has to say
+    which of its rows is backed by what. RenderCheck grades three strengths:
+
+      a REAL ORACLE      r-at. render.at is pub; the probe calls it.
+      THE DEFINITION     r-prev. mapPt's prev branch is private, but it is
+                         geom.curToNext then geom.toRider and both ARE pub, so
+                         the probe composes the two real functions in that order.
+                         Every arithmetic step is oracled; the ORDER is not.
+      TRANSCRIBED        r-chain. buildChain is private AND `at` never consults
+                         the caps -- hand `at` a chain of any length and it
+                         composes it -- so the chain's EXTENT is not observable
+                         through the public surface at all. LOOK_AHEAD (7) and
+                         MAX_CHAIN (8) are copied from render.zig's source. Those
+                         two integers are the only value in this port that is
+                         transcribed rather than measured.
+
+    THE WAY OUT WAS ALREADY IN THE FILE AND WAS TAKEN. `render.cull_seg` IS pub,
+    and frame() accumulates into it `n_cows + n_pigs` for every chain index at or
+    beyond FARM_SEG_REACH -- counts WorldCheck already grades exactly. So one
+    frame() call turns the chain's extent into a number the world's own graded
+    data predicts, and RenderCheck's f-cull seam does exactly that across eight
+    rider states. The state on segment 16 is the one that pins it: a three-long
+    chain never reaches the farm cull's third index, so its tally is zero.
+
+    So r-chain no longer stands alone, and the two transcribed integers are
+    constrained by a real oracle even though `at` itself can never see them. The
+    lesson generalises better than the fix: an instrumentation counter can be the
+    only window into a module's private structure, and it is worth hunting for
+    one before accepting a transcribed value.
+
+E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
+
+    The generalisation of E1. This port's seams have so far been chosen from the
+    zig's own structure -- guard_rail's collect-then-draw, truck's motion-versus-
+    body -- and that worked because those splits were also visibility splits. It
+    is not guaranteed. Read the pub markers first; they are the real contract,
+    and they can make a natural seam ungradeable and an awkward one free.
+
+E3. RENDER'S PRIVATE RAIL-PATH CAP IS NOWHERE NEAR LIVE. RAIL_PATH_CAP is 192
+    points and the longest path any joint produced across eight rider states was
+    27 — run-up 11, both legs into and out of the apex, run-out 10. So the port
+    leaves the cap out rather than porting a truncation that cannot fire, and
+    that is now a measurement instead of an assumption. Same for the collection
+    caps: MAX_VIS_TREES is 640 against a peak render itself puts near 37 percent.
+
+E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
+
+    render.zig depth-sorts its scenery with an insertion sort, which is right for
+    a mutable array of a few hundred items. Ported literally onto Codex lists it
+    exhausted the whole 4 GiB bump heap and killed the check.
+
+    The reason is that an insertion sort has nothing to shift. Rebuilding the tail
+    past the insertion point allocates a list PER ELEMENT, so one insert is
+    quadratic in allocations and the sort is cubic — about 700 items across eight
+    frames, and the heap that never reclaims (C6) turns that from slow into fatal.
+
+    A STABLE MERGE SORT GIVES THE IDENTICAL ORDER. Same comparison, same tie rule,
+    so nothing observable changes; the cost falls to quadratic in copies, roughly
+    a hundred megabytes. The port takes the merge and says so at the definition.
+
+    The general shape: an in-place algorithm carried across to persistent lists can
+    gain a whole complexity class, and on this arm that is a crash rather than a
+    wait. Check the cost model of anything that mutates in place before porting it
+    line for line — the ANSWER is what has to match.

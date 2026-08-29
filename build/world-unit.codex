@@ -1134,11 +1134,20 @@ Section: Judging Reals Relatively
         in if i < 0 then name & " ok " & show (list-length got)
            else name & " BAD at " & show i
 
-Section: Judging Screen Coordinates
+Section: Judging Cancelled Coordinates
 
  A MIXED tolerance: an absolute floor plus a relative term, which is the only form
- that fits a projected coordinate. Neither half works alone, and both failures were
- measured rather than guessed.
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
 
  A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
  the same size, so a y of 20.6 is a small difference of two large numbers and

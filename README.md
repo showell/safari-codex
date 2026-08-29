@@ -119,6 +119,44 @@ already narrows at.
 | `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 | `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
+| `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
+| `port/Render.codex` | `wasm/render.zig`'s **mapping spine** | 1,475 values |
+
+**`Render` is the first module whose CHECK was shaped by the zig's `pub`
+markers rather than by its own structure.** render.zig's entire public surface is
+four names — `Chain`, `Pose`, `at`, `frame` — and `buildChain`, `Mapper`, `mapPt`
+and all four ground and rail emitters are private to the file. Every module before
+this one had a pub function per seam, so "the probe calls the real thing" was free;
+here it is not, and RenderCheck grades three different strengths and says which is
+which. `at` is a real oracle. The behind-joint mapper is graded by its definition —
+`geom.curToNext` then `geom.toRider`, both pub — so every arithmetic step is
+oracled and only the order is not. The chain is the weak one: `at` never consults
+the caps, so the chain's *extent* is not observable from outside render.zig at all,
+and `LOOK_AHEAD` and `MAX_CHAIN` are the only values in this port transcribed from
+source rather than measured. **The way out is already in the file** — `cull_seg` is
+pub and sums the herds over chain indices 3 and up, so the collection pass turns
+the chain's extent into a number WorldCheck's graded counts predict. See
+`PORTING_NOTES` E1.
+
+What is ported is the spine, not yet the frame: `frame` itself is 431 lines that
+collect, cull, depth-sort and draw, and its draw dispatch reaches `critter.draw`,
+`cat.draw` and `truck.drawBody` — the three baked-frame billboard drawers. The
+chain walk, the joins and the mappers are what everything else in the module
+stands on, and they are what is graded here.
+
+**`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
+here had before. `at` composes a point down a kilometre of chain and hands back one
+a metre or two off the rider's nose — 815x amplification, measured — so the error
+tracks the largest coordinate the composition passes through rather than the size
+of the answer. That makes the floor a representation granularity, and it is set as
+one: one f32 ulp at the range each seam reaches, 2.5e-4 m for the chain and 6e-5 m
+for the behind joint. Both are load-bearing; each reddens within about 2x below its
+setting. `PORTING_NOTES` D6 has the numbers.
+
+**`SafariCritter` is a whole file, and it is worth noting why** when its neighbours
+arrive in halves: it is placement only, so nothing in it reaches the baked frames.
+`cornerCritters` is pub, so it gets a real oracle, and it is graded inside
+RenderCheck rather than growing a fourth build for sixty lines.
 
 **`Sky` is the first module that needed a plug change.** `skyColor` rounds a
 lerped channel and packs three of them into one integer, so it needed

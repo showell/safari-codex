@@ -1,0 +1,287 @@
+Chapter: RenderCheck
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter World
+  cites Safari chapter Render
+  cites Safari chapter SafariCritter
+  cites Judge chapter Grade
+  cites Gold chapter RenderGold
+
+ Grade the Render port's mapping spine against wasm/render.zig, and SafariCritter
+ against wasm/safari_critter.zig.
+
+ THREE SEAMS AND THREE STRENGTHS OF ORACLE, which is unusual here and is worth
+ stating plainly rather than letting four green rows imply four equal ones.
+ render.zig's whole public surface is Chain, Pose, at and frame; buildChain,
+ Mapper, mapPt and the ground and rail emitters are private to the file, so what
+ can be graded is decided by the zig and not by the port.
+
+   r-at     A REAL ORACLE, and the one that matters. render.at is pub, so the
+            probe calls the actual function on the actual world. Every value in
+            this stream came out of the game.
+
+   r-prev   THE DEFINITION. mapPt's prev branch is private, but it is exactly
+            geom.curToNext followed by geom.toRider and both of those ARE pub, so
+            the probe composes the two real functions in that order. What is not
+            being tested is that render.zig's private mapPt composes them in that
+            order; what IS being tested is every arithmetic step inside it, on the
+            real segments, and that the port picks the inverse transform for the
+            behind joint rather than the forward one.
+
+   r-chain  THE WEAKEST, and it does not pretend otherwise. buildChain is private
+            and `at` never consults the caps -- hand it a chain of any length and
+            it composes it -- so the chain's EXTENT is not observable through
+            render.zig's public surface at all. The probe walks the real world's
+            exit_to and terminates, both graded exactly in WorldCheck, but
+            LOOK_AHEAD and MAX_CHAIN are transcribed from render.zig's source.
+            Those two integers are the only value in this port that is copied
+            rather than measured. They stop being so as soon as the collection
+            lands: render.cull_seg is pub and accumulates n_cows + n_pigs over
+            chain indices 3 and up, so a frame() call turns the chain's extent
+            into a number the world's own graded counts predict. PORTING_NOTES E1
+            carries that plan.
+
+   sc-*     A REAL ORACLE. safari_critter.cornerCritters is pub.
+
+ THE CHAIN STILL EARNS ITS ROW. Both of its branches fire across the nineteen
+ starts: the look-ahead caps the first thirteen at seven, and the terminus break
+ walks the tail down six, five, four, three, two, one. A chain that ran past the
+ finish line, or looped at it, or dropped the terminating segment for being one
+ index past the cap, is caught -- and the off-by-one at the cap test is the whole
+ reason the port reads ch.len at the TOP of the loop.
+
+ THE SAMPLE POINTS ARE THE ONES RENDER AUTHORS AT, not a grid for its own sake.
+ The four `a` are the segment start, its middle, its end edge -- where every joint
+ quad and every corner rail begins -- and the 160 m beyond where the intersection
+ tower stands. The four `x` are the left edge, the centre line, the right edge and
+ the tower's 20 m off it. So the composition is measured where the module will
+ actually ask for it, including well past the end of a segment, which is where a
+ wrong join rotation shows up largest.
+
+ THE TWO POSES DIFFER IN EVERY FIELD and one of them looks LEFT. A yaw near zero
+ makes the rider transform nearly the identity in `right` and hides a sign error
+ in the sine; -0.3 rad does not.
+
+ The chains are the three shapes the route produces: capped at the look-ahead,
+ running into the terminus, and the short tail. The four previous segments turn
+ both ways, including seg 12's right turn into the pond corner.
+
+ We say:
+
+Section: The World
+
+  segs : List Segment
+  segs = build-world
+
+  n-segs : Integer
+  n-segs = list-length segs
+
+Section: The Chain Streams
+
+  chain-flat : Integer -> List Integer
+  chain-flat (i) =
+    if i >= n-segs then []
+    else (build-chain segs i) & chain-flat (i + 1)
+
+  chain-lens : Integer -> List Integer
+  chain-lens (i) =
+    if i >= n-segs then []
+    else [list-length (build-chain segs i)] & chain-lens (i + 1)
+
+Section: The Sample Points
+
+ Where render authors: the segment start, middle, end edge, and the tower's
+ distance beyond it; the left edge, centre line, right edge, and the tower's
+ offset off it. These two are render.zig's tower placement constants, and they are
+ here rather than in the port because the port has not reached the towers yet --
+ they choose sample points, so they are test inputs and not expected values.
+
+  tower-beyond : Real
+  tower-beyond = 160.0
+
+  tower-right : Real
+  tower-right = 20.0
+
+  sample-as : Segment -> List Real
+  sample-as (s) = [0.0, s.length / 2.0, s.length, s.length + tower-beyond]
+
+  sample-xs : Segment -> List Real
+  sample-xs (s) = [0.0, s.width / 2.0, s.width, s.width / 2.0 + tower-right]
+
+  poses : List Pose
+  poses = [Pose { along = 120.0, across = 0.6, yaw = 0.05, hw = 2.0 }, Pose { along = 480.0, across = 0.0 - 1.2, yaw = 0.0 - 0.3, hw = 2.0 }]
+
+  sample-starts : List Integer
+  sample-starts = [0, 12, 16]
+
+  prev-indices : List Integer
+  prev-indices = [0, 1, 12, 17]
+
+Section: The at Stream
+
+ Pose outermost, then chain, then depth, then `a`, then `x` -- the probe's own
+ nesting. Right before forward at every point, as RiderPt is written.
+
+  at-over-xs : List Integer, Pose, Integer, List Real, Real, Integer -> List Real
+  at-over-xs (ch) (pose) (d) (xs) (a) (j) =
+    if j >= list-length xs then []
+    else let p = at segs ch pose d a (list-at xs j)
+    in [p.right, p.forward] & at-over-xs ch pose d xs a (j + 1)
+
+  at-over-as : List Integer, Pose, Integer, List Real, List Real, Integer -> List Real
+  at-over-as (ch) (pose) (d) (as) (xs) (i) =
+    if i >= list-length as then []
+    else (at-over-xs ch pose d xs (list-at as i) 0) & at-over-as ch pose d as xs (i + 1)
+
+  at-over-ds : List Integer, Pose, Integer -> List Real
+  at-over-ds (ch) (pose) (d) =
+    if d >= list-length ch then []
+    else let sg = list-at segs (list-at ch d)
+    in (at-over-as ch pose d (sample-as sg) (sample-xs sg) 0) & at-over-ds ch pose (d + 1)
+
+  at-over-chains : Pose, Integer -> List Real
+  at-over-chains (pose) (i) =
+    if i >= list-length sample-starts then []
+    else (at-over-ds (build-chain segs (list-at sample-starts i)) pose 0) & at-over-chains pose (i + 1)
+
+  at-stream : Integer -> List Real
+  at-stream (i) =
+    if i >= list-length poses then []
+    else (at-over-chains (list-at poses i) 0) & at-stream (i + 1)
+
+Section: The Behind-Joint Stream
+
+ Segment outermost, then pose -- the probe nests these the other way round from
+ the at stream, and the order is the assertion, so the port follows it.
+
+ THE CHAIN HANDED IN IS EMPTY, and that is the point rather than a shortcut: the
+ prev mapper does not consult it. The previous segment is not on the chain at all
+ -- the chain begins at the rider's current segment and only runs forward -- which
+ is precisely why this branch exists. Passing an empty list proves the port reads
+ nothing it should not.
+
+  prev-over-xs : Segment, Pose, List Real, Real, Integer -> List Real
+  prev-over-xs (pv) (pose) (xs) (a) (j) =
+    if j >= list-length xs then []
+    else let p = map-pt segs [] pose (prev-map pv) a (list-at xs j)
+    in [p.right, p.forward] & prev-over-xs pv pose xs a (j + 1)
+
+  prev-over-as : Segment, Pose, List Real, List Real, Integer -> List Real
+  prev-over-as (pv) (pose) (as) (xs) (i) =
+    if i >= list-length as then []
+    else (prev-over-xs pv pose xs (list-at as i) 0) & prev-over-as pv pose as xs (i + 1)
+
+  prev-over-poses : Segment, Integer -> List Real
+  prev-over-poses (pv) (i) =
+    if i >= list-length poses then []
+    else (prev-over-as pv (list-at poses i) (sample-as pv) (sample-xs pv) 0) & prev-over-poses pv (i + 1)
+
+  prev-stream : Integer -> List Real
+  prev-stream (i) =
+    if i >= list-length prev-indices then []
+    else (prev-over-poses (list-at segs (list-at prev-indices i)) 0) & prev-stream (i + 1)
+
+Section: The Corner Pair Streams
+
+ Every creature against both turn directions. The two that yield nothing -- the
+ terminus and the duck pond -- are first and last, so a species table that fell
+ through to a default would be caught at both ends.
+
+  creatures : List Creature
+  creatures = [NoCreature, Elephant, Giraffe, Zebra, Rhino, DuckPond]
+
+  turns : List Boolean
+  turns = [True, False]
+
+  sc-pair : Creature, Integer -> List Critter
+  sc-pair (c) (j) =
+    if j >= list-length turns then []
+    else (corner-critters c 300.0 (list-at turns j) 2.0) & sc-pair c (j + 1)
+
+  sc-all : Integer -> List Critter
+  sc-all (i) =
+    if i >= list-length creatures then []
+    else (sc-pair (list-at creatures i) 0) & sc-all (i + 1)
+
+  sc-count-pair : Creature, Integer -> List Integer
+  sc-count-pair (c) (j) =
+    if j >= list-length turns then []
+    else [list-length (corner-critters c 300.0 (list-at turns j) 2.0)] & sc-count-pair c (j + 1)
+
+  sc-counts : Integer -> List Integer
+  sc-counts (i) =
+    if i >= list-length creatures then []
+    else (sc-count-pair (list-at creatures i) 0) & sc-counts (i + 1)
+
+  cr-cps : List Critter, Integer -> List Integer
+  cr-cps (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).codepoint] & cr-cps cs (i + 1)
+
+  cr-faces : List Critter, Integer -> List Boolean
+  cr-faces (cs) (i) =
+    if i >= list-length cs then []
+    else [(list-at cs i).face-right] & cr-faces cs (i + 1)
+
+  cr-place : List Critter, Integer -> List Real
+  cr-place (cs) (i) =
+    if i >= list-length cs then []
+    else let c = list-at cs i
+    in [c.along, c.across, c.height] & cr-place cs (i + 1)
+
+Section: Entry
+
+ Chain indices, lengths, codepoints and counts take NO tolerance: they are
+ structure. The critter placement is arithmetic over authored constants and takes
+ the ordinary relative gate.
+
+ THE TWO MAPPED-POINT SEAMS TAKE A MIXED GATE, AND THEY ARE THE FIRST SEAM IN
+ METRES TO NEED ONE. Every other world-coordinate stream in this port holds at a
+ plain 1e-6 relative. These do not, and the reason is cancellation again -- the
+ third distinct place it has driven a gate here, after the tree's horizon and the
+ sun's disc, and the first where the amplifier is the CHAIN rather than the
+ screen.
+
+ The worst case was measured, not guessed. At the rider's second chain segment, a
+ point 160 m past its end composes down through two joins to a bottom-left frame
+ coordinate of 1235.7 m -- and lands 1.52 m to the rider's left. `right` is
+ -1115.7 * sin(yaw) + 54.3 * cos(yaw): two terms near 55 m that very nearly
+ cancel, computed from a coordinate over a kilometre out. The amplification is
+ 815x, and the absolute error is 2.9e-5 m -- twenty-nine microns on scenery a
+ kilometre away, which is nothing, and 1.9e-5 relative, which is twenty times the
+ gate every other metre seam here passes.
+
+ SO THE ERROR IS NOT PROPORTIONAL TO THE ANSWER. It is proportional to the largest
+ coordinate the composition passes through, because that is what f32 has to hold
+ on the way. That makes the floor a REPRESENTATION granularity rather than a
+ fudge, and it is set as one:
+
+   r-at    reaches 2015 m, where one f32 ulp is 1.22e-4 m. Floor 2.5e-4 -- two
+           ulp at that range. Measured requirement 1.05e-4; the check reddens at
+           1e-4 and passes at 1.2e-4, so the floor carries about 2x.
+   r-prev  the behind joint composes ONE join, not six, and reaches 660 m, where
+           one f32 ulp is 6.1e-5 m. Floor 6e-5 -- one ulp at that range. It
+           reddens at 1e-5 and passes at 2e-5, so it carries about 3x.
+
+ THE TWO FLOORS DIFFER BECAUSE THE TWO REACHES DIFFER, which is D5's rule applied
+ rather than restated: the SHAPE of the gate comes from the failure mode and both
+ seams share it, but the NUMBER comes from what each seam actually has to admit,
+ and giving the behind joint the chain's floor would have been four times slacker
+ than anything it needs. The relative term stays at 1e-6 in both, where the rest
+ of the port has it, and it is what governs the far coordinates the floor is far
+ too small for.
+
+ Neither floor is fitted to the measurement. Each is the f32 granularity at its
+ own seam's working range, which is the number that would still be right if the
+ samples moved.
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints "r-chainlen" (chain-lens 0) g-r-chainlen)
+    print-line-uni (grade-ints "r-chain   " (chain-flat 0) g-r-chain)
+    print-line-uni (grade-px   "r-at      " (at-stream 0) g-r-at 0.00025 0.000001)
+    print-line-uni (grade-px   "r-prev    " (prev-stream 0) g-r-prev 0.00006 0.000001)
+    print-line-uni (grade-ints "sc-n      " (sc-counts 0) g-sc-n)
+    print-line-uni (grade-ints "sc-cp     " (cr-cps (sc-all 0) 0) g-sc-cp)
+    print-line-uni (grade-bools "sc-face   " (cr-faces (sc-all 0) 0) g-sc-face)
+    print-line-uni (grade-rel  "sc-place  " (cr-place (sc-all 0) 0) g-sc-place 0.000001)
+  end

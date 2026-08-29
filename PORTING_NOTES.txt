@@ -456,3 +456,89 @@ D5. A TOLERANCE FLOOR IS CALIBRATED PER SEAM, not copied from another one.
 D4. Structure is graded EXACTLY and must stay that way. Tags, colours and point
     counts take no tolerance. A wrong point count is a structural error and no
     coordinate tolerance should ever be able to hide one.
+
+D6. THE CHAIN IS THE THIRD DISTINCT CANCELLATION, and the first in METRES.
+
+    D3 and D5 both amplified at the screen: a coordinate near the horizon, a sun
+    height near zero. Render's `at` does it in world space and for a different
+    reason -- not because the answer is near zero, but because the COMPOSITION
+    passes through coordinates a thousand times larger than the answer.
+
+    Measured, at the rider's second chain segment, 160 m past its end:
+
+        composed bottom-left frame   a = 1235.67 m, x = 56.91 m
+        rider frame                  right = -1.5169 m
+        right is                     -1115.7*sin(yaw) + 54.3*cos(yaw)
+                                     two ~55 m terms that nearly cancel
+        amplification                1235.7 / 1.52 = 815x
+        absolute error               2.9e-5 m   (29 microns, a km away)
+        relative error               1.9e-5     (20x every other metre seam)
+
+    SO THE ERROR TRACKS THE LARGEST COORDINATE THE COMPOSITION TOUCHES, not the
+    size of the answer -- that is what f32 has to hold on the way through. Which
+    makes the floor a representation granularity and not a fudge factor, and it
+    is set as one: one f32 ulp at the range the seam reaches.
+
+        r-at    reaches 2015 m; one ulp there is 1.22e-4. Floor 2.5e-4 (two ulp).
+                Reddens at 1e-4, passes at 1.2e-4.
+        r-prev  composes ONE join, reaches 660 m; one ulp there is 6.1e-5.
+                Floor 6e-5 (one ulp). Reddens at 1e-5, passes at 2e-5.
+
+    The two differ because the two reaches differ, which is D5 applied rather
+    than restated. Giving the behind joint the chain's floor would have been four
+    times slacker than anything it needs.
+
+    AND THE PORT'S OWN MATH IS NOT THE CAUSE. Recomputing `at` in f64 with the
+    language's own @sin/@cos and comparing to the real f32 render.at gives the
+    same picture -- 3.9e-7 at d = 0, 1.9e-5 at d = 2 -- so this is the f32/f64
+    width gap amplified by the composition, and Trig is innocent. Note also that
+    the error does NOT grow with depth: it peaks at d = 1 and d = 2 and falls
+    away by d = 6. It is cancellation at particular geometry, not accumulation,
+    so a deeper chain is not a worse chain.
+
+
+================================================================================
+E. WHAT A MODULE'S PRIVATE SURFACE DOES TO ITS CHECK
+================================================================================
+
+E1. RENDER.ZIG EXPOSES FOUR NAMES, AND THAT DECIDES HOW RENDER CAN BE GRADED.
+
+    Its whole public surface is `Chain`, `Pose`, `at`, and `frame` (plus the two
+    cull counters). buildChain, MapKind, Mapper, mapPt, emitGround,
+    emitGroundColor, emitPondGround, emitJointGround, pushLeg and emitJointRail
+    are all private to the file. A probe imports the module; it cannot reach any
+    of them.
+
+    Every other module in this port had a pub function per seam, so "the probe
+    calls the real thing" was free. Here it is not, and the check has to say
+    which of its rows is backed by what. RenderCheck grades three strengths:
+
+      a REAL ORACLE      r-at. render.at is pub; the probe calls it.
+      THE DEFINITION     r-prev. mapPt's prev branch is private, but it is
+                         geom.curToNext then geom.toRider and both ARE pub, so
+                         the probe composes the two real functions in that order.
+                         Every arithmetic step is oracled; the ORDER is not.
+      TRANSCRIBED        r-chain. buildChain is private AND `at` never consults
+                         the caps -- hand `at` a chain of any length and it
+                         composes it -- so the chain's EXTENT is not observable
+                         through the public surface at all. LOOK_AHEAD (7) and
+                         MAX_CHAIN (8) are copied from render.zig's source. Those
+                         two integers are the only value in this port that is
+                         transcribed rather than measured.
+
+    THE WAY OUT IS ALREADY IN THE FILE, and it is worth taking when the
+    collection lands. `render.cull_seg` IS pub, and frame() accumulates into it
+    `n_cows + n_pigs` for every chain index at or beyond FARM_SEG_REACH. Both
+    counts are graded exactly in WorldCheck. So one frame() call turns the
+    chain's extent into a number the world's own graded data predicts: a chain
+    one segment longer or shorter changes cull_seg by that segment's herd. That
+    is a real oracle for the cap, built out of a counter that exists for
+    instrumentation, and it closes the last transcribed value.
+
+E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
+
+    The generalisation of E1. This port's seams have so far been chosen from the
+    zig's own structure -- guard_rail's collect-then-draw, truck's motion-versus-
+    body -- and that worked because those splits were also visibility splits. It
+    is not guaranteed. Read the pub markers first; they are the real contract,
+    and they can make a natural seam ungradeable and an awkward one free.

@@ -42,6 +42,7 @@ const paint = @import("wasm/paint.zig");
 const camera = @import("wasm/camera.zig");
 const truck = @import("wasm/truck.zig");
 const pond = @import("wasm/pond.zig");
+const cat = @import("wasm/cat.zig");
 
 // COPIED from render.zig's private consts -- see the header. Nothing else here is.
 const LOOK_AHEAD: usize = 7;
@@ -77,6 +78,14 @@ var g_cnt: [4096]u32 = undefined;
 var g_xy: [65536]f32 = undefined;
 var ngt: usize = 0;
 var ngx: usize = 0;
+
+var k_pose: [512]u32 = undefined;
+var k_across: [512]f32 = undefined;
+var k_air: [512]f32 = undefined;
+var k_lift: [512]f32 = undefined;
+var nkp: usize = 0;
+var nka: usize = 0;
+var nkr: usize = 0;
 
 var sc_n: [32]u32 = undefined;
 var sc_cp: [64]u32 = undefined;
@@ -458,6 +467,46 @@ pub fn main() void {
         }
     }
 
+    // THE CROSSING CAT. cat.state IS pub, so this is a real oracle, and it is the
+    // seam that carries the port's one deliberate approximation: the airborne
+    // lateral uses b^0.75 where the zig uses pow(b, 0.7), because 0.75 is dyadic
+    // and needs only square roots. So `across` is split in two -- every sample
+    // outside the two airborne frames, which must match at the ordinary width
+    // tolerance, and the airborne ones, which are allowed the measured 0.0254 of
+    // the span and nothing more.
+    //
+    // The sweep runs the gap from well ahead down to past the cat at two speeds,
+    // which walks the clock through all three phases: the walk-in and its gait
+    // snap, the freeze, and the leap's coil / two airborne frames / land /
+    // collapse.
+    {
+        const c = w.segments[1].cat;
+        const ESC_AT: f32 = 10.0 + 24.0; // enters + frozen
+        for ([_]f32{ 1.2, 0.5 }) |v| {
+            var i: usize = 0;
+            while (i <= 120) : (i += 1) {
+                const gap = 59.83 - @as(f32, @floatFromInt(i)) * 0.5;
+                const st = cat.state(c, gap, v);
+                k_pose[nkp] = @intCast(st.pose_idx);
+                k_lift[nkp] = st.lift;
+                nkp += 1;
+                // Classify the sample by the same clock cat.zig uses, so the two
+                // `across` streams split exactly where the approximation applies.
+                const e = gap - 3.0;
+                const t: f32 = if (e <= 0) 1.0 else if (v <= 1e-6) 0.0 else @max(0.0, @min(1.0, 1.0 - e / (38.0 * v)));
+                const step = t * 38.0;
+                const k = @min(step - ESC_AT, 4.0);
+                if (step > ESC_AT and k >= 1.0 and k < 3.0) {
+                    k_air[nka] = st.across;
+                    nka += 1;
+                } else {
+                    k_across[nkr] = st.across;
+                    nkr += 1;
+                }
+            }
+        }
+    }
+
     std.debug.print("I r-chainlen", .{});
     for (chain_len[0..ncl]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nI r-chain", .{});
@@ -486,6 +535,14 @@ pub fn main() void {
     for (g_cnt[0..ngt]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR f-gxy", .{});
     for (g_xy[0..ngx]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nI k-pose", .{});
+    for (k_pose[0..nkp]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nR k-across", .{});
+    for (k_across[0..nkr]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nR k-air", .{});
+    for (k_air[0..nka]) |v| std.debug.print(" {d}", .{v});
+    std.debug.print("\nR k-lift", .{});
+    for (k_lift[0..nkp]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\nR sc-place", .{});
     for (sc_r[0..nsr]) |v| std.debug.print(" {d}", .{v});
     std.debug.print("\n", .{});

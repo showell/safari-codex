@@ -31,6 +31,13 @@ const CatS = struct {
 };
 const Cat = *CatS;
 
+const CatStateS = struct {
+    pose_idx: i64,
+    across: f64,
+    lift: f64,
+};
+const CatState = *CatStateS;
+
 const Scheme = enum {
     AllGreen,
     YellowGreen,

@@ -64,13 +64,22 @@ Section: Marker Colours
 
 Section: The Marker
 
- Project the billboard's feet and its top, exactly as critter.zig does before it
- lays its baked polygons down, and box that. The width is a fraction of the
- measured pixel height, so a marker keeps an animal-ish proportion at any distance
- and a far one shrinks the way the real billboard would.
+ SPIKE-ONLY TAG 9, AND IT IS NOT A DRAW COMMAND THE GAME HAS. paint.zig's wire
+ uses 0, 1 and 3; this borrows an unused number to say "a billboard stands here",
+ carrying the codepoint in the colour word, the facing in strength, and the screen
+ anchor and pixel height in pts. harness/spike_svg.py recognises it and draws the
+ REAL baked art from the game's emoji_frames.zig -- which the spike script can
+ read straight off disk, being Python and being throwaway, where the port cannot.
 
-  marker-half-width : Real
-  marker-half-width = 0.18
+ So the ART on a spike is the game's own and the PLACEMENT is the port's. That is
+ the split that makes these pictures worth looking at: if a pig is in the wrong
+ spot it is this port's fault, and if a pig looks wrong it is not.
+
+ Nothing outside the spike ever sees tag 9. The wasm shim would not know what to
+ do with it, and the build gate that walks the wire would reject it -- correctly.
+
+  marker-tag : Integer
+  marker-tag = 9
 
   marker-of : Billboard, Real -> List DrawCmd
   marker-of (b) (cf) =
@@ -78,7 +87,7 @@ Section: The Marker
     in let top = project (Vec3 { right = b.right, forward = b.fwd, height = b.height }) cf camera-w
     in let h = base.y - top.y
     in if h < 1.0 then []
-      else push-poly (marker-color b.cp) [ScreenPt { x = base.x - h * marker-half-width, y = base.y }, ScreenPt { x = base.x + h * marker-half-width, y = base.y }, ScreenPt { x = base.x + h * marker-half-width, y = top.y }, ScreenPt { x = base.x - h * marker-half-width, y = top.y }]
+      else [DrawCmd { tag = marker-tag, color = b.cp, strength = if b.face-right then 1.0 else 0.0, pts = [base.x, base.y, h] }]
 
 Section: The Frame
 
@@ -90,10 +99,27 @@ Section: The Frame
   spike-item (w) (ch) (pose) (c) (it) (cf) (step) =
    when it.kind
     is KCow -> marker-of (list-at c.cows it.i) cf
+    is KCat -> cat-marker (list-at c.cats it.i) cf
     is KTree -> draw-one-tree c.trees it.i cf
     is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
     is KTruck -> []
+
+  marker-cat : Integer
+  marker-cat = 3355443
+
+ THE CAT KEEPS A BOX. Its stills live in cat_frames.zig, a bigger table in a
+ different shape from the emoji one, and reading it too is more spike than this
+ spike needs. The box is lifted by the hop, so the leap still reads: it rises and
+ falls over the two airborne frames and slides from lane centre to the far grass.
+
+  cat-marker : CatItem, Real -> List DrawCmd
+  cat-marker (c) (cf) =
+    let base = project (Vec3 { right = c.right, forward = c.fwd, height = c.lift }) cf camera-w
+    in let top = project (Vec3 { right = c.right, forward = c.fwd, height = c.lift + c.height }) cf camera-w
+    in let h = base.y - top.y
+    in if h < 1.0 then []
+      else push-poly marker-cat [ScreenPt { x = base.x - h * 0.3, y = base.y }, ScreenPt { x = base.x + h * 0.3, y = base.y }, ScreenPt { x = base.x + h * 0.3, y = top.y }, ScreenPt { x = base.x - h * 0.3, y = top.y }]
 
   spike-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
   spike-order (w) (ch) (pose) (c) (cf) (step) (i) =
@@ -111,7 +137,7 @@ Section: The Frame
     in let ch = build-chain w p.seg
     in (draw (heading-in w u) (sun-set-fraction step) focal camera-w)
        & (frame-ground w p.seg pose focal camera-w)
-       & (spike-order w ch pose (collect w p.seg pose focal p.along 0.0) focal step 0)
+       & (spike-order w ch pose (collect w p.seg pose focal p.along spike-v 0.0) focal step 0)
 
 Section: The Viewpoints
 
@@ -133,6 +159,13 @@ Section: The Viewpoints
  end of a distraction segment. Segment 2 is the first of the two that carry one
  (49 pigs; every other segment has ten or none), it is 400 m long and starts at
  820 m, so the herd sits at about 1160 m and this stands 90 m short of it.
+
+ A nominal speed, so the cat's crossing clock is live. A still with v = 0 freezes
+ the cat at the start of its walk-in, which is the one pose it is never
+ interesting in.
+
+  spike-v : Real
+  spike-v = 1.2
 
   spike-course : Real
   spike-course = course-length build-world * 0.995
@@ -157,11 +190,27 @@ Section: The Viewpoints
   u-pond : Real
   u-pond = u-at-metres 5596.0
 
- A CORNER PAIR: segment 15's exit carries the zebras, and an adult stands at the
- far outer corner with its baby beyond the turn. Segment 15 starts at 5920 m.
+ A CORNER PAIR: segment 15's exit carries the zebras, an adult at the far outer
+ corner and its baby beyond the turn. Segment 15 runs 6320 to 6620, so this stands
+ 20 m short of the corner. At the first attempt it stood 470 m off, which put a
+ 1.6 m zebra at about two pixels -- right on the cull floor, which is to say
+ invisible, which is exactly what it looked like.
 
   u-zebras : Real
-  u-zebras = u-at-metres 6560.0
+  u-zebras = u-at-metres 6600.0
+
+ THE CAT, TWICE, because the interesting thing about it is a clock rather than a
+ place. Segment 1 runs 500 to 820 and its cat waits at about 628 m -- world.zig
+ rounds the desired 105 m up to just past a tree, so a tree stands between the
+ rider and it. The first viewpoint catches it FROZEN in the lane, twenty-four
+ frames of standing still; the second catches it AIRBORNE, mid-leap, which is the
+ one place this port approximates and therefore the one worth looking at.
+
+  u-cat-frozen : Real
+  u-cat-frozen = u-at-metres 598.0
+
+  u-cat-leap : Real
+  u-cat-leap = u-at-metres 622.5
 
 Section: The Speed Profile
 

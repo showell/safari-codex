@@ -8,6 +8,7 @@ Chapter: Render
   cites Safari chapter Pond
   cites Safari chapter Tower
   cites Safari chapter GuardRail
+  cites Safari chapter Cat
   cites Safari chapter SafariCritter
 
  The frame mapping: which segments are in view, and how a point authored in any of
@@ -214,6 +215,9 @@ Section: Collection Limits and Culls
   max-vis-critters : Integer
   max-vis-critters = 320
 
+  max-vis-cats : Integer
+  max-vis-cats = 8
+
 Section: Tower Placement
 
  Out past the corner, off to the right, and yawed. A long segment also stands its
@@ -289,6 +293,56 @@ Section: The Collected Kinds
     kept : Boolean,
     size-culled : Boolean
   }
+
+Section: The Crossing Cat
+
+ A cat is a billboard like the animals, but its across is not authored -- it comes
+ out of the crossing clock, keyed on the rider's ROAD-ALONG GAP to it. So it needs
+ something none of the other kinds do: how far down the route the chain segment it
+ stands on begins.
+
+ That gap starts NEGATIVE. The rider is already `along` into his own segment, so
+ the start of chain[0] is behind him, and each further segment adds its length.
+ The zig accumulates it as it walks; the port sums it, which is the same number
+ and does not need the walk to carry state.
+
+  chain-gap : List Segment, List Integer, Real, Integer -> Real
+  chain-gap (w) (ch) (along) (d) =
+    if d <= 0 then 0.0 - along
+    else chain-gap w ch along (d - 1) + (list-at w (list-at ch (d - 1))).length
+
+  CatItem = record {
+    right : Real,
+    fwd : Real,
+    height : Real,
+    pose-idx : Integer,
+    lift : Real
+  }
+
+ THE CAT CULLS ON THE LIVE FOCAL, like the trees and unlike the critters, and it
+ culls only at the near plane besides. render.zig argues the point: it is a flat
+ billboard at one depth, so as the rider passes, the whole still scales and slides
+ off to the left together -- it never streaks across the viewport the way a tower
+ can -- and culling it earlier would vanish the collapsed cat exactly as he
+ reaches it, instead of letting him pass it.
+
+  cat-item : List Segment, List Integer, Pose, Integer, Real, Real, Segment, Real -> List CatItem
+  cat-item (w) (ch) (pose) (d) (cf) (gap) (sg) (v) =
+    let st = cat-state sg.cat (gap + sg.cat.along) v
+    in let rp = at w ch pose d sg.cat.along (st.across + sg.width / 2.0)
+    in if rp.forward <= near then []
+      else if sg.cat.height / rp.forward * cf < min-scenery-px then []
+      else [CatItem { right = rp.right, fwd = rp.forward, height = sg.cat.height, pose-idx = st.pose-idx, lift = st.lift }]
+
+  seg-cat : List Segment, List Integer, Pose, Integer, Real, Real, Real -> List CatItem
+  seg-cat (w) (ch) (pose) (d) (cf) (along) (v) =
+    let sg = list-at w (list-at ch d)
+    in if sg.has-cat then cat-item w ch pose d cf (chain-gap w ch along d) sg v else []
+
+  walk-cats : List Segment, List Integer, Pose, Real, Real, Real, Integer -> List CatItem
+  walk-cats (w) (ch) (pose) (cf) (along) (v) (d) =
+    if d >= list-length ch then []
+    else (seg-cat w ch pose d cf along v) & walk-cats w ch pose cf along v (d + 1)
 
 Section: Placing Billboards
 
@@ -648,6 +702,7 @@ Section: The Depth Sort
    | KTree
    | KTower
    | KCow
+   | KCat
    | KTruck
    | KRail
 
@@ -671,6 +726,11 @@ Section: The Depth Sort
   cow-items (bs) (i) =
     if i >= list-length bs then []
     else [Item { fwd = (list-at bs i).fwd, kind = KCow, i = i }] & cow-items bs (i + 1)
+
+  cat-items : List CatItem, Integer -> List Item
+  cat-items (cs) (i) =
+    if i >= list-length cs then []
+    else [Item { fwd = (list-at cs i).fwd, kind = KCat, i = i }] & cat-items cs (i + 1)
 
   rail-items : List RailPoly, Integer -> List Item
   rail-items (rs) (i) =
@@ -734,18 +794,16 @@ Section: The Frame's Collection
  walk in the zig, but they are quads on the floor and never enter the sort, so
  they belong to the paint pass and are not ported here.
 
- THE CAT IS THE ONE COLLECTED KIND STILL MISSING, and it is blocked rather than
- skipped. cat.zig's `state` is otherwise portable -- its pose indices are plain
- constants, not baked polygons -- but its AIRBORNE branch interpolates the cat's
- lateral travel by `pow(b, 0.7)`, and Codex has no power function. Num already
- grew `exp-real`; what is missing is its other half, a logarithm, and `pow` is
- exp of a log. So this is a third gap in the foreword beside `r-atan`, not a hole
- in the plug, and it is named here so the next pass knows what it costs.
+ ALL SEVEN KINDS ARE COLLECTED NOW. The cat was the last, and what unblocked it
+ was not writing the logarithm its `pow(b, 0.7)` seemed to need: 0.75 is dyadic
+ where 0.7 is not, so the front-loaded leap is a pair of square roots and the
+ approximation is bounded at 8.6 cm for two frames. Safari chapter Cat argues it.
 
   Collected = record {
     trees : List TreeItem,
     towers : List TowerItem,
     cows : List Billboard,
+    cats : List CatItem,
     rails : List RailPoly,
     truck : TruckAt,
     order : List Item,
@@ -778,22 +836,24 @@ Section: The Frame's Collection
  truck, then the rails -- and since the sort is stable it is also the order equal
  depths come out in.
 
-  collect : List Segment, Integer, Pose, Real, Real, Real -> Collected
-  collect (segs) (seg-idx) (pose) (cf) (along) (truck-pos) =
+  collect : List Segment, Integer, Pose, Real, Real, Real, Real -> Collected
+  collect (segs) (seg-idx) (pose) (cf) (along) (v) (truck-pos) =
     let ch = build-chain segs seg-idx
     in let placed = all-placed segs ch pose seg-idx
     in let trees = list-take (walk-trees segs ch pose cf 0) max-vis-trees
     in let towers = list-take (all-towers segs ch pose seg-idx) max-vis-towers
     in let cows = list-take (kept-of placed 0) max-vis-critters
+    in let cats = list-take (walk-cats segs ch pose cf along v 0) max-vis-cats
     in let rails = all-rails segs ch pose seg-idx
     in let tk = truck-at segs ch pose along (truck-pos - route-distance segs seg-idx along)
     in Collected {
       trees = trees,
       towers = towers,
       cows = cows,
+      cats = cats,
       rails = rails,
       truck = tk,
-      order = sort-items ((tree-items trees 0) & (tower-items towers 0) & (cow-items cows 0) & (truck-items tk) & (rail-items rails 0)),
+      order = sort-items ((tree-items trees 0) & (tower-items towers 0) & (cow-items cows 0) & (cat-items cats 0) & (truck-items tk) & (rail-items rails 0)),
       cull-seg = walk-seg-cull segs ch 0,
       cull-size = size-culled-of placed 0
     }

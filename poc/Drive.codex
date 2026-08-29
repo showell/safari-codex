@@ -199,6 +199,7 @@ Section: Drawing What Is Sorted
     is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
     is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
     is KCow -> []
+    is KCat -> []
     is KTruck -> []
 
   draw-order : List Segment, List Integer, Pose, Collected, Real, Real, Integer -> List DrawCmd
@@ -222,7 +223,7 @@ Section: The Frame
     in let ch = build-chain w p.seg
     in (draw (heading-in w u) (sun-set-fraction step) focal camera-w)
        & (frame-ground w p.seg pose focal camera-w)
-       & (draw-order w ch pose (collect w p.seg pose focal p.along 0.0) focal step 0)
+       & (draw-order w ch pose (collect w p.seg pose focal p.along 0.0 0.0) focal step 0)
 
   frame : List DrawCmd
   frame = frame-at 0.0
@@ -281,4 +282,4 @@ Section: Driving The Real Rider
     in let ch = build-chain w s.segment
     in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
        & (frame-ground w s.segment pose focal camera-w)
-       & (draw-order w ch pose (collect w s.segment pose focal s.along 0.0) focal step 0)
+       & (draw-order w ch pose (collect w s.segment pose focal s.along s.v 0.0) focal step 0)

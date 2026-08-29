@@ -3,6 +3,7 @@ Chapter: RenderCheck
   cites Safari chapter Geom
   cites Safari chapter World
   cites Safari chapter Camera
+  cites Safari chapter Cat
   cites Safari chapter GuardRail
   cites Safari chapter Paint
   cites Safari chapter Render
@@ -250,19 +251,20 @@ Section: The Frame States
     across : Real,
     yaw : Real,
     cf : Real,
+    v : Real,
     vyaw : Real,
     tpos : Real
   }
 
   states : List State
-  states = [State { seg = 0, along = 12.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 0, along = 460.0, across = 1.1, yaw = 0.09, cf = focal, vyaw = 0.03, tpos = 700.0 }, State { seg = 2, along = 150.0, across = 0.0 - 0.8, yaw = 0.0 - 0.12, cf = focal * 0.6, vyaw = 0.0 - 0.05, tpos = 0.0 }, State { seg = 5, along = 40.0, across = 0.3, yaw = 0.02, cf = focal, vyaw = 0.0, tpos = 2400.0 }, State { seg = 6, along = 600.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 9, along = 700.0, across = 0.0 - 1.5, yaw = 0.25, cf = focal * 0.35, vyaw = 0.11, tpos = 0.0 }, State { seg = 12, along = 280.0, across = 0.6, yaw = 0.0 - 0.3, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 16, along = 100.0, across = 0.0, yaw = 0.0, cf = focal, vyaw = 0.0, tpos = 0.0 }]
+  states = [State { seg = 0, along = 12.0, across = 0.0, yaw = 0.0, v = 1.2, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 0, along = 460.0, across = 1.1, yaw = 0.09, v = 1.4, cf = focal, vyaw = 0.03, tpos = 700.0 }, State { seg = 2, along = 150.0, across = 0.0 - 0.8, yaw = 0.0 - 0.12, v = 1.6, cf = focal * 0.6, vyaw = 0.0 - 0.05, tpos = 0.0 }, State { seg = 5, along = 40.0, across = 0.3, yaw = 0.02, v = 1.1, cf = focal, vyaw = 0.0, tpos = 2400.0 }, State { seg = 6, along = 600.0, across = 0.0, yaw = 0.0, v = 2.0, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 9, along = 700.0, across = 0.0 - 1.5, yaw = 0.25, v = 0.9, cf = focal * 0.35, vyaw = 0.11, tpos = 0.0 }, State { seg = 12, along = 280.0, across = 0.6, yaw = 0.0 - 0.3, v = 1.3, cf = focal, vyaw = 0.0, tpos = 0.0 }, State { seg = 16, along = 100.0, across = 0.0, yaw = 0.0, v = 1.0, cf = focal, vyaw = 0.0, tpos = 0.0 }]
 
   pose-of : State -> Pose
   pose-of (st) =
     Pose { along = st.along, across = st.across, yaw = st.yaw + st.vyaw, hw = (list-at segs st.seg).width / 2.0 }
 
   collect-of : State -> Collected
-  collect-of (st) = collect segs st.seg (pose-of st) st.cf st.along st.tpos
+  collect-of (st) = collect segs st.seg (pose-of st) st.cf st.along st.v st.tpos
 
 Section: The Cull Stream
 
@@ -326,7 +328,7 @@ Section: The Depth Order
 
   merged-count : Collected -> Integer
   merged-count (c) =
-    list-length c.trees + list-length c.towers + list-length c.cows + list-length c.rails + list-length (truck-items c.truck)
+    list-length c.trees + list-length c.towers + list-length c.cows + list-length c.cats + list-length c.rails + list-length (truck-items c.truck)
 
   order-defects : Integer -> List Integer
   order-defects (i) =
@@ -395,6 +397,95 @@ Section: The Ground Streams
     if i >= list-length cs then []
     else (list-at cs i).pts & g-coords cs (i + 1)
 
+Section: The Crossing Cat
+
+ cat.state IS pub, so this is a REAL ORACLE -- the probe calls the actual function
+ on the actual segment-1 cat, sweeping the rider's gap from well ahead down to
+ past it at two speeds. That walks the clock through all three phases: the walk-in
+ with its gait snap, the twenty-four frozen frames, and the leap's coil, two
+ airborne frames, land and collapse.
+
+ THE ACROSS IS SPLIT IN TWO AND THAT SPLIT IS THE POINT. This port has exactly one
+ deliberate approximation in it: the airborne lateral uses b^0.75 where cat.zig
+ uses pow(b, 0.7), because 0.75 is dyadic and needs only the square root both
+ languages already have, while 0.7 would need a logarithm the foreword does not
+ have. Every OTHER sample -- the walk-in, the freeze, the coil, the landing --
+ must match at the ordinary width tolerance, and does. Only the two airborne
+ frames are allowed to differ, and only by the amount that substitution can
+ produce.
+
+ THE AIRBORNE GATE IS THE BOUND, NOT A SHRUG. |b^0.7 - b^0.75| peaks at 0.02537,
+ at b = 0.252, and the leap spans mid-across (0.816) to end-across (-3.490), which
+ is 4.306 m, so nothing can be further out than 0.1093 m. The gate is 0.12, about
+ ten percent over the bound. I first wrote 0.09 off a 3.4 m span I had not
+ computed, and the check caught it -- which is the gate doing its job on the
+ approximation's own bound rather than on a guess. It is zero at both
+ ends of the leap by construction, so the cat still launches and lands in exactly
+ the right places; only the arc between them bows slightly.
+
+ A gate that loose would be meaningless on the other 235 samples, which is exactly
+ why they are a separate stream. And the POSE INDEX is graded EXACTLY on all 242 --
+ an approximation to the arc must not be allowed to flip which still is drawn.
+
+ THE GROUND STREAM TAKES A MIXED GATE, and only just. It failed the plain relative
+ one by a hair and the measurement is worth keeping: the true error is between
+ 1.09e-6 and 2.09e-6 m -- about a micron and a half, roughly twelve times the f32
+ width gap -- because the crossing clock's error is multiplied by the 4.3 m lerp
+ span it drives. grade-rel scales by max(1, |want|), which at an across of 1.09 m
+ gives a gate of 1.09e-6: marginally under. The mixed gate's floor covers it and
+ the across passes through ZERO as the cat crosses the centre line, which is D3's
+ argument for a floor in the first place. 1e-5 carries about seven times.
+
+  cat-of : Segment -> Cat
+  cat-of (sg) = sg.cat
+
+ THE SWEEP STARTS AT 59.83 AND NOT AT 60, and the odd number is load-bearing. At
+ 60 with v = 0.5 two samples land EXACTLY on a phase boundary -- step is precisely
+ 10.0 at gap 17 and precisely 34.0 at gap 5 -- and a phase test is a discrete
+ comparison, so f32 and f64 fall on opposite sides of it and the port reports
+ FROZEN where the game reports STRIDE. That is not a port error; it is what a
+ width gap does to an exact threshold, and it was caught rather than reasoned
+ about. Nudging the sweep off the boundaries measures the logic instead of the
+ tie-break. The boundaries themselves are still crossed, one sample either side.
+
+  gap-at : Integer -> Real
+  gap-at (i) = 59.83 - real-from-int i * 0.5
+
+  cat-speeds : List Real
+  cat-speeds = [1.2, 0.5]
+
+  is-airborne : Real, Real -> Boolean
+  is-airborne (gap) (v) =
+    let step = cross-t gap v * cross-frames
+    in let k = step - (enters-road-steps + frozen-steps)
+    in if step > enters-road-steps + frozen-steps then (if k >= 1.0 then k < 3.0 else False) else False
+
+  cat-poses : Integer, Integer -> List Integer
+  cat-poses (si) (i) =
+    if si >= list-length cat-speeds then []
+    else if i > 120 then cat-poses (si + 1) 0
+    else [(cat-state (cat-of (list-at segs 1)) (gap-at i) (list-at cat-speeds si)).pose-idx] & cat-poses si (i + 1)
+
+  cat-lifts : Integer, Integer -> List Real
+  cat-lifts (si) (i) =
+    if si >= list-length cat-speeds then []
+    else if i > 120 then cat-lifts (si + 1) 0
+    else [(cat-state (cat-of (list-at segs 1)) (gap-at i) (list-at cat-speeds si)).lift] & cat-lifts si (i + 1)
+
+  cat-ground : Integer, Integer -> List Real
+  cat-ground (si) (i) =
+    if si >= list-length cat-speeds then []
+    else if i > 120 then cat-ground (si + 1) 0
+    else if is-airborne (gap-at i) (list-at cat-speeds si) then cat-ground si (i + 1)
+    else [(cat-state (cat-of (list-at segs 1)) (gap-at i) (list-at cat-speeds si)).across] & cat-ground si (i + 1)
+
+  cat-flight : Integer, Integer -> List Real
+  cat-flight (si) (i) =
+    if si >= list-length cat-speeds then []
+    else if i > 120 then cat-flight (si + 1) 0
+    else if is-airborne (gap-at i) (list-at cat-speeds si) then [(cat-state (cat-of (list-at segs 1)) (gap-at i) (list-at cat-speeds si)).across] & cat-flight si (i + 1)
+    else cat-flight si (i + 1)
+
 Section: Entry
 
  Chain indices, lengths, codepoints and counts take NO tolerance: they are
@@ -458,4 +549,8 @@ Section: Entry
     print-line-uni (grade-ints "f-gcol    " (g-cols (ground-stream 0) 0) g-f-gcol)
     print-line-uni (grade-ints "f-gcnt    " (g-counts (ground-stream 0) 0) g-f-gcnt)
     print-line-uni (grade-px   "f-gxy     " (g-coords (ground-stream 0) 0) g-f-gxy 0.001 0.000001)
+    print-line-uni (grade-ints "k-pose    " (cat-poses 0 0) g-k-pose)
+    print-line-uni (grade-rel  "k-lift    " (cat-lifts 0 0) g-k-lift 0.000001)
+    print-line-uni (grade-px   "k-across  " (cat-ground 0 0) g-k-across 0.00001 0.000001)
+    print-line-uni (grade-px   "k-air     " (cat-flight 0 0) g-k-air 0.12 0.0)
   end

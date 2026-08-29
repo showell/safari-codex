@@ -165,13 +165,14 @@ draw two apiece. Four viewpoints ship: the big pig herd, the mid-tower on the
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
 | `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
 | `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
-| `port/Cat.codex` | `wasm/cat.zig` **placement + danger** | with World and Rider |
+| `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, crossing clock |
 | `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
 | `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
 | `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
 | `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
+
 
 **`Render` is the first module whose CHECK was shaped by the zig's `pub`
 markers rather than by its own structure.** render.zig's entire public surface is
@@ -207,20 +208,18 @@ exactly the right place: the state on segment 16 has a three-long chain that nev
 reaches the farm cull's third index, so its tally is zero, and that is the chain's
 extent made observable from outside render.zig.
 
-**The cat is the one collected kind still missing, and it is parked rather than
-skipped.** `cat.state` is otherwise portable — its pose indices are plain constants,
-not baked polygons — but the airborne branch interpolates by `pow(b, 0.7)` and Codex
-has no power function. It is the *only* `pow` in the whole game; the only other
-transcendental outside the trig is `rider.zig`'s `@exp`, which `Num` already ports.
-So the missing half is a logarithm.
+**All seven collected kinds are in, including the cat.** What unblocked it was not
+writing the logarithm its `pow(b, 0.7)` seemed to need: **0.75 is dyadic where 0.7
+is not**, so `sqrt(b * sqrt(b))` *is* b^0.75 exactly, using a square root both
+languages already have. That is the port's **one deliberate approximation**, and it
+is bounded rather than hand-waved — `|b^0.7 - b^0.75|` peaks at 0.0254, the leap
+spans 4.306m, so nothing can be more than 0.109m out, and it is zero at both ends
+so the cat launches and lands in exactly the right places.
 
-Changing `cat.zig` would make it easy — 0.75 is dyadic where 0.7 is not, so
-`@sqrt(b * @sqrt(b))` is exactly b^0.75 using a square root both languages already
-have, and it differs from b^0.7 by at most 8.6cm of lateral position mid-flight.
-**The game is not being changed for the port's convenience**, so that stays on the
-shelf. We may come back and write `ln-real` beside `exp-real`; `PORTING_NOTES` D7
-carries the argument. The depth-order seam is graded on chains the route itself
-makes cat-free — cats sit on segments 1, 12 and 18 only.
+`CatCheck` grades that honestly by splitting the stream: 235 non-airborne samples
+at the ordinary width tolerance, 7 airborne ones at a gate sized to the bound, and
+the **pose index exactly on all 242** — an approximation to the arc must never flip
+which still is drawn. The game is not changed to suit the port.
 
 **The sort is the one place the port departs from the zig on purpose.** render.zig
 insertion-sorts, which is right for a mutable array. Carried literally onto Codex

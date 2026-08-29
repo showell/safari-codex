@@ -31,6 +31,13 @@ const CatS = struct {
 };
 const Cat = *CatS;
 
+const CatStateS = struct {
+    pose_idx: i64,
+    across: f64,
+    lift: f64,
+};
+const CatState = *CatStateS;
+
 const Scheme = enum {
     AllGreen,
     YellowGreen,
@@ -95,38 +102,6 @@ const SegmentS = struct {
 };
 const Segment = *SegmentS;
 
-fn cat_height() f64 {
-    return @as(f64, @bitCast(@as(i64, 4610334938539176755)));
-}
-
-fn cat_along() f64 {
-    return @as(f64, @bitCast(@as(i64, 4637089135075524608)));
-}
-
-fn cat_road_gap() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
-}
-
-fn cat_beyond_tree() f64 {
-    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
-}
-
-fn cat_head_x() f64 {
-    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602318531202457272))));
-}
-
-fn land_hind_reach() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4604480259023595110))) * cat_height());
-}
-
-fn grass_toehold() f64 {
-    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
-}
-
-fn cat_make(lane_half: f64, tree_offset: f64, tree_along: f64) Cat {
-    return b0: { const tree_x: f64 = (lane_half + tree_offset); break :b0 cx_new(CatS{ .along = (tree_along + cat_beyond_tree()), .start_across = (tree_x + cat_road_gap()), .mid_across = ((@as(f64, @bitCast(@as(i64, 0))) - cat_head_x()) * cat_height()), .end_across = ((@as(f64, @bitCast(@as(i64, 0))) - (lane_half + grass_toehold())) - land_hind_reach()), .height = cat_height() }); };
-}
-
 fn real_abs(x: f64) f64 {
     return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
 }
@@ -169,6 +144,38 @@ fn r_sin(x: f64) f64 {
 
 fn r_cos(x: f64) f64 {
     return r_sin((x + half_pi()));
+}
+
+fn cat_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4610334938539176755)));
+}
+
+fn cat_along() f64 {
+    return @as(f64, @bitCast(@as(i64, 4637089135075524608)));
+}
+
+fn cat_road_gap() f64 {
+    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
+}
+
+fn cat_beyond_tree() f64 {
+    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
+}
+
+fn cat_head_x() f64 {
+    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602318531202457272))));
+}
+
+fn land_hind_reach() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4604480259023595110))) * cat_height());
+}
+
+fn grass_toehold() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
+}
+
+fn cat_make(lane_half: f64, tree_offset: f64, tree_along: f64) Cat {
+    return b0: { const tree_x: f64 = (lane_half + tree_offset); break :b0 cx_new(CatS{ .along = (tree_along + cat_beyond_tree()), .start_across = (tree_x + cat_road_gap()), .mid_across = ((@as(f64, @bitCast(@as(i64, 0))) - cat_head_x()) * cat_height()), .end_across = ((@as(f64, @bitCast(@as(i64, 0))) - (lane_half + grass_toehold())) - land_hind_reach()), .height = cat_height() }); };
 }
 
 fn conifer_green() i64 {

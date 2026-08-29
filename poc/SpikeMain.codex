@@ -74,4 +74,8 @@ Section: Entry
     print-line-uni (all-cmds (spike-frame-at u-pond) 0)
     print-line-uni (scene-line "zebras" u-zebras)
     print-line-uni (all-cmds (spike-frame-at u-zebras) 0)
+    print-line-uni (scene-line "cat-frozen" u-cat-frozen)
+    print-line-uni (all-cmds (spike-frame-at u-cat-frozen) 0)
+    print-line-uni (scene-line "cat-leap" u-cat-leap)
+    print-line-uni (all-cmds (spike-frame-at u-cat-leap) 0)
   end

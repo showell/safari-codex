@@ -24,7 +24,7 @@ row — see NewRepository/contrib/README.md.
 A. DEFECTS AND HOLES
 ================================================================================
 
-A1. real-to-int and real-from-int have no zig emitter.               [HOLE]
+A1. real-to-int and real-from-int have no zig emitter.        [HOLE - FIXED]
 
     "error: zig plug: no emitter for real-to-int" (and real-from-int). Both
     confirmed missing independently.
@@ -56,8 +56,25 @@ A1. real-to-int and real-from-int have no zig emitter.               [HOLE]
     truncates the same way but is UB out of range, so the honest emission is a
     guarded prelude helper, not a bare cast.
 
+    CLOSED 2026-08-29. It was that small, and the estimate above was accurate.
+    cobblestone-realconv a2a2f6f4, "zig plug: emit real-to-int and real-from-int".
+    Two table rows, two prelude parts, two reserved names. The guards match the
+    hardware over 31 values checked by inline asm — zero disagreements — and the
+    transpiler's fixed point holds byte-identically across the change. Full
+    account in PLUG_WORK.md; upstream row is plugs-backlog 2.03. NOT YET SENT.
+
+    The two counted-loop consequences are retired with it: a Real accumulator no
+    longer has to be threaded beside an Integer counter, and Tree's cone ring,
+    Scene's ridge and Scene's canopy could each drop theirs. They have NOT been
+    rewritten — the ports are graded green as they stand and there is no reason
+    to churn them, but a new module need not pay that any more.
+
+    STILL DARK, and unchanged by this: real-approx-* (the f32 family). Filling
+    those would make the house-wide f32-computed-as-f64 collapse observable for
+    the first time, which is section 6's conversation and not this one.
+
 A2. `show` on a Real is refused — deliberately, and the refusal is right, but
-    the CONSEQUENCE is worth stating.                                [BY DESIGN]
+    the CONSEQUENCE is worth stating.               [BY DESIGN - COST RETIRED]
 
     @compileError("zig plug: show on a Real needs __real_to_text, which this plug
     does not have"). std.fmt would agree with bare metal on some values and not
@@ -75,6 +92,19 @@ A2. `show` on a Real is refused — deliberately, and the refusal is right, but
         20.606868 vs the gold's 20.606842 was width and not a bug.
     Landing A1 retires both: real-to-int (x * 1000.0) gives scaled-integer dumps
     and plain diffs.
+
+    AND IT DID, 2026-08-29. The refusal on `show` still stands and is still
+    right — nothing here argues with it — but a Real is no longer trapped:
+
+        scaled : Real -> Integer
+        scaled (x) = real-to-int (x * 1000.0)
+
+        scaled 3.14159    ->  3141
+        scaled -2.71828   -> -2718
+
+    Grade can grow the scaled-integer dump its own prose anticipated, and the
+    tolerance arguments can start reporting what they actually saw. Neither has
+    been done yet; the grader is unchanged and every seam still reports an index.
 
 A3. OvError silently becomes a WRAPPING multiply.                    [DEFECT]
 

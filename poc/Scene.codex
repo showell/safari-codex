@@ -2,6 +2,8 @@ Chapter: Scene
   cites Safari chapter Trig
   cites Safari chapter Geom
   cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tree
   cites Safari chapter Pond
 
  A single frame of the Safari, computed in Codex.
@@ -28,21 +30,13 @@ Section: Draw Commands
  The wire of wasm/paint.zig: a tag, a colour, and a flat run of screen-space
  coordinates. tag 0 is a solid fill, which is all this frame uses.
 
-  DrawCmd = record {
-    tag : Integer,
-    color : Integer,
-    pts : List Real
-  }
-
-  project-all : List Vec3, Integer -> List Real
-  project-all (ps) (i) =
+  to-screen : List Vec3, Integer -> List ScreenPt
+  to-screen (ps) (i) =
     if i >= list-length ps then []
-    else let p = list-at ps i
-      in let s = project p focal camera-w
-      in [s.x, s.y] & project-all ps (i + 1)
+    else [project (list-at ps i) focal camera-w] & to-screen ps (i + 1)
 
-  solid : Integer, List Vec3 -> DrawCmd
-  solid (color) (ps) = DrawCmd { tag = 0, color = color, pts = project-all ps 0 }
+  solid : Integer, List Vec3 -> List DrawCmd
+  solid (color) (ps) = push-poly color (to-screen ps 0)
 
 Section: Ground
 
@@ -59,7 +53,7 @@ Section: Ground
   road-far : Real
   road-far = 400.0
 
-  road : DrawCmd
+  road : List DrawCmd
   road =
     (solid 3815994
     [ Vec3 { right = 0.0 - road-half, forward = road-near, height = 0.0 },
@@ -67,7 +61,7 @@ Section: Ground
       Vec3 { right = road-half, forward = road-far, height = 0.0 },
       Vec3 { right = 0.0 - road-half, forward = road-far, height = 0.0 } ])
 
-  dash : Real -> DrawCmd
+  dash : Real -> List DrawCmd
   dash (a) =
     (solid 14211744
     [ Vec3 { right = 0.0 - 0.18, forward = a, height = 0.0 },
@@ -78,7 +72,7 @@ Section: Ground
   dashes : Real, Integer -> List DrawCmd
   dashes (a) (fuel) =
     if fuel <= 0 then []
-    else [dash a] & dashes (a + 14.0) (fuel - 1)
+    else (dash a) & dashes (a + 14.0) (fuel - 1)
 
 Section: Mountains
 
@@ -97,35 +91,37 @@ Section: Mountains
  counter. Every counted loop in this port pays that, and it is the first thing
  the plug rows would buy back.
 
-  ridge-poly : Real, Integer, List Real -> DrawCmd
+  ridge-poly : Real, Integer, List Real -> List DrawCmd
   ridge-poly (far) (color) (hs) =
     let top = ridge far 0 (0.0 - 1800.0) hs
     in let base = [ Vec3 { right = 1800.0, forward = far, height = 0.0 }, Vec3 { right = 0.0 - 1800.0, forward = far, height = 0.0 } ]
     in solid color (top & base)
 
-  mountains-far : DrawCmd
+  mountains-far : List DrawCmd
   mountains-far = ridge-poly 5200.0 7042462 [60.0, 240.0, 120.0, 300.0, 150.0, 380.0, 110.0, 260.0, 80.0, 200.0, 90.0, 170.0, 60.0, 210.0, 70.0]
 
-  mountains-near : DrawCmd
+  mountains-near : List DrawCmd
   mountains-near = ridge-poly 3400.0 5466506 [40.0, 130.0, 200.0, 90.0, 170.0, 60.0, 220.0, 100.0, 60.0, 190.0, 80.0, 140.0, 50.0, 160.0, 40.0]
 
 Section: Trees
 
- Billboards: every vertex of one tree shares a forward, so the whole tree
- projects at one depth -- the paradigm the real game uses for its scenery.
+ Real conifers now: Safari chapter Tree, a faithful port of wasm/tree.zig graded
+ against it over 45 draw commands and 628 coordinates. The two detail axes are set
+ the way the renderer sets them -- a round-shaded trunk only on the nearest few,
+ cone crowns within the detail distance and flat triangles beyond -- and the crown
+ shade fades to zero with depth so there is no shaded-to-solid pop along the line.
 
-  canopy-ring : Real, Real, Real, Real, Integer, Real -> List Vec3
-  canopy-ring (right) (forward) (cy) (rad) (i) (a) =
-    if i >= 9 then []
-    else [Vec3 { right = right + rad * r-cos a, forward = forward, height = cy + rad * r-sin a }] & canopy-ring right forward cy rad (i + 1) (a + two-pi / 9.0)
+  detail-dist : Real
+  detail-dist = 60.0
 
-  tree : Real, Real, Real -> List DrawCmd
-  tree (right) (forward) (scale) =
-    let trunk-h = 2.6 * scale
-    in let trunk-w = 0.22 * scale
-    in let trunk-pts = [ Vec3 { right = right - trunk-w, forward = forward, height = 0.0 }, Vec3 { right = right + trunk-w, forward = forward, height = 0.0 }, Vec3 { right = right + trunk-w, forward = forward, height = trunk-h }, Vec3 { right = right - trunk-w, forward = forward, height = trunk-h } ]
-    in let leaves = canopy-ring right forward (trunk-h + 1.5 * scale) (1.9 * scale) 0 0.0
-    in [solid 5915698 trunk-pts, solid 3107386 leaves]
+  crown-shade : Real -> Real
+  crown-shade (forward) =
+    let s = 1.0 - forward / detail-dist
+    in if s < 0.0 then 0.0 else s
+
+  conifer : Real, Real, Real, Boolean -> List DrawCmd
+  conifer (right) (forward) (height) (round-trunk) =
+    tree-draw right forward height 3108154 focal camera-w round-trunk (forward < detail-dist) (crown-shade forward)
 
 Section: Pond
 
@@ -145,10 +141,10 @@ Section: Pond
     else let p = list-at ps i
       in [Vec3 { right = pond-at-right - p.cu, forward = pond-at-forward + p.cv, height = 0.0 }] & pond-pts ps (i + 1)
 
-  pond-poly : DrawCmd
+  pond-poly : List DrawCmd
   pond-poly = solid water-color (pond-pts water-outline 0)
 
-  bank-poly : DrawCmd
+  bank-poly : List DrawCmd
   bank-poly = solid bank-color (pond-pts bank 0)
 
 Section: The Frame
@@ -158,8 +154,9 @@ Section: The Frame
 
   frame : List DrawCmd
   frame =
-    let ground = [mountains-far, mountains-near, road] & (dashes 12.0 24)
-    in let water = [bank-poly, pond-poly]
-    in let far-trees = (tree (0.0 - 21.0) 130.0 2.0) & (tree 17.0 96.0 1.8) & (tree (0.0 - 14.0) 72.0 1.6)
-    in let near-trees = (tree 11.0 44.0 1.3) & (tree (0.0 - 9.0) 30.0 1.0) & (tree 8.5 19.0 0.8)
-    in ground & water & far-trees & near-trees
+    let ground = mountains-far & mountains-near & road & (dashes 12.0 24)
+    in let water = bank-poly & pond-poly
+    in let far-trees = (conifer (0.0 - 26.0) 165.0 11.0 False) & (conifer 21.0 132.0 9.5 False) & (conifer (0.0 - 17.0) 104.0 10.5 False) & (conifer 15.0 78.0 8.0 False)
+    in let mid-trees = (conifer (0.0 - 13.0) 57.0 9.0 False) & (conifer 12.5 44.0 7.5 False) & (conifer (0.0 - 10.5) 33.0 8.5 False)
+    in let near-trees = (conifer 9.5 23.0 7.0 True) & (conifer (0.0 - 8.0) 15.5 6.5 True) & (conifer 8.0 9.5 6.0 True)
+    in ground & water & far-trees & mid-trees & near-trees

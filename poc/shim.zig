@@ -27,11 +27,19 @@ pub export fn renderFrame() u32 {
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
-        if (w + 3 + pts.len > CAP_WORDS) break; // bounded, like paint.push
+        // tag 1 carries a strength word between the colour and the count; tag 0
+        // does not. Same split paint.pushPoly / pushRoundPoly makes.
+        const head: usize = if (cmd.tag == 1) 4 else 3;
+        if (w + head + pts.len > CAP_WORDS) break; // bounded, like paint.push
         cx_paint[w] = @intCast(cmd.tag);
         cx_paint[w + 1] = @intCast(cmd.color);
-        cx_paint[w + 2] = @intCast(n);
-        w += 3;
+        if (cmd.tag == 1) {
+            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(cmd.strength)));
+            cx_paint[w + 3] = @intCast(n);
+        } else {
+            cx_paint[w + 2] = @intCast(n);
+        }
+        w += head;
         for (pts) |v| {
             cx_paint[w] = @bitCast(@as(f32, @floatCast(v)));
             w += 1;

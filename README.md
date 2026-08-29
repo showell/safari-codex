@@ -66,8 +66,10 @@ path is the only thing that differs from the real game.
 `poc/Scene.codex` is throwaway by design: it places its own scenery instead of
 reading `world.zig`'s route, and carries its own Taylor sine because
 `Gpu chapter DeviceMath` is dark to this arm. What it shares with the real thing
-is the camera and the draw-command wire. 41 polygons — two mountain ranges, the
-road and its dashes, the ported pond and its bank, six trees.
+is the camera and the draw-command wire. 119 polygons, 51 of them
+gradient-filled — two mountain ranges, the road and its dashes, the ported pond
+and its bank, and **ten conifers from the ported `tree.zig`**, with cone crowns
+near, flat tiers far, and round-shaded trunks on the closest three.
 
 **NOTES §5 said a browser build through zig was "not close". It is three prelude
 functions**, and `harness/wasmify.py` replaces them: the entry spawns a thread
@@ -89,6 +91,8 @@ already narrows at.
 | `port/Camera.codex` | `wasm/camera.zig` | with Geom below |
 | `port/Geom.codex` | `wasm/geom.zig` | 375 values, 1e-6 relative |
 | `port/Trig.codex` | **stand-in** for `Gpu chapter DeviceMath` | via the above |
+| `port/Paint.codex` | `wasm/paint.zig`'s wire | with Tree below |
+| `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
 
 `Trig` exists only because DeviceMath cannot be transpiled to zig — its
 `dm-reduce` calls `real-from-int`, which has no emitter. It is the same
@@ -97,6 +101,15 @@ not let anything else grow a dependency on its names.
 
 `Camera` makes one adaptation: the zig's `pub var view_w` is a mutable global,
 so the port threads it as a parameter. It is the camera's only mutable state.
+
+**Screen coordinates take a mixed gate, `atol + rtol*|want|`, and both halves
+are load-bearing.** A purely relative gate fails at the horizon: a screen `y` is
+`300` minus a term of about the same size, so `y = 20.6` is a small difference of
+two large numbers and cancellation amplifies f32's relative error about fifteen
+fold. A purely absolute gate fails at the near plane: a point 37 m to the side at
+0.4 m forward projects to `x = -62929`, where one f32 ulp is already 0.0075 px.
+Both cases are in the tables. The floor governs the canvas, the relative term
+governs what the near plane flings off it.
 
 **The 1e-6 relative tolerance is calibrated, not slack.** Tightened to 1e-7, six
 of the nine seams go red — the true error straddles f32 epsilon (1.19e-7),

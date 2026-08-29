@@ -17,8 +17,13 @@ Chapter: CameraCheck
  was data. Here the port computes in Real (f64) and the game computes in f32, so
  every value differs by about f32's epsilon, relatively -- and the tolerance is
  relative for that reason. It is stated at 1e-6, which is roughly ten times the
- f32/f64 gap and a ten-thousandth of a pixel on a 960-wide canvas: tight enough to
- catch a wrong formula, loose enough to ignore the width.
+ f32/f64 gap: tight enough to catch a wrong formula, loose enough to ignore the
+ width.
+
+ EXCEPT for `project`, which is a screen coordinate and takes the mixed
+ pixel gate -- a thousandth-of-a-pixel floor plus a relative term. Grade's own
+ comment records why neither half suffices; both failure modes are in this table,
+ the horizon cancellation and the near-plane point that projects to x = -62929.
 
  We say:
 
@@ -139,7 +144,7 @@ Section: Entry
   opening : [Console] Nothing = act
     print-line-uni (grade-rel "focal      " [focal] g-focal 0.000001)
     print-line-uni (grade-rel "cam-focal  " (cf-outer 0) g-cam-focal 0.000001)
-    print-line-uni (grade-rel "project    " (pr-f 0) g-project 0.000001)
+    print-line-uni (grade-px "project    " (pr-f 0) g-project 0.001 0.000001)
     print-line-uni (grade-rel "ground-drop" gd g-ground-drop 0.000001)
     print-line-uni (grade-rel "to-rider   " (tr 0) g-to-rider 0.000001)
     print-line-uni (grade-rel "fusion     " (fu 0) g-fusion 0.000001)

@@ -12,6 +12,16 @@ measurement that produced it is named.
 Verified against: Cobblestone `NewRepository` @ `u52-rebank`, the transpiler
 `codex-zig-transpiler` @ `real-int-conversions`, zig 0.16.0.
 
+**Re-verified against `u53-rebank` (`58b08c38`) on 2026-08-30, from the ladder
+repository, and three of the six Cobblestone items moved.** Item 1's mechanism
+was misattributed to the wrong half of the compiler, item 3 is now *caused* by
+the fix it proposes, and item 6's mechanism is written out in Cobblestone's own
+source rather than reconstructed. Item 2 re-read and confirmed exactly as
+written. **Items 4 and 5 were not re-run against u53** — they are behavioural,
+not citations, and nothing here should be taken as evidence they still
+reproduce. All line numbers below are u53; the u52 numbers this file carried
+were stale, which is the whole reason for the pass.
+
 ---
 
 ## How these should travel
@@ -20,11 +30,13 @@ Not all eight are the same kind of thing, and sending them the same way would wa
 the small ones and overreach on the large ones. The standing rule applies: we are
 not responsible for non-zig plugs, nor for fully testing core-compiler changes.
 
-**Already moving.** `real-to-int` / `real-from-int` went as **Cobblestone PR 100**
-(branch `zig-plug-real-conversions`). `real-to-bits` / `bits-to-real` are built and
-tested on `zig-plug-real-bitcast` in `~/showell_repos/cobblestone-realbits`,
-branched from PR 100's head, with register entry `plugs-backlog 2.07` and a new
-`codex/test/ops/real-bitcast-f64`. That is the next PR out.
+**Already sent.** `real-to-int` / `real-from-int` went as **Cobblestone PR 100**
+(branch `zig-plug-real-conversions`). `real-to-bits` / `bits-to-real` went as
+**Cobblestone PR 105** on 2026-08-30 (branch `zig-plug-real-bitcast`, register
+entry `plugs-backlog 2.07`, new test `codex/test/ops/real-bitcast-f64`), stacked
+on PR 100's head and graded against it: 0 stage moves, 0 verdict moves, 579 of
+582 emitted zig files byte-identical and the three that differ differing only by
+the intended substitution.
 
 **Send as a PR — small, mechanical, no policy call.**
 
@@ -34,9 +46,11 @@ branched from PR 100's head, with register entry `plugs-backlog 2.07` and a new
   is two things a patch can carry: correct the docstring to the measured 0.45%, and
   give the test values to compare. This is the same shape as PR 100's
   `real-int-conversions` test and is the strongest remaining candidate.
-- **Item 3, single-letter names.** Plug-side and self-contained: mangle the
-  prelude's comptime parameters out of the user namespace, or reserve the four
-  names with a diagnostic naming which one.
+- **Item 3, single-letter names.** Plug-side, self-contained, and now a one-line
+  rename: the tuple constructors' comptime parameters (`a_`–`d_`) must move out of
+  the namespace `zig-sanitize` renames reserved user names into. **The second
+  option this bullet used to offer is already in the tree and is what causes the
+  collision** — see the entry. Strongest PR candidate after item 2, and smaller.
 
 **Offer as a PR — an addition rather than a defect.**
 
@@ -48,13 +62,20 @@ branched from PR 100's head, with register entry `plugs-backlog 2.07` and a new
 
 **Open as an ISSUE — the fix is a decision we should not make from outside.**
 
-- **Item 1, `OvError`.** The C# plug is character-for-character identical and the
-  wasm plug states the collapse as policy, so this is house-wide convention, not a
-  zig quirk. Ask whether the type should stop promising what no emitter delivers.
+- **Item 1, `OvError`.** Stronger than when this was written. The overflow mode is
+  discarded in LOWERING (`LoweringTypes.codex:184`) and the IR has one integer
+  multiply, so no plug can fix it and the C# plug's identical text is not evidence
+  of a convention — every plug is handed the same information-free opcode. Ask
+  whether the type should stop promising what nothing downstream can deliver. The
+  Real half of the old diagnosis is a genuine, separate, plug-side defect and is
+  noted in the entry.
 - **Item 6, the `Real` literal.** It is the FRONT END — both arms print the same
-  wrong constant and the value arrives at the emitter as a bit pattern — so a patch
-  here is a core-compiler change, and the repro plus the reconstructed mechanism is
-  worth more than our guess at the fix.
+  wrong constant and the value arrives at the emitter as a bit pattern. No longer a
+  reconstruction: `ZigEmitter.codex:3885` states the wrapping accumulator in
+  Cobblestone's own comment, and that comment also gives the constraint on any fix
+  (plug and seed must agree bit for bit), which is precisely the decision we should
+  not make from outside. Carries a concrete, cheap ask: the values that
+  `codex/test/ops/real-literal-rounding` is missing.
 
 **Investigate before choosing.**
 
@@ -96,20 +117,77 @@ emits `cx_show_int((big() *% big()))` and prints
 
 with exit status 0. Re-verified 2026-08-30; first measured in `price-b/ovf.codex`.
 
-`ZigEmitter.codex:1270-1273` collapse the approx / trapping / saturating opcodes
-onto one operator, so **trapping does not trap and saturating does not saturate**.
-The C# plug is character-for-character identical and the wasm plug states the
-collapse as policy, so this looks house-wide rather than a zig quirk — which is
-why this is a report and not a patch.
+**CORRECTED 2026-08-30 against u53. This entry used to blame
+`ZigEmitter.codex:1270-1273` and the approx / trapping / saturating collapse. That
+is the wrong half of the compiler**, and the true answer is worse: the plug never
+had the information to begin with.
+
+The overflow mode does not survive lowering. `IRChapter.codex:5` gives the IR
+exactly **one** integer multiply, beside three distinct Real ones:
+
+```
+  IRBinaryOp =
+   | IrAddInt | IrSubInt | IrMulInt | IrDivInt | IrPowInt | IrRemInt
+   ...
+   | IrAddRealTrapping | IrSubRealTrapping | IrMulRealTrapping | IrDivRealTrapping
+```
+
+and `LoweringTypes.codex:184` selects it with no branch for the mode at all:
+
+```
+  is OpMul -> if is-vector-type ty then IrMulVec
+              else if is-real-saturating-type ty then IrMulRealSaturating
+              else if is-real-trapping-type ty then IrMulRealTrapping
+              else if is-real-approx-type ty then IrMulRealApprox
+              else if is-number-type ty then IrMulNum
+              else IrMulInt
+```
+
+`OvError` and `OvWrapping` are the only two modes (`CodexType.codex:97-98`) and
+both fall through to `IrMulInt`. The mode is discarded **in lowering, in the core
+compiler**, before any plug is handed anything. `ZigEmitter.codex:1313` emits
+`is IrMulInt -> "*%"` because `IrMulInt` is all it receives.
+
+**That is why the C# plug is character-for-character identical**, and the identity
+means less than this file claimed. Every plug gets the same information-free
+opcode, so their agreement is not a shared house convention — it is the absence of
+anything to disagree about. No plug can fix this one.
+
+**There is a real plug-side defect next door, and it is not this one.** Real
+trapping and saturating *do* survive lowering as distinct opcodes, and
+`ZigEmitter.codex:1314-1317` discards the distinction the compiler took the
+trouble to preserve:
+
+```
+  is IrAddNum | IrAddVec | IrAddRealApprox | IrAddRealTrapping | IrAddRealSaturating -> "+"
+  is IrSubNum | IrSubVec | IrSubRealApprox | IrSubRealTrapping | IrSubRealSaturating -> "-"
+  is IrMulNum | IrMulVec | IrMulRealApprox | IrMulRealTrapping | IrMulRealSaturating -> "*"
+```
+
+For Reals — and only for Reals — trapping does not trap because *the plug* threw it
+away. That half is ours, and it is already on the record upstream: `plugs-backlog`
+2.07 and PR 105 decline the thirteen real mode conversions for exactly this
+reason. Worth noticing that the two sit oddly together: PR 105 refused to emit the
+mode *conversions* on the grounds that this plug cannot honour a mode, while the
+plug already emits plain `*` for mode *arithmetic* without saying so.
 
 **Why it mattered here:** it is the single strongest argument the port has for
 `Real` over fixed point. A fixed-point dialect at scale 1e6 reaches 17.6% of i64
 on `groundDrop`'s `right² + forward²` at 900 m (`price-b/`), and an overflow there
 would have been a wrong pixel with no signal at all.
 
-**Fix shape:** either emit a checked multiply for `OvError` (zig's `@mulWithOverflow`
-plus a trap), or — if the collapse is deliberate — say so at the declaration site,
-because the type currently promises something the emitter does not deliver.
+**Fix shape, and it is now two shapes for two owners.**
+
+*The Integer case, which is what the repro above shows — core compiler.* Either
+give lowering an opcode that carries the overflow mode, or diagnose at the
+declaration site that `OvError` is not delivered. The type promises something no
+back end can keep and nothing in the pipeline is placed to notice, which is why
+this stays an issue rather than a patch.
+
+*The Real case — the zig plug, ours.* The distinct opcodes arrive and are dropped.
+Honouring them needs a decision about what trapping and saturating mean for an
+f64; refusing them needs none, and an honest refusal is the floor. Today the plug
+does neither.
 
 ### 2. `Math chapter Cordic` is 4.5× less accurate than its docstring, and its test never calls it
 
@@ -152,8 +230,38 @@ error: function parameter shadows declaration of 'd_'
 Found by accident naming a one-line helper `d`. The error names zig's declaration,
 not the Codex definition that produced it.
 
-**Fix shape:** mangle the prelude's comptime parameters out of the user namespace
-(`__d`), or reserve the four names with a diagnostic that says which one.
+**CORRECTED 2026-08-30 against u53: the fix this entry proposes is already in the
+tree, and it is the cause.** `zig-prelude-decls` (`ZigEmitter.codex:99-131`) now
+reserves the prelude's local names — 45 of them, `a A b B c C d D` among them,
+which is the reservation the ladder's finding 54 asked for. And `zig-sanitize`
+(`ZigEmitter.codex:172`) spells a reservation by appending an underscore:
+
+```
+   in if is-zig-prelude-decl s then s & "_"
+```
+
+So a user function named `d` becomes `d_` **precisely because `d` is reserved**.
+The emitted tuple constructors are
+
+```
+fn Tup4(comptime a_: type, comptime b_: type, comptime c_: type, comptime d_: type) type
+```
+
+— so `a_`–`d_` is exactly the namespace the reservation renames *into*. Reserving
+the four names does not avoid the collision. It manufactures it.
+
+**Not reproduced at u53, and that matters.** No program in the 614-program corpus
+defines a single-letter top level, so nothing in the sweep exercises it; the
+mechanism above is read from the two emitter sites and from `Tup4` as actually
+emitted (`acpi-parse.zig` and two hundred others), while the error message quoted
+was measured at u52.
+
+**Fix shape:** rename the tuple constructors' comptime parameters out of the
+sanitized namespace — `__a`, or `T0`–`T3`. They are the emitter's own invention,
+no Codex source can observe them, and nothing else in the prelude depends on their
+spelling, so this is a rename with no user-visible surface. The alternative this
+entry used to offer — "reserve the four names" — is already done, and is the half
+that makes the collision reachable.
 
 ### 4. A one-expression function over a RECORD parameter is silently not emitted
 
@@ -279,11 +387,49 @@ written out carries twenty digits once the `.0` is included, so the accumulator
 reaches 10^19 — which read as a signed 64-bit value is -8446744073709551616.
 Divide that by ten for the one fractional digit and round to f64 and you get
 exactly -844674407370955136, the number the program prints. 2^60 reconstructs the
-same way, through -6917529027641081856. So the parser appears to
-accumulate every digit from the first significant one to the last into an i64 and
-then scale, and the accumulation wraps. Whether that wrap is a deliberate i64
-accumulator or is item 1's collapse showing up inside the compiler's own lexer is
-not visible from outside; both readings point at the same code.
+same way, through -6917529027641081856. So the parser accumulates every digit from
+the first significant one to the last into an i64 and then scales, and the
+accumulation wraps.
+
+**CONFIRMED 2026-08-30 — it is not a reconstruction any more. Cobblestone says it
+in its own source.** The zig plug's prelude carries `__text_to_double`'s twin, and
+its comment states the algorithm outright (`ZigEmitter.codex:3885`,
+`zig-p-cx-text-to-double-bits`):
+
+> Mirrors bare metal's `__text_to_double`, not a correctly-rounded parse:
+> accumulate the digits as one wrapping integer, count places after the dot,
+> cvtsi2sd once, divide once by 10^frac built by repeated multiplication. **The
+> bits land in IrNumLit, so they must match the seed's exactly; a parser that
+> rounds better is a parser that diverges.**
+
+and the body is the wrap, in as many words:
+
+```zig
+    acc = acc *% 10 +% (@as(i64, b) -% 3);
+```
+
+The reconstruction above and that comment describe the same accumulator. It also
+settles the question this entry left open: the wrap is a deliberate i64
+accumulator, not item 1's collapse leaking into the lexer. **And it names the real
+constraint on any fix** — the plug's parser and the seed's must agree bit for bit,
+so this cannot be repaired on one side alone. That is the strongest argument yet
+for issue-not-patch.
+
+**Cobblestone has already fixed the other half of this function, and the test it
+left behind is where the blind spot lives.** `codex/test/ops/real-literal-rounding`
+exists, and its chapter comment records the earlier repair:
+
+> `__text_to_double` accumulated the digits as one integer and then divided by ten
+> once per fractional digit, in a loop. IEEE-754 division rounds once, so a loop of
+> them rounds once per digit, and the result drifts from the correctly rounded
+> value. `2.9000001` came out one ulp low, and 106 of the 580 distinct decimal
+> literals in the tree were affected, pi and tau among them.
+
+So the *rounding* was found, fixed, and regression-tested — with twelve values,
+via `real-to-bits`. **Every one of the twelve is smaller than ten.** The largest is
+`6.283185307`. An accumulator fed only those never approaches i64 range, so the
+test that guards this function cannot see the wrap by construction. The defect and
+its regression test have been living in the same file, undisturbed.
 
 **Why it mattered here:** `probe/probe_num.zig` graded `pow2-int` at 2^60 and the
 check went red at that index. The port was right and the **gold file** — the
@@ -295,7 +441,15 @@ written out longhand in a diagnostic.
 
 **Fix shape:** parse the decimal into the float directly, or accumulate in a wider
 (or checked) integer and diagnose the overflow. Failing loudly would be enough —
-the damage here is entirely in the silence.
+the damage here is entirely in the silence. Whatever is chosen has to move the
+seed and the plug together, per the comment quoted above.
+
+**Concrete ask, which is smaller than the fix:** add large literals to
+`codex/test/ops/real-literal-rounding`. It is the right file, it already exists,
+it already uses `real-to-bits`, and three lines — `1e18` written out, 2^60 written
+out, and an eighteen-digit value that still fits — would have caught this. We are
+not sending that as a PR because the `.expected` would have to record either
+today's wrong answers or a fix that has not been made.
 
 ## To angry-gopher (`games/driving`)
 

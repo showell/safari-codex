@@ -6378,20 +6378,30 @@ Chapter: SpikePrint
  exactly what it says. The printing moves here, both entries cite it, and neither
  restates it.
 
- COORDINATES GO OUT AS SCALED INTEGERS because `show` on a Real is still refused
- by the zig plug -- it needs a __real_to_text it does not have. real-to-int landed
- in 2026-08-29's plug work, so a scale is a plain multiply and a truncation.
+ COORDINATES GO OUT AS THEIR EXACT BIT PATTERNS. `show` on a Real is still refused
+ by the zig plug -- it needs a __real_to_text it does not have -- so a Real reaches
+ the page as an Integer either way. The question is only WHICH integer, and the
+ answer stopped being a scale on 2026-08-30.
 
- THE SCALE IS MILLIONTHS OF A PIXEL AND THE PICTURE IS NOT WHY. A hundredth was
- already far finer than an SVG at 960 by 600 can show, and that was the whole
- justification while these entries only fed spike_svg.py. They now also feed
- `harness/metal.py --entry`, where the number is not drawn but COMPARED against a
- second compiler -- and there the last digit printed IS the resolution of the
- comparison. At a hundredth of a pixel two emitters could disagree by four orders
- of magnitude and this would call them equal. A millionth costs four digits a
- number and buys four orders of agreement. It does not reach an f64 ulp, which at
- a 270,000-pixel vertex is 1.5e-11: that needs `real-to-bits`, which no plug
- emits. The far vertex at 2.7e5 px scales to 2.7e11, comfortably inside i64.
+ THE SCALE WAS INHERITED FROM A DRAWING AND WAS SETTING THE RESOLUTION OF A PROOF.
+ These lines were written for harness/spike_svg.py, which paints at 960 by 600,
+ where a hundredth of a pixel is already invisible; a hundredth was therefore
+ generous. Then `harness/metal.py --entry` began diffing the same text against a
+ SECOND COMPILER, and there the last digit printed is the entire resolution of the
+ comparison -- two emitters could have disagreed by four orders of magnitude and
+ the run would have said AGREES. Millionths bought four orders. `real-to-bits`
+ ends the argument instead of moving it: the pattern IS the value, so the diff is
+ exact and there is no last digit to be generous with.
+
+ WHAT THAT MAKES THE THIRD ARM ABLE TO SEE, which it could not before: FMA
+ contraction, x87 excess precision, a reassociated sum -- every emitter fault that
+ lives at 1e-16 and was invisible under any decimal scale (PORTING_NOTES D11 is
+ where that limit was measured and admitted). It also makes the SVG exact rather
+ than rounded, which costs nothing and was never the point.
+
+ A pattern is a signed i64, so roughly half of them print with a minus sign and
+ none of them are readable. That is the trade: this text stopped being for a human
+ the day a second compiler started reading it.
 
  ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
  print per command. A Codex `act` has no recursive loop shape, and a chapter is
@@ -6399,19 +6409,44 @@ Chapter: SpikePrint
  handing it to a single print is the boring option and it is fine here, because a
  frame is about a hundred kilobytes of digits.
 
-   C <tag> <colour> <strength e-3> <n> <x e-6> <y e-6> ... [<colour2> <geom e-6>...]
+   C <tag> <colour> <strength e-3> <n> <x bits> <y bits> ... [<colour2> <geom bits>...]
 
  We say:
 
 Section: Printing
 
   scaled : Real -> Text
-  scaled (v) = show (real-to-int (v * 1000000.0))
+  scaled (v) = show (real-to-bits v)
 
   coords : List Real, Integer -> Text
-  coords (ps) (i) =
-    if i >= list-length ps then ""
-    else " " & scaled (list-at ps i) & coords ps (i + 1)
+  coords (ps) (i) = coords-range ps i (list-length ps)
+
+ CONCATENATE BY HALVES, NOT ONE AT A TIME, and this is the difference between a
+ spike that fits and one that does not. Text is immutable, so `a & rest` allocates
+ the whole of `a & rest`; walking a list left to right therefore allocates the sum
+ of its own suffixes, which is QUADRATIC in the length. A 2,705-command frame at
+ four hundred characters a command is about 1.5 GB of intermediate text to produce
+ one megabyte of answer. Splitting the range in half instead copies each byte once
+ per LEVEL, so the total is n log n: the same frame costs about 24 MB.
+
+ `text-concat-list` WOULD BE THE IDIOMATIC FORM and it existed the whole time --
+ Types/Builtins.codex:213, emitted by this very plug, used by the wasm, C#, python
+ and riscv emitters upstream. It copies each byte once where halving copies it once
+ per level. The halving stays because it is measured, byte-identical and already
+ here; the primitive is the right starting point for the next printer. C17.
+
+ IT WAS BLAMED ON C6 FOR A WEEK. The bump heap never reclaiming is true and is why
+ the peak is the total, but the peak was quadratic for a reason that had nothing to
+ do with the allocator, and splitting entries was treating the symptom. Measured on
+ 2026-08-30: spike_cat_main peaked at 3.92 GB of the 4 GiB reserve before this
+ change and 108 MB after it, for byte-identical output.
+
+  coords-range : List Real, Integer, Integer -> Text
+  coords-range (ps) (lo) (hi) =
+    if hi <= lo then ""
+    else if hi - lo == 1 then " " & scaled (list-at ps lo)
+    else let mid = lo + (hi - lo) / 2
+      in coords-range ps lo mid & coords-range ps mid hi
 
  THE GRADIENT TAGS TRAIL THEIR EXTRAS, so a tag 0 or 1 line is byte-identical to
  what this printed before them and the reader needs no new rule for the common
@@ -6428,9 +6463,14 @@ Section: Printing
     "C " & show c.tag & " " & show c.color & " " & show (real-to-int (c.strength * 1000.0)) & " " & show (list-length c.pts / 2) & coords c.pts 0 & extras c
 
   all-cmds : List DrawCmd, Integer -> Text
-  all-cmds (cs) (i) =
-    if i >= list-length cs then ""
-    else cmd-line (list-at cs i) & " ; " & all-cmds cs (i + 1)
+  all-cmds (cs) (i) = cmds-range cs i (list-length cs)
+
+  cmds-range : List DrawCmd, Integer, Integer -> Text
+  cmds-range (cs) (lo) (hi) =
+    if hi <= lo then ""
+    else if hi - lo == 1 then cmd-line (list-at cs lo) & " ; "
+    else let mid = lo + (hi - lo) / 2
+      in cmds-range cs lo mid & cmds-range cs mid hi
 
  One SCENE header per viewpoint, and it carries the sky and horizon colours too,
  because blitter.js paints those itself from the module's numbers and an SVG has
@@ -6455,10 +6495,13 @@ Chapter: SpikeTruckMain
 
      cx heap: exhausted at 4294965457 + 7000 of 4294967296
 
- which is a page-perfect illustration of C6 and not a bug in anything. Raising the
- reserve would make the run cost real memory rather than address space, on a
- two-core box; a second process starts fresh, and that is the whole trick. The
- guest's ceiling is lower still, which is what later cut every entry to two.
+ IT WAS READ AS A PAGE-PERFECT ILLUSTRATION OF C6 AND IT WAS HALF THAT. The bump
+ heap does never reclaim, so the peak really was the total -- but the total was
+ quadratic, because every printer concatenated left to right and so allocated the
+ sum of its own suffixes. C17 has the measurement: the same two frames peaked at
+ 3.5 GB before the halving fix and 133 MB after it, byte for byte the same output.
+ An allocator that never frees is very good at hiding an algorithmic mistake
+ behind itself.
 
  We say:
 

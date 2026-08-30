@@ -1,0 +1,48 @@
+Chapter: SpikeProfileMain
+  cites Foreword chapter Console
+  cites Poc chapter Spike
+
+ SPIKE ONLY. THROWAWAY. The speed profile: the ported physics over the whole
+ route, one point per frame, as a single line for harness/spike_svg.py to draw and
+ for `harness/metal.py --entry` to diff against the other arm.
+
+ AN ENTRY OF ITS OWN BECAUSE ONE LINE CAN COST MORE THAN A FRAME. `prof-all`
+ concatenates right-recursively, so building a 4,000-point line allocates the sum
+ of its own prefixes -- quadratic -- and the bump heap never gives any of it back
+ (PORTING_NOTES C6). At the old scaled-integer width that was about 160 MB and it
+ rode along in SpikeMain unnoticed. Bit patterns are roughly twice the characters,
+ which makes it 640 MB, and beside two frames it exhausted the 4 GiB reserve
+ outright. Splitting is the same answer C6 always has; the pleasant side effect is
+ that every other spike entry is now exactly two viewpoints.
+
+ IT IS NOT DRAWN FROM A CLOCK. `speed-profile` is `profile-from` over the real
+ rider fold, so this is the same physics `judge/RideCheck.codex` grades by
+ invariants -- one variable, route distance, and no animation anywhere.
+
+ We say:
+
+Section: Entry
+
+ dist, v and tilt as IEEE-754 patterns; `seg` is already an Integer and is printed
+ as itself. `Poc chapter SpikePrint` is not cited: it exists to share the DRAW
+ COMMAND format between the frame entries, and a profile point is not a draw
+ command.
+
+  prof-pt : ProfilePt -> Text
+  prof-pt (p) =
+    show (real-to-bits p.dist) & " " & show (real-to-bits p.v) & " " & show (real-to-bits p.tilt) & " " & show p.seg
+
+  prof-all : List ProfilePt, Integer -> Text
+  prof-all (ps) (i) = prof-range ps i (list-length ps)
+
+  prof-range : List ProfilePt, Integer, Integer -> Text
+  prof-range (ps) (lo) (hi) =
+    if hi <= lo then ""
+    else if hi - lo == 1 then prof-pt (list-at ps lo) & " ; "
+    else let mid = lo + (hi - lo) / 2
+      in prof-range ps lo mid & prof-range ps mid hi
+
+  opening : [Console] Nothing = act
+    print-line-uni ("PROFILE " & show (list-length speed-profile))
+    print-line-uni (prof-all speed-profile 0)
+  end

@@ -2600,11 +2600,15 @@ fn u_zebras() f64 {
 }
 
 fn scaled(v_: f64) []const u8 {
-    return cx_show_int(cx_real_to_int((v_ * @as(f64, @bitCast(@as(i64, 4696837146684686336))))));
+    return cx_show_int(cx_real_to_bits(v_));
 }
 
 fn coords(ps: *CxList(f64), i_: i64) []const u8 {
-    return (if ((i_ >= cx_list_len(ps))) "" else cx_concat(cx_concat("\x02", scaled(cx_list_at(ps, i_))), coords(ps, (i_ +% 1))));
+    return coords_range(ps, i_, cx_list_len(ps));
+}
+
+fn coords_range(ps: *CxList(f64), lo: i64, hi: i64) []const u8 {
+    return (if ((hi <= lo)) "" else (if (((hi -% lo) == 1)) cx_concat("\x02", scaled(cx_list_at(ps, lo))) else b2: { const mid: i64 = (lo +% @divTrunc((hi -% lo), 2)); break :b2 cx_concat(coords_range(ps, lo, mid), coords_range(ps, mid, hi)); }));
 }
 
 fn cmd_line(c_: DrawCmd) []const u8 {
@@ -2612,7 +2616,11 @@ fn cmd_line(c_: DrawCmd) []const u8 {
 }
 
 fn all_cmds(cs: *CxList(DrawCmd), i_: i64) []const u8 {
-    return (if ((i_ >= cx_list_len(cs))) "" else cx_concat(cx_concat(cmd_line(cx_list_at(cs, i_)), "\x02\x46\x02"), all_cmds(cs, (i_ +% 1))));
+    return cmds_range(cs, i_, cx_list_len(cs));
+}
+
+fn cmds_range(cs: *CxList(DrawCmd), lo: i64, hi: i64) []const u8 {
+    return (if ((hi <= lo)) "" else (if (((hi -% lo) == 1)) cx_concat(cmd_line(cx_list_at(cs, lo)), "\x02\x46\x02") else b2: { const mid: i64 = (lo +% @divTrunc((hi -% lo), 2)); break :b2 cx_concat(cmds_range(cs, lo, mid), cmds_range(cs, mid, hi)); }));
 }
 
 fn scene_line(name: []const u8, u_: f64) []const u8 {
@@ -2712,6 +2720,16 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
+}
+// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
+// bare metal holds a Real f64 as its own bits in a general register, so the
+// value and its bit pattern are the same sixty-four bits and the conversion
+// is a register move. Zig separates the two types, so the same identity is
+// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
+// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

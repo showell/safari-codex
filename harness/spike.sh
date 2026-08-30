@@ -18,7 +18,7 @@ codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/c
 # and the guest is the arm that compares VALUES (`./harness/metal.py --entry`).
 # Two per entry is what BOTH arms hold, so the pairing is the guest's number.
 # This list is the one place it is written down -- metal.py takes entries by name.
-entries=(SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain)
+entries=(SpikeProfileMain SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain)
 mods=()
 for entry in "${entries[@]}"; do
   # SpikePondMain -> spike_pond_main, matching metal.py's snake() so the two

@@ -210,157 +210,6 @@ Section: Sine and Cosine
   real-cos : Real -> Real
   real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
 
-Chapter: Num
-
- The Real primitives Codex's foreword does not have.
-
- `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
- surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
- no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
- GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
- question. Everything here is a gap upstream rather than a hole in the zig plug,
- and unlike `Safari chapter Trig` none of it is a stand-in for something that
- already exists.
-
- EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
- before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
- the honest reason this chapter did not exist earlier: the port had no way to
- reach the integers at all.
-
- We say:
-
-Section: Rounding
-
- Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
- give. TRUNCATE FIRST AND THEN LOOK AT WHAT IS LEFT: real-to-int already truncates
- toward zero, `x - t` is exact for every x this converter accepts, and a leftover
- of half or more in either direction is precisely the away-from-zero tie. One rule
- covers both signs, which is why there is no sign branch here any more.
-
- ADDING THE HALF FIRST IS THE VERSION THAT WAS WRONG, and NumCheck is what found
- it. `real-to-int (x + 0.5)` answers 1 for x = 0.49999999999999994 -- the largest
- double below a half -- because x + 0.5 is not representable and rounds UP to
- exactly 1.0, and the mirrored form answered -1 at -0.49999999999999994 where zig
- answers -0. Every caller in the game rounds a 0..255 colour channel, a stride
- count, a step count or a whole number of degrees, so not one of them could see
- it; a round that is wrong on a value none of today's callers produces is a trap
- for the next caller, and that is the whole reason this chapter is graded on a
- domain wider than its callers'.
-
-  round-real : Real -> Real
-  round-real (x) =
-    let t = real-from-int (real-to-int x)
-    in let f = x - t
-    in if f >= 0.5 then t + 1.0 else if f <= 0.0 - 0.5 then t - 1.0 else t
-
- real-to-int truncates toward zero, so for a negative non-integral value it lands
- ABOVE its argument and floor is one less. An exact integer is its own floor in
- both arms, which is why the test is `>` and not `>=`.
-
-  floor-real : Real -> Real
-  floor-real (x) =
-    let t = real-from-int (real-to-int x)
-    in if t > x then t - 1.0 else t
-
-Section: Modulo
-
- Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
- and that is not the truncated remainder. Floored is x - m * floor (x / m), and
- this is the faithful reading of what tower.zig asks for.
-
- BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
- than implying coverage this does not have. tower.zig writes
-
-     @mod(@mod(phase, P) + P, P)
-
- which looks like belt and braces over an operator that is already non-negative,
- and is in fact exactly what makes the two semantics AGREE. Floored gives m in
- [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
- adding P lands in (0, 2P); the second pass takes P off again when it overflowed
- and leaves it alone when it did not -- and r + P is precisely floored's answer
- whenever r was negative. So the double form is semantics-agnostic by
- construction.
-
- MEASURED, not reasoned about after the fact: replacing this with the truncated
- remainder leaves TowerCheck entirely green, including its negative-phase case.
- An earlier draft of this note claimed tower.zig "relies on" the floored form and
- that the two "disagree there". Both were wrong, and the red test said so.
-
- Floored stays because it is what @mod means and the next caller may not wrap its
- argument twice. But nothing in this port grades the choice today.
-
-  mod-real : Real, Real -> Real
-  mod-real (x) (m) = x - m * floor-real (x / m)
-
-Section: The Exponential
-
- rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
- argument reaches -100 and a bare Taylor series is useless there. The standard
- reduction: take k as the nearest integer to x / ln 2, so the remainder r is
- within half a ln 2 of zero, sum the series there, and scale by 2^k.
-
- THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
- -- so like everything else here it could not have been written before the
- conversion emitters landed.
-
-  ln2 : Real
-  ln2 = 0.6931471805599453
-
- TWELVE TERMS OVER |r| <= 0.347 LEAVE A REMAINDER OF 1.7e-16, NOT THE 1e-17 THIS
- NOTE CLAIMED BEFORE IT WAS MEASURED. r^13/13! at r = ln2/2 is 1.671e-16, which is
- an arithmetic fact nobody had worked out. NumCheck now measures the whole chapter
- end to end against zig's @exp over eighteen arguments: the worst RELATIVE error is
- 8.5e-16, at x = 20, and the gate is 1e-15 because the stream reddens at 8e-16.
-
- AND IT IS THE REDUCTION, NOT THE SERIES, THAT SETS THAT NUMBER. The three
- arguments small enough to need no reduction at all -- -0.05, 0 and 0.05 -- come
- out EXACT; every nonzero error in the table belongs to a reduced case. Taking
- k * ln2 off x cancels, and `ln2` here is one f64 where a library keeps a hi/lo
- pair for exactly this reason. Splitting it is the fix if it ever matters:
- rider.zig consumes the answer in f32, where 8.5e-16 is nine orders below the last
- bit it can hold, so today it does not.
-
- WRITING A BOUND NOBODY CHECKED IS THE DEFECT THIS PORT IS SENDING UPSTREAM.
- FINDINGS.md item 2 is `Math chapter Cordic` claiming ~0.1% and delivering 0.45%,
- with a test that never calls a Cordic function. The claim above was 17x out for
- the same reason -- it was reasoned about rather than run -- and it is corrected
- here rather than left standing while we mail someone else's.
-
-  exp-poly : Real -> Real
-  exp-poly (r) =
-    let t1 = r
-    in let t2 = t1 * r / 2.0
-    in let t3 = t2 * r / 3.0
-    in let t4 = t3 * r / 4.0
-    in let t5 = t4 * r / 5.0
-    in let t6 = t5 * r / 6.0
-    in let t7 = t6 * r / 7.0
-    in let t8 = t7 * r / 8.0
-    in let t9 = t8 * r / 9.0
-    in let t10 = t9 * r / 10.0
-    in let t11 = t10 * r / 11.0
-    in let t12 = t11 * r / 12.0
-    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
-
- 2^k by repeated multiplication rather than by assembling an exponent field: the
- bit-level route would need real-to-bits, which this arm still has no emitter for,
- and k is small enough here that the loop is exact anyway -- every step multiplies
- by a power of two, which is exact in binary until it underflows.
-
-  pow2-up : Integer, Real -> Real
-  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
-
-  pow2-down : Integer, Real -> Real
-  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
-
-  pow2-int : Integer -> Real
-  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
-
-  exp-real : Real -> Real
-  exp-real (x) =
-    let k = real-to-int (round-real (x / ln2))
-    in exp-poly (x - real-from-int k * ln2) * pow2-int k
-
 Chapter: Trig
   cites Gpu chapter DeviceMath
 
@@ -738,182 +587,6 @@ Section: Projection
       y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
     }
 
-Chapter: Sky
-  cites Gpu chapter DeviceMath
-  cites Safari chapter Num
-  cites Safari chapter Trig
-  cites Safari chapter Camera
-
- The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
- Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
- heading.
-
- A port of wasm/sky.zig.
-
- THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
- handed and does no clock or colour arithmetic, so this chapter is the whole of
- the sunset. The sun draws BEHIND the mountains, because the blitter paints it
- before the buffer whose first polygons are the ranges.
-
- THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
- round a lerped colour channel and to pack three of them into one integer. Until
- 2026-08-29 the zig plug could emit neither conversion and this module was simply
- unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
- that closed it. Nothing here works around anything any more.
-
- We say:
-
-Section: The Sun as a Clock
-
- Its height drops linearly with the step, so it scrubs on reverse and freezes on
- pause like everything else. Heights are PIXELS at the base focal, so they compare
- directly with the mountain silhouettes.
-
-  sun-bearing : Real
-  sun-bearing = 0.0 - 2.2176
-
-  sun-radius-px : Real
-  sun-radius-px = 46.0
-
- Step-0 height, calibrated to the route's timing in the TypeScript.
-
-  sun-start-px : Real
-  sun-start-px = 244.0
-
-  sun-drop-px-per-step : Real
-  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
-
- The whole disc is below the horizon at this height.
-
-  sun-fully-set-px : Real
-  sun-fully-set-px = 0.0 - sun-radius-px
-
- How far from the horizon the sunset red fades out, and how far off-heading the
- sun may be before it is off-screen entirely.
-
-  warmth-falloff-px : Real
-  warmth-falloff-px = 110.0
-
-  visible-bearing-limit : Real
-  visible-bearing-limit = 1.4
-
-  sun-height-px : Real -> Real
-  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
-
-Section: Dusk
-
- How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
- darkening is a SQUARED ramp -- barely moving while it is high, accelerating
- toward sunset -- so the sky stays bright until around sunset; once the disc is
- fully set the rest fades linearly.
-
-  dusk-at-set : Real
-  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
-
- The two arms are separate definitions rather than one expression, because Codex
- refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
- the fix and it reads better here anyway.
-
-  dusk-while-up : Real -> Real
-  dusk-while-up (h) =
-    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
-    in real-max 0.0 (dusk-at-set * p * p)
-
-  dusk-after-set : Real -> Real
-  dusk-after-set (h) =
-    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
-
-  sun-set-fraction : Real -> Real
-  sun-set-fraction (step) =
-    let h = sun-height-px step
-    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
-
- How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
- fades when the sun is high or deep below. This drives the warm band the sky mixes
- into its lower edge.
-
-  sunset-warmth : Real -> Real
-  sunset-warmth (step) =
-    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
-
-Section: Colours
-
- The upper sky dims ALL channels toward dusk, so it deepens rather than greying
- out; the red mixes only into the lower horizon band.
-
-  Rgb = record {
-    r : Real,
-    g : Real,
-    b : Real
-  }
-
-  day-sky : Rgb
-  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
-
-  dusk-sky : Rgb
-  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
-
-  sunset-red : Rgb
-  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
-
- How strongly the red mixes in at peak warmth.
-
-  sunset-glow : Real
-  sunset-glow = 0.85
-
-  lerp3 : Rgb, Rgb, Real -> Rgb
-  lerp3 (a) (b) (t) =
-    Rgb {
-      r = round-real (a.r + (b.r - a.r) * t),
-      g = round-real (a.g + (b.g - a.g) * t),
-      b = round-real (a.b + (b.b - a.b) * t)
-    }
-
- The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
- Arithmetic would give the same answer for channels this size, but the shift is
- what the source says and the plug emits it.
-
-  pack : Rgb -> Integer
-  pack (c) =
-    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
-
-  sky-color : Real -> Integer
-  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
-
-  horizon-color : Real -> Integer
-  horizon-color (step) =
-    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
-    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
-
-Section: The Sun's Placement
-
- `scale` is cam-focal over the base focal: it squeezes the disc and its glow
- vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
- radii by it. `visible` is False when the sun is too far off-heading to be on
- screen, and the blitter then skips it entirely.
-
-  SunPos = record {
-    visible : Boolean,
-    x : Real,
-    y : Real,
-    scale : Real
-  }
-
-  sun-pos-visible : Real, Real, Real, Real -> SunPos
-  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
-    let v-scale = cam-focal / focal
-    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
-
- The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
- keeps everywhere: a wider window sees more, it does not zoom.
-
-  sun-pos : Real, Real, Real, Real -> SunPos
-  sun-pos (heading) (step) (cam-focal) (view-w) =
-    let rel = wrap (sun-bearing - heading) 64
-    in if real-abs rel >= visible-bearing-limit
-      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
-      else sun-pos-visible rel step cam-focal view-w
-
 Chapter: Paint
   cites Safari chapter Camera
 
@@ -1030,6 +703,157 @@ Section: The Gradient Fills
   push-radial-grad-poly (rgba0) (rgba1) (off0) (off1) (cx) (cy) (ux) (uy) (vx) (vy) (ps) =
     if list-length ps < 3 then []
     else [DrawCmd { tag = 6, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, cx, cy, ux, uy, vx, vy], pts = flatten-screen ps 0 }]
+
+Chapter: Num
+
+ The Real primitives Codex's foreword does not have.
+
+ `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
+ surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
+ no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
+ GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
+ question. Everything here is a gap upstream rather than a hole in the zig plug,
+ and unlike `Safari chapter Trig` none of it is a stand-in for something that
+ already exists.
+
+ EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
+ before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
+ the honest reason this chapter did not exist earlier: the port had no way to
+ reach the integers at all.
+
+ We say:
+
+Section: Rounding
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
+ give. TRUNCATE FIRST AND THEN LOOK AT WHAT IS LEFT: real-to-int already truncates
+ toward zero, `x - t` is exact for every x this converter accepts, and a leftover
+ of half or more in either direction is precisely the away-from-zero tie. One rule
+ covers both signs, which is why there is no sign branch here any more.
+
+ ADDING THE HALF FIRST IS THE VERSION THAT WAS WRONG, and NumCheck is what found
+ it. `real-to-int (x + 0.5)` answers 1 for x = 0.49999999999999994 -- the largest
+ double below a half -- because x + 0.5 is not representable and rounds UP to
+ exactly 1.0, and the mirrored form answered -1 at -0.49999999999999994 where zig
+ answers -0. Every caller in the game rounds a 0..255 colour channel, a stride
+ count, a step count or a whole number of degrees, so not one of them could see
+ it; a round that is wrong on a value none of today's callers produces is a trap
+ for the next caller, and that is the whole reason this chapter is graded on a
+ domain wider than its callers'.
+
+  round-real : Real -> Real
+  round-real (x) =
+    let t = real-from-int (real-to-int x)
+    in let f = x - t
+    in if f >= 0.5 then t + 1.0 else if f <= 0.0 - 0.5 then t - 1.0 else t
+
+ real-to-int truncates toward zero, so for a negative non-integral value it lands
+ ABOVE its argument and floor is one less. An exact integer is its own floor in
+ both arms, which is why the test is `>` and not `>=`.
+
+  floor-real : Real -> Real
+  floor-real (x) =
+    let t = real-from-int (real-to-int x)
+    in if t > x then t - 1.0 else t
+
+Section: Modulo
+
+ Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
+ and that is not the truncated remainder. Floored is x - m * floor (x / m), and
+ this is the faithful reading of what tower.zig asks for.
+
+ BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
+ than implying coverage this does not have. tower.zig writes
+
+     @mod(@mod(phase, P) + P, P)
+
+ which looks like belt and braces over an operator that is already non-negative,
+ and is in fact exactly what makes the two semantics AGREE. Floored gives m in
+ [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
+ adding P lands in (0, 2P); the second pass takes P off again when it overflowed
+ and leaves it alone when it did not -- and r + P is precisely floored's answer
+ whenever r was negative. So the double form is semantics-agnostic by
+ construction.
+
+ MEASURED, not reasoned about after the fact: replacing this with the truncated
+ remainder leaves TowerCheck entirely green, including its negative-phase case.
+ An earlier draft of this note claimed tower.zig "relies on" the floored form and
+ that the two "disagree there". Both were wrong, and the red test said so.
+
+ Floored stays because it is what @mod means and the next caller may not wrap its
+ argument twice. But nothing in this port grades the choice today.
+
+  mod-real : Real, Real -> Real
+  mod-real (x) (m) = x - m * floor-real (x / m)
+
+Section: The Exponential
+
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
+ argument reaches -100 and a bare Taylor series is useless there. The standard
+ reduction: take k as the nearest integer to x / ln 2, so the remainder r is
+ within half a ln 2 of zero, sum the series there, and scale by 2^k.
+
+ THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
+ -- so like everything else here it could not have been written before the
+ conversion emitters landed.
+
+  ln2 : Real
+  ln2 = 0.6931471805599453
+
+ TWELVE TERMS OVER |r| <= 0.347 LEAVE A REMAINDER OF 1.7e-16, NOT THE 1e-17 THIS
+ NOTE CLAIMED BEFORE IT WAS MEASURED. r^13/13! at r = ln2/2 is 1.671e-16, which is
+ an arithmetic fact nobody had worked out. NumCheck now measures the whole chapter
+ end to end against zig's @exp over eighteen arguments: the worst RELATIVE error is
+ 8.5e-16, at x = 20, and the gate is 1e-15 because the stream reddens at 8e-16.
+
+ AND IT IS THE REDUCTION, NOT THE SERIES, THAT SETS THAT NUMBER. The three
+ arguments small enough to need no reduction at all -- -0.05, 0 and 0.05 -- come
+ out EXACT; every nonzero error in the table belongs to a reduced case. Taking
+ k * ln2 off x cancels, and `ln2` here is one f64 where a library keeps a hi/lo
+ pair for exactly this reason. Splitting it is the fix if it ever matters:
+ rider.zig consumes the answer in f32, where 8.5e-16 is nine orders below the last
+ bit it can hold, so today it does not.
+
+ WRITING A BOUND NOBODY CHECKED IS THE DEFECT THIS PORT IS SENDING UPSTREAM.
+ FINDINGS.md item 2 is `Math chapter Cordic` claiming ~0.1% and delivering 0.45%,
+ with a test that never calls a Cordic function. The claim above was 17x out for
+ the same reason -- it was reasoned about rather than run -- and it is corrected
+ here rather than left standing while we mail someone else's.
+
+  exp-poly : Real -> Real
+  exp-poly (r) =
+    let t1 = r
+    in let t2 = t1 * r / 2.0
+    in let t3 = t2 * r / 3.0
+    in let t4 = t3 * r / 4.0
+    in let t5 = t4 * r / 5.0
+    in let t6 = t5 * r / 6.0
+    in let t7 = t6 * r / 7.0
+    in let t8 = t7 * r / 8.0
+    in let t9 = t8 * r / 9.0
+    in let t10 = t9 * r / 10.0
+    in let t11 = t10 * r / 11.0
+    in let t12 = t11 * r / 12.0
+    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+
+ 2^k by repeated multiplication rather than by assembling an exponent field: the
+ bit-level route would need real-to-bits, which this arm still has no emitter for,
+ and k is small enough here that the loop is exact anyway -- every step multiplies
+ by a power of two, which is exact in binary until it underflows.
+
+  pow2-up : Integer, Real -> Real
+  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
+
+  pow2-down : Integer, Real -> Real
+  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
+
+  pow2-int : Integer -> Real
+  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
+
+  exp-real : Real -> Real
+  exp-real (x) =
+    let k = real-to-int (round-real (x / ln2))
+    in exp-poly (x - real-from-int k * ln2) * pow2-int k
 
 Chapter: Cat
   cites Gpu chapter DeviceMath
@@ -5428,6 +5252,182 @@ Section: The Tree
     in if m.ht < 1.0 then []
     else (draw-trunk m round-trunk) & tiers right forward height color cf view-w m near-crown shade 0
 
+Chapter: Sky
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Camera
+
+ The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
+ Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
+ heading.
+
+ A port of wasm/sky.zig.
+
+ THE ZIG OWNS EVERY COLOUR AND POSITION. The blitter paints the gradients it is
+ handed and does no clock or colour arithmetic, so this chapter is the whole of
+ the sunset. The sun draws BEHIND the mountains, because the blitter paints it
+ before the buffer whose first polygons are the ranges.
+
+ THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
+ round a lerped colour channel and to pack three of them into one integer. Until
+ 2026-08-29 the zig plug could emit neither conversion and this module was simply
+ unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
+ that closed it. Nothing here works around anything any more.
+
+ We say:
+
+Section: The Sun as a Clock
+
+ Its height drops linearly with the step, so it scrubs on reverse and freezes on
+ pause like everything else. Heights are PIXELS at the base focal, so they compare
+ directly with the mountain silhouettes.
+
+  sun-bearing : Real
+  sun-bearing = 0.0 - 2.2176
+
+  sun-radius-px : Real
+  sun-radius-px = 46.0
+
+ Step-0 height, calibrated to the route's timing in the TypeScript.
+
+  sun-start-px : Real
+  sun-start-px = 244.0
+
+  sun-drop-px-per-step : Real
+  sun-drop-px-per-step = 0.41616 * (2.0 * sun-radius-px) / 625.0
+
+ The whole disc is below the horizon at this height.
+
+  sun-fully-set-px : Real
+  sun-fully-set-px = 0.0 - sun-radius-px
+
+ How far from the horizon the sunset red fades out, and how far off-heading the
+ sun may be before it is off-screen entirely.
+
+  warmth-falloff-px : Real
+  warmth-falloff-px = 110.0
+
+  visible-bearing-limit : Real
+  visible-bearing-limit = 1.4
+
+  sun-height-px : Real -> Real
+  sun-height-px (step) = sun-start-px - sun-drop-px-per-step * step
+
+Section: Dusk
+
+ How far dusk has progressed, 0 = day and 1 = night. While the sun is up the
+ darkening is a SQUARED ramp -- barely moving while it is high, accelerating
+ toward sunset -- so the sky stays bright until around sunset; once the disc is
+ fully set the rest fades linearly.
+
+  dusk-at-set : Real
+  dusk-at-set = 0.5 * (sun-start-px - sun-fully-set-px) / sun-start-px
+
+ The two arms are separate definitions rather than one expression, because Codex
+ refuses a `let` nested inside an `if` arm inside a `let` (CDX1023). Flattening is
+ the fix and it reads better here anyway.
+
+  dusk-while-up : Real -> Real
+  dusk-while-up (h) =
+    let p = (sun-start-px - h) / (sun-start-px - sun-fully-set-px)
+    in real-max 0.0 (dusk-at-set * p * p)
+
+  dusk-after-set : Real -> Real
+  dusk-after-set (h) =
+    real-min 1.0 (dusk-at-set + (sun-fully-set-px - h) / sun-radius-px * (1.0 - dusk-at-set))
+
+  sun-set-fraction : Real -> Real
+  sun-set-fraction (step) =
+    let h = sun-height-px step
+    in if h >= sun-fully-set-px then dusk-while-up h else dusk-after-set h
+
+ How RED the afterglow is, 0 to 1: it peaks as the disc crosses the horizon and
+ fades when the sun is high or deep below. This drives the warm band the sky mixes
+ into its lower edge.
+
+  sunset-warmth : Real -> Real
+  sunset-warmth (step) =
+    real-max 0.0 (1.0 - real-abs (sun-height-px step) / warmth-falloff-px)
+
+Section: Colours
+
+ The upper sky dims ALL channels toward dusk, so it deepens rather than greying
+ out; the red mixes only into the lower horizon band.
+
+  Rgb = record {
+    r : Real,
+    g : Real,
+    b : Real
+  }
+
+  day-sky : Rgb
+  day-sky = Rgb { r = 142.0, g = 202.0, b = 230.0 }
+
+  dusk-sky : Rgb
+  dusk-sky = Rgb { r = 36.0, g = 58.0, b = 94.0 }
+
+  sunset-red : Rgb
+  sunset-red = Rgb { r = 222.0, g = 88.0, b = 52.0 }
+
+ How strongly the red mixes in at peak warmth.
+
+  sunset-glow : Real
+  sunset-glow = 0.85
+
+  lerp3 : Rgb, Rgb, Real -> Rgb
+  lerp3 (a) (b) (t) =
+    Rgb {
+      r = round-real (a.r + (b.r - a.r) * t),
+      g = round-real (a.g + (b.g - a.g) * t),
+      b = round-real (a.b + (b.b - a.b) * t)
+    }
+
+ The wire is one 0xRRGGBB integer, shifted and or-ed exactly as the zig does.
+ Arithmetic would give the same answer for channels this size, but the shift is
+ what the source says and the plug emits it.
+
+  pack : Rgb -> Integer
+  pack (c) =
+    bit-or (bit-or (bit-shl (real-to-int c.r) 16) (bit-shl (real-to-int c.g) 8)) (real-to-int c.b)
+
+  sky-color : Real -> Integer
+  sky-color (step) = pack (lerp3 day-sky dusk-sky (sun-set-fraction step))
+
+  horizon-color : Real -> Integer
+  horizon-color (step) =
+    let sky = lerp3 day-sky dusk-sky (sun-set-fraction step)
+    in pack (lerp3 sky sunset-red (sunset-warmth step * sunset-glow))
+
+Section: The Sun's Placement
+
+ `scale` is cam-focal over the base focal: it squeezes the disc and its glow
+ vertically on a lean, and is 1.0 in the static frame. The blitter multiplies its
+ radii by it. `visible` is False when the sun is too far off-heading to be on
+ screen, and the blitter then skips it entirely.
+
+  SunPos = record {
+    visible : Boolean,
+    x : Real,
+    y : Real,
+    scale : Real
+  }
+
+  sun-pos-visible : Real, Real, Real, Real -> SunPos
+  sun-pos-visible (rel) (step) (cam-focal) (view-w) =
+    let v-scale = cam-focal / focal
+    in SunPos { visible = True, x = view-w / 2.0 + r-tan rel * cam-focal, y = camera-h / 2.0 - sun-height-px step * v-scale, scale = v-scale }
+
+ The x centre follows the LIVE width, which is the peripheral-FOV rule the camera
+ keeps everywhere: a wider window sees more, it does not zoom.
+
+  sun-pos : Real, Real, Real, Real -> SunPos
+  sun-pos (heading) (step) (cam-focal) (view-w) =
+    let rel = wrap (sun-bearing - heading) 64
+    in if real-abs rel >= visible-bearing-limit
+      then SunPos { visible = False, x = 0.0, y = 0.0, scale = 0.0 }
+      else sun-pos-visible rel step cam-focal view-w
+
 Chapter: Mountains
   cites Gpu chapter DeviceMath
   cites Safari chapter Num
@@ -6362,139 +6362,51 @@ Section: The Speed Profile
   speed-profile : List ProfilePt
   speed-profile = profile-from build-world initial-rider-state profile-frames
 
-Chapter: SpikePrint
-  cites Safari chapter Num
-  cites Safari chapter Paint
-  cites Safari chapter Sky
-  cites Poc chapter Spike
-
- SPIKE ONLY. THROWAWAY. How a still frame goes out as text, for
- harness/spike_svg.py to turn into a picture. Nothing grades this.
-
- A CHAPTER OF ITS OWN BECAUSE THERE ARE TWO ENTRIES NOW, and one of them cannot
- simply cite the other: a bundle is ONE FLAT NAMESPACE (PORTING_NOTES B5), so
- SpikeTruckMain citing SpikeMain for `all-cmds` collided on `opening` --
- "CDX3001 Duplicate definition: opening" -- which is the namespace rule doing
- exactly what it says. The printing moves here, both entries cite it, and neither
- restates it.
-
- COORDINATES GO OUT AS THEIR EXACT BIT PATTERNS. `show` on a Real is still refused
- by the zig plug -- it needs a __real_to_text it does not have -- so a Real reaches
- the page as an Integer either way. The question is only WHICH integer, and the
- answer stopped being a scale on 2026-08-30.
-
- THE SCALE WAS INHERITED FROM A DRAWING AND WAS SETTING THE RESOLUTION OF A PROOF.
- These lines were written for harness/spike_svg.py, which paints at 960 by 600,
- where a hundredth of a pixel is already invisible; a hundredth was therefore
- generous. Then `harness/metal.py --entry` began diffing the same text against a
- SECOND COMPILER, and there the last digit printed is the entire resolution of the
- comparison -- two emitters could have disagreed by four orders of magnitude and
- the run would have said AGREES. Millionths bought four orders. `real-to-bits`
- ends the argument instead of moving it: the pattern IS the value, so the diff is
- exact and there is no last digit to be generous with.
-
- WHAT THAT MAKES THE THIRD ARM ABLE TO SEE, which it could not before: FMA
- contraction, x87 excess precision, a reassociated sum -- every emitter fault that
- lives at 1e-16 and was invisible under any decimal scale (PORTING_NOTES D11 is
- where that limit was measured and admitted). It also makes the SVG exact rather
- than rounded, which costs nothing and was never the point.
-
- A pattern is a signed i64, so roughly half of them print with a minus sign and
- none of them are readable. That is the trade: this text stopped being for a human
- the day a second compiler started reading it.
-
- ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
- print per command. A Codex `act` has no recursive loop shape, and a chapter is
- not the place to discover one for a throwaway: building the text purely and
- handing it to a single print is the boring option and it is fine here, because a
- frame is about a hundred kilobytes of digits.
-
-   C <tag> <colour> <strength e-3> <n> <x bits> <y bits> ... [<colour2> <geom bits>...]
-
- We say:
-
-Section: Printing
-
-  scaled : Real -> Text
-  scaled (v) = show (real-to-bits v)
-
-  coords : List Real, Integer -> Text
-  coords (ps) (i) = coords-range ps i (list-length ps)
-
- CONCATENATE BY HALVES, NOT ONE AT A TIME, and this is the difference between a
- spike that fits and one that does not. Text is immutable, so `a & rest` allocates
- the whole of `a & rest`; walking a list left to right therefore allocates the sum
- of its own suffixes, which is QUADRATIC in the length. A 2,705-command frame at
- four hundred characters a command is about 1.5 GB of intermediate text to produce
- one megabyte of answer. Splitting the range in half instead copies each byte once
- per LEVEL, so the total is n log n: the same frame costs about 24 MB.
-
- IT WAS BLAMED ON C6 FOR A WEEK. The bump heap never reclaiming is true and is why
- the peak is the total, but the peak was quadratic for a reason that had nothing to
- do with the allocator, and splitting entries was treating the symptom. Measured on
- 2026-08-30: spike_cat_main peaked at 3.92 GB of the 4 GiB reserve before this
- change and 108 MB after it, for byte-identical output.
-
-  coords-range : List Real, Integer, Integer -> Text
-  coords-range (ps) (lo) (hi) =
-    if hi <= lo then ""
-    else if hi - lo == 1 then " " & scaled (list-at ps lo)
-    else let mid = lo + (hi - lo) / 2
-      in coords-range ps lo mid & coords-range ps mid hi
-
- THE GRADIENT TAGS TRAIL THEIR EXTRAS, so a tag 0 or 1 line is byte-identical to
- what this printed before them and the reader needs no new rule for the common
- case. A tag 4, 5 or 6 line carries its second colour and then its own geometry
- AFTER the polygon: the reader knows from the tag how many numbers to expect and
- the point count already told it where the polygon ended.
-
-  extras : DrawCmd -> Text
-  extras (c) =
-    if c.tag >= 4 then " " & show c.color2 & coords c.geom 0 else ""
-
-  cmd-line : DrawCmd -> Text
-  cmd-line (c) =
-    "C " & show c.tag & " " & show c.color & " " & show (real-to-int (c.strength * 1000.0)) & " " & show (list-length c.pts / 2) & coords c.pts 0 & extras c
-
-  all-cmds : List DrawCmd, Integer -> Text
-  all-cmds (cs) (i) = cmds-range cs i (list-length cs)
-
-  cmds-range : List DrawCmd, Integer, Integer -> Text
-  cmds-range (cs) (lo) (hi) =
-    if hi <= lo then ""
-    else if hi - lo == 1 then cmd-line (list-at cs lo) & " ; "
-    else let mid = lo + (hi - lo) / 2
-      in cmds-range cs lo mid & cmds-range cs mid hi
-
- One SCENE header per viewpoint, and it carries the sky and horizon colours too,
- because blitter.js paints those itself from the module's numbers and an SVG has
- to do the same or the frame floats on nothing.
-
-  scene-line : Text, Real -> Text
-  scene-line (name) (u) =
-    "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
-
-Chapter: SpikePondMain
+Chapter: SpikeProfileMain
   cites Foreword chapter Console
-  cites Safari chapter Sky
   cites Poc chapter Spike
-  cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. The duck pond and the zebras, split off `SpikeMain` for
- the reason its header gives: two viewpoints is what the QEMU guest's heap holds,
- and an entry the third arm cannot run is an entry compared on nothing.
+ SPIKE ONLY. THROWAWAY. The speed profile: the ported physics over the whole
+ route, one point per frame, as a single line for harness/spike_svg.py to draw and
+ for `harness/metal.py --entry` to diff against the other arm.
 
- Named for the pond because that is what the first viewpoint looks at; the zebras
- ride along because they are the next viewpoint down the route and a pair is the
- unit here.
+ AN ENTRY OF ITS OWN BECAUSE ONE LINE CAN COST MORE THAN A FRAME. `prof-all`
+ concatenates right-recursively, so building a 4,000-point line allocates the sum
+ of its own prefixes -- quadratic -- and the bump heap never gives any of it back
+ (PORTING_NOTES C6). At the old scaled-integer width that was about 160 MB and it
+ rode along in SpikeMain unnoticed. Bit patterns are roughly twice the characters,
+ which makes it 640 MB, and beside two frames it exhausted the 4 GiB reserve
+ outright. Splitting is the same answer C6 always has; the pleasant side effect is
+ that every other spike entry is now exactly two viewpoints.
+
+ IT IS NOT DRAWN FROM A CLOCK. `speed-profile` is `profile-from` over the real
+ rider fold, so this is the same physics `judge/RideCheck.codex` grades by
+ invariants -- one variable, route distance, and no animation anywhere.
 
  We say:
 
 Section: Entry
 
+ dist, v and tilt as IEEE-754 patterns; `seg` is already an Integer and is printed
+ as itself. `Poc chapter SpikePrint` is not cited: it exists to share the DRAW
+ COMMAND format between the frame entries, and a profile point is not a draw
+ command.
+
+  prof-pt : ProfilePt -> Text
+  prof-pt (p) =
+    show (real-to-bits p.dist) & " " & show (real-to-bits p.v) & " " & show (real-to-bits p.tilt) & " " & show p.seg
+
+  prof-all : List ProfilePt, Integer -> Text
+  prof-all (ps) (i) = prof-range ps i (list-length ps)
+
+  prof-range : List ProfilePt, Integer, Integer -> Text
+  prof-range (ps) (lo) (hi) =
+    if hi <= lo then ""
+    else if hi - lo == 1 then prof-pt (list-at ps lo) & " ; "
+    else let mid = lo + (hi - lo) / 2
+      in prof-range ps lo mid & prof-range ps mid hi
+
   opening : [Console] Nothing = act
-    print-line-uni (scene-line "duck-pond" u-pond)
-    print-line-uni (all-cmds (spike-frame-at u-pond) 0)
-    print-line-uni (scene-line "zebras" u-zebras)
-    print-line-uni (all-cmds (spike-frame-at u-zebras) 0)
+    print-line-uni ("PROFILE " & show (list-length speed-profile))
+    print-line-uni (prof-all speed-profile 0)
   end

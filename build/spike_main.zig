@@ -513,34 +513,6 @@ fn mod_real(x: f64, m_: f64) f64 {
     return (x - (m_ * floor_real((x / m_))));
 }
 
-fn ln2() f64 {
-    return @as(f64, @bitCast(@as(i64, 4604418534313441775)));
-}
-
-fn exp_poly(r_: f64) f64 {
-    return b0: { const t1: f64 = r_; break :b0 b1: { const t2: f64 = ((t1 * r_) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); break :b1 b2: { const t3: f64 = ((t2 * r_) / @as(f64, @bitCast(@as(i64, 4613937818241073152)))); break :b2 b3: { const t4: f64 = ((t3 * r_) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b3 b4: { const t5: f64 = ((t4 * r_) / @as(f64, @bitCast(@as(i64, 4617315517961601024)))); break :b4 b5: { const t6: f64 = ((t5 * r_) / @as(f64, @bitCast(@as(i64, 4618441417868443648)))); break :b5 b6: { const t7: f64 = ((t6 * r_) / @as(f64, @bitCast(@as(i64, 4619567317775286272)))); break :b6 b7: { const t8: f64 = ((t7 * r_) / @as(f64, @bitCast(@as(i64, 4620693217682128896)))); break :b7 b8: { const t9: f64 = ((t8 * r_) / @as(f64, @bitCast(@as(i64, 4621256167635550208)))); break :b8 b9: { const t10: f64 = ((t9 * r_) / @as(f64, @bitCast(@as(i64, 4621819117588971520)))); break :b9 b10: { const t11: f64 = ((t10 * r_) / @as(f64, @bitCast(@as(i64, 4622382067542392832)))); break :b10 b11: { const t12: f64 = ((t11 * r_) / @as(f64, @bitCast(@as(i64, 4622945017495814144)))); break :b11 ((((((((((((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + t1) + t2) + t3) + t4) + t5) + t6) + t7) + t8) + t9) + t10) + t11) + t12); }; }; }; }; }; }; }; }; }; }; }; };
-}
-
-fn pow2_up(k_: i64, acc_: f64) f64 {
-    var _tl_k = k_;
-    var _tl_acc = acc_;
-    while (true) {
-        if ((_tl_k <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k -% 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
-    }
-}
-
-fn pow2_down(k_: i64, acc_: f64) f64 {
-    var _tl_k = k_;
-    var _tl_acc = acc_;
-    while (true) {
-        if ((_tl_k >= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k +% 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
-    }
-}
-
-fn exp_real(x: f64) f64 {
-    return b0: { const k_: i64 = cx_real_to_int(round_real((x / ln2()))); break :b0 (exp_poly((x - (cx_real_from_int(k_) * ln2()))) * (if ((k_ >= 0)) pow2_up(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else pow2_down(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); };
-}
-
 fn pi() f64 {
     return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
 }
@@ -595,14 +567,6 @@ fn atan_core(t: f64) f64 {
 
 fn r_atan(t: f64) f64 {
     return (if ((t > @as(f64, @bitCast(@as(i64, 4607182418800017408))))) (half_pi() - atan_core((@as(f64, @bitCast(@as(i64, 4607182418800017408))) / t))) else (if ((t < (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) ((@as(f64, @bitCast(@as(i64, 0))) - half_pi()) - atan_core((@as(f64, @bitCast(@as(i64, 4607182418800017408))) / t))) else atan_core(t)));
-}
-
-fn r_atan2(y: f64, x: f64) f64 {
-    return (if ((x > @as(f64, @bitCast(@as(i64, 0))))) r_atan((y / x)) else (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (if ((y >= @as(f64, @bitCast(@as(i64, 0))))) (r_atan((y / x)) + pi()) else (r_atan((y / x)) - pi())) else (if ((y > @as(f64, @bitCast(@as(i64, 0))))) half_pi() else @as(f64, (if ((y < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - half_pi()) else @as(f64, @bitCast(@as(i64, 0))))))));
-}
-
-fn r_sign(x: f64) f64 {
-    return @as(f64, (if ((x > @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else @as(f64, @bitCast(@as(i64, 0)))))));
 }
 
 fn ground_radius() f64 {
@@ -833,10 +797,6 @@ fn road_buffer() f64 {
     return @as(f64, @bitCast(@as(i64, 4613937818241073152)));
 }
 
-fn cat_in_danger(gap_along: f64, v_: f64) bool {
-    return b0: { const e_: f64 = (gap_along - road_buffer()); break :b0 (if ((e_ > @as(f64, @bitCast(@as(i64, 0))))) (e_ <= (cross_frames() * v_)) else false); };
-}
-
 fn clamp01(x: f64) f64 {
     return @as(f64, (if ((x < @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else @as(f64, (if ((x > @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else x))));
 }
@@ -1057,10 +1017,6 @@ fn pig_dist_before_end() f64 {
     return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
 }
 
-fn gaze_pig_along_offset() f64 {
-    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
-}
-
 fn big_herd_cols() i64 {
     return 7;
 }
@@ -1091,10 +1047,6 @@ fn pig_herd_first_col() f64 {
 
 fn pig_back_row_offset() f64 {
     return @as(f64, @bitCast(@as(i64, 4618441417868443648)));
-}
-
-fn gaze_pig(length: f64, lane_half: f64) Critter {
-    return cx_new(CritterS{ .along = ((length - pig_dist_before_end()) + gaze_pig_along_offset()), .across = (lane_half + herd_road_offset()), .codepoint = pig_cp(), .height = pig_height(), .face_right = false });
 }
 
 fn herd_pig_at(base_: f64, r_: i64, c_: i64) Critter {
@@ -2023,238 +1975,6 @@ fn frame_ground(segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_
     return b0: { const ch = build_chain(segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(segs, ch, pose, cf, view_w, 0), behind_ground(segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(segs, ch, pose, cf, view_w, 0)); };
 }
 
-fn v_base() f64 {
-    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
-}
-
-fn initial_rider_state() RiderState {
-    return cx_new(RiderStateS{ .segment = 0, .along = @as(f64, @bitCast(@as(i64, 0))), .across = @as(f64, @bitCast(@as(i64, 0))), .yaw = @as(f64, @bitCast(@as(i64, 0))), .v_ = v_base(), .tilt = @as(f64, @bitCast(@as(i64, 0))), .heading = @as(f64, @bitCast(@as(i64, 0))), .gaze_yaw = @as(f64, @bitCast(@as(i64, 0))), .focus = @as(f64, @bitCast(@as(i64, 0))) });
-}
-
-fn gaze_look_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4639481672377565184)));
-}
-
-fn gaze_release_angle() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4630122629401935872))) * deg());
-}
-
-fn gaze_swivel_rate() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4616189618054758400))) * deg());
-}
-
-fn gaze_return_rate() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4596373779694328218))) * deg());
-}
-
-fn gaze_return_ease() f64 {
-    return @as(f64, @bitCast(@as(i64, 4587366580439587226)));
-}
-
-fn gaze_return_snap() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4581421828931458171))) * deg());
-}
-
-fn focus_decay() f64 {
-    return @as(f64, @bitCast(@as(i64, 4563176846121054817)));
-}
-
-fn pig_gaze_speed() f64 {
-    return @as(f64, @bitCast(@as(i64, 4596373779694328218)));
-}
-
-fn pig_gaze_settle_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
-}
-
-fn eyes_on_road_yaw() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4618441417868443648))) * deg());
-}
-
-fn no_look() PigLook {
-    return cx_new(PigLookS{ .looking = false, .dist = @as(f64, @bitCast(@as(i64, 0))) });
-}
-
-fn pig_ahead_near(state: RiderState, seg: Segment) PigLook {
-    return b0: { const pig = gaze_pig(seg.length, (seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const dist: f64 = (pig.along - state.along); break :b1 (if ((dist > gaze_look_dist())) no_look() else pig_ahead_bearing(state, pig, dist)); }; };
-}
-
-fn pig_ahead_bearing(state: RiderState, pig: Critter, dist: f64) PigLook {
-    return b0: { const bearing: f64 = (r_atan2((pig.across - state.across), dist) - state.yaw); break :b0 (if ((real_abs(bearing) >= gaze_release_angle())) no_look() else cx_new(PigLookS{ .looking = true, .dist = dist })); };
-}
-
-fn desired_gaze(state: RiderState, seg: Segment) f64 {
-    return @as(f64, (if (((if ((seg.pigs_distract == false)) no_look() else (if ((real_abs(state.yaw) > eyes_on_road_yaw())) no_look() else pig_ahead_near(state, seg))).looking == false)) @as(f64, @bitCast(@as(i64, 0))) else desired_gaze_at(state, gaze_pig(seg.length, (seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904))))))));
-}
-
-fn desired_gaze_at(state: RiderState, pig: Critter) f64 {
-    return (r_atan2((pig.across - state.across), (pig.along - state.along)) - state.yaw);
-}
-
-fn next_rider_gaze(state: RiderState, segs: *CxList(Segment)) RiderState {
-    return b0: { const want: f64 = desired_gaze(state, cx_list_at(segs, state.segment)); break :b0 b1: { const gy: f64 = (if (((want == @as(f64, @bitCast(@as(i64, 0)))) == false)) (state.gaze_yaw + real_max((@as(f64, @bitCast(@as(i64, 0))) - gaze_swivel_rate()), real_min(gaze_swivel_rate(), (want - state.gaze_yaw)))) else @as(f64, (if ((real_abs(state.gaze_yaw) <= gaze_return_snap())) @as(f64, @bitCast(@as(i64, 0))) else (state.gaze_yaw - (r_sign(state.gaze_yaw) * real_min(gaze_return_rate(), (real_abs(state.gaze_yaw) * gaze_return_ease()))))))); break :b1 cx_new(RiderStateS{ .segment = state.segment, .along = state.along, .across = state.across, .yaw = state.yaw, .v_ = state.v_, .tilt = state.tilt, .heading = state.heading, .gaze_yaw = gy, .focus = (if ((gy == @as(f64, @bitCast(@as(i64, 0))))) real_max(@as(f64, @bitCast(@as(i64, 0))), (state.focus - focus_decay())) else real_max(state.focus, real_min((real_abs(gy) / gaze_release_angle()), @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) }); }; };
-}
-
-fn gawk_engaged(state: RiderState, seg: Segment) bool {
-    return (if ((seg.pigs_distract == false)) false else (state.along >= (gaze_pig(seg.length, (seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904))))).along - gaze_look_dist())));
-}
-
-fn pig_gaze_brake_easing(state: RiderState, seg: Segment) GazeBrake {
-    return b0: { const d_: f64 = ((gaze_pig(seg.length, (seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904))))).along - state.along) - pig_gaze_settle_dist()); break :b0 cx_new(GazeBrakeS{ .engaged = true, .accel = (((pig_gaze_speed() * pig_gaze_speed()) - (state.v_ * state.v_)) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * real_max(d_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) }); };
-}
-
-fn yaw_per_tilt() f64 {
-    return @as(f64, @bitCast(@as(i64, 4591870180066957722)));
-}
-
-fn a_accel() f64 {
-    return @as(f64, @bitCast(@as(i64, 4576918229304087675)));
-}
-
-fn v_max() f64 {
-    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
-}
-
-fn approach_intersection_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
-}
-
-fn straighten_margin() f64 {
-    return @as(f64, @bitCast(@as(i64, 4587366580439587226)));
-}
-
-fn turn_danger_steps() i64 {
-    return 2000;
-}
-
-fn min_forward_progress() f64 {
-    return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
-}
-
-fn tilt_hold() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * deg());
-}
-
-fn brake_decay() f64 {
-    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
-}
-
-fn asymptote_tuning() f64 {
-    return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
-}
-
-fn center_lane_epsilon() f64 {
-    return @as(f64, @bitCast(@as(i64, 4585925428558828667)));
-}
-
-fn max_tilt_correction() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4607182418800017408))) * deg());
-}
-
-fn lean_search_iters() i64 {
-    return 12;
-}
-
-fn simulate_rider_step(s_: RiderState, tilt_step: f64, accel: f64) RiderState {
-    return b0: { const tilt: f64 = (s_.tilt + tilt_step); break :b0 b1: { const v_: f64 = (s_.v_ + accel); break :b1 b2: { const heading_change: f64 = (yaw_per_tilt() * tilt); break :b2 b3: { const mid: f64 = (s_.yaw + (heading_change / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 cx_new(RiderStateS{ .segment = s_.segment, .along = (s_.along + (v_ * r_cos(mid))), .across = (s_.across + (v_ * r_sin(mid))), .yaw = (s_.yaw + heading_change), .v_ = v_, .tilt = tilt, .heading = (s_.heading + heading_change), .gaze_yaw = s_.gaze_yaw, .focus = s_.focus }); }; }; }; };
-}
-
-fn no_frames() f64 {
-    return @as(f64, @bitCast(@as(i64, 4741671816366391296)));
-}
-
-fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed: bool, i_: i64, phys: RiderState) PathSim {
-    return (if ((i_ >= turn_danger_steps())) cx_new(PathSimS{ .side = Side.SideNone, .forward = (phys.along - start_along), .crossed = crossed, .end_across = phys.across, .frames = no_frames() }) else sim_step(start_, left_bound, right_bound, start_side, start_along, crossed, i_, simulate_rider_step(phys, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))))));
-}
-
-fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) PathSim {
-    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(PathSimS{ .side = Side.SideLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(PathSimS{ .side = Side.SideRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(PathSimS{ .side = Side.SideNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(PathSimS{ .side = Side.SideNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
-}
-
-fn simulate_rider_path(state: RiderState, seg: Segment) PathSim {
-    return b0: { const inset_hw: f64 = ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - straighten_margin()); break :b0 b1: { const right_bound: f64 = real_max(inset_hw, state.across); break :b1 b2: { const left_bound: f64 = real_min((@as(f64, @bitCast(@as(i64, 0))) - inset_hw), state.across); break :b2 sim_loop(state, left_bound, right_bound, r_sign(state.across), state.along, false, 0, state); }; }; };
-}
-
-fn want_more_right(sim: PathSim, target: f64) bool {
-    return switch (sim.side) { .SideLeft => true, .SideRight => false, .SideNone => (sim.end_across < target),  };
-}
-
-fn lean_target(across: f64) f64 {
-    return (if ((real_abs(across) < center_lane_epsilon())) (if ((across >= @as(f64, @bitCast(@as(i64, 0))))) center_lane_epsilon() else (@as(f64, @bitCast(@as(i64, 0))) - center_lane_epsilon())) else (across * asymptote_tuning()));
-}
-
-fn with_tilt(s_: RiderState, t: f64) RiderState {
-    return cx_new(RiderStateS{ .segment = s_.segment, .along = s_.along, .across = s_.across, .yaw = s_.yaw, .v_ = s_.v_, .tilt = t, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
-}
-
-fn search_lean(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64) f64 {
-    return (if ((i_ >= lean_search_iters())) ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) else search_step(state, seg, target, lo, hi, i_, ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))));
-}
-
-fn search_step(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64, mid: f64) f64 {
-    return (if (want_more_right(simulate_rider_path(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
-}
-
-fn turn_speed(angle_rad: f64) f64 {
-    return b0: { const d_: f64 = round_real(((angle_rad * @as(f64, @bitCast(@as(i64, 4640537203540230144)))) / pi())); break :b0 @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4624633867356078080))))) @as(f64, @bitCast(@as(i64, 4608519987889346445))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4626322717216342016))))) @as(f64, @bitCast(@as(i64, 4605741266919258849))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4629137466983448576))))) @as(f64, @bitCast(@as(i64, 4601976257630777115))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4632233691727265792))))) @as(f64, @bitCast(@as(i64, 4597166413228745425))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4634626229029306368))))) @as(f64, @bitCast(@as(i64, 4594176023076171416))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4635329916471083008))))) @as(f64, @bitCast(@as(i64, 4593095159165602497))) else @as(f64, @bitCast(@as(i64, 4597166413228745425))))))))))))))); };
-}
-
-fn corner_brake(state: RiderState, seg: Segment, v_end: f64, a_: f64) f64 {
-    return b0: { const d_: f64 = (seg.commit_along - state.along); break :b0 b1: { const corner_a: f64 = @as(f64, (if ((d_ <= @as(f64, @bitCast(@as(i64, 4517329193108106637))))) @as(f64, @bitCast(@as(i64, 0))) else (((v_end * v_end) - (state.v_ * state.v_)) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * d_)))); break :b1 (if ((corner_a < a_)) corner_a else a_); }; };
-}
-
-fn pig_gate(state: RiderState, seg: Segment, a_: f64) f64 {
-    return b0: { const b_ = (if ((gawk_engaged(state, seg) == false)) cx_new(GazeBrakeS{ .engaged = false, .accel = @as(f64, @bitCast(@as(i64, 0))) }) else (if ((state.v_ <= pig_gaze_speed())) cx_new(GazeBrakeS{ .engaged = true, .accel = @as(f64, @bitCast(@as(i64, 0))) }) else pig_gaze_brake_easing(state, seg))); break :b0 (if (b_.engaged) (if ((b_.accel < a_)) b_.accel else a_) else a_); };
-}
-
-fn shoulder_brake(state: RiderState, seg: Segment, a_: f64) f64 {
-    return b0: { const sim = simulate_rider_path(state, seg); break :b0 (if (side_none(sim)) a_ else shoulder_brake_at(state, sim, a_)); };
-}
-
-fn side_none(sim: PathSim) bool {
-    return switch (sim.side) { .SideNone => true, .SideLeft => false, .SideRight => false,  };
-}
-
-fn shoulder_brake_at(state: RiderState, sim: PathSim, a_: f64) f64 {
-    return b0: { const n_: f64 = sim.frames; break :b0 b1: { const sa: f64 = (((@as(f64, @bitCast(@as(i64, 0))) - state.v_) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * real_max(n_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) * exp_real(((@as(f64, @bitCast(@as(i64, 0))) - n_) / brake_decay()))); break :b1 (if ((sa < a_)) sa else a_); }; };
-}
-
-fn clamp_v(state: RiderState, seg: Segment, v_end: f64, v0: f64, _arg_near: bool) f64 {
-    return b0: { const v1: f64 = (if ((v0 > v_max())) v_max() else v0); break :b0 b1: { const v2: f64 = @as(f64, (if ((v1 < @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else v1)); break :b1 (if (_arg_near) (if ((v2 < v_end)) (if (gawk_engaged(state, seg)) v2 else v_end) else v2) else v2); }; };
-}
-
-fn get_forward_accel_decel(state: RiderState, seg: Segment) f64 {
-    return b0: { const a0: f64 = @as(f64, (if ((real_abs(state.tilt) >= tilt_hold())) @as(f64, @bitCast(@as(i64, 0))) else a_accel())); break :b0 b1: { const v_end: f64 = @as(f64, (if (seg.terminates) @as(f64, @bitCast(@as(i64, 0))) else turn_speed(seg.exit_angle))); break :b1 b2: { const _v2_near: bool = ((seg.length - state.along) <= approach_intersection_dist()); break :b2 b3: { const a1: f64 = (if (_v2_near) corner_brake(state, seg, v_end, a0) else a0); break :b3 b4: { const a3: f64 = pig_gate(state, seg, (if (seg.has_cat) (if ((a1 > @as(f64, @bitCast(@as(i64, 0))))) @as(f64, (if (cat_in_danger((seg.cat.along - state.along), state.v_)) @as(f64, @bitCast(@as(i64, 0))) else a1)) else a1) else a1)); break :b4 b5: { const a4: f64 = shoulder_brake(state, seg, a3); break :b5 (clamp_v(state, seg, v_end, (state.v_ + a4), _v2_near) - state.v_); }; }; }; }; }; };
-}
-
-fn decide(state: RiderState, seg: Segment) Decision {
-    return b0: { const tilt_step: f64 = (search_lean(state, seg, lean_target(state.across), (state.tilt - max_tilt_correction()), (state.tilt + max_tilt_correction()), 0) - state.tilt); break :b0 cx_new(DecisionS{ .tilt_step = tilt_step, .accel = get_forward_accel_decel(with_tilt(state, (state.tilt + tilt_step)), seg) }); };
-}
-
-fn rider_state_for_next_segment(rs: RiderState, segs: *CxList(Segment)) RiderState {
-    return b0: { const seg = cx_list_at(segs, rs.segment); break :b0 b1: { const hw: f64 = (seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); break :b1 b2: { const theta: f64 = seg.exit_angle; break :b2 b3: { const sgn: f64 = @as(f64, (if (seg.exit_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b3 b4: { const c_: f64 = r_cos(theta); break :b4 b5: { const s_: f64 = r_sin(theta); break :b5 b6: { const da: f64 = (rs.along - (seg.length + (hw * s_))); break :b6 b7: { const dx: f64 = (rs.across - ((sgn * hw) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - c_))); break :b7 cx_new(RiderStateS{ .segment = seg.exit_to, .along = ((c_ * da) + ((sgn * s_) * dx)), .across = ((((@as(f64, @bitCast(@as(i64, 0))) - sgn) * s_) * da) + (c_ * dx)), .yaw = (rs.yaw - (sgn * theta)), .v_ = rs.v_, .tilt = rs.tilt, .heading = rs.heading, .gaze_yaw = @as(f64, @bitCast(@as(i64, 0))), .focus = rs.focus }); }; }; }; }; }; }; }; };
-}
-
-fn finish_clamp(moved: RiderState, seg: Segment) RiderState {
-    return b0: { const in_zone: bool = ((seg.length - moved.along) < approach_intersection_dist()); break :b0 (if ((moved.along >= seg.length)) stopped_at(moved, seg.length) else (if (in_zone) (if ((moved.v_ < @as(f64, @bitCast(@as(i64, 4591870180066957722))))) stopped_at(moved, seg.length) else moved) else moved)); };
-}
-
-fn stopped_at(s_: RiderState, _arg_at: f64) RiderState {
-    return cx_new(RiderStateS{ .segment = s_.segment, .along = _arg_at, .across = s_.across, .yaw = s_.yaw, .v_ = @as(f64, @bitCast(@as(i64, 0))), .tilt = s_.tilt, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
-}
-
-fn resolve_cross(moved: RiderState, seg: Segment, segs: *CxList(Segment)) RiderState {
-    return b0: { const on_next = rider_state_for_next_segment(moved, segs); break :b0 (if ((real_abs(on_next.across) < (cx_list_at(segs, seg.exit_to).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))) on_next else moved); };
-}
-
-fn get_next_rider_state(state: RiderState, segs: *CxList(Segment)) RiderState {
-    return b0: { const seg = cx_list_at(segs, state.segment); break :b0 b1: { const dec = decide(state, seg); break :b1 b2: { const moved = simulate_rider_step(state, dec.tilt_step, dec.accel); break :b2 b3: { const resolved = (if (seg.terminates) finish_clamp(moved, seg) else resolve_cross(moved, seg, segs)); break :b3 next_rider_gaze(resolved, segs); }; }; }; };
-}
-
-fn is_finished(s_: RiderState, segs: *CxList(Segment)) bool {
-    return b0: { const seg = cx_list_at(segs, s_.segment); break :b0 (if (seg.terminates) (s_.along >= seg.length) else false); };
-}
-
 fn start_ahead() f64 {
     return @as(f64, @bitCast(@as(i64, 4647503709213818880)));
 }
@@ -2879,28 +2599,16 @@ fn u_mid_tower() f64 {
     return u_at_metres(@as(f64, @bitCast(@as(i64, 4658045826700935168))));
 }
 
-fn profile_pt(w: *CxList(Segment), s_: RiderState) ProfilePt {
-    return cx_new(ProfilePtS{ .dist = route_distance(w, s_.segment, s_.along), .v_ = s_.v_, .tilt = s_.tilt, .seg = s_.segment });
-}
-
-fn profile_from(w: *CxList(Segment), s_: RiderState, n_: i64) *CxList(ProfilePt) {
-    return (if ((n_ <= 0)) cx_ll_empty(ProfilePt) else (if (is_finished(s_, w)) cx_ll_of(ProfilePt, &[_]ProfilePt{ profile_pt(w, s_) }) else cx_ll_concat(cx_ll_of(ProfilePt, &[_]ProfilePt{ profile_pt(w, s_) }), profile_from(w, get_next_rider_state(s_, w), (n_ -% 1)))));
-}
-
-fn profile_frames() i64 {
-    return 4000;
-}
-
-fn speed_profile() *CxList(ProfilePt) {
-    return profile_from(build_world(), initial_rider_state(), profile_frames());
-}
-
 fn scaled(v_: f64) []const u8 {
-    return cx_show_int(cx_real_to_int((v_ * @as(f64, @bitCast(@as(i64, 4696837146684686336))))));
+    return cx_show_int(cx_real_to_bits(v_));
 }
 
 fn coords(ps: *CxList(f64), i_: i64) []const u8 {
-    return (if ((i_ >= cx_list_len(ps))) "" else cx_concat(cx_concat("\x02", scaled(cx_list_at(ps, i_))), coords(ps, (i_ +% 1))));
+    return coords_range(ps, i_, cx_list_len(ps));
+}
+
+fn coords_range(ps: *CxList(f64), lo: i64, hi: i64) []const u8 {
+    return (if ((hi <= lo)) "" else (if (((hi -% lo) == 1)) cx_concat("\x02", scaled(cx_list_at(ps, lo))) else b2: { const mid: i64 = (lo +% @divTrunc((hi -% lo), 2)); break :b2 cx_concat(coords_range(ps, lo, mid), coords_range(ps, mid, hi)); }));
 }
 
 fn cmd_line(c_: DrawCmd) []const u8 {
@@ -2908,23 +2616,19 @@ fn cmd_line(c_: DrawCmd) []const u8 {
 }
 
 fn all_cmds(cs: *CxList(DrawCmd), i_: i64) []const u8 {
-    return (if ((i_ >= cx_list_len(cs))) "" else cx_concat(cx_concat(cmd_line(cx_list_at(cs, i_)), "\x02\x46\x02"), all_cmds(cs, (i_ +% 1))));
+    return cmds_range(cs, i_, cx_list_len(cs));
+}
+
+fn cmds_range(cs: *CxList(DrawCmd), lo: i64, hi: i64) []const u8 {
+    return (if ((hi <= lo)) "" else (if (((hi -% lo) == 1)) cx_concat(cmd_line(cx_list_at(cs, lo)), "\x02\x46\x02") else b2: { const mid: i64 = (lo +% @divTrunc((hi -% lo), 2)); break :b2 cx_concat(cmds_range(cs, lo, mid), cmds_range(cs, mid, hi)); }));
 }
 
 fn scene_line(name: []const u8, u_: f64) []const u8 {
     return cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x2d\x32\x27\x2c\x27\x02", name), "\x02"), cx_show_int(sky_color(scene_step_at(u_)))), "\x02"), cx_show_int(horizon_color(scene_step_at(u_))));
 }
 
-fn prof_pt(p_: ProfilePt) []const u8 {
-    return cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_show_int(cx_real_to_int(p_.dist)), "\x02"), cx_show_int(cx_real_to_int((p_.v_ * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02"), cx_show_int(cx_real_to_int((p_.tilt * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02"), cx_show_int(p_.seg));
-}
-
-fn prof_all(ps: *CxList(ProfilePt), i_: i64) []const u8 {
-    return (if ((i_ >= cx_list_len(ps))) "" else cx_concat(cx_concat(prof_pt(cx_list_at(ps, i_)), "\x02\x46\x02"), prof_all(ps, (i_ +% 1))));
-}
-
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x39\x2f\x2a\x36\x2b\x31\x27\x02", cx_show_int(cx_list_len(speed_profile())))); _ = cx_print_line(prof_all(speed_profile(), 0)); _ = cx_print_line(scene_line("\x1f\x11\x1d\x49\x14\x0d\x15\x16", u_pig_herd())); _ = cx_print_line(all_cmds(spike_frame_at(u_pig_herd()), 0)); _ = cx_print_line(scene_line("\x1a\x11\x16\x49\x0e\x10\x1b\x0d\x15", u_mid_tower())); _ = cx_print_line(all_cmds(spike_frame_at(u_mid_tower()), 0)); break :b0; };
+    return b0: { _ = cx_print_line(scene_line("\x1f\x11\x1d\x49\x14\x0d\x15\x16", u_pig_herd())); _ = cx_print_line(all_cmds(spike_frame_at(u_pig_herd()), 0)); _ = cx_print_line(scene_line("\x1a\x11\x16\x49\x0e\x10\x1b\x0d\x15", u_mid_tower())); _ = cx_print_line(all_cmds(spike_frame_at(u_mid_tower()), 0)); break :b0; };
 }
 
 fn cx_entry() void {
@@ -3016,6 +2720,16 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
+}
+// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
+// bare metal holds a Real f64 as its own bits in a general register, so the
+// value and its bit pattern are the same sixty-four bits and the conversion
+// is a register move. Zig separates the two types, so the same identity is
+// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
+// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

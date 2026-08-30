@@ -10,10 +10,11 @@ the browser page to the right spot.
 
 Reads the text the poc Spike*Main entries print -- a SCENE header then one line of
 semicolon-separated draw commands -- and writes web/spikes/<name>.svg plus an
-index. Coordinates arrive as MILLIONTHS of a pixel -- `show` on a Real is still
-refused by the zig plug, so they are scaled integers, and the scale is set by what
-`harness/metal.py --entry` needs to compare rather than by what an SVG can draw.
-See the chapter.
+index. Coordinates arrive as IEEE-754 BIT PATTERNS -- `show` on a Real is still
+refused by the zig plug, so a Real reaches here as an integer either way, and a
+pattern is the one choice with no resolution to argue about. It is chosen for
+`harness/metal.py --entry`, which diffs the same text against a second compiler;
+the SVG just gets exactness for free. See the chapter.
 
 The SVG is an APPROXIMATION of what blitter.js paints, deliberately. It does the
 sky gradient, the grass, solid fills and the round-gradient polygons, because
@@ -24,6 +25,7 @@ browser; if they disagree about a SHAPE, that is worth chasing.
 
 import html
 import pathlib
+import struct
 import xml.etree.ElementTree as ET
 import re
 import subprocess
@@ -36,6 +38,18 @@ GRASS = "#4a8f43"
 
 
 EMOJI = pathlib.Path.home() / "showell_repos/angry-gopher/games/driving/wasm/emoji_frames.zig"
+
+
+def f64(n):
+    """One Real, exactly, from the signed i64 the chapters print.
+
+    They print `real-to-bits v` -- the IEEE-754 pattern -- rather than a scaled
+    integer, because the same text is diffed against a second compiler by
+    harness/metal.py and a scale is a ceiling on that comparison. See the chapter.
+    A pattern round-trips through struct with no arithmetic anywhere, so what this
+    draws is what the port computed and not a rounding of it.
+    """
+    return struct.unpack("<d", struct.pack("<q", int(n)))[0]
 
 
 def _poly_arrays(text):
@@ -218,8 +232,7 @@ def parse_profile(text):
                 f = chunk.split()
                 if len(f) != 4:
                     continue
-                pts.append((float(f[0]), int(f[1]) / 1000.0,
-                            int(f[2]) / 1000.0, int(f[3])))
+                pts.append((f64(f[0]), f64(f[1]), f64(f[2]), int(f[3])))
             if pts:
                 return pts
     return []
@@ -248,7 +261,7 @@ def parse(text):
                     continue
                 tag, color, strength, n = int(f[1]), int(f[2]), int(f[3]), int(f[4])
                 body, tail = f[5:5 + 2 * n], f[5 + 2 * n:]
-                nums = [int(x) / 1000000.0 for x in body]
+                nums = [f64(x) for x in body]
                 pts = list(zip(nums[0::2], nums[1::2]))
                 # TAGS 4-6 TRAIL A SECOND COLOUR AND THEIR OWN GEOMETRY, after the
                 # polygon rather than before it, so every other tag's line is
@@ -256,7 +269,7 @@ def parse(text):
                 # is the only one this renders; 5 and 6 are the bull's, and the
                 # baked table still flattens those to their first stop.
                 color2 = int(tail[0]) if tag >= 4 and tail else 0
-                geom = [int(x) / 1000000.0 for x in tail[1:]] if tag >= 4 else []
+                geom = [f64(x) for x in tail[1:]] if tag >= 4 else []
                 cur[3].append((tag, color, strength / 1000.0, pts, nums + geom, color2, geom))
     return scenes
 

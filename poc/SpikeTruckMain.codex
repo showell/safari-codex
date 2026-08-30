@@ -13,10 +13,13 @@ Chapter: SpikeTruckMain
 
      cx heap: exhausted at 4294965457 + 7000 of 4294967296
 
- which is a page-perfect illustration of C6 and not a bug in anything. Raising the
- reserve would make the run cost real memory rather than address space, on a
- two-core box; a second process starts fresh, and that is the whole trick. The
- guest's ceiling is lower still, which is what later cut every entry to two.
+ IT WAS READ AS A PAGE-PERFECT ILLUSTRATION OF C6 AND IT WAS HALF THAT. The bump
+ heap does never reclaim, so the peak really was the total -- but the total was
+ quadratic, because every printer concatenated left to right and so allocated the
+ sum of its own suffixes. C17 has the measurement: the same two frames peaked at
+ 3.5 GB before the halving fix and 133 MB after it, byte for byte the same output.
+ An allocator that never frees is very good at hiding an algorithmic mistake
+ behind itself.
 
  We say:
 

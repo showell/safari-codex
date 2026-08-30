@@ -784,12 +784,18 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     have reported agreement. It is a millionth now: 4,532,052 bytes rather than
     2,892,765, still inside the guest's heap, four more orders of agreement.
 
-    IT STILL DOES NOT REACH AN ULP and the gap should be stated rather than
-    implied. At the 270,939-pixel vertex D8 calibrates against, an f64 ulp is
-    1.5e-11; a millionth of a pixel is 1e-6. Closing that needs `real-to-bits`,
-    which no plug emits -- the same shape of row as the real-to-int pair this port
-    already had filled. Until then the metal arm cannot see FMA contraction or
-    excess precision, and D11 is the other half of the same sentence.
+    AND THEN IT REACHED THE ULP, the same day, by closing the plug hole instead of
+    picking a bigger scale. `real-to-bits` was the row (PLUG_WORK.md, plugs-backlog
+    2.07); `scaled` is now `show (real-to-bits v)` and there is no last digit to be
+    generous with. ALL FIVE ENTRIES AGREE BIT FOR BIT: 523,414 IEEE-754 patterns,
+    the 4,000-frame speed profile included.
+
+    WHAT THAT NEWLY RULES OUT, and it is exactly what D11 said this arm was blind
+    to: FMA contraction, x87 excess precision, a reassociated sum. Every one of
+    them perturbs a result at 1e-16, which no decimal scale here could ever have
+    resolved and which a bit pattern resolves by construction. The scope is the
+    ENTRY path only -- a `judge/` check still prints a verdict, so the sixteen
+    checks remain a verdict comparison and D11's limit stands for them.
 
     THE GENERAL FORM IS WORTH MORE THAN THIS INSTANCE: when a value is printed for
     one purpose and later COMPARED for another, the resolution of the comparison is
@@ -853,6 +859,66 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     hazard as something to watch for by hand, and by hand is how it was watched
     for, and three instances still got in. A second compiler is a second opinion
     about your own source, and it is cheap.
+
+C17. THE SPIKES WERE NOT SHORT OF HEAP; THEY WERE ALLOCATING A QUADRATIC AMOUNT
+     OF IT, AND C6 TOOK THE BLAME FOR A WEEK.
+
+    Text is immutable, so `a & rest` allocates the whole of `a & rest`. Walking a
+    list left to right and concatenating as you go therefore allocates the SUM OF
+    ITS OWN SUFFIXES, which is quadratic in the length -- and every printer in the
+    spike path was written that way: `all-cmds` over 2,705 commands, `coords` over
+    each command's points, `prof-all` over 4,000 profile points.
+
+    A 2,705-command frame at about four hundred characters a command is roughly
+    1.5 GB of intermediate text to produce one megabyte of answer.
+
+    MEASURED with /usr/bin/time -f %M, before and after, on byte-identical output:
+
+        spike_main         3,491 MB  ->    133 MB     26x
+        spike_cat_main     3,922 MB  ->    168 MB     23x
+        spike_profile_main   957 MB  ->    681 MB    1.4x
+
+    The fix is four lines per printer: split the range in half, build each half,
+    concatenate once. Each byte is then copied once per LEVEL rather than once per
+    remaining element, so the total is n log n. The profile moves least because
+    most of its memory is the 4,000 ProfilePt records the rider fold produced, not
+    the text -- which is the useful control: the entries whose cost was TEXT fell
+    by a factor of twenty-five, and the one whose cost was DATA did not.
+
+    WHAT THIS SAYS ABOUT C6 IS NOT THAT C6 IS WRONG. The bump heap really never
+    reclaims, so a run's peak really is its total. But that made the peak worth
+    LOOKING at, and nobody did -- the entries were split into pairs, twice, each
+    time with a careful note about the allocator, when the allocator was faithfully
+    holding on to a quadratic quantity that did not need to exist. An allocator
+    that never frees turns an algorithmic mistake into an out-of-memory, which
+    makes it very good at hiding one behind itself.
+
+    THE SPLITS ARE KEPT AND THEIR PROSE IS CORRECTED. At 133-168 MB an entry, all
+    eight viewpoints would now fit in one binary with room to spare, so the split
+    is no longer load-bearing; it is retained because it already exists and because
+    a guest running one entry at a time is easier to read when one of them fails.
+    What is NOT acceptable is five chapter headers explaining a constraint that has
+    been lifted, so each says what is now true.
+
+    AND THE HALVING IS NOT EVEN THE IDIOMATIC FIX -- THE PRIMITIVE ALREADY EXISTS.
+    `text-concat-list : List Text -> Text` is declared at Types/Builtins.codex:213,
+    the zig plug HAS emitted it all along, and the wasm, C#, python, cobol and
+    riscv emitters upstream all use it. Nothing was missing; three throwaway
+    printers here reinvented concatenation and got it wrong. That is worth stating
+    plainly because the first instinct on finding a quadratic was to look for a
+    plug hole, and there was none: this was ours end to end, and no part of it is
+    upstream-shaped.
+
+    WHAT THE PRIMITIVE WOULD BUY OVER THE HALVING is one more order and it is not
+    needed at this size. Halving copies each byte once per LEVEL -- n log n, about
+    13 MB a frame. `text-concat-list` over a list built the same way copies each
+    byte ONCE, and the halving then moves only pointers: call it n log n POINTERS
+    plus n bytes, a megabyte or so. At 133 MB an entry the difference does not pay
+    for the churn today; it is written down so the next printer starts there.
+
+    THE GENERAL FORM: before splitting a job because it does not fit, measure what
+    it is actually allocating. `%M` is one flag. And before writing a fold that
+    builds text, check whether the foreword already has the join -- ours did.
 
 ================================================================================
 D. NUMERIC CALIBRATION -- what the tolerances are actually measuring
@@ -1130,7 +1196,10 @@ D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
     THE SENSITIVITY DOES NOT CUT THE OTHER WAY, AND THE DRAFT THAT SAID IT DID WAS
     WRONG. The third arm runs this same ride and prints 6,960, segment 13 and
     68,700 mm byte-identically -- but the table above is the reason that is a
-    weaker statement than it looks. The floor for a PERSISTENT bias is between 1e-8
+    weaker statement than it looks. (The ENTRY path got the resolution this note
+    says the checks lack: C16 records the bit-pattern comparison, which does reach
+    1e-16. RideCheck is a check and prints verdicts, so what follows still holds
+    for it.) The floor for a PERSISTENT bias is between 1e-8
     and 1e-7, and a ONE-TIME 1e-7 is absorbed outright; two IEEE f64 emitters
     differ at 1e-16 if at all. So the frame count detects the port-against-game gap
     and is blind to the arm-against-arm one. C16 carries the corrected reading.

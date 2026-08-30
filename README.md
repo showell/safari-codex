@@ -167,12 +167,14 @@ inside a tolerance agree whatever their last bits did. `--entry` is the answer.
     ./harness/metal.py --entry SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain
 
 It runs a poc *entry* chapter instead of a check, and the spike entries print
-every coordinate of every frame as a scaled integer. **All eight viewpoints, and
-the two arms agree digit for digit on every one:**
+every coordinate of every frame as its exact IEEE-754 bit pattern. **All eight
+viewpoints plus the speed profile, and the two arms agree BIT FOR BIT on every
+value:**
 
 | entry | fields |
 |---|---|
-| `SpikeMain` — the speed profile, the pig herd, the mid-tower | 143,976 |
+| `SpikeProfileMain` — the ported physics over the whole route | 20,002 |
+| `SpikeMain` — the pig herd, the mid-tower | 123,974 |
 | `SpikePondMain` — the duck pond, the corner zebras | 128,402 |
 | `SpikeCatMain` — the cat frozen, the cat mid-leap | 161,134 |
 | `SpikeTruckMain` — the truck in daylight and at dusk | 89,902 |
@@ -188,11 +190,15 @@ inherited rather than chosen. These entries were written to feed `spike_svg.py`,
 which draws at 960 by 600, so hundredths of a pixel was overkill *for a picture* —
 and then the same text was pointed at a second compiler, where at a hundredth of a
 pixel two emitters could disagree by four orders of magnitude and this would call
-them equal. The scale is millionths now: four more digits a number, four more
-orders of agreement, and 1.6 MB more text that all four entries still fit in the
-guest. It does **not** reach an f64 ulp — 1.5e-11 at the far vertex the port
-projects — and reaching that needs `real-to-bits`, which no plug emits. So "the
-arms agree" has a resolution, and the resolution is not *exact*.
+them equal.
+
+**There is no scale now.** `real-to-bits` landed in the zig plug on 2026-08-30
+(`PLUG_WORK.md`), so a coordinate goes out as its exact IEEE-754 pattern and the
+diff is bit-for-bit. That is what lets the third arm finally see the emitter faults
+it was blind to under any decimal scale — FMA contraction, x87 excess precision, a
+reassociated sum, all of which live at 1e-16 (`PORTING_NOTES` D11 is where that
+limit was measured and admitted). The text stopped being readable by a human on the
+same day it started being read by a second compiler, which is the right trade.
 
 **The guest's heap decides how big an entry may be, and it is smaller than the
 host's.** The prelude bump-allocates and never reclaims, so a run's whole output
@@ -365,15 +371,16 @@ draw two apiece. Eight viewpoints ship: the big pig herd, the mid-tower on the
 1200m leg, the duck pond, a corner zebra pair, the cat frozen and mid-leap, and the
 truck in daylight and at dusk.
 
-**Two viewpoints per BINARY, and the reason is PORTING_NOTES C6.** The spike prints
-one frame per viewpoint and never rewinds its arena — the per-frame reset is a
-thing the wasm shim does, and neither a native binary nor a kernel image has a
-shim — so a run holds every frame it has printed, at about 700 MB each. Six came
-to within 1.8 KB of the 4 GiB reserve and the seventh aborted; the QEMU guest's
-3072 MB holds only five, and the guest is the arm that compares *values*. So the
-pairing is the guest's number: `SpikeMain` (the profile, the pig herd, the
-mid-tower), `SpikePondMain`, `SpikeCatMain` and `SpikeTruckMain`, each a fresh
-process. `poc/SpikePrint.codex` holds the printing all four share and
+**Two viewpoints per BINARY, and it is now habit rather than need.** The spike
+prints one frame per viewpoint and never rewinds its arena (`PORTING_NOTES` C6), so
+a run holds every frame it has printed — and while the printers concatenated left
+to right they held a *quadratic* amount of it, which is what actually set the
+ceiling. Six viewpoints used to exhaust the 4 GiB reserve; after the halving fix an
+entry peaks at **133 MB** and all eight would fit in one binary (`PORTING_NOTES`
+C17). The pairs are kept because they exist and give the guest one entry at a time
+to fail in: `SpikeMain` (the pig herd and the mid-tower),
+`SpikePondMain`, `SpikeCatMain`, `SpikeTruckMain` and `SpikeProfileMain`, each a
+fresh process. `poc/SpikePrint.codex` holds the printing all four share and
 `harness/spike.sh` names the list once. Sharing by citing the *first entry* is
 what does not work: two `opening`s in one bundle collide on the flat namespace.
 

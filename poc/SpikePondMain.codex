@@ -4,9 +4,14 @@ Chapter: SpikePondMain
   cites Poc chapter Spike
   cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. The duck pond and the zebras, split off `SpikeMain` for
- the reason its header gives: two viewpoints is what the QEMU guest's heap holds,
- and an entry the third arm cannot run is an entry compared on nothing.
+ SPIKE ONLY. THROWAWAY. The duck pond and the zebras, split off `SpikeMain`.
+
+ THE SPLIT IS CONVENIENCE NOW, NOT NECESSITY. It was made when two viewpoints was
+ all the QEMU guest's heap would hold; since the printers stopped concatenating
+ left to right (PORTING_NOTES C17) an entry peaks at 133 MB and all eight would fit
+ in one binary. The pairs are kept because they already exist and because the third
+ arm runs one entry at a time, so a failure names two viewpoints rather than
+ eight.
 
  Named for the pond because that is what the first viewpoint looks at; the zebras
  ride along because they are the next viewpoint down the route and a pair is the

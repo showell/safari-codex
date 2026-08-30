@@ -8,25 +8,32 @@ Chapter: SpikeMain
  commands as text, for harness/spike_svg.py to turn into a picture and for
  harness/metal.py --entry to compare against bare metal.
 
- TWO VIEWPOINTS PER ENTRY, AND THE GUEST IS WHY. The prelude never reclaims (C6)
- and neither arm has an arena rewind -- a native binary has no shim (C8) and the
- kernel image has no shim either -- so one run holds every frame it prints. A
- native process gets a 4 GiB reserve and fits six; the QEMU guest gets
- CODEX_MEM_MB, which is 3072 at this venue, and fits five before printing
- OUT OF MEMORY with HEAP at 2.94 GB. Six viewpoints in one entry is therefore an
- entry the third arm cannot run, and the third arm compares VALUES rather than a
- verdict, so it is the arm worth fitting.
+ TWO VIEWPOINTS PER ENTRY, AND AS OF 2026-08-30 THAT IS HABIT RATHER THAN NEED.
+ The prelude never reclaims (C6) and neither arm has an arena rewind, so one run
+ holds every frame it prints -- and while the printers concatenated left to right
+ they held a QUADRATIC amount of it, which is what actually set the ceiling. Six
+ viewpoints used to exhaust a native 4 GiB reserve and five a guest's 3072 MB.
+ With `SpikePrint`'s halving fix an entry peaks at 133 MB and all eight would fit
+ in one binary (C17).
+
+ The pairs are kept because they exist, are tested, and give the guest one entry
+ at a time to fail in. They are no longer the difference between running and not.
 
  The eight viewpoints are four entries of two, each named for what it looks at:
- this one, `SpikePondMain`, `SpikeCatMain` and `SpikeTruckMain`. Each is a chapter
+ this one, `SpikePondMain`, `SpikeCatMain` and `SpikeTruckMain`, with the speed
+ profile in a fifth, `SpikeProfileMain`. Each is a chapter
  rather than a cite of this one, because a bundle is ONE FLAT NAMESPACE and two
  `opening`s collide -- B5, found by trying it. The printing they share is
  `Poc chapter SpikePrint`, cited rather than repeated, so the four binaries emit
  one format and spike_svg.py reads them concatenated without knowing there were
  four. harness/spike.sh builds and runs all of them.
 
- The profile rides here rather than in an entry of its own: it is one line, and
- measured alongside five frames it is nowhere near the ceiling.
+ THE PROFILE MOVED OUT on 2026-08-30, when coordinates became bit patterns. It is
+ ONE line, but building it is quadratic -- `prof-all` concatenates right-recursively,
+ so a 4,000-point line allocates the sum of its own prefixes -- and at roughly forty
+ characters a point that was 160 MB while at eighty it is 640 MB. Beside two frames
+ that exhausted the 4 GiB reserve outright. `Poc chapter SpikeProfileMain` has it,
+ and the happy consequence is that every entry here is now exactly two viewpoints.
 
  We say:
 
@@ -34,18 +41,7 @@ Section: Entry
 
  One block per viewpoint.
 
-  prof-pt : ProfilePt -> Text
-  prof-pt (p) =
-    show (real-to-int p.dist) & " " & show (real-to-int (p.v * 1000.0)) & " " & show (real-to-int (p.tilt * 1000.0)) & " " & show p.seg
-
-  prof-all : List ProfilePt, Integer -> Text
-  prof-all (ps) (i) =
-    if i >= list-length ps then ""
-    else prof-pt (list-at ps i) & " ; " & prof-all ps (i + 1)
-
   opening : [Console] Nothing = act
-    print-line-uni ("PROFILE " & show (list-length speed-profile))
-    print-line-uni (prof-all speed-profile 0)
     print-line-uni (scene-line "pig-herd" u-pig-herd)
     print-line-uni (all-cmds (spike-frame-at u-pig-herd) 0)
     print-line-uni (scene-line "mid-tower" u-mid-tower)

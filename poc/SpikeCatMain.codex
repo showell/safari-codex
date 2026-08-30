@@ -5,7 +5,8 @@ Chapter: SpikeCatMain
   cites Poc chapter SpikePrint
 
  SPIKE ONLY. THROWAWAY. The cat's two stills -- frozen in the road, and airborne
- mid-leap -- split off `SpikeMain` for the reason its header gives.
+ mid-leap -- split off `SpikeMain`. The split is convenience rather than necessity
+ now; `SpikePondMain`'s header says why.
 
  THESE TWO ARE THE PAIR WORTH HAVING ON BARE METAL. The leap is the port's one
  deliberate difference from the game (`b^0.75` where the game uses `pow(b, 0.7)`),

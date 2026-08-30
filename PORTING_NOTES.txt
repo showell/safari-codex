@@ -1017,6 +1017,66 @@ D10. RETIRING THE TRIG STAND-IN MOVED NO NUMBER AT ALL, AND THAT IS A
     helper written for one caller acquires others, and the way to find them is to
     grep before deleting rather than after.
 
+D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
+     DO THE TWO RIDES FINISH FORTY FRAMES APART".
+
+    RideCheck reports the port finishing in 6,960 frames against the game's
+    7,000 -- 0.57% -- and the obvious question is whether determination could
+    close it. It cannot, and the reason is not the port. probe/probe_sens.zig
+    measures it on the GAME'S OWN CODE, in f32, with the port nowhere in it.
+
+    A ONE-ULP NUDGE IS ABSORBED COMPLETELY. v, across or yaw perturbed by one f32
+    ulp at frame 0: still 7,000 frames, and the two rides never reach a centimetre
+    apart over seven kilometres. So the ride is CONTRACTING, not chaotic, and the
+    lazy answer -- "floating point, chaos, nothing to be done" -- is wrong about
+    the mechanism even where it is right about the conclusion.
+
+    THE THRESHOLD IS f32 EPSILON EXACTLY. A PERSISTENT relative bias on v, applied
+    every frame as a proxy for a difference the port carries on every operation:
+    1e-9 and 1e-8 change nothing at all -- 7,000 frames, segment 13 still 305. At
+    1e-7, which is f32's own resolution, the total goes to 7,061 or 6,971 and
+    segment 13 to 267 or 266. The ride is stable to everything BELOW the
+    arithmetic's resolution and unstable AT it. 7,000 is therefore not a property
+    of the model; it is a property of evaluating the model in f32.
+
+    THE VOLATILITY IS LOCALISED AND THE PORT IS INSIDE THE FAMILY. Under +-1e-7
+    per frame the game moves segments 10, 12 and 13 by tens of frames every time
+    and never moves 0, 3, 7 or 11. Per-segment durations, the last row being the
+    only one the port computed:
+
+        base           317 341 751 289 259 325 686 309 246 506 597 258 250 305
+        +1e-7/frame    317 339 754 288 271 324 680 310 252 505 668 258 266 267
+        -1e-7/frame    317 337 760 288 260 330 680 309 253 502 639 257 199 266
+        the port       317 339 752 289 265 324 686 309 233 503 628 258 238 265
+
+    Segment 13 costs the port forty frames and the same segment costs the GAME
+    thirty-eight under a bias smaller than the port's. That is what "inside the
+    family" means, and it is why RideCheck reports the count rather than grading it.
+
+    WHY 13 AND NOT 14, WHICH LOOKS THE SAME. The exit is a 50-degree corner and
+    turnSpeed(50) is 0.222 m/frame, the second slowest on the route. At that speed
+    one metre is four and a half frames, so a couple of metres of difference in
+    where the corner brake takes hold is tens of frames of transit. The amplifier
+    is the low speed, not a coin flip: the durations spread continuously (305, 300,
+    297, 295, 292, 269, 267, 266, 265, 240) rather than falling into two values.
+
+    WHAT WOULD ACTUALLY CLOSE IT, for the record, because "we could not" should
+    always name what "could" would cost. Bit-identical arithmetic, which means
+    computing in f32. Two things block it and the second is the harder one:
+
+      1. Real is f64 in every plug and there is no f32 conversion builtin at all
+         (A7). A `real-to-f32` row would be the same shape as the real-to-int rows
+         this port already filled (PLUG_WORK.md), so this half is a day.
+      2. Even with it, +, -, * and / would round correctly -- f64 carries 53 bits
+         and 2*24+2 is 50, so rounding an f64 result to f32 gives the f32 answer --
+         but simulate-rider-step calls SIN and COS every frame, and zig's f32
+         transcendentals are not DeviceMath's. Matching those bit for bit means
+         porting LLVM's sinf, which is a different project.
+
+    So the honest position is the one NOTES section 4 took before any of this was
+    measured: compare one step from a shared state, and check the whole ride by
+    INVARIANTS. What is new is that the ruling now has numbers under it.
+
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
 ================================================================================

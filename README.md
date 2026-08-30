@@ -357,6 +357,7 @@ what does not work: two `opening`s in one bundle collide on the flat namespace.
 | `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
 | `port/Num.codex` | — | 111 values, **exact**; round, floor, mod, exp are foreword gaps |
+| the whole ride | `wasm/safari.zig`'s fold | **SEAM 4**: 8 invariants over 6,960 frames |
 | `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
 | `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, clock + attention |
 | `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
@@ -437,6 +438,29 @@ is what you would hope for by the tenth module.
 Every drawer `render.zig` dispatches to is ported now. `truck.drawBody` was the
 last one, and `port/TruckBody.codex` has it; the critter and cat drawers that used
 to sit beside it in this sentence went first.
+
+**`RideCheck` closes SEAM 4, the last of the four `NOTES` named.** Every other
+check in `judge/` grades ONE STEP FROM A SHARED STATE, and that is not modesty:
+`rider.decide` picks the lean by binary search over twelve float comparisons, so a
+1e-7 difference eventually flips one and the two rides part company. `NOTES`
+section 4 ruled out comparing trajectories and prescribed the alternative —
+"check INVARIANTS (on the road, no loop, sunset monotone)". `RideCheck` runs the
+port's own ride from the start line to the finish and asserts
+`test_model.ts`'s list on every frame; `probe_ride.zig` does the same to the game.
+Neither looks at the other's trajectory. What is compared is where each invariant
+FIRST failed — `-1` against `-1`, eight times — plus the ORDER of segments
+visited, which is drift-immune because a route is a route.
+
+**The two rides finish 40 frames apart, and that number turned out to be about
+the GAME rather than about the port.** `probe/probe_sens.zig` measures it on the
+game's own f32 code with the port nowhere in it: a one-ulp nudge to the initial
+state is absorbed *completely* — same 7,000 frames, never a centimetre apart — so
+the ride is contracting, not chaotic. But a **persistent** bias of 1e-7, which is
+f32's own resolution, swings the total to 7,061 or 6,971 and moves segment 13 from
+305 frames to 267. Below 1e-7 nothing moves at all. So the ride's length is not a
+property of the model; it is a property of evaluating the model in f32, and the
+port's per-segment durations sit inside the family the game produces for itself.
+`PORTING_NOTES` D11 has the table and what closing it would actually cost.
 
 **`NumCheck` is the odd one out and it is worth saying why it exists.** `Num` is
 not a port of a wasm/ file: it is the Real primitives Codex's foreword does not
@@ -722,6 +746,8 @@ owed.
 **The eight findings are written up and not sent** — `FINDINGS.md`. Sending them
 is Steve's call: six go to Cobblestone / the zig plug and two to angry-gopher, and
 the angry-gopher pair includes a one-line buffer fix that is now on a live path.
+
+**Seam 4 is closed; the driven PAGE is still the open one.**
 
 **The third arm runs the checks and the frames; it does not run the PAGE.**
 `metal.py` boots the sixteen `judge/` checks and compares verdicts, and `--entry`

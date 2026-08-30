@@ -748,7 +748,7 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     `b"CDX map\n" + unit + b"\x04"`, which bare_expected.py in the ladder is the
     model for.
 
-    IT IS FASTER THAN EXPECTED: 3m00s for all sixteen checks, two guests each.
+    IT IS FASTER THAN EXPECTED: 3m26s for all seventeen checks, two guests each.
     Pond (17 KB unit) is 8 seconds; Safari (1.16 MB, over the ring window, so it
     exercises the refill path) is 40. The units are far bigger than anything the
     ladder's own corpus compiles and nothing complained.
@@ -797,6 +797,16 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     A failed --entry costs a full idle timeout (five minutes of silence) because
     the guest goes quiet rather than closing the port. Six minutes to be told
     OUT OF MEMORY is not a hang.
+
+    THE LONGEST THING THIS ARM HAS RUN IS RideCheck, and it is the one whose
+    agreement says the most. Every other check is a pure function or a single
+    frame; that one is 6,960 frames of FOLD -- it fits the guest's 3072 MB and
+    takes 9 s inside it -- and the arms agree on its derived NUMBERS as well as
+    its verdicts: 6,960 against 7,000, segment 13 at 265, 68,700 mm at the last
+    shared sample. D11 measured that same ride moving by sixty frames under a
+    persistent 1e-7. So the arms agree well BELOW f32 epsilon across 6,960 frames
+    of feedback carrying a binary search, sin and cos per frame and a brake curve;
+    one differing bit in that chain would most likely have moved the count.
 
     THE LESSON IS ABOUT ARMS, NOT ABOUT THIS PORT: an arm you develop against is
     an arm whose silence you have learned to trust. B5 records the flat-namespace
@@ -1076,6 +1086,15 @@ D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
     So the honest position is the one NOTES section 4 took before any of this was
     measured: compare one step from a shared state, and check the whole ride by
     INVARIANTS. What is new is that the ruling now has numbers under it.
+
+    AND THE SENSITIVITY CUTS THE OTHER WAY TOO, which is worth stating because it
+    turns a caveat into a measurement. The THIRD ARM runs this same ride -- the
+    Codex compiler's own x86-64 emitter, under QEMU -- and prints 6,960, segment
+    13, and 68,700 mm, byte-identically to the zig arm. On a computation this
+    table shows to be undetermined at 1e-7, that is the two emitters agreeing far
+    below f32 epsilon over 6,960 frames of feedback. The knife edge that makes the
+    frame count useless as a port oracle makes it an unusually sharp one for the
+    arms.
 
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK

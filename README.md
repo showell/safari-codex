@@ -120,7 +120,7 @@ below — and the ladder's compute rules apply to it and to nothing else here.
 ## The third arm: the same check on bare metal
 
     ./harness/metal.py Pond          # one check, both ways
-    ./harness/metal.py --all         # all sixteen, smallest first (3m00s)
+    ./harness/metal.py --all         # all seventeen, smallest first (3m26s)
 
 The sweep above verifies the **port** against the game, and it does that through
 the zig plug: Codex source in, zig out, a native binary that prints a verdict.
@@ -132,9 +132,21 @@ same bytes. That is a Diverse Double-Compiling check in Wheeler's sense, applied
 to a program instead of to a compiler. `codex-zig-ladder` next door does it for
 the compiler; this does it for this port.
 
-**All sixteen checks agree, byte for byte**, including the whole-frame check's
+**All seventeen checks agree, byte for byte**, including the whole-frame check's
 3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
 printed verdicts, and verdicts are text.
+
+**`RideCheck` is the one that says the most, and it is not because of its
+verdicts.** It is the only check here that is a long-lived *stateful* computation
+rather than a pure function or a single frame — 6,960 frames of fold, in 9 s
+inside the guest — and the two arms agree on its derived NUMBERS as well as its
+verdicts: 6,960 against 7,000, segment 13 at 265 frames, 68,700 mm at the last
+shared sample. That matters because of what `PORTING_NOTES` D11 measured on the
+same ride: a persistent difference of 1e-7 moves the frame count by sixty and
+segment 13 by thirty-eight. So the two arms agreeing on all three numbers means
+they agree far *below* f32 epsilon across 6,960 frames of feedback that includes
+the binary-search lean, sin and cos every frame, and the corner brake. One bit of
+disagreement anywhere in that chain would very likely have moved the count.
 
 **A check compares verdicts, not values**, and that is a real limit on what the
 sweep above proves: `Grade` prints `name ok 2468`, so two arms that both sit
@@ -750,7 +762,7 @@ the angry-gopher pair includes a one-line buffer fix that is now on a live path.
 **Seam 4 is closed; the driven PAGE is still the open one.**
 
 **The third arm runs the checks and the frames; it does not run the PAGE.**
-`metal.py` boots the sixteen `judge/` checks and compares verdicts, and `--entry`
+`metal.py` boots the seventeen `judge/` checks and compares verdicts, and `--entry`
 compares all eight spike viewpoints on 523,414 values. What it still cannot reach
 the same way is `poc/DriveMain` — the browser build's entry — because that
 program's output is a wasm module rather than a line of text, and its shim is zig

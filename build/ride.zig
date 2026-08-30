@@ -268,11 +268,11 @@ fn real_cos(x: f64) f64 {
 }
 
 fn pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
+    return dm_pi();
 }
 
 fn half_pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609753056924675354)));
+    return dm_half_pi();
 }
 
 fn deg() f64 {
@@ -947,6 +947,10 @@ fn sun_set_fraction(step: f64) f64 {
     return b0: { const h_: f64 = sun_height_px(step); break :b0 (if ((h_ >= sun_fully_set_px())) dusk_while_up(h_) else real_min(@as(f64, @bitCast(@as(i64, 4607182418800017408))), (dusk_at_set() + (((sun_fully_set_px() - h_) / sun_radius_px()) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - dusk_at_set()))))); };
 }
 
+fn g_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
@@ -1026,10 +1030,6 @@ fn across_slack() f64 {
     return @as(f64, @bitCast(@as(i64, 4607182418800017408)));
 }
 
-fn ck_abs(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
-}
-
 fn sample_every() i64 {
     return 100;
 }
@@ -1054,7 +1054,7 @@ fn ride_fold(w: *CxList(Segment), s_: RiderState, c_: RideCk) RideCk {
     var _tl_s = s_;
     var _tl_c = c_;
     while (true) {
-        const seg = cx_list_at(w, _tl_s.segment); const d_: f64 = sun_set_fraction(cx_real_from_int(_tl_c.frame)); const c2 = cx_new(RideCkS{ .frame = _tl_c.frame, .bad_v = keep(_tl_c.bad_v, ((_tl_s.v_ >= v_floor()) and (_tl_s.v_ <= v_ceiling())), _tl_c.frame), .bad_yaw = keep(_tl_c.bad_yaw, (ck_abs(_tl_s.yaw) <= (half_pi() + yaw_slack())), _tl_c.frame), .bad_floor = keep(_tl_c.bad_floor, (_tl_s.along >= (entry_floor(w, _tl_s.segment) - along_slack())), _tl_c.frame), .bad_ceil = keep(_tl_c.bad_ceil, (_tl_s.along <= (seg.length + along_slack())), _tl_c.frame), .bad_across = keep(_tl_c.bad_across, (ck_abs(_tl_s.across) <= ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + across_slack())), _tl_c.frame), .bad_gaze = keep(_tl_c.bad_gaze, (ck_abs(_tl_s.gaze_yaw) <= (half_pi() + gaze_slack())), _tl_c.frame), .bad_focus = keep(_tl_c.bad_focus, ((_tl_s.focus >= @as(f64, @bitCast(@as(i64, 0)))) and (_tl_s.focus <= @as(f64, @bitCast(@as(i64, 4607182418800017408))))), _tl_c.frame), .bad_dusk = keep(_tl_c.bad_dusk, (d_ >= _tl_c.dusk), _tl_c.frame), .segs = seen_segs(_tl_c.segs, _tl_s.segment), .enters = (if (((cx_list_len(_tl_c.segs) > 0) and (cx_list_at(_tl_c.segs, (cx_list_len(_tl_c.segs) -% 1)) == _tl_s.segment))) _tl_c.enters else cx_ll_concat(_tl_c.enters, cx_ll_of(i64, &[_]i64{ _tl_c.frame }))), .sample = (if (((_tl_c.frame -% (@divTrunc(_tl_c.frame, sample_every()) *% sample_every())) == 0)) cx_ll_concat(_tl_c.sample, cx_ll_of(f64, &[_]f64{ route_distance(w, _tl_s.segment, _tl_s.along) })) else _tl_c.sample), .dusk = d_, .finished = _tl_c.finished }); if (is_finished(_tl_s, w)) { return cx_new(RideCkS{ .frame = c2.frame, .bad_v = c2.bad_v, .bad_yaw = c2.bad_yaw, .bad_floor = c2.bad_floor, .bad_ceil = c2.bad_ceil, .bad_across = c2.bad_across, .bad_gaze = c2.bad_gaze, .bad_focus = c2.bad_focus, .bad_dusk = c2.bad_dusk, .segs = c2.segs, .enters = c2.enters, .sample = c2.sample, .dusk = c2.dusk, .finished = true }); } else { if ((c2.frame >= ride_cap())) { return c2; } else { { const _tj5_1 = get_next_rider_state(_tl_s, w); const _tj5_2 = cx_new(RideCkS{ .frame = (c2.frame +% 1), .bad_v = c2.bad_v, .bad_yaw = c2.bad_yaw, .bad_floor = c2.bad_floor, .bad_ceil = c2.bad_ceil, .bad_across = c2.bad_across, .bad_gaze = c2.bad_gaze, .bad_focus = c2.bad_focus, .bad_dusk = c2.bad_dusk, .segs = c2.segs, .enters = c2.enters, .sample = c2.sample, .dusk = c2.dusk, .finished = c2.finished }); _tl_s = _tj5_1; _tl_c = _tj5_2; continue; } } }
+        const seg = cx_list_at(w, _tl_s.segment); const d_: f64 = sun_set_fraction(cx_real_from_int(_tl_c.frame)); const c2 = cx_new(RideCkS{ .frame = _tl_c.frame, .bad_v = keep(_tl_c.bad_v, ((_tl_s.v_ >= v_floor()) and (_tl_s.v_ <= v_ceiling())), _tl_c.frame), .bad_yaw = keep(_tl_c.bad_yaw, (g_abs(_tl_s.yaw) <= (half_pi() + yaw_slack())), _tl_c.frame), .bad_floor = keep(_tl_c.bad_floor, (_tl_s.along >= (entry_floor(w, _tl_s.segment) - along_slack())), _tl_c.frame), .bad_ceil = keep(_tl_c.bad_ceil, (_tl_s.along <= (seg.length + along_slack())), _tl_c.frame), .bad_across = keep(_tl_c.bad_across, (g_abs(_tl_s.across) <= ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + across_slack())), _tl_c.frame), .bad_gaze = keep(_tl_c.bad_gaze, (g_abs(_tl_s.gaze_yaw) <= (half_pi() + gaze_slack())), _tl_c.frame), .bad_focus = keep(_tl_c.bad_focus, ((_tl_s.focus >= @as(f64, @bitCast(@as(i64, 0)))) and (_tl_s.focus <= @as(f64, @bitCast(@as(i64, 4607182418800017408))))), _tl_c.frame), .bad_dusk = keep(_tl_c.bad_dusk, (d_ >= _tl_c.dusk), _tl_c.frame), .segs = seen_segs(_tl_c.segs, _tl_s.segment), .enters = (if (((cx_list_len(_tl_c.segs) > 0) and (cx_list_at(_tl_c.segs, (cx_list_len(_tl_c.segs) -% 1)) == _tl_s.segment))) _tl_c.enters else cx_ll_concat(_tl_c.enters, cx_ll_of(i64, &[_]i64{ _tl_c.frame }))), .sample = (if (((_tl_c.frame -% (@divTrunc(_tl_c.frame, sample_every()) *% sample_every())) == 0)) cx_ll_concat(_tl_c.sample, cx_ll_of(f64, &[_]f64{ route_distance(w, _tl_s.segment, _tl_s.along) })) else _tl_c.sample), .dusk = d_, .finished = _tl_c.finished }); if (is_finished(_tl_s, w)) { return cx_new(RideCkS{ .frame = c2.frame, .bad_v = c2.bad_v, .bad_yaw = c2.bad_yaw, .bad_floor = c2.bad_floor, .bad_ceil = c2.bad_ceil, .bad_across = c2.bad_across, .bad_gaze = c2.bad_gaze, .bad_focus = c2.bad_focus, .bad_dusk = c2.bad_dusk, .segs = c2.segs, .enters = c2.enters, .sample = c2.sample, .dusk = c2.dusk, .finished = true }); } else { if ((c2.frame >= ride_cap())) { return c2; } else { { const _tj5_1 = get_next_rider_state(_tl_s, w); const _tj5_2 = cx_new(RideCkS{ .frame = (c2.frame +% 1), .bad_v = c2.bad_v, .bad_yaw = c2.bad_yaw, .bad_floor = c2.bad_floor, .bad_ceil = c2.bad_ceil, .bad_across = c2.bad_across, .bad_gaze = c2.bad_gaze, .bad_focus = c2.bad_focus, .bad_dusk = c2.bad_dusk, .segs = c2.segs, .enters = c2.enters, .sample = c2.sample, .dusk = c2.dusk, .finished = c2.finished }); _tl_s = _tj5_1; _tl_c = _tj5_2; continue; } } }
     }
 }
 
@@ -1069,7 +1069,7 @@ fn ride_result() RideCk {
 fn part_at(r_: RideCk, n_: i64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= n_)) { return (0 -% 1); } else { if ((ck_abs((cx_list_at(r_.sample, _tl_i) - cx_list_at(g_rd_sample(), _tl_i))) > part_metres())) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= n_)) { return (0 -% 1); } else { if ((g_abs((cx_list_at(r_.sample, _tl_i) - cx_list_at(g_rd_sample(), _tl_i))) > part_metres())) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -1091,7 +1091,7 @@ fn seg_overlap(r_: RideCk) i64 {
 }
 
 fn opening() void {
-    return b0: { const r_ = ride_result(); break :b0 b1: { const n_: i64 = (if ((cx_list_len(r_.sample) < cx_list_len(g_rd_sample()))) cx_list_len(r_.sample) else cx_list_len(g_rd_sample())); break :b1 b2: { const p_: i64 = part_at(r_, n_, 0); break :b2 b3: { _ = cx_print_line(grade_ints("\x15\x16\x49\x1c\x11\x15\x13\x0e\x20\x0f\x16\x02", cx_ll_of(i64, &[_]i64{ r_.bad_v, r_.bad_yaw, r_.bad_floor, r_.bad_ceil, r_.bad_across, r_.bad_gaze, r_.bad_focus, r_.bad_dusk }), g_rd_firstbad())); _ = cx_print_line(grade_ints("\x15\x16\x49\x13\x0d\x1d\x13\x02\x02\x02\x02\x02", r_.segs, g_rd_segs())); _ = cx_print_line(grade_bools("\x15\x16\x49\x1c\x11\x12\x11\x13\x14\x0d\x16\x02", cx_ll_of(bool, &[_]bool{ r_.finished }), g_rd_finished())); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1c\x15\x0f\x1a\x0d\x13\x02\x02\x02\x1f\x10\x15\x0e\x02", cx_show_int(r_.frame)), "\x02\x26\x11\x1d\x02"), cx_show_int(cx_list_at(g_rd_frames(), 0))), "\x02\x4a\x15\x0d\x1f\x10\x15\x0e\x0d\x16\x42\x02\x12\x10\x0e\x02\x1d\x15\x0f\x16\x0d\x16\x45\x02\x0f\x02\x1c\x17\x11\x1f\x1f\x0d\x16\x02\x17\x0d\x0f\x12\x02\x1a\x10\x21\x0d\x13\x02\x11\x0e\x4b")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1b\x10\x15\x13\x0e\x02\x02\x02\x02\x13\x0d\x1d\x1a\x0d\x12\x0e\x02", cx_show_int(worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0))), "\x02\x11\x13\x02\x1b\x14\x0d\x15\x0d\x02\x0e\x14\x0d\x1e\x02\x16\x11\x1c\x1c\x0d\x15\x02\x1a\x10\x13\x0e\x45\x02"), cx_show_int(seg_span(r_.enters, worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0)))), "\x02\x1c\x15\x0f\x1a\x0d\x13\x02\x0f\x1d\x0f\x11\x12\x13\x0e\x02"), cx_show_int(seg_span(g_rd_enters(), worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0)))), "\x02\x4a\x15\x0d\x1f\x10\x15\x0e\x0d\x16\x42\x02\x12\x10\x0e\x02\x1d\x15\x0f\x16\x0d\x16\x4b")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1f\x0f\x15\x0e\x02\x02\x02\x02\x02\x0e\x14\x0d\x02\x15\x11\x16\x0d\x13\x02\x15\x0d\x0f\x18\x14\x02\x04\x03\x02\x1a\x1a\x02\x0f\x1f\x0f\x15\x0e\x02\x0f\x0e\x02\x13\x0f\x1a\x1f\x17\x0d\x02", cx_show_int(p_)), "\x02\x10\x1c\x02"), cx_show_int(n_)), "\x42\x02\x1c\x15\x0f\x1a\x0d\x02"), cx_show_int((p_ *% sample_every()))), "\x46\x02"), cx_show_int(cx_real_to_int((ck_abs((cx_list_at(r_.sample, (n_ -% 1)) - cx_list_at(g_rd_sample(), (n_ -% 1)))) * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x1a\x1a\x02\x0f\x1f\x0f\x15\x0e\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x17\x0f\x13\x0e\x02\x13\x14\x0f\x15\x0d\x16\x02\x13\x0f\x1a\x1f\x17\x0d")); break :b3; }; }; }; };
+    return b0: { const r_ = ride_result(); break :b0 b1: { const n_: i64 = (if ((cx_list_len(r_.sample) < cx_list_len(g_rd_sample()))) cx_list_len(r_.sample) else cx_list_len(g_rd_sample())); break :b1 b2: { const p_: i64 = part_at(r_, n_, 0); break :b2 b3: { _ = cx_print_line(grade_ints("\x15\x16\x49\x1c\x11\x15\x13\x0e\x20\x0f\x16\x02", cx_ll_of(i64, &[_]i64{ r_.bad_v, r_.bad_yaw, r_.bad_floor, r_.bad_ceil, r_.bad_across, r_.bad_gaze, r_.bad_focus, r_.bad_dusk }), g_rd_firstbad())); _ = cx_print_line(grade_ints("\x15\x16\x49\x13\x0d\x1d\x13\x02\x02\x02\x02\x02", r_.segs, g_rd_segs())); _ = cx_print_line(grade_bools("\x15\x16\x49\x1c\x11\x12\x11\x13\x14\x0d\x16\x02", cx_ll_of(bool, &[_]bool{ r_.finished }), g_rd_finished())); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1c\x15\x0f\x1a\x0d\x13\x02\x02\x02\x1f\x10\x15\x0e\x02", cx_show_int(r_.frame)), "\x02\x26\x11\x1d\x02"), cx_show_int(cx_list_at(g_rd_frames(), 0))), "\x02\x4a\x15\x0d\x1f\x10\x15\x0e\x0d\x16\x42\x02\x12\x10\x0e\x02\x1d\x15\x0f\x16\x0d\x16\x45\x02\x0f\x02\x1c\x17\x11\x1f\x1f\x0d\x16\x02\x17\x0d\x0f\x12\x02\x1a\x10\x21\x0d\x13\x02\x11\x0e\x4b")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1b\x10\x15\x13\x0e\x02\x02\x02\x02\x13\x0d\x1d\x1a\x0d\x12\x0e\x02", cx_show_int(worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0))), "\x02\x11\x13\x02\x1b\x14\x0d\x15\x0d\x02\x0e\x14\x0d\x1e\x02\x16\x11\x1c\x1c\x0d\x15\x02\x1a\x10\x13\x0e\x45\x02"), cx_show_int(seg_span(r_.enters, worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0)))), "\x02\x1c\x15\x0f\x1a\x0d\x13\x02\x0f\x1d\x0f\x11\x12\x13\x0e\x02"), cx_show_int(seg_span(g_rd_enters(), worst_seg(r_.enters, seg_overlap(r_), 0, 0, 0)))), "\x02\x4a\x15\x0d\x1f\x10\x15\x0e\x0d\x16\x42\x02\x12\x10\x0e\x02\x1d\x15\x0f\x16\x0d\x16\x4b")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x16\x49\x1f\x0f\x15\x0e\x02\x02\x02\x02\x02\x0e\x14\x0d\x02\x15\x11\x16\x0d\x13\x02\x15\x0d\x0f\x18\x14\x02\x04\x03\x02\x1a\x1a\x02\x0f\x1f\x0f\x15\x0e\x02\x0f\x0e\x02\x13\x0f\x1a\x1f\x17\x0d\x02", cx_show_int(p_)), "\x02\x10\x1c\x02"), cx_show_int(n_)), "\x42\x02\x1c\x15\x0f\x1a\x0d\x02"), cx_show_int((p_ *% sample_every()))), "\x46\x02"), cx_show_int(cx_real_to_int((g_abs((cx_list_at(r_.sample, (n_ -% 1)) - cx_list_at(g_rd_sample(), (n_ -% 1)))) * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x1a\x1a\x02\x0f\x1f\x0f\x15\x0e\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x17\x0f\x13\x0e\x02\x13\x14\x0f\x15\x0d\x16\x02\x13\x0f\x1a\x1f\x17\x0d")); break :b3; }; }; }; };
 }
 
 fn cx_entry() void {

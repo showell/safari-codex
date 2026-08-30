@@ -372,7 +372,7 @@ fn real_cos(x: f64) f64 {
 }
 
 fn two_pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4618760256179416344)));
+    return dm_two_pi();
 }
 
 fn deg() f64 {

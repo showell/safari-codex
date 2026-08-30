@@ -246,11 +246,11 @@ fn exp_real(x: f64) f64 {
 }
 
 fn pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
+    return dm_pi();
 }
 
 fn half_pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609753056924675354)));
+    return dm_half_pi();
 }
 
 fn deg() f64 {

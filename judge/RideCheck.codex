@@ -54,6 +54,12 @@ Chapter: RideCheck
  Writing it the other way round -- flagging only when a bound is exceeded -- would
  let a NaN through every gate here.
 
+ ABSOLUTE VALUE COMES FROM `Judge chapter Grade`, which this already cites. The
+ first draft defined its own `ck-abs`, three lines identical to `g-abs` sitting in
+ a chapter already in scope. Grade duplicates DeviceMath's `real-abs` ON PURPOSE --
+ a judge must not be built out of what it judges -- and that argument does not
+ extend to a second copy inside the judge.
+
  We say:
 
 Section: The Invariants
@@ -82,9 +88,6 @@ Section: The Invariants
 
   across-slack : Real
   across-slack = 1.0
-
-  ck-abs : Real -> Real
-  ck-abs (x) = if x < 0.0 then 0.0 - x else x
 
  A centimetre over a seven-kilometre route: far above the f32/f64 floor of about
  1.2e-7 relative, and far below anything a rider could be said to be somewhere
@@ -152,11 +155,11 @@ Section: The Fold
     in let c2 = RideCk {
          frame = c.frame,
          bad-v = keep c.bad-v (s.v >= v-floor and s.v <= v-ceiling) c.frame,
-         bad-yaw = keep c.bad-yaw (ck-abs s.yaw <= half-pi + yaw-slack) c.frame,
+         bad-yaw = keep c.bad-yaw (g-abs s.yaw <= half-pi + yaw-slack) c.frame,
          bad-floor = keep c.bad-floor (s.along >= entry-floor w s.segment - along-slack) c.frame,
          bad-ceil = keep c.bad-ceil (s.along <= seg.length + along-slack) c.frame,
-         bad-across = keep c.bad-across (ck-abs s.across <= seg.width / 2.0 + across-slack) c.frame,
-         bad-gaze = keep c.bad-gaze (ck-abs s.gaze-yaw <= half-pi + gaze-slack) c.frame,
+         bad-across = keep c.bad-across (g-abs s.across <= seg.width / 2.0 + across-slack) c.frame,
+         bad-gaze = keep c.bad-gaze (g-abs s.gaze-yaw <= half-pi + gaze-slack) c.frame,
          bad-focus = keep c.bad-focus (s.focus >= 0.0 and s.focus <= 1.0) c.frame,
          bad-dusk = keep c.bad-dusk (d >= c.dusk) c.frame,
          segs = seen-segs c.segs s.segment,
@@ -215,7 +218,7 @@ Section: The Fold
   part-at : RideCk, Integer, Integer -> Integer
   part-at (r) (n) (i) =
     if i >= n then 0 - 1
-    else if ck-abs (list-at r.sample i - list-at g-rd-sample i) > part-metres then i
+    else if g-abs (list-at r.sample i - list-at g-rd-sample i) > part-metres then i
     else part-at r n (i + 1)
 
  The gap at the LAST sample both rides reached, in millimetres, because `show` on a
@@ -223,7 +226,7 @@ Section: The Fold
 
   final-gap-mm : RideCk, Integer -> Integer
   final-gap-mm (r) (n) =
-    real-to-int (ck-abs (list-at r.sample (n - 1) - list-at g-rd-sample (n - 1)) * 1000.0)
+    real-to-int (g-abs (list-at r.sample (n - 1) - list-at g-rd-sample (n - 1)) * 1000.0)
 
 Section: Entry
 

@@ -66,21 +66,6 @@ Section: The Clock
   steps = [0.0, 250.0, 500.0, 1000.0, 2000.0, 3000.0, 3500.0, 3983.0, 4000.0, 4400.0, 4734.0, 4800.0, 5200.0, 6000.0, 8000.0]
 
 
-  heights : List Real, Integer -> List Real
-  heights (ss) (i) =
-    if i >= list-length ss then []
-    else [sun-height-px (list-at ss i)] & heights ss (i + 1)
-
-  dusks : List Real, Integer -> List Real
-  dusks (ss) (i) =
-    if i >= list-length ss then []
-    else [sun-set-fraction (list-at ss i)] & dusks ss (i + 1)
-
-  warmths : List Real, Integer -> List Real
-  warmths (ss) (i) =
-    if i >= list-length ss then []
-    else [sunset-warmth (list-at ss i)] & warmths ss (i + 1)
-
   sky-colors : List Real, Integer -> List Integer
   sky-colors (ss) (i) =
     if i >= list-length ss then []
@@ -133,9 +118,9 @@ Section: The Placement
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-px   "sky-height  " (heights steps 0) g-sky-height 0.0001 0.000001)
-    print-line-uni (grade-rel  "sky-dusk    " (dusks steps 0) g-sky-dusk 0.000001)
-    print-line-uni (grade-rel  "sky-warmth  " (warmths steps 0) g-sky-warmth 0.000001)
+    print-line-uni (grade-px   "sky-height  " (list-map sun-height-px steps) g-sky-height 0.0001 0.000001)
+    print-line-uni (grade-rel  "sky-dusk    " (list-map sun-set-fraction steps) g-sky-dusk 0.000001)
+    print-line-uni (grade-rel  "sky-warmth  " (list-map sunset-warmth steps) g-sky-warmth 0.000001)
     print-line-uni (grade-ints "sky-color   " (sky-colors steps 0) g-sky-color)
     print-line-uni (grade-ints "sky-horizon " (horizon-colors steps 0) g-sky-horizon)
     print-line-uni (grade-bools "sun-visible" (pose-visible all-poses 0) g-sun-visible)

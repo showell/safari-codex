@@ -8,10 +8,10 @@ angry-gopher, and the two halves are independent.
 
 | | what | where it went |
 |---|---|---|
-| 1 | `OvError` becomes a wrapping multiply | **not sent** — needs an issue |
+| 1 | `OvError` becomes a wrapping multiply | **SENT** — [issue 109](https://github.com/damiant3/Cobblestone/issues/109) |
 | 2 | Cordic's accuracy vs its docstring | **SENT** — [PR 108](https://github.com/damiant3/Cobblestone/pull/108) |
 | 3 | single-letter names collide | **not sent** — a one-line rename |
-| 4 | a one-caller definition is inlined away | **not sent** — diagnosed, needs an issue |
+| 4 | a one-caller definition is inlined away | **SENT** — [issue 110](https://github.com/damiant3/Cobblestone/issues/110) |
 | 5 | the zig arm reports no diagnostics | **not sent** — needs investigation |
 | 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
 | 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |
@@ -95,7 +95,7 @@ depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
 
 **Open as an ISSUE — the fix is a decision we should not make from outside.**
 
-- **Item 1, `OvError`.** Stronger than when this was written. The overflow mode is
+- **Item 1, `OvError`. SENT 2026-08-30 as [issue 109](https://github.com/damiant3/Cobblestone/issues/109)**; text kept at [`outbound/item1-overror-issue.md`](outbound/item1-overror-issue.md). Stronger than when this was written. The overflow mode is
   discarded in LOWERING (`LoweringTypes.codex:184`) and the IR has one integer
   multiply, so no plug can fix it and the C# plug's identical text is not evidence
   of a convention — every plug is handed the same information-free opcode. Ask
@@ -115,7 +115,7 @@ depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
 
 **Investigate before choosing.**
 
-- **Item 4, one-expression inlining**, and **item 5, the missing diagnostics**.
+- **Item 4 SENT 2026-08-30 as [issue 110](https://github.com/damiant3/Cobblestone/issues/110)** (text at [`outbound/item4-inline-single-caller-issue.md`](outbound/item4-inline-single-caller-issue.md)); **item 5, the missing diagnostics**, remains.
   Each fix shape names two acceptable outcomes and which one is right is the
   maintainer's call; item 5's own text says the interesting answer is *which* of
   two causes it is, and that is a question, not a patch.

@@ -23,7 +23,7 @@ these are on branches made for this work and the port does not build on `master`
 
 | tree | branch | what it is |
 |---|---|---|
-| `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. No remote; local checkpoints only. |
+| `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. Pushed to `showell/safari-codex` on every commit. |
 | `~/showell_repos/angry-gopher` | `master` | **the game being ported.** `games/driving/wasm/*.zig` is the Zig under test; `probe/wasm` here is a symlink to it. Read-only from this project — the port never edits the game. |
 | `~/showell_repos/NewRepository` | `u53-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. |

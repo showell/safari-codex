@@ -12,7 +12,7 @@ worktrees. A note saying which branch is where is cheaper than reconstructing it
 
 | tree | branch | base | who owns it |
 |---|---|---|---|
-| `~/showell_repos/safari-codex` | `master` | — | this project; no remote, local checkpoints |
+| `~/showell_repos/safari-codex` | `master` | — | this project; pushed to `showell/safari-codex` |
 | `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | `16751b22` | created 2026-08-29; superseded, see below |
 | `~/showell_repos/cobblestone-realbits` | `zig-plug-real-bitcast` | `13edc9a6` | **created 2026-08-30; what safari builds against now** |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | `4ac5982` (master) | **created 2026-08-29 for this work**; builds codexzig |

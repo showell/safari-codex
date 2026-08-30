@@ -741,17 +741,30 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     `Grade` prints "name ok 2468", so two arms that both sit inside a tolerance
     agree whatever their last bits did. `metal.py --entry <PocMain>` runs an
     ENTRY chapter instead, and the spike entries print every coordinate as a
-    scaled integer: SpikeTruckMain is 89,902 exact values over two frames -- sky,
-    ground, trees, towers, rails, elephants and the whole truck -- and the two
-    arms agree digit for digit. That is the statement worth making. Verdict
-    agreement is the cheap sweep.
+    scaled integer, and all EIGHT viewpoints now run: SpikeMain 143,976 fields,
+    SpikePondMain 128,402, SpikeCatMain 161,134, SpikeTruckMain 89,902 -- 523,414
+    in all, 2,892,765 bytes, and the two arms produce them BYTE FOR BYTE. Sky,
+    ground, trees, towers, rails, animals, the cat's leap and the whole truck.
+    That is the statement worth making. Verdict agreement is the cheap sweep.
+    Eight guests, about six minutes.
 
     THE GUEST'S HEAP IS THE CEILING ON WHICH ENTRIES FIT, and it is lower than
-    the host's 4 GiB. Measured: SpikeMain's six viewpoints die after ONE frame at
+    the host's 4 GiB. Measured: six viewpoints in one entry die after ONE frame at
     run_cdx's default 1 GB, and after FIVE at the venue's 3072 MB, printing
     `OUT OF MEMORY` with HEAP at 2.94 GB -- the guest saying so cleanly rather
-    than corrupting. C6 again, with a smaller budget, and the existing
-    SpikeMain/SpikeTruckMain split is already the shape of the fix.
+    than corrupting. C6 again, with a smaller budget.
+
+    SO THE ENTRY SIZE IS THE GUEST'S NUMBER, NOT THE HOST'S: every spike entry is
+    two viewpoints, and duck-pond/zebras and the cat's two stills left SpikeMain
+    for SpikePondMain and SpikeCatMain. The split moved no values -- the four
+    binaries concatenated print the same 2,892,765 bytes as the two they replaced
+    -- which is the check worth running on a split, because a regrouping that
+    changes an answer has changed something it had no business touching.
+
+    AN ENTRY THE THIRD ARM CANNOT RUN IS AN ENTRY COMPARED ON NOTHING, and that is
+    the general form. Sizing a program to the arm you develop against leaves the
+    other arm with nothing to say; the ceiling belongs to the tightest arm that
+    has to run it.
 
     A failed --entry costs a full idle timeout (five minutes of silence) because
     the guest goes quiet rather than closing the port. Six minutes to be told

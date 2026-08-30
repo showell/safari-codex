@@ -3,7 +3,7 @@
 
     ./harness/metal.py Pond [Camera ...]      # named checks
     ./harness/metal.py --all                  # every check, smallest first
-    ./harness/metal.py --entry SpikeTruckMain # a poc entry, compared on VALUES
+    ./harness/metal.py --entry SpikeMain ...  # poc entries, compared on VALUES
 
 THE THIRD ARM. `harness/run.sh` verifies the port against the game by way of the
 zig plug: Codex source in, zig out, a native binary that prints its verdict. That

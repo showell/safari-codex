@@ -140,23 +140,33 @@ printed verdicts, and verdicts are text.
 sweep above proves: `Grade` prints `name ok 2468`, so two arms that both sit
 inside a tolerance agree whatever their last bits did. `--entry` is the answer.
 
-    ./harness/metal.py --entry SpikeTruckMain     # 89,902 exact values
+    ./harness/metal.py --entry SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain
 
 It runs a poc *entry* chapter instead of a check, and the spike entries print
-every coordinate of every frame as a scaled integer. `SpikeTruckMain` is **89,902
-exact values across two frames** — the sky, the ground, the trees, the towers, the
-rails, the elephants and the whole truck — and the two arms agree on all of them,
-digit for digit. That is the statement worth making; verdict agreement is the
-cheap sweep.
+every coordinate of every frame as a scaled integer. **All eight viewpoints, and
+the two arms agree digit for digit on every one:**
 
-**The guest's heap decides which entries fit, and it is smaller than the host's.**
-The prelude bump-allocates and never reclaims, so a run's whole output has to fit
-at once. `SpikeTruckMain` (two frames) fits comfortably; `SpikeMain` (six) does
-not — at the driver's default 1 GB it dies after one frame, and at the venue's
-3072 MB it gets through five and prints `OUT OF MEMORY` in the sixth, which is the
-guest saying so cleanly rather than corrupting anything. An entry that does not
-fit wants splitting, and `poc/` already shows the pattern for reasons that had
-nothing to do with bare metal.
+| entry | fields |
+|---|---|
+| `SpikeMain` — the speed profile, the pig herd, the mid-tower | 143,976 |
+| `SpikePondMain` — the duck pond, the corner zebras | 128,402 |
+| `SpikeCatMain` — the cat frozen, the cat mid-leap | 161,134 |
+| `SpikeTruckMain` — the truck in daylight and at dusk | 89,902 |
+| | **523,414** |
+
+Concatenated that is **2,892,765 bytes, and the two arms produce them byte for
+byte** — the sky, the ground, the trees, the towers, the rails, the animals, the
+cat's leap and the whole truck. That is the statement worth making; verdict
+agreement is the cheap sweep. Eight guests, about six minutes.
+
+**The guest's heap decides how big an entry may be, and it is smaller than the
+host's.** The prelude bump-allocates and never reclaims, so a run's whole output
+has to fit at once, at about 700 MB a frame. A native process's 4 GiB reserve
+holds six frames; the venue's 3072 MB holds five, and at the driver's default
+1 GB the guest dies after one — printing `OUT OF MEMORY` cleanly rather than
+corrupting anything. So **two viewpoints per entry, which is the guest's number
+rather than the host's**, and the split is the whole reason the table above has
+four rows instead of one that cannot run.
 
 The machinery is the ladder's, borrowed rather than restated: `ring_compile`
 streams a cite-resolved unit into the seed under QEMU and hands back a `.cdx`,
@@ -320,15 +330,17 @@ draw two apiece. Eight viewpoints ship: the big pig herd, the mid-tower on the
 1200m leg, the duck pond, a corner zebra pair, the cat frozen and mid-leap, and the
 truck in daylight and at dusk.
 
-**The truck stills are a second BINARY, and the reason is PORTING_NOTES C6.** The
-spike prints one frame per viewpoint and never rewinds its arena — the per-frame
-reset is a thing the wasm shim does, and a native binary has no shim — so a run
-holds every frame it has printed, at about 700 MB each. Six came to within 1.8 KB
-of the 4 GiB reserve and the seventh aborted. A second process starts fresh, so
-`poc/SpikeTruckMain.codex` carries the two truck viewpoints, `poc/SpikePrint.codex`
-holds the printing both entries share, and `harness/spike.sh` runs both. Sharing by
-citing the *first entry* is what does not work: two `opening`s in one bundle
-collide on the flat namespace.
+**Two viewpoints per BINARY, and the reason is PORTING_NOTES C6.** The spike prints
+one frame per viewpoint and never rewinds its arena — the per-frame reset is a
+thing the wasm shim does, and neither a native binary nor a kernel image has a
+shim — so a run holds every frame it has printed, at about 700 MB each. Six came
+to within 1.8 KB of the 4 GiB reserve and the seventh aborted; the QEMU guest's
+3072 MB holds only five, and the guest is the arm that compares *values*. So the
+pairing is the guest's number: `SpikeMain` (the profile, the pig herd, the
+mid-tower), `SpikePondMain`, `SpikeCatMain` and `SpikeTruckMain`, each a fresh
+process. `poc/SpikePrint.codex` holds the printing all four share and
+`harness/spike.sh` names the list once. Sharing by citing the *first entry* is
+what does not work: two `opening`s in one bundle collide on the flat namespace.
 
 ## Ported so far
 
@@ -687,13 +699,16 @@ owed.
 Steve's call: four go to Cobblestone / the zig plug and two to angry-gopher, and
 the angry-gopher pair includes a one-line buffer fix that is now on a live path.
 
-**The third arm runs the checks; it does not yet run the PAGE.** `metal.py` boots
-the fifteen `judge/` checks and compares verdicts. What it cannot reach the same
-way is `poc/DriveMain` — the browser build's entry — because that program's output
-is a wasm module rather than a line of text, and its shim is zig by construction.
-A bare-metal frame would want the draw-command buffer printed as text and diffed
-against the same from the zig arm, which is the `SpikeMain` shape rather than a
-new idea. That is the obvious next rung.
+**The third arm runs the checks and the frames; it does not run the PAGE.**
+`metal.py` boots the fifteen `judge/` checks and compares verdicts, and `--entry`
+compares all eight spike viewpoints on 523,414 values. What it still cannot reach
+the same way is `poc/DriveMain` — the browser build's entry — because that
+program's output is a wasm module rather than a line of text, and its shim is zig
+by construction. What the spike entries do not cover is the *driving*: they are
+stills at fixed route positions, so nothing downstream of `DriveMain`'s frame loop
+and nothing in `drive_shim.zig` is on the third arm. Giving `DriveMain` a text
+dump of the draw-command buffer would close that, and it is the `SpikeMain` shape
+rather than a new idea.
 
 **The whole-frame check grades two states.** They were chosen as branches — a hard
 lean, and a long straight with the truck close — and two is what the transpiler's

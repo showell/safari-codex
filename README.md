@@ -8,7 +8,7 @@ parallel port, not a migration.
 
 Five documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
-— fifty-five numbered notes on the toolchain, the language, the tolerances and the
+— sixty-one numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
 **`FINDINGS.md`** is the seven defects this port found in the toolchain and the
 game, written up to be sent. **`PLUG_WORK.md`** records the emitter change the port
@@ -96,8 +96,8 @@ module it:
 3. bundles the check with `harness/bundle.py`;
 4. transpiles it with `codexzig`, builds the Zig, runs it, and grades.
 
-**Twenty-nine seconds cold, three seconds when nothing has changed.** It was nine
-minutes. Two things fixed that, and both are worth knowing:
+**A minute and a half cold, six and a half seconds when nothing has changed.** It
+was nine minutes. Two things fixed that, and both are worth knowing:
 
 `zig build-exe -O ReleaseFast` cost 22s per invocation and ran twice per module.
 That is *not* our code being optimised — a two-line program whose whole body is one
@@ -243,9 +243,18 @@ says of its rungs.
 | `judge/` | graders and check roots, quire `Judge` | hand |
 | `gold/` | gold chapters, quire `Gold` | **generated, then tracked** |
 | `probe/` | Zig probes that import the real game | hand |
-| `harness/` | the four steps | hand |
+| `poc/` | browser and spike ENTRY chapters, quire `Poc` — throwaway by design | hand |
+| `harness/` | the four steps, plus the spike and wasm builders | hand |
+| `build/` | bundled units, emitted zig, diagnostics — **tracked**; binaries are not | generated |
+| `web/` | the browser page: the game's own `blitter.js`, symlinked, plus the wasm | mixed |
 | `price-b/` | the fixed-point measurements behind the dialect decision | one-off |
 | `spike/` | the original feasibility spike | historical |
+
+Two files in `probe/` are not probes in the usual sense and say so in their own
+headers: `probe_num.zig` imports no game module at all, because `Num` is not a port
+of one (its oracle is zig's own `@round`, `@floor`, `@mod` and `@exp`), and
+`probe_sens.zig` is a sensitivity EXPERIMENT that `run.sh` never builds — it is the
+evidence behind `PORTING_NOTES` D11 and nothing grades it.
 
 `probe/wasm` is a symlink to `angry-gopher/games/driving/wasm`, so the probes can
 `@import` the game with a relative path. That settles NOTES open decision 1: the
@@ -263,6 +272,12 @@ The chapter name is written once and everything else is derived from it. The
 probe is **snake_case, named after the game file it imports** — `GuardRail` gives
 `probe/probe_guard_rail.zig` beside `wasm/guard_rail.zig` — and the gold chapter
 is the name with `Gold` appended, so the check cites `Gold chapter <Chapter>Gold`.
+
+**`harness/names.py` owns that snake_case rule and is the only place it lives.**
+It is importable and runnable, so `run.sh`, `spike.sh`, `gen_gold.py` and
+`metal.py` all ask it rather than restating it. There were four copies once and
+two of them disagreed on consecutive capitals — `IOBuffer` was `i_o_buffer` to the
+python and `i_obuffer` to the shell (`PORTING_NOTES` C18).
 
 `harness/metal.py <Chapter>` then works on it with no further wiring: the third
 arm reads the same three files.
@@ -356,13 +371,16 @@ lets a page that allocates and never reclaims run indefinitely; `PORTING_NOTES` 
 still frames at hand-picked points on the route, and `harness/spike_svg.py` turns
 them into flat SVGs — no wasm, no blitter, no animation. A picture you can open is
 a faster loop than a page you have to drive to the right spot. `run.sh` does not
-call any of it; delete the three files and nothing else changes.
+call any of it; delete `poc/Spike*.codex`, `harness/spike.sh` and
+`harness/spike_svg.py` and nothing else changes.
 
 **The animals draw themselves now**, so a still shows exactly what the browser
 shows rather than an approximation of it. The spike used to emit a marker box and
-have the SVG script read the game's baked art off disk; it no longer needs to.
-Only the cat still uses that trick, because its flipbook is a second table that is
-not generated yet.
+have the SVG script read the game's baked art off disk. Both tables are generated
+into the port now — `EmojiStills` and `CatStills` — so every polygon in a still
+arrives in the draw-command stream like everything else, and the SVG's reader for
+the game's own art has been **deleted**: 108 lines that nothing had called since
+the cat's flipbook was generated (`PORTING_NOTES` C18).
 
 That turns out to check things. The pig-herd viewpoint draws **exactly 49 pig
 markers**, which is the 7×7 distraction block `w-npigs` records for segment 2, all
@@ -380,8 +398,9 @@ entry peaks at **133 MB** and all eight would fit in one binary (`PORTING_NOTES`
 C17). The pairs are kept because they exist and give the guest one entry at a time
 to fail in: `SpikeMain` (the pig herd and the mid-tower),
 `SpikePondMain`, `SpikeCatMain`, `SpikeTruckMain` and `SpikeProfileMain`, each a
-fresh process. `poc/SpikePrint.codex` holds the printing all four share and
-`harness/spike.sh` names the list once. Sharing by citing the *first entry* is
+fresh process. `poc/SpikePrint.codex` holds the draw-command printing the four FRAME entries
+share — `SpikeProfileMain` prints profile points, which are not draw commands, so
+it does not cite it — and `harness/spike.sh` names the list once. Sharing by citing the *first entry* is
 what does not work: two `opening`s in one bundle collide on the flat namespace.
 
 ## Ported so far
@@ -779,60 +798,107 @@ are in `price-b/`.
 
 ## Where to pick this up
 
-Parked 2026-08-30 with the sweep green and **the port complete**: every file in
-`games/driving/wasm` has a chapter, every drawer is ported, and the frame itself
-is graded against `render.frame` command for command. There is no list of missing
-pieces any more, so what follows is what would be worth doing rather than what is
-owed.
+Parked 2026-08-30, second time, with everything green and pushed.
 
-**The eight findings are written up and not sent** — `FINDINGS.md`. Sending them
-is Steve's call: six go to Cobblestone / the zig plug and two to angry-gopher, and
-the angry-gopher pair includes a one-line buffer fix that is now on a live path.
+**THE DELIVERABLE IS DONE AND IT PASSES THE EYE TEST.** Every file in
+`games/driving/wasm` has a chapter, every drawer is ported, and the browser page
+built from Codex is on par with the Zig game it was ported from — same route, same
+scenery, same truck, same cat, same shading. `./harness/build_wasm.sh` and a static
+server is the whole demonstration.
 
-**Seam 4 is closed; the driven PAGE is still the open one.**
+**State of the checks:** 17 in `judge/`, sweep GREEN in 6.5 s warm and 1m30 s cold;
+all 17 agree on bare metal (`./harness/metal.py --all`, 3m26 s); and the five spike
+entries agree with the second compiler **bit for bit** on 523,414 IEEE-754 patterns
+(`./harness/metal.py --entry ...`). Working tree clean, `master` pushed to
+`showell/safari-codex`. **Push after every commit** — this repo has a remote and
+had thirty commits sitting behind a stale sentence saying it did not.
 
-**The third arm runs the checks and the frames; it does not run the PAGE.**
-`metal.py` boots the seventeen `judge/` checks and compares verdicts, and `--entry`
-compares all eight spike viewpoints on 523,414 values. What it still cannot reach
-the same way is `poc/DriveMain` — the browser build's entry — because that
-program's output is a wasm module rather than a line of text, and its shim is zig
-by construction. What the spike entries do not cover is the *driving*: they are
-stills at fixed route positions, so nothing downstream of `DriveMain`'s frame loop
-and nothing in `drive_shim.zig` is on the third arm. Giving `DriveMain` a text
-dump of the draw-command buffer would close that, and it is the `SpikeMain` shape
-rather than a new idea.
+### The two things worth doing next, and they parallelise
 
-**The whole-frame check grades two states.** They were chosen as branches — a hard
-lean, and a long straight with the truck close — and two is what the transpiler's
-bump heap holds alongside both generated still tables (`PORTING_NOTES` C7/C14).
-More states would want either a coarser sample or a second check, and the second
-check is the cheaper answer: the pattern is already there in `CatDrawCheck`.
+**(a) Put it on WebGPU.** The port computes a draw-command buffer and hands it to
+the game's own `blitter.js`, which paints with Canvas 2D. That seam is exactly
+where a GPU backend attaches: the buffer is already a flat, typed, per-frame list
+of tagged commands with colours and coordinates, and `NOTES` §5 chose it as the
+contract for reasons that hold just as well for a shader as for a 2D context. What
+would need deciding is how much of the blitter's own shading maths moves across
+(the round gradients, the two bull gradient tags, the headlight radial), because
+`harness/spike_svg.py` already approximates them and says where it is not faithful.
+Nothing in `port/` should have to change: the buffer is the API.
 
-**`Trig`'s arc tangent is the port's own and is a gap in Codex's foreword, not in
-the plug.** `Gpu chapter DeviceMath` has min, max, abs, sqrt, sin and cos; the
-foreword's other arc tangents are integer milli-unit routines. `r-atan` matches
-zig's to 1e-9 over eighteen values including the reciprocal branch, so it is a
-candidate to offer upstream rather than a debt.
+**(b) Act on the findings.** `FINDINGS.md` has eight, and one is already moving —
+see below. They are the outward-facing product of this project and they are ready
+to send.
 
-**`poc/Scene.codex` is the original throwaway** and still builds. It placed its own
-scenery by hand when almost nothing was ported; it is kept because building it is
-the way to compare, and it is the one thing here with no reason to grow.
+### Still open, in rough order of value
 
-**The blitter and the rasterizer are still the far side of the seam**, deliberately
-— `NOTES` §5 made that call and nothing since has argued with it. The draw-command
-buffer is the contract, and it is now graded as a whole frame rather than a drawer
-at a time.
+**The driven PAGE is off every arm.** `metal.py` runs the checks and the frames;
+what it cannot reach is `poc/DriveMain`, because that program's output is a wasm
+module rather than a line of text and its shim is zig by construction. The spike
+entries are stills at fixed route positions, so `DriveMain`'s frame loop and
+`drive_shim.zig` have no witness at all. Giving `DriveMain` a text dump of the
+draw-command buffer closes it, and it is the `SpikeMain` shape rather than a new
+idea. This is the largest uncovered surface left.
 
-Three things that are *done* and might not look it from the commit log: the cat is
-fully ported including its flipbook, the truck drives and brakes and lights the
-road, and the bull is shaded from the art's own gradients. **Nothing is missing
-from a frame.**
+**The whole-frame check grades two states.** Chosen as branches — a hard lean, and
+a long straight with the truck close. A second check is cheaper than more states in
+one, and `CatDrawCheck` is the pattern.
+
+**Thirteen real-family plug rows are declined on purpose**, not forgotten:
+`plugs-backlog 2.07` lists them and puts the question to the maintainer. They are
+blocked on one fact — `ZigEmitter.codex:342` and `:373` map `RealTy (w) (m)` to
+`f64`, discarding both the width and the mode — so filling them would replace an
+honest refusal with a plausible wrong number. Do not "finish the family" without
+an answer to that.
+
+**`Trig`'s arc tangent is a gap in Codex's foreword, not in the plug**, and
+`r-atan` matches zig's to 1e-9 over eighteen values including the reciprocal
+branch. It is a candidate to OFFER upstream rather than a debt.
+
+**`core/Maybe` exists and two places here hand-roll it** — `Truck`'s
+`NextTurn { found, dist, v-turn }` and `World`'s Boolean-threaded tree search, both
+of which replace the game's `+inf` sentinel. Two users is where the doctrine says
+name the noun; it is a game-path type change and was left deliberately.
+
+### Traps a fresh reader should know about
+
+**`core/Sort` must NOT be substituted into `port/Render`.** Its `sort-by` is an
+in-place quicksort claiming no stability, and the depth sort's ties are real —
+`PORTING_NOTES` D9 has a rail post and a rail bar swapping in a 3,091-command
+stream. `port/Render` says so at the sort.
+
+**A byte-identical result proves a change is safe, never that the code is live.**
+Only breaking it on purpose does that. It is how `judge/RideCheck`'s eight `-1`s
+were shown to be earned, and how 108 lines of dead SVG code were found after being
+carefully de-duplicated (`PORTING_NOTES` C18).
+
+**Before splitting a job because it does not fit, measure what it allocates.**
+`%M` is one flag. The spikes were split twice on `C6`'s authority when the real
+problem was quadratic concatenation; the same entries now peak at 133 MB
+(`PORTING_NOTES` C17).
+
+**Every "the foreword does not have X" in this repo is a claim, and claims are
+checkable.** The foreword is 13 directories and several hundred chapters.
+`text-concat-list`, `list-map` and `DeviceMath`'s pi were all sitting in chapters
+the code already cited.
+
+**`poc/Scene.codex` is the original throwaway** and still builds; it is kept
+because building it is the way to compare, and it has no reason to grow.
+
+**The blitter and the rasterizer are the far side of the seam**, deliberately —
+`NOTES` §5, unchallenged since. That is the seam item (a) above would attach to.
 
 ## Findings owed upstream
 
 **Eight, and they are written up now: `FINDINGS.md`.** Each is self-contained —
-observation, repro, evidence, and the shape of the fix — and none has been sent.
-They are owed to two different projects.
+observation, repro, evidence, and the shape of the fix. They are owed to two
+different projects, and **`FINDINGS.md` now opens with how each one should
+travel** — which are PRs, which are issues, and which need a look first. Read that
+section before sending anything; the routing is the part that is easy to get wrong.
+
+**One is already moving.** `real-to-int` / `real-from-int` went as Cobblestone
+**PR 100**; `real-to-bits` / `bits-to-real` are built, tested and registered on
+`zig-plug-real-bitcast` in `~/showell_repos/cobblestone-realbits`, branched from
+that PR's head, and are the next one out. `PLUG_WORK.md` has the lineage.
 
 To **Cobblestone / the Zig plug**: `OvError` silently emitting a wrapping `*%`
 (`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); a `Real`

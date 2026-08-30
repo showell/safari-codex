@@ -14,6 +14,62 @@ Verified against: Cobblestone `NewRepository` @ `u52-rebank`, the transpiler
 
 ---
 
+## How these should travel
+
+Not all eight are the same kind of thing, and sending them the same way would waste
+the small ones and overreach on the large ones. The standing rule applies: we are
+not responsible for non-zig plugs, nor for fully testing core-compiler changes.
+
+**Already moving.** `real-to-int` / `real-from-int` went as **Cobblestone PR 100**
+(branch `zig-plug-real-conversions`). `real-to-bits` / `bits-to-real` are built and
+tested on `zig-plug-real-bitcast` in `~/showell_repos/cobblestone-realbits`,
+branched from PR 100's head, with register entry `plugs-backlog 2.07` and a new
+`codex/test/ops/real-bitcast-f64`. That is the next PR out.
+
+**Send as a PR — small, mechanical, no policy call.**
+
+- **Item 2, Cordic.** The whole test is `cites Math chapter Cordic` and one
+  `print-line-uni "Math/Cordic OK"` — verified 2026-08-30, it calls nothing, and
+  its `.expected` is that one line. It passes whether or not Cordic works. The fix
+  is two things a patch can carry: correct the docstring to the measured 0.45%, and
+  give the test values to compare. This is the same shape as PR 100's
+  `real-int-conversions` test and is the strongest remaining candidate.
+- **Item 3, single-letter names.** Plug-side and self-contained: mangle the
+  prelude's comptime parameters out of the user namespace, or reserve the four
+  names with a diagnostic naming which one.
+
+**Offer as a PR — an addition rather than a defect.**
+
+- **`Trig`'s `r-atan`.** There is **no Real arc tangent anywhere in the foreword**
+  — verified by signature across all 13 directories; Cordic, Geodesic, Kinematics
+  and Vector mention `atan` and none of them at Real. Ours matches zig's to 1e-9
+  over eighteen values including the reciprocal branch. `README`'s pickup section
+  has the context.
+
+**Open as an ISSUE — the fix is a decision we should not make from outside.**
+
+- **Item 1, `OvError`.** The C# plug is character-for-character identical and the
+  wasm plug states the collapse as policy, so this is house-wide convention, not a
+  zig quirk. Ask whether the type should stop promising what no emitter delivers.
+- **Item 6, the `Real` literal.** It is the FRONT END — both arms print the same
+  wrong constant and the value arrives at the emitter as a bit pattern — so a patch
+  here is a core-compiler change, and the repro plus the reconstructed mechanism is
+  worth more than our guess at the fix.
+
+**Investigate before choosing.**
+
+- **Item 4, one-expression inlining**, and **item 5, the missing diagnostics**.
+  Each fix shape names two acceptable outcomes and which one is right is the
+  maintainer's call; item 5's own text says the interesting answer is *which* of
+  two causes it is, and that is a question, not a patch.
+
+**To angry-gopher, as ordinary PRs against that repo.** Item 7 is a one-line
+buffer fix and it is on a LIVE path — the truck's headlight beams draw it every
+dusk frame — so it should not wait on the Cobblestone queue. Item 8 is a comment
+correction.
+
+---
+
 ## To Cobblestone / the Zig plug
 
 ### 1. `OvError` silently becomes a wrapping multiply — wrong answer, exit 0

@@ -16,7 +16,7 @@ worktrees. A note saying which branch is where is cheaper than reconstructing it
 | `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | `16751b22` | created 2026-08-29; superseded, see below |
 | `~/showell_repos/cobblestone-realbits` | `zig-plug-real-bitcast` | `13edc9a6` | **created 2026-08-30; what safari builds against now** |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | `4ac5982` (master) | **created 2026-08-29 for this work**; builds codexzig |
-| `~/showell_repos/NewRepository` | `u52-rebank` | — | **SHARED, READ-ONLY.** 11 live worktrees hang off it |
+| `~/showell_repos/NewRepository` | `u53-rebank` | — | **SHARED, READ-ONLY.** 11 live worktrees hang off it |
 
 `cobblestone-realconv` is a `git worktree` of `NewRepository`, so it shares that
 clone's object store and its branch list. It is our own copy to edit; the shared
@@ -299,3 +299,22 @@ fixed point HOLDS byte-identical and `arith` matches all nine lines.
 means the checks no longer build on an older `codexzig`. `judge/Grade.codex` uses
 `real-to-bits` to reject a non-finite value -- see `PORTING_NOTES` D12, the NaN
 that had been passing every Real gate in the project.
+
+
+## Parked 2026-08-30
+
+`zig-plug-real-bitcast` in `~/showell_repos/cobblestone-realbits` is COMPLETE and
+unsent: two emitter rows, four touch points each, `plugs-backlog 2.07`, and
+`codex/test/ops/real-bitcast-f64` which passes on the zig arm at all twelve lines.
+The commit message carries the evidence. It wants a polish pass and a PR.
+
+**`codexzig` is built from it** — `generated/PROVENANCE` names
+`cobblestone-realbits 2f7e7375` — and safari-codex now DEPENDS on the new rows:
+`judge/Grade.codex` calls `real-to-bits` to reject a non-finite value, and
+`poc/SpikePrint.codex` prints coordinates as bit patterns so the third arm can
+compare at the ulp. The checks will not build on an older `codexzig`.
+
+**The thirteen remaining real-family rows are declined in writing**, not forgotten;
+2.07 lists them and asks the maintainer the one question they all turn on. Anyone
+"finishing the family" without an answer to it would be turning honest refusals
+into plausible wrong numbers.

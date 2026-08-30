@@ -24,9 +24,10 @@ Chapter: SpikeMain
  profile in a fifth, `SpikeProfileMain`. Each is a chapter
  rather than a cite of this one, because a bundle is ONE FLAT NAMESPACE and two
  `opening`s collide -- B5, found by trying it. The printing they share is
- `Poc chapter SpikePrint`, cited rather than repeated, so the four binaries emit
- one format and spike_svg.py reads them concatenated without knowing there were
- four. harness/spike.sh builds and runs all of them.
+ `Poc chapter SpikePrint`, cited rather than repeated, so the four FRAME binaries
+ emit one format and spike_svg.py reads every entry's output concatenated without
+ knowing how many produced it. SpikeProfileMain does not cite SpikePrint: a profile
+ point is not a draw command. harness/spike.sh names all five once and runs them.
 
  THE PROFILE MOVED OUT on 2026-08-30, when coordinates became bit patterns. It is
  ONE line, but building it is quadratic -- `prof-all` concatenates right-recursively,

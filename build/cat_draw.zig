@@ -96,48 +96,44 @@ const CatCaseS = struct {
 };
 const CatCase = *CatCaseS;
 
-fn pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
-}
-
-fn two_pi() f64 {
+fn dm_two_pi() f64 {
     return @as(f64, @bitCast(@as(i64, 4618760256179416344)));
 }
 
-fn half_pi() f64 {
+fn dm_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
+}
+
+fn dm_half_pi() f64 {
     return @as(f64, @bitCast(@as(i64, 4609753056924675354)));
+}
+
+fn dm_reduce(x: f64) f64 {
+    return b0: { const k_: f64 = cx_real_from_int(cx_real_to_int((x / dm_two_pi()))); break :b0 b1: { const r_: f64 = (x - (k_ * dm_two_pi())); break :b1 (if ((r_ > dm_pi())) (r_ - dm_two_pi()) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_pi()))) (r_ + dm_two_pi()) else r_)); }; };
+}
+
+fn dm_fold_quadrant(r_: f64) f64 {
+    return (if ((r_ > dm_half_pi())) (dm_pi() - r_) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_half_pi()))) ((@as(f64, @bitCast(@as(i64, 0))) - dm_pi()) - r_) else r_));
+}
+
+fn dm_sin_poly(r_: f64) f64 {
+    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 (((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))); }; }; }; }; }; };
+}
+
+fn real_sin(x: f64) f64 {
+    return dm_sin_poly(dm_fold_quadrant(dm_reduce(x)));
+}
+
+fn real_cos(x: f64) f64 {
+    return dm_sin_poly(dm_fold_quadrant(dm_reduce((x + dm_half_pi()))));
 }
 
 fn deg() f64 {
     return @as(f64, @bitCast(@as(i64, 4580687790476533049)));
 }
 
-fn sin_poly(r_: f64) f64 {
-    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 (((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))); }; }; }; }; }; };
-}
-
-fn fold_quadrant(r_: f64) f64 {
-    return (if ((r_ > half_pi())) (pi() - r_) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - half_pi()))) ((@as(f64, @bitCast(@as(i64, 0))) - pi()) - r_) else r_));
-}
-
-fn wrap(x: f64, fuel: i64) f64 {
-    var _tl_x = x;
-    var _tl_fuel = fuel;
-    while (true) {
-        if ((_tl_fuel <= 0)) { return _tl_x; } else { if ((_tl_x > pi())) { { const _tj2_0 = (_tl_x - two_pi()); const _tj2_1 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_fuel = _tj2_1; continue; } } else { if ((_tl_x < (@as(f64, @bitCast(@as(i64, 0))) - pi()))) { { const _tj3_0 = (_tl_x + two_pi()); const _tj3_1 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_fuel = _tj3_1; continue; } } else { return _tl_x; } } }
-    }
-}
-
-fn r_sin(x: f64) f64 {
-    return sin_poly(fold_quadrant(wrap(x, 64)));
-}
-
-fn r_cos(x: f64) f64 {
-    return r_sin((x + half_pi()));
-}
-
 fn r_tan(x: f64) f64 {
-    return (r_sin(x) / r_cos(x));
+    return (real_sin(x) / real_cos(x));
 }
 
 fn camera_w() f64 {
@@ -373,6 +369,28 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(a.items.items);
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
+}
+// cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
+// f64 in the default rounding mode, which is round-to-nearest-even.
+// @floatFromInt is that same conversion -- exact below 2^53 and correctly
+// rounded above it -- so the two arms agree at every magnitude.
+fn cx_real_from_int(n: i64) f64 {
+    return @floatFromInt(n);
+}
+// cvttsd2si on bare metal (emit-real-to-int-builtin): truncate toward
+// zero, and answer x86's "integer indefinite" -- INT64_MIN -- for a NaN,
+// for an infinity, and for anything whose truncation will not fit i64.
+// Zig's @intFromFloat truncates the same way but is UNDEFINED out of
+// range, so these guards are the mirror of what the hardware actually
+// answers rather than decoration: without them the out-of-range cases are
+// not merely a different answer from bare metal, they are no answer at
+// all. 2^63 is exact in f64, so both bounds are exact and the comparisons
+// catch the infinities on the way past.
+fn cx_real_to_int(v: f64) i64 {
+    if (v != v) return -9223372036854775808;
+    if (v >= 9223372036854775808.0) return -9223372036854775808;
+    if (v < -9223372036854775808.0) return -9223372036854775808;
+    return @intFromFloat(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

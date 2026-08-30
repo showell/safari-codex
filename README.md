@@ -6,14 +6,15 @@ the Zig it came from.
 The Zig version stays intact and keeps running on lynrummy.com/driving. This is a
 parallel port, not a migration.
 
-Four documents, and they do not overlap. **This file** is the orientation: what
+Five documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
-— forty-five numbered notes on the toolchain, the language, the tolerances and the
+— fifty-five numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
-**`PLUG_WORK.md`** records the emitter change the port needed and why it was
-branched where it was. **`NOTES.txt`** is the research brief that opened the
-project; it is history now and several of its predictions were wrong in useful
-ways, which this file notes where it matters.
+**`FINDINGS.md`** is the six defects this port found in the toolchain and the game,
+written up to be sent. **`PLUG_WORK.md`** records the emitter change the port
+needed and why it was branched where it was. **`NOTES.txt`** is the research brief
+that opened the project; it is history now and several of its predictions were
+wrong in useful ways, which this file notes where it matters.
 
 ## The trees this builds against
 
@@ -266,7 +267,7 @@ collide on the flat namespace.
 | `port/Pond.codex` | `wasm/pond.zig` | 48 values, exact |
 | `port/Camera.codex` | `wasm/camera.zig` | with Geom below |
 | `port/Geom.codex` | `wasm/geom.zig` | 375 values, 1e-6 relative |
-| `port/Trig.codex` | **stand-in** for `Gpu chapter DeviceMath` | via the above |
+| `port/Trig.codex` | arc tangent + angle wrap; sine and cosine are `DeviceMath`'s | via the above |
 | `port/Paint.codex` | `wasm/paint.zig`'s wire | with Tree below |
 | `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
 | `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
@@ -432,16 +433,31 @@ assumed** — citing DeviceMath and calling `real-sin 100.0` transpiles, builds 
 answers −0.506, which means `dm-reduce`'s reduction over sixteen turns is running.
 Nothing in DeviceMath is dark to this arm any more.
 
-So `Trig` is retirable, and it has NOT been retired. That is a deliberate hold,
-not an oversight: **the swap is not a no-op.** Trig's `wrap` subtracts in a bounded
-loop where `dm-reduce` divides by two-pi and converts back through the integers, so
-the two disagree in the last bits — and a lot of the port now cites Trig, directly
-or through `Geom`. Retiring it means regrading every one of those, which is its own
-change and deserves to be made on purpose rather than as a footnote to something
-else. **Do not let anything new grow a dependency on its names**, and when it goes,
-expect tolerances to need re-measuring rather than assuming they carry over.
+**`Trig`'s sine and cosine are retired**, and the interesting part is what the
+regrade found. The hold on it was that the swap was expected not to be a no-op:
+Trig's `wrap` subtracts in a bounded loop where `dm-reduce` divides by two-pi and
+converts back through the integers, so the two ought to disagree in the last bits
+— and nine chapters call these names, directly or through `Geom`.
 
-It owes upstream **sine and cosine, and nothing else**. Emission is per-function,
+**They do not disagree at all.** Sampled at every thousandth of a radian across
+|x| ≤ 40 rad — 80,001 points — the two reductions return the *same double*, every
+time, and so do the sines of their outputs. Below π both are the identity; above
+it, repeated subtraction of a double `2π` and one divide-truncate-multiply land on
+the same value. The polynomial and the quadrant fold were already
+character-identical, so the reduction was the only place a difference could come
+from. Every check is green and not one tolerance moved.
+
+That measurement is the point, not the green sweep: a passing sweep says the gates
+still hold, which is a different question from whether the values changed.
+`PORTING_NOTES` D10.
+
+What did **not** retire is `wrap` itself, and it was never part of the stand-in:
+`mountains.zig` and `sky.zig` each carry their own bounded-loop wrap to normalise
+a bearing, and both are ported through Trig's. Deleting it with the sine broke two
+chapters — a helper written for one caller acquires others, and grep is how you
+find them before rather than after.
+
+It owed upstream **sine and cosine, and nothing else**. Emission is per-function,
 not per-chapter, so a chapter can cite DeviceMath for the parts that do not reach
 the hole: `real-sqrt` is a scaled Heron iteration that touches no conversion, and
 `GuardRail` cites the real chapter for it and grades green. Before writing a
@@ -591,36 +607,56 @@ are in `price-b/`.
 
 ## Where to pick this up
 
-Parked 2026-08-29 with the sweep green, **and with every drawer in the game
-ported** — the truck was the last one. In rough order of value:
+Parked 2026-08-30 with the sweep green and **the port complete**: every file in
+`games/driving/wasm` has a chapter, every drawer is ported, and the frame itself
+is graded against `render.frame` command for command. There is no list of missing
+pieces any more, so what follows is what would be worth doing rather than what is
+owed.
 
-**`Trig` is retirable and retiring it is a real change**, not a cleanup — see the
-section above. Expect to re-measure tolerances rather than assume they carry.
+**The six findings are written up and not sent** — `FINDINGS.md`. Sending them is
+Steve's call: four go to Cobblestone / the zig plug and two to angry-gopher, and
+the angry-gopher pair includes a one-line buffer fix that is now on a live path.
 
-**Four findings are owed upstream** and none is written up; they are listed below.
+**The whole-frame check grades two states.** They were chosen as branches — a hard
+lean, and a long straight with the truck close — and two is what the transpiler's
+bump heap holds alongside both generated still tables (`PORTING_NOTES` C7/C14).
+More states would want either a coarser sample or a second check, and the second
+check is the cheaper answer: the pattern is already there in `CatDrawCheck`.
+
+**`Trig`'s arc tangent is the port's own and is a gap in Codex's foreword, not in
+the plug.** `Gpu chapter DeviceMath` has min, max, abs, sqrt, sin and cos; the
+foreword's other arc tangents are integer milli-unit routines. `r-atan` matches
+zig's to 1e-9 over eighteen values including the reciprocal branch, so it is a
+candidate to offer upstream rather than a debt.
+
+**`poc/Scene.codex` is the original throwaway** and still builds. It placed its own
+scenery by hand when almost nothing was ported; it is kept because building it is
+the way to compare, and it is the one thing here with no reason to grow.
+
+**The blitter and the rasterizer are still the far side of the seam**, deliberately
+— `NOTES` §5 made that call and nothing since has argued with it. The draw-command
+buffer is the contract, and it is now graded as a whole frame rather than a drawer
+at a time.
 
 Three things that are *done* and might not look it from the commit log: the cat is
-fully ported including its flipbook, the animals draw from generated stills, and
-the truck now drives, brakes and lights the road. **Nothing is missing from a
-frame** — the remaining gaps are fidelity (the bull's gradients) and coverage
-(`safari.zig` itself), not absence.
+fully ported including its flipbook, the truck drives and brakes and lights the
+road, and the bull is shaded from the art's own gradients. **Nothing is missing
+from a frame.**
 
 ## Findings owed upstream
 
-Four. None yet written up, and they are owed to two different projects.
+**Six, and they are written up now: `FINDINGS.md`.** Each is self-contained —
+observation, repro, evidence, and the shape of the fix — and none has been sent.
+They are owed to two different projects.
 
-To **Cobblestone / the Zig plug**:
+To **Cobblestone / the Zig plug**: `OvError` silently emitting a wrapping `*%`
+(`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); `Math chapter
+Cordic` being 4.5× less accurate than its docstring, with a test that never calls
+a Cordic function; single-letter names `a`–`d` colliding with `Tup4`'s comptime
+parameters; and a one-expression function over a record parameter being silently
+inlined rather than emitted, which only breaks at the shim boundary.
 
-1. `OvError` silently becomes a wrapping `*%`. `4000000000 * 4000000000` returns
-   `-2446744073709551616`, exit 0, no diagnostic.
-2. `Math chapter Cordic`'s accuracy claim is wrong by 4.5x — the docstring says
-   ~0.1%, measured worst is 0.45% — and its test never calls a Cordic function.
-3. A Codex function named `d` emits `fn d_` and collides with `Tup4`'s comptime
-   parameter, so single-letter names `a`–`d` are unusable in the Zig arm.
-
-To **angry-gopher**, found while reading `paint.zig` for the gradient layouts:
-
-4. `pushGradPoly` writes **seven** header words — tag, two colours, cx, cy, r,
-   count — but bounds-checks against `6 + pts.len * 2`. It under-counts by one
-   word, so it can overrun by one with the buffer one word from full. Latent, and
-   the sibling `pushLinearGradPoly` / `pushRadialGradPoly` both count correctly.
+To **angry-gopher**: `pushGradPoly` reserving six header words where it writes
+seven — latent until this port, because the truck's headlight beams are its only
+caller and they now draw every dusk frame; and `truck.zig`'s comments describing
+headlights and a brake glow as deferred when the code draws both.

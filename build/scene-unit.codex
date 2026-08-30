@@ -387,20 +387,23 @@ Chapter: Trig
 
  Sine, cosine, tangent and arc tangent in Real.
 
- THIS CHAPTER IS A STAND-IN. Codex already has these in `Gpu chapter DeviceMath`
- and this is the same algorithm -- an argument reduction, a quadrant fold, and an
- 11th-order Taylor polynomial -- reproduced only because DeviceMath cannot be
- transpiled to zig at all: its dm-reduce calls real-from-int, and the zig plug has
- no emitter for it. The day that emitter lands, every function here is deleted and
- the citers cite DeviceMath instead. Nothing else in the port should grow a
- dependency on these names.
+ THE STAND-IN IS RETIRED. This chapter used to carry its own sine and cosine --
+ the same reduction, quadrant fold and 11th-order Taylor polynomial DeviceMath
+ has -- because DeviceMath's dm-reduce calls real-from-int and the zig plug had no
+ emitter for it. That emitter landed (PLUG_WORK, 2026-08-29), so `r-sin` and
+ `r-cos` are now DeviceMath's, and the duplicate implementation is gone.
 
- The one deliberate difference from DeviceMath: dm-reduce divides by two-pi and
- converts back through the integers, which is exactly the call this arm cannot
- emit, so `wrap` subtracts in a bounded loop instead. That is slower and it is
- exact for the arguments this game has -- yaws, headings and tier angles, all
- within a few turns of zero -- but it is NOT a general reduction, and it must not
- outlive the emitter it works around.
+ THE NAMES STAY AND THE IMPLEMENTATION DOES NOT, which is the whole change. Nine
+ chapters call `r-sin`, `r-cos` or `r-tan`, and none of them should have to know
+ whether the sine underneath is the foreword's or the port's -- that was the point
+ of the names. What they buy now is one place to look and one place that already
+ cites DeviceMath, rather than nine new cites for a rename.
+
+ RETIRING IT MOVED NUMBERS, and that was the reason it waited rather than being
+ tidied away with the rest. The old `wrap` subtracted two-pi in a bounded loop;
+ dm-reduce divides and converts back through the integers, so the two disagree in
+ the last bits and every angle in the game runs through one of them. See the
+ tolerance note in README and D10.
 
  We say:
 
@@ -418,23 +421,7 @@ Section: Constants
   deg : Real
   deg = 0.017453292519943295
 
-Section: Sine and Cosine
-
-  sin-poly : Real -> Real
-  sin-poly (r) =
-    let r2 = r * r
-    in let r3 = r2 * r
-    in let r5 = r3 * r2
-    in let r7 = r5 * r2
-    in let r9 = r7 * r2
-    in let r11 = r9 * r2
-    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
-
-  fold-quadrant : Real -> Real
-  fold-quadrant (r) =
-    if r > half-pi then pi - r
-    else if r < 0.0 - half-pi then 0.0 - pi - r
-    else r
+Section: Angle Wrapping
 
   wrap : Real, Integer -> Real
   wrap (x) (fuel) =
@@ -443,14 +430,29 @@ Section: Sine and Cosine
     else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
     else x
 
+Section: Sine and Cosine
+
+ `wrap` OUTLIVED THE SINE IT WAS WRITTEN FOR, and it turns out not to have been
+ part of the stand-in at all. mountains.zig and sky.zig each carry their own
+ `wrap` -- normalising a bearing difference into the half-open turn around zero --
+ and both are ported through this one. It reads as an angle utility now rather
+ than as an argument reduction, which is what those two callers always wanted;
+ what it is NOT any more is anything sine depends on.
+
+ The fuel is the zig's own shape: mountains.zig's wrap is a bounded `while`, not a
+ modulo, for exactly the same reason.
+
   r-sin : Real -> Real
-  r-sin (x) = sin-poly (fold-quadrant (wrap x 64))
+  r-sin (x) = real-sin x
 
   r-cos : Real -> Real
-  r-cos (x) = r-sin (x + half-pi)
+  r-cos (x) = real-cos x
+
+ DeviceMath has no tangent, so this one is still the port's -- and it is the
+ obvious quotient rather than anything clever, exactly as it was.
 
   r-tan : Real -> Real
-  r-tan (x) = r-sin x / r-cos x
+  r-tan (x) = real-sin x / real-cos x
 
 Section: Arc Tangent
 
@@ -4847,6 +4849,25 @@ Section: The Depth Sort
       then [list-at b j] & merge-items a b i (j + 1)
       else [list-at a i] & merge-items a b (i + 1) j
 
+ THE SORT DECLINES TO ORDER TWO DEPTHS IT CANNOT TELL APART, and that is the one
+ place this chapter's comparison is not the zig's character for character. The
+ zig's key is an f32; the port's is a Real, which is f64 in every plug. Two depths
+ that differ by less than the f32 grid are THE SAME NUMBER in the game -- its sort
+ sees a tie and keeps merge order -- while the port can see a difference and would
+ order them by it. Sorting on precision the oracle does not have is not fidelity;
+ it is the port inventing an order.
+
+ So `deeper-than` is a strict comparison with half an f32 ulp of slack, and the
+ slack is measured rather than chosen. A rail post and a rail bar in the whole
+ frame check land within 6e-8 of each other and swap without it; at 2e-8 they
+ still swap, so the gap is between a sixth and a half of an ulp. Half an ulp is
+ the largest threshold that cannot tie two depths the game holds apart, since two
+ distinct f32s differ by a whole one.
+
+ A grader that measures inversions has to use the same rule -- RenderCheck's does,
+ and its own prose says why. A property asserted at a finer resolution than the
+ sort works at reports the rule as a defect.
+
   sort-tie : Real
   sort-tie = 0.00000006
 
@@ -5433,6 +5454,12 @@ Section: The Painter's Sort
  the reason Render's own sort gives at length -- an in-place insertion sort
  carried onto persistent lists gains a complexity class. Sixteen faces would
  survive it, but the answer is identical and there is no reason to keep two rules.
+
+ It shares Render's `deeper-than` too, and for the same argument: two depths
+ closer than half an f32 ulp are one number in the game and the port must not
+ order them. The truck is where that is most likely to matter -- square-on to the
+ eye, its two sides sit at exactly the same depth, and which one paints second
+ decides nothing about the picture but everything about the command stream.
 
   face-rest : List TruckFace, Integer -> List TruckFace
   face-rest (ys) (j) =

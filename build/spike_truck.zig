@@ -469,6 +469,38 @@ fn dm_sqrt_core(r_: f64) f64 {
     return b0: { const g0: f64 = ((r_ + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b0 b1: { const g1: f64 = ((g0 + (r_ / g0)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b1 b2: { const g2: f64 = ((g1 + (r_ / g1)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b2 b3: { const g3: f64 = ((g2 + (r_ / g2)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b3 b4: { const g4: f64 = ((g3 + (r_ / g3)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); break :b4 ((g4 + (r_ / g4)) * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); }; }; }; }; };
 }
 
+fn dm_two_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4618760256179416344)));
+}
+
+fn dm_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
+}
+
+fn dm_half_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4609753056924675354)));
+}
+
+fn dm_reduce(x: f64) f64 {
+    return b0: { const k_: f64 = cx_real_from_int(cx_real_to_int((x / dm_two_pi()))); break :b0 b1: { const r_: f64 = (x - (k_ * dm_two_pi())); break :b1 (if ((r_ > dm_pi())) (r_ - dm_two_pi()) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_pi()))) (r_ + dm_two_pi()) else r_)); }; };
+}
+
+fn dm_fold_quadrant(r_: f64) f64 {
+    return (if ((r_ > dm_half_pi())) (dm_pi() - r_) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_half_pi()))) ((@as(f64, @bitCast(@as(i64, 0))) - dm_pi()) - r_) else r_));
+}
+
+fn dm_sin_poly(r_: f64) f64 {
+    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 (((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))); }; }; }; }; }; };
+}
+
+fn real_sin(x: f64) f64 {
+    return dm_sin_poly(dm_fold_quadrant(dm_reduce(x)));
+}
+
+fn real_cos(x: f64) f64 {
+    return dm_sin_poly(dm_fold_quadrant(dm_reduce((x + dm_half_pi()))));
+}
+
 fn round_real(x: f64) f64 {
     return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
 }
@@ -497,14 +529,6 @@ fn deg() f64 {
     return @as(f64, @bitCast(@as(i64, 4580687790476533049)));
 }
 
-fn sin_poly(r_: f64) f64 {
-    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 (((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))); }; }; }; }; }; };
-}
-
-fn fold_quadrant(r_: f64) f64 {
-    return (if ((r_ > half_pi())) (pi() - r_) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - half_pi()))) ((@as(f64, @bitCast(@as(i64, 0))) - pi()) - r_) else r_));
-}
-
 fn wrap(x: f64, fuel: i64) f64 {
     var _tl_x = x;
     var _tl_fuel = fuel;
@@ -514,15 +538,15 @@ fn wrap(x: f64, fuel: i64) f64 {
 }
 
 fn r_sin(x: f64) f64 {
-    return sin_poly(fold_quadrant(wrap(x, 64)));
+    return real_sin(x);
 }
 
 fn r_cos(x: f64) f64 {
-    return r_sin((x + half_pi()));
+    return real_cos(x);
 }
 
 fn r_tan(x: f64) f64 {
-    return (r_sin(x) / r_cos(x));
+    return (real_sin(x) / real_cos(x));
 }
 
 fn atan_halve(t: f64, n_: i64) f64 {

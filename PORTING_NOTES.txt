@@ -880,6 +880,39 @@ D9. TWO DEPTHS CLOSER THAN AN f32 ULP HAVE NO ORDER, AND THE SORT MUST SAY SO.
     first state. A property asserted at a finer resolution than the thing it is
     asserted about is not a stronger check, it is a wrong one.
 
+D10. RETIRING THE TRIG STAND-IN MOVED NO NUMBER AT ALL, AND THAT IS A
+    MEASUREMENT RATHER THAN LUCK.
+
+    A1 recorded port/Trig.codex as retirable once real-to-int and real-from-int
+    landed, and warned: "Trig's wrap subtracts in a bounded loop where dm-reduce
+    divides and converts back through the integers, so the two disagree in the
+    last bits, and four graded chapters cite Trig today. It is its own change with
+    its own regrade."
+
+    The regrade was clean -- every check green, not one tolerance touched -- and
+    the reason is worth having, because "it passed" is not a reason.
+
+    THE TWO REDUCTIONS ARE BIT-IDENTICAL OVER THE GAME'S RANGE. Sampled at every
+    thousandth of a radian across |x| <= 40 rad, 80,001 points: ZERO differ, and
+    the sines of their outputs are equal to the bit. For |x| <= pi both are the
+    identity; beyond it, repeated subtraction of a double 2pi and one
+    divide-truncate-multiply land on the same double, and Sterbenz is why. The
+    polynomial and the quadrant fold were already character-identical, so the
+    reduction was the only place a difference could have come from.
+
+    So the caution in A1 was right to be cautious and the answer is that the two
+    agree exactly here. The general shape: when a note says "expect the numbers to
+    move", the change is not finished until you have MEASURED whether they did --
+    a green sweep answers whether the gates still pass, not whether the values
+    changed, and those are different questions.
+
+    WHAT DID NOT RETIRE IS `wrap`, and it was never part of the stand-in. Both
+    mountains.zig and sky.zig carry their own bounded-loop wrap to normalise a
+    bearing, and both are ported through Trig's. Deleting it with the sine broke
+    two chapters with "CDX3002 Undefined name: wrap" -- a useful reminder that a
+    helper written for one caller acquires others, and the way to find them is to
+    grep before deleting rather than after.
+
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
 ================================================================================

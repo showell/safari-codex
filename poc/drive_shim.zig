@@ -2,16 +2,16 @@
 // ========================================================================
 // THE DRIVE SHIM. Appended to the transpiled program by harness/wasmify.py.
 //
-// Where poc/shim.zig answers every frame from a scrub `u`, this one RUNS THE
-// PORTED PHYSICS. `Safari chapter Rider` is graded at 199 values one step from a
-// shared state, so the page can just step it -- and stepping it is what fixes,
-// as consequences rather than as separate patches, the speed (the game's, corner
-// by corner, instead of one average), the acceleration and braking (which a
-// constant cannot have at all), the lean (tilt is a field on the state and the
-// old page simply never asked), and the heading (the rider's own, so the blended
-// stand-in Drive used is gone).
+// IT IS AN ABI AND NOTHING ELSE NOW. Everything it used to decide -- the step
+// order, the restart at the finish, the live focal, the view-yaw fold, the
+// frame's own sequence -- is `Safari chapter Safari`, a port of the game's own
+// safari.zig. What is left here is what a pure program cannot hold: a value, a
+// history ring, and the exported readouts the blitter reads.
 //
-// Measured before this existed: the real rider averages 1.18 m/frame over the
+// Where poc/shim.zig answers every frame from a scrub `u`, this one RUNS THE
+// PORTED PHYSICS: `ride-next` a frame, `ride-frame` to draw it.
+//
+// Measured before the real rider existed: he averages 1.18 m/frame over the
 // first 4,000 frames and ranges 0.53..1.75 by segment. The scrub ran a flat 2.0.
 //
 // THE STATE LIVES OUT HERE, IN ZIG STATICS, AND IT HAS TO. Every Codex record is
@@ -36,13 +36,24 @@ var cx_hp_base: i64 = 0;
 // program is pure, and a record returned by the transpiled side is a pointer into
 // an arena that renderFrame rewinds. TruckStateS is three flat scalars -- route
 // position, speed, braking -- so the shim holds a VALUE and passes its address.
-//
-// It is stepped in LOCKSTEP with the rider and against the NEW rider distance,
-// which is safari.zig's own order and not an arbitrary one: the truck's schedule
-// anchors to where the rider is NOW, so stepping it against the old distance
-// would leave the chase one frame stale at exactly the moments it is tightest.
+// The step order is Safari's now, not this file's.
 var cx_truck: TruckStateS = undefined;
-var cx_course: f64 = 0;
+
+// A RIDE IS THREE POINTERS AND A NUMBER, so the shim can build one on the stack
+// out of its own statics and hand its address in. That is why the flat pieces are
+// what live here: `RideS.rider` is a POINTER, and a Ride copied out of the arena
+// would dangle at the next rewind, while &cx_rider never moves.
+fn cxRide() RideS {
+    return .{ .rider = &cx_rider, .truck = &cx_truck, .clock = cx_clock };
+}
+
+// Copy a returned ride out by value, BEFORE the next rewind. The one rule this
+// file has always had, applied to three fields instead of one.
+fn cxSetRide(r: Ride) void {
+    cx_rider = r.rider.*;
+    cx_truck = r.truck.*;
+    cx_clock = r.clock;
+}
 
 // THE SUNSET CLOCK, a plain frame count exactly as safari.zig keeps it: it starts
 // at 0, gains one per advance and gives one back on the way out, and resets at the
@@ -65,25 +76,17 @@ var cx_hn: usize = 0;
 fn ensure() void {
     if (cx_world != null) return;
     cx_world = build_world();
-    cx_rider = initial_rider_state().*;
-    cx_truck = truck_initial().*;
-    cx_course = course_length(cx_world.?);
+    cxSetRide(ride_initial());
     // AFTER the world, never before: the rewind goes back to here.
     cx_hp_base = cx_hp;
-}
-
-fn restart() void {
-    cx_rider = initial_rider_state().*;
-    cx_truck = truck_initial().*;
-    cx_hn = 0;
-    cx_clock = 0;
 }
 
 pub export fn renderFrame() u32 {
     ensure();
     cx_hp = cx_hp_base;
     var w: usize = 0;
-    const cmds = frame_for(cx_world.?, &cx_rider, &cx_truck, cx_clock);
+    var r = cxRide();
+    const cmds = ride_frame(cx_world.?, &r);
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
@@ -156,23 +159,26 @@ pub export fn bufCap() u32 {
     return @intCast(CAP_WORDS * 4);
 }
 
-// ONE STEP OF THE REAL RIDER. The screensaver replays rather than stopping, so
-// the finish line restarts, which is what safari.zig does.
+// ONE STEP OF THE RIDE, which is one call now: `ride-next` folds the rider, the
+// truck and the clock together and owns the restart at the finish line.
+//
+// THE FINISH IS TESTED TWICE AND THAT IS DELIBERATE. Safari restarts the ride;
+// this file has to clear the HISTORY RING, which Safari cannot see, so it asks
+// the same graded question (`is-finished`) to know a restart happened. The
+// alternative -- inferring it from a clock that came back zero -- would be a
+// guess about someone else's implementation.
 pub export fn advance() void {
     ensure();
     cx_hp = cx_hp_base;
-    if (is_finished(&cx_rider, cx_world.?)) {
-        restart();
-        return;
-    }
-    if (cx_hn < HIST) {
+    const finished = is_finished(&cx_rider, cx_world.?);
+    if (!finished and cx_hn < HIST) {
         cx_hist[cx_hn] = cx_rider;
         cx_thist[cx_hn] = cx_truck;
         cx_hn += 1;
     }
-    cx_rider = get_next_rider_state(&cx_rider, cx_world.?).*;
-    cx_truck = truck_next(&cx_truck, route_distance(cx_world.?, cx_rider.segment, cx_rider.along), cx_world.?, cx_course).*;
-    cx_clock += 1;
+    var r = cxRide();
+    cxSetRide(ride_next(cx_world.?, &r));
+    if (finished) cx_hn = 0;
 }
 
 pub export fn back() void {
@@ -186,12 +192,24 @@ pub export fn back() void {
 
 // THE LEAN, WHICH THE PAGE USED TO THROW AWAY. blitter.js rotates the whole
 // canvas by this, so it is the bank you see going into a corner. The deadband is
-// safari.zig's: below a thousandth of a radian it snaps to level rather than
-// jittering the canvas about a value that is really zero.
+// ported now -- `rider-roll` -- rather than being a number repeated out here.
 pub export fn riderTilt() f32 {
     ensure();
-    const t = cx_rider.tilt;
-    return if (@abs(t) < 1.0e-3) 0.0 else @floatCast(t);
+    cx_hp = cx_hp_base;
+    return @floatCast(rider_roll(&cx_rider));
+}
+
+// THE LIVE FOCAL, which is what the lens does when he leans or watches the cat
+// cross. Exported for the HUD and a probe, exactly as safari.zig exports it.
+pub export fn camFocal() f32 {
+    ensure();
+    cx_hp = cx_hp_base;
+    return @floatCast(ride_focal(cx_world.?, &cx_rider));
+}
+
+pub export fn gazeYaw() f32 {
+    ensure();
+    return @floatCast(cx_rider.gaze_yaw);
 }
 
 // J walks until this changes; now it really is the segment index.
@@ -210,14 +228,15 @@ pub export fn clock() u32 {
 // rider's own heading now, gaze and head-turn folded in, so the backdrop swings
 // with the view exactly as the scene does.
 //
-// THE SUN GOES THROUGH sun_pos DIRECTLY, not through Drive's `sun-for` wrapper,
-// and that is PORTING_NOTES B12 rather than a style choice: a Codex definition
-// whose body is a single application is INLINED and never becomes a zig function,
-// so `sun-for` does not exist to call from out here. B12's own advice is to write
-// the shim against the real functions, and this is that.
+// THE SUN GOES THROUGH `ride-sun`, which reads the same heading the mountains do
+// and the same LIVE focal the rest of the frame does -- so a leaned camera cannot
+// put the disc somewhere the ranges drawn over it disagree with. It is a real
+// function rather than an alias (B12: a body that is one application is inlined
+// and never emitted, so there would be nothing out here to call).
 fn sunHere() SunPos {
     cx_hp = cx_hp_base;
-    return sun_pos(heading_for(&cx_rider), cx_clock, focal(), camera_w());
+    var r = cxRide();
+    return ride_sun(cx_world.?, &r);
 }
 pub export fn skyTop() u32 {
     ensure();
@@ -260,6 +279,7 @@ pub export fn truckLead() f32 {
     cx_hp = cx_hp_base;
     return @floatCast(cx_truck.pos - route_distance(cx_world.?, cx_rider.segment, cx_rider.along));
 }
+
 pub export fn truckV() f32 {
     ensure();
     return @floatCast(cx_truck.v_);

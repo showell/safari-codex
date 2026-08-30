@@ -297,6 +297,10 @@ fn list_drop(comptime T20: type, xs: *CxList(T20), n_: i64) *CxList(T20) {
     return list_tail_loop(T20, xs, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_list_len(xs), cx_ll_empty(T20));
 }
 
+fn real_max(a_: f64, b_: f64) f64 {
+    return (if ((a_ > b_)) a_ else b_);
+}
+
 fn real_abs(x: f64) f64 {
     return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
 }
@@ -1262,7 +1266,15 @@ fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
 }
 
 fn merge_items(a_: *CxList(Item), b_: *CxList(Item), i_: i64, j: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if ((cx_list_at(b_, j).fwd > cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
+    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
+}
+
+fn sort_tie() f64 {
+    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
+}
+
+fn deeper_than(x: f64, y: f64) bool {
+    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
 }
 
 fn sort_items(xs: *CxList(Item)) *CxList(Item) {
@@ -1668,7 +1680,7 @@ fn rail_fwd_stream(i_: i64) *CxList(f64) {
 fn inversions(xs: *CxList(Item), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if (((_tl_i +% 1) >= cx_list_len(xs))) { return 0; } else { if ((cx_list_at(xs, _tl_i).fwd < cx_list_at(xs, (_tl_i +% 1)).fwd)) { return (1 +% inversions(xs, (_tl_i +% 1))); } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+        if (((_tl_i +% 1) >= cx_list_len(xs))) { return 0; } else { if (deeper_than(cx_list_at(xs, (_tl_i +% 1)).fwd, cx_list_at(xs, _tl_i).fwd)) { return (1 +% inversions(xs, (_tl_i +% 1))); } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
     }
 }
 

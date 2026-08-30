@@ -229,6 +229,18 @@ const RailPolyS = struct {
 };
 const RailPoly = *RailPolyS;
 
+const StillPtS = struct {
+    x: f64,
+    y: f64,
+};
+const StillPt = *StillPtS;
+
+const StillPolyS = struct {
+    color: i64,
+    pts: *CxList(StillPt),
+};
+const StillPoly = *StillPolyS;
+
 const PondPtS = struct {
     cu: f64,
     cv: f64,
@@ -247,18 +259,6 @@ const SpeciesS = struct {
     adult_h: f64,
 };
 const Species = *SpeciesS;
-
-const StillPtS = struct {
-    x: f64,
-    y: f64,
-};
-const StillPt = *StillPtS;
-
-const StillPolyS = struct {
-    color: i64,
-    pts: *CxList(StillPt),
-};
-const StillPoly = *StillPolyS;
 
 const PoseS = struct {
     along: f64,
@@ -374,6 +374,13 @@ const TruckFaceS = struct {
     v_: *CxList(Vec3),
 };
 const TruckFace = *TruckFaceS;
+
+const RideS = struct {
+    rider: RiderState,
+    truck: TruckState,
+    clock: f64,
+};
+const Ride = *RideS;
 
 const RoutePosS = struct {
     seg: i64,
@@ -620,6 +627,26 @@ fn lerp(a_: f64, b_: f64, t: f64) f64 {
 
 fn cross_t(gap: f64, v_: f64) f64 {
     return b0: { const e_: f64 = (gap - road_buffer()); break :b0 @as(f64, (if ((e_ <= @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, (if ((v_ <= @as(f64, @bitCast(@as(i64, 4517329193108106637))))) @as(f64, @bitCast(@as(i64, 0))) else clamp01((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (e_ / (cross_frames() * v_)))))))); };
+}
+
+fn focus_peak() f64 {
+    return @as(f64, @bitCast(@as(i64, 4610785298501913805)));
+}
+
+fn focus_ramp_down() f64 {
+    return @as(f64, @bitCast(@as(i64, 4635541022703616000)));
+}
+
+fn cat_smoothstep(t: f64) f64 {
+    return ((t * t) * (@as(f64, @bitCast(@as(i64, 4613937818241073152))) - (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * t)));
+}
+
+fn cat_focus(gap_along: f64, v_: f64) f64 {
+    return @as(f64, (if ((v_ <= @as(f64, @bitCast(@as(i64, 4517329193108106637))))) @as(f64, @bitCast(@as(i64, 0))) else (if (((gap_along - road_buffer()) > @as(f64, @bitCast(@as(i64, 0))))) (cat_smoothstep(cross_t(gap_along, v_)) * focus_peak()) else cat_focus_past((gap_along - road_buffer()), v_))));
+}
+
+fn cat_focus_past(e_: f64, v_: f64) f64 {
+    return ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - cat_smoothstep(real_min((((@as(f64, @bitCast(@as(i64, 0))) - e_) / v_) / focus_ramp_down()), @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) * focus_peak());
 }
 
 fn stride_steps() f64 {
@@ -1002,6 +1029,10 @@ fn eyes_on_road_yaw() f64 {
     return (@as(f64, @bitCast(@as(i64, 4618441417868443648))) * deg());
 }
 
+fn gaze_focus(f: f64) f64 {
+    return ((f * f) * (@as(f64, @bitCast(@as(i64, 4613937818241073152))) - (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * f)));
+}
+
 fn no_look() PigLook {
     return cx_new(PigLookS{ .looking = false, .dist = @as(f64, @bitCast(@as(i64, 0))) });
 }
@@ -1036,6 +1067,10 @@ fn pig_gaze_brake_easing(state: RiderState, seg: Segment) GazeBrake {
 
 fn yaw_per_tilt() f64 {
     return @as(f64, @bitCast(@as(i64, 4591870180066957722)));
+}
+
+fn max_lean() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4626322717216342016))) * deg());
 }
 
 fn a_accel() f64 {
@@ -1426,6 +1461,134 @@ fn push_grad_poly(rgba_center: i64, rgba_edge: i64, cx: f64, cy: f64, r_: f64, p
     return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 4, .color = rgba_center, .color2 = rgba_edge, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ cx, cy, r_ }), .pts = flatten_screen(ps, 0) }) }));
 }
 
+fn rock() i64 {
+    return 5991055;
+}
+
+fn rock_west() i64 {
+    return 3752799;
+}
+
+fn land() i64 {
+    return 4886339;
+}
+
+fn rock_night_dim() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn snow_day() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4642577897121382400))), .g = @as(f64, @bitCast(@as(i64, 4642753818981826560))), .b_ = @as(f64, @bitCast(@as(i64, 4642929740842270720))) });
+}
+
+fn snow_night() Rgb {
+    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4634626229029306368))), .g = @as(f64, @bitCast(@as(i64, 4635611391447793664))), .b_ = @as(f64, @bitCast(@as(i64, 4637018766331346944))) });
+}
+
+fn chan(color: i64, sh: i64) f64 {
+    return cx_real_from_int((cx_shr(color, sh) & 255));
+}
+
+fn dimmed(color: i64, dusk: f64) i64 {
+    return b0: { const f: f64 = (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (rock_night_dim() * dusk)); break :b0 b1: { const r_: i64 = cx_real_to_int(round_real((chan(color, 16) * f))); break :b1 b2: { const g: i64 = cx_real_to_int(round_real((chan(color, 8) * f))); break :b2 b3: { const b_: i64 = cx_real_to_int(round_real((chan(color, 0) * f))); break :b3 ((cx_shl(r_, 16) | cx_shl(g, 8)) | b_); }; }; }; };
+}
+
+fn west_range_bearing() f64 {
+    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4611779693299637210))));
+}
+
+fn snow_threshold() f64 {
+    return @as(f64, @bitCast(@as(i64, 4638426141214900224)));
+}
+
+fn snow_dip() f64 {
+    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
+}
+
+fn col_step() f64 {
+    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
+}
+
+fn roll_margin() f64 {
+    return @as(f64, @bitCast(@as(i64, 4641240890982006784)));
+}
+
+fn range_at(bearing: f64, center: f64, half: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
+    return b0: { const b_: f64 = wrap((bearing - center), 64); break :b0 b1: { const t: f64 = (b_ / half); break :b1 @as(f64, (if ((real_abs(t) >= @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 0))) else range_body(b_, t, peak, freq_a, freq_b))); }; };
+}
+
+fn range_body(b_: f64, t: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
+    return b0: { const envelope: f64 = r_cos(((t * pi()) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const ridge: f64 = ((@as(f64, @bitCast(@as(i64, 4603579539098121011))) + (@as(f64, @bitCast(@as(i64, 4597814931575086776))) * r_cos((b_ * freq_a)))) + (@as(f64, @bitCast(@as(i64, 4594932627813569659))) * r_cos(((b_ * freq_b) + @as(f64, @bitCast(@as(i64, 4607182418800017408))))))); break :b1 ((peak * envelope) * ridge); }; };
+}
+
+fn ground_base(bearing: f64) f64 {
+    return (@as(f64, @bitCast(@as(i64, 4625759767262920704))) + (@as(f64, @bitCast(@as(i64, 4622945017495814144))) * r_sin(((wrap(bearing, 64) * @as(f64, @bitCast(@as(i64, 4606281698874543309)))) + @as(f64, @bitCast(@as(i64, 4611235658464650854)))))));
+}
+
+fn north_range(bearing: f64) f64 {
+    return range_at(bearing, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4606732058837280358))), @as(f64, @bitCast(@as(i64, 4639481672377565184))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4626604192193052672))));
+}
+
+fn west_range(bearing: f64) f64 {
+    return range_at(bearing, west_range_bearing(), @as(f64, @bitCast(@as(i64, 4604660403008689930))), @as(f64, @bitCast(@as(i64, 4638144666238189568))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), @as(f64, @bitCast(@as(i64, 4628293042053316608))));
+}
+
+fn snow_peak_loop(b_: f64, vm: f64) f64 {
+    var _tl_b = b_;
+    var _tl_vm = vm;
+    while (true) {
+        if ((_tl_b > @as(f64, @bitCast(@as(i64, 4602678819172646912))))) { return _tl_vm; } else { { const _tj1_0 = (_tl_b + @as(f64, @bitCast(@as(i64, 4576918229304087675)))); const _tj1_1 = real_max(_tl_vm, north_range(_tl_b)); _tl_b = _tj1_0; _tl_vm = _tj1_1; continue; } }
+    }
+}
+
+fn snow_peak_height() f64 {
+    return snow_peak_loop((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))), (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))));
+}
+
+fn snowline_at(bearing: f64, peak: f64) f64 {
+    return b0: { const num: f64 = (north_range(bearing) - snow_threshold()); break :b0 b1: { const above_frac: f64 = real_max(@as(f64, @bitCast(@as(i64, 0))), real_min(@as(f64, @bitCast(@as(i64, 4607182418800017408))), (num / (peak - snow_threshold())))); break :b1 (snow_threshold() - (snow_dip() * above_frac)); }; };
+}
+
+fn bearing_at(x: f64, heading: f64, _arg_cam_focal: f64, view_w: f64) f64 {
+    return (heading + r_atan(((x - (view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) / _arg_cam_focal)));
+}
+
+fn horizon_crest_px(bearing: f64) f64 {
+    return real_max(west_range(bearing), real_max(north_range(bearing), ground_base(bearing)));
+}
+
+fn crest_pts(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, x: f64) *CxList(ScreenPt) {
+    return (if ((x > (view_w + roll_margin()))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = x, .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (f.call(f.ctx, bearing_at(x, heading, _arg_cam_focal, view_w)) * v_scale)) }) }), crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (x + col_step()))));
+}
+
+fn silhouette(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, color: i64) *CxList(DrawCmd) {
+    return b0: { const top_ = crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (@as(f64, @bitCast(@as(i64, 0))) - roll_margin())); break :b0 b1: { const close = cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (view_w + roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }), cx_new(ScreenPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }) }); break :b1 push_poly(color, cx_ll_concat(top_, close)); }; };
+}
+
+fn snow_columns(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
+    return (if ((x > view_w)) cx_ll_empty(f64) else snow_columns_at(heading, _arg_cam_focal, view_w, peak, x));
+}
+
+fn snow_columns_at(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
+    return b0: { const b_: f64 = bearing_at(x, heading, _arg_cam_focal, view_w); break :b0 b1: { const rest = snow_columns(heading, _arg_cam_focal, view_w, peak, (x + col_step())); break :b1 (if ((north_range(b_) > (snowline_at(b_, peak) + @as(f64, @bitCast(@as(i64, 4576918229304087675)))))) cx_ll_concat(cx_ll_of(f64, &[_]f64{ x }), rest) else rest); }; };
+}
+
+fn snow_top(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (north_range(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w)) * v_scale)) }) }), snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, (i_ +% 1))));
+}
+
+fn snow_bottom(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, peak: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ < 0)) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (snowline_at(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w), peak) * v_scale)) }) }), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (i_ -% 1))));
+}
+
+fn draw_snow(heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, snow: i64) *CxList(DrawCmd) {
+    return b0: { const peak: f64 = snow_peak_height(); break :b0 b1: { const xs = snow_columns(heading, _arg_cam_focal, view_w, peak, @as(f64, @bitCast(@as(i64, 0)))); break :b1 (if ((cx_list_len(xs) < 2)) cx_ll_empty(DrawCmd) else push_poly(snow, cx_ll_concat(snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, 0), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (cx_list_len(xs) -% 1))))); }; };
+}
+
+fn draw(heading: f64, dusk: f64, _arg_cam_focal: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 b1: { const west = silhouette(b3: { const _Env3 = struct { fn call(_ctx3: *anyopaque, p0: f64) f64 { _ = _ctx3; return west_range(p0); } }; break :b3 CxFn1(f64, f64){ .ctx = cx_new(_Env3{  }), .call = &_Env3.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock_west(), dusk)); break :b1 b2: { const north = silhouette(b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return north_range(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock(), dusk)); break :b2 b3: { const cap = draw_snow(heading, _arg_cam_focal, view_w, v_scale, pack(lerp3(snow_day(), snow_night(), dusk))); break :b3 b4: { const ground = silhouette(b6: { const _Env6 = struct { fn call(_ctx6: *anyopaque, p0: f64) f64 { _ = _ctx6; return ground_base(p0); } }; break :b6 CxFn1(f64, f64){ .ctx = cx_new(_Env6{  }), .call = &_Env6.call }; }, heading, _arg_cam_focal, view_w, v_scale, land()); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(west, north), cap), ground); }; }; }; }; };
+}
+
 fn tier_top() *CxList(f64) {
     return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4591870180066957722))), @as(f64, @bitCast(@as(i64, 4596373779694328218))), @as(f64, @bitCast(@as(i64, 4599075939470750515))), @as(f64, @bitCast(@as(i64, 4600877379321698714))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4603579539098121011))), @as(f64, @bitCast(@as(i64, 4604480259023595110))) });
 }
@@ -1744,186 +1907,6 @@ fn rail_draw_poly(rp: RailPoly, cf: f64, view_w: f64) *CxList(DrawCmd) {
     return b0: { const clipped = clip_near(rp.v_, near()); break :b0 (if ((cx_list_len(clipped) < 3)) cx_ll_empty(DrawCmd) else push_poly(rp.color, project_all(clipped, cf, view_w, 0))); };
 }
 
-fn water_outline() *CxList(PondPt) {
-    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4611686018427387904)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628574517030027264)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4629418941960159232)))), .cv = @as(f64, @bitCast(@as(i64, 4624070917402656768))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4607182418800017408)))), .cv = @as(f64, @bitCast(@as(i64, 4625196817309499392))) }) });
-}
-
-fn water_color() i64 {
-    return 3112588;
-}
-
-fn bank() *CxList(PondPt) {
-    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629841154425225216))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4629137466983448576))) }) });
-}
-
-fn bank_color() i64 {
-    return 12759680;
-}
-
-fn duck_codepoint() i64 {
-    return 129414;
-}
-
-fn duck_height() f64 {
-    return @as(f64, @bitCast(@as(i64, 4606281698874543309)));
-}
-
-fn ducks() *CxList(Duck) {
-    return cx_ll_of(Duck, &[_]Duck{ cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4620693217682128896)))), .cv = @as(f64, @bitCast(@as(i64, 4622382067542392832))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4625196817309499392)))), .cv = @as(f64, @bitCast(@as(i64, 4625478292286210048))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4621256167635550208)))), .cv = @as(f64, @bitCast(@as(i64, 4626604192193052672))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4616189618054758400)))), .cv = @as(f64, @bitCast(@as(i64, 4618441417868443648))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4622945017495814144)))), .cv = @as(f64, @bitCast(@as(i64, 4619567317775286272))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4626322717216342016)))), .cv = @as(f64, @bitCast(@as(i64, 4620693217682128896))) }), .face_right = true }) });
-}
-
-fn rock() i64 {
-    return 5991055;
-}
-
-fn rock_west() i64 {
-    return 3752799;
-}
-
-fn land() i64 {
-    return 4886339;
-}
-
-fn rock_night_dim() f64 {
-    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
-}
-
-fn snow_day() Rgb {
-    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4642577897121382400))), .g = @as(f64, @bitCast(@as(i64, 4642753818981826560))), .b_ = @as(f64, @bitCast(@as(i64, 4642929740842270720))) });
-}
-
-fn snow_night() Rgb {
-    return cx_new(RgbS{ .r_ = @as(f64, @bitCast(@as(i64, 4634626229029306368))), .g = @as(f64, @bitCast(@as(i64, 4635611391447793664))), .b_ = @as(f64, @bitCast(@as(i64, 4637018766331346944))) });
-}
-
-fn chan(color: i64, sh: i64) f64 {
-    return cx_real_from_int((cx_shr(color, sh) & 255));
-}
-
-fn dimmed(color: i64, dusk: f64) i64 {
-    return b0: { const f: f64 = (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (rock_night_dim() * dusk)); break :b0 b1: { const r_: i64 = cx_real_to_int(round_real((chan(color, 16) * f))); break :b1 b2: { const g: i64 = cx_real_to_int(round_real((chan(color, 8) * f))); break :b2 b3: { const b_: i64 = cx_real_to_int(round_real((chan(color, 0) * f))); break :b3 ((cx_shl(r_, 16) | cx_shl(g, 8)) | b_); }; }; }; };
-}
-
-fn west_range_bearing() f64 {
-    return (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4611779693299637210))));
-}
-
-fn snow_threshold() f64 {
-    return @as(f64, @bitCast(@as(i64, 4638426141214900224)));
-}
-
-fn snow_dip() f64 {
-    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
-}
-
-fn col_step() f64 {
-    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
-}
-
-fn roll_margin() f64 {
-    return @as(f64, @bitCast(@as(i64, 4641240890982006784)));
-}
-
-fn range_at(bearing: f64, center: f64, half: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
-    return b0: { const b_: f64 = wrap((bearing - center), 64); break :b0 b1: { const t: f64 = (b_ / half); break :b1 @as(f64, (if ((real_abs(t) >= @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 0))) else range_body(b_, t, peak, freq_a, freq_b))); }; };
-}
-
-fn range_body(b_: f64, t: f64, peak: f64, freq_a: f64, freq_b: f64) f64 {
-    return b0: { const envelope: f64 = r_cos(((t * pi()) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b0 b1: { const ridge: f64 = ((@as(f64, @bitCast(@as(i64, 4603579539098121011))) + (@as(f64, @bitCast(@as(i64, 4597814931575086776))) * r_cos((b_ * freq_a)))) + (@as(f64, @bitCast(@as(i64, 4594932627813569659))) * r_cos(((b_ * freq_b) + @as(f64, @bitCast(@as(i64, 4607182418800017408))))))); break :b1 ((peak * envelope) * ridge); }; };
-}
-
-fn ground_base(bearing: f64) f64 {
-    return (@as(f64, @bitCast(@as(i64, 4625759767262920704))) + (@as(f64, @bitCast(@as(i64, 4622945017495814144))) * r_sin(((wrap(bearing, 64) * @as(f64, @bitCast(@as(i64, 4606281698874543309)))) + @as(f64, @bitCast(@as(i64, 4611235658464650854)))))));
-}
-
-fn north_range(bearing: f64) f64 {
-    return range_at(bearing, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4606732058837280358))), @as(f64, @bitCast(@as(i64, 4639481672377565184))), @as(f64, @bitCast(@as(i64, 4620693217682128896))), @as(f64, @bitCast(@as(i64, 4626604192193052672))));
-}
-
-fn west_range(bearing: f64) f64 {
-    return range_at(bearing, west_range_bearing(), @as(f64, @bitCast(@as(i64, 4604660403008689930))), @as(f64, @bitCast(@as(i64, 4638144666238189568))), @as(f64, @bitCast(@as(i64, 4622382067542392832))), @as(f64, @bitCast(@as(i64, 4628293042053316608))));
-}
-
-fn snow_peak_loop(b_: f64, vm: f64) f64 {
-    var _tl_b = b_;
-    var _tl_vm = vm;
-    while (true) {
-        if ((_tl_b > @as(f64, @bitCast(@as(i64, 4602678819172646912))))) { return _tl_vm; } else { { const _tj1_0 = (_tl_b + @as(f64, @bitCast(@as(i64, 4576918229304087675)))); const _tj1_1 = real_max(_tl_vm, north_range(_tl_b)); _tl_b = _tj1_0; _tl_vm = _tj1_1; continue; } }
-    }
-}
-
-fn snow_peak_height() f64 {
-    return snow_peak_loop((@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))), (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))));
-}
-
-fn snowline_at(bearing: f64, peak: f64) f64 {
-    return b0: { const num: f64 = (north_range(bearing) - snow_threshold()); break :b0 b1: { const above_frac: f64 = real_max(@as(f64, @bitCast(@as(i64, 0))), real_min(@as(f64, @bitCast(@as(i64, 4607182418800017408))), (num / (peak - snow_threshold())))); break :b1 (snow_threshold() - (snow_dip() * above_frac)); }; };
-}
-
-fn bearing_at(x: f64, heading: f64, _arg_cam_focal: f64, view_w: f64) f64 {
-    return (heading + r_atan(((x - (view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) / _arg_cam_focal)));
-}
-
-fn horizon_crest_px(bearing: f64) f64 {
-    return real_max(west_range(bearing), real_max(north_range(bearing), ground_base(bearing)));
-}
-
-fn crest_pts(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, x: f64) *CxList(ScreenPt) {
-    return (if ((x > (view_w + roll_margin()))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = x, .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (f.call(f.ctx, bearing_at(x, heading, _arg_cam_focal, view_w)) * v_scale)) }) }), crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (x + col_step()))));
-}
-
-fn silhouette(f: CxFn1(f64, f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, color: i64) *CxList(DrawCmd) {
-    return b0: { const top_ = crest_pts(f, heading, _arg_cam_focal, view_w, v_scale, (@as(f64, @bitCast(@as(i64, 0))) - roll_margin())); break :b0 b1: { const close = cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (view_w + roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }), cx_new(ScreenPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - roll_margin()), .y = (camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }) }); break :b1 push_poly(color, cx_ll_concat(top_, close)); }; };
-}
-
-fn snow_columns(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
-    return (if ((x > view_w)) cx_ll_empty(f64) else snow_columns_at(heading, _arg_cam_focal, view_w, peak, x));
-}
-
-fn snow_columns_at(heading: f64, _arg_cam_focal: f64, view_w: f64, peak: f64, x: f64) *CxList(f64) {
-    return b0: { const b_: f64 = bearing_at(x, heading, _arg_cam_focal, view_w); break :b0 b1: { const rest = snow_columns(heading, _arg_cam_focal, view_w, peak, (x + col_step())); break :b1 (if ((north_range(b_) > (snowline_at(b_, peak) + @as(f64, @bitCast(@as(i64, 4576918229304087675)))))) cx_ll_concat(cx_ll_of(f64, &[_]f64{ x }), rest) else rest); }; };
-}
-
-fn snow_top(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (north_range(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w)) * v_scale)) }) }), snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, (i_ +% 1))));
-}
-
-fn snow_bottom(xs: *CxList(f64), heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, peak: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ < 0)) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = cx_list_at(xs, i_), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (snowline_at(bearing_at(cx_list_at(xs, i_), heading, _arg_cam_focal, view_w), peak) * v_scale)) }) }), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (i_ -% 1))));
-}
-
-fn draw_snow(heading: f64, _arg_cam_focal: f64, view_w: f64, v_scale: f64, snow: i64) *CxList(DrawCmd) {
-    return b0: { const peak: f64 = snow_peak_height(); break :b0 b1: { const xs = snow_columns(heading, _arg_cam_focal, view_w, peak, @as(f64, @bitCast(@as(i64, 0)))); break :b1 (if ((cx_list_len(xs) < 2)) cx_ll_empty(DrawCmd) else push_poly(snow, cx_ll_concat(snow_top(xs, heading, _arg_cam_focal, view_w, v_scale, 0), snow_bottom(xs, heading, _arg_cam_focal, view_w, v_scale, peak, (cx_list_len(xs) -% 1))))); }; };
-}
-
-fn draw(heading: f64, dusk: f64, _arg_cam_focal: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const v_scale: f64 = (_arg_cam_focal / focal()); break :b0 b1: { const west = silhouette(b3: { const _Env3 = struct { fn call(_ctx3: *anyopaque, p0: f64) f64 { _ = _ctx3; return west_range(p0); } }; break :b3 CxFn1(f64, f64){ .ctx = cx_new(_Env3{  }), .call = &_Env3.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock_west(), dusk)); break :b1 b2: { const north = silhouette(b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return north_range(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, heading, _arg_cam_focal, view_w, v_scale, dimmed(rock(), dusk)); break :b2 b3: { const cap = draw_snow(heading, _arg_cam_focal, view_w, v_scale, pack(lerp3(snow_day(), snow_night(), dusk))); break :b3 b4: { const ground = silhouette(b6: { const _Env6 = struct { fn call(_ctx6: *anyopaque, p0: f64) f64 { _ = _ctx6; return ground_base(p0); } }; break :b6 CxFn1(f64, f64){ .ctx = cx_new(_Env6{  }), .call = &_Env6.call }; }, heading, _arg_cam_focal, view_w, v_scale, land()); break :b4 cx_ll_concat(cx_ll_concat(cx_ll_concat(west, north), cap), ground); }; }; }; }; };
-}
-
-fn no_species() Species {
-    return cx_new(SpeciesS{ .present = false, .cp_ = 0, .adult_h = @as(f64, @bitCast(@as(i64, 0))) });
-}
-
-fn adult_rail_buffer() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
-}
-
-fn baby_ratio() f64 {
-    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
-}
-
-fn baby_beyond() f64 {
-    return @as(f64, @bitCast(@as(i64, 4624070917402656768)));
-}
-
-fn species_of(c_: Creature) Species {
-    return switch (c_) { .Elephant => cx_new(SpeciesS{ .present = true, .cp_ = 128024, .adult_h = @as(f64, @bitCast(@as(i64, 4613487458278336102))) }), .Giraffe => cx_new(SpeciesS{ .present = true, .cp_ = 129426, .adult_h = @as(f64, @bitCast(@as(i64, 4616752568008179712))) }), .Zebra => cx_new(SpeciesS{ .present = true, .cp_ = 129427, .adult_h = @as(f64, @bitCast(@as(i64, 4609884578576439706))) }), .Rhino => cx_new(SpeciesS{ .present = true, .cp_ = 129423, .adult_h = @as(f64, @bitCast(@as(i64, 4612136378390124954))) }), .DuckPond => no_species(), .NoCreature => no_species(),  };
-}
-
-fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(Critter) {
-    return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
-}
-
 fn duck_polys() *CxList(StillPoly) {
     @setEvalBranchQuota(1000000);
     return cx_ll_of(StillPoly, &[_]StillPoly{ cx_new(StillPolyS{ .color = 4493595, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4587020703988205172)))), .y = @as(f64, @bitCast(@as(i64, 4605149493928222366))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4586444243235901748)))), .y = @as(f64, @bitCast(@as(i64, 4605239565920769776))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585968663115251424)))), .y = @as(f64, @bitCast(@as(i64, 4605332340073093608))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585593963626254198)))), .y = @as(f64, @bitCast(@as(i64, 4605428717105119337))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585320144768910072)))), .y = @as(f64, @bitCast(@as(i64, 4605525994857070540))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585161618062026631)))), .y = @as(f64, @bitCast(@as(i64, 4605625974768798165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585103971986796288)))), .y = @as(f64, @bitCast(@as(i64, 4605728656840302212))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4585939840077636252)))), .y = @as(f64, @bitCast(@as(i64, 4606115065688330600))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4588274506124465118)))), .y = @as(f64, @bitCast(@as(i64, 4606461842859638129))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4590544320336659848)))), .y = @as(f64, @bitCast(@as(i64, 4606756378275268159))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4592893397902296298)))), .y = @as(f64, @bitCast(@as(i64, 4606984260416413106))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594673220475033118)))), .y = @as(f64, @bitCast(@as(i64, 4607130177044339910))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596218855867146673)))), .y = @as(f64, @bitCast(@as(i64, 4607182418800017408))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597764491259260227)))), .y = @as(f64, @bitCast(@as(i64, 4607130177044339910))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598665211184734326)))), .y = @as(f64, @bitCast(@as(i64, 4606984260416413106))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599254282015994387)))), .y = @as(f64, @bitCast(@as(i64, 4606756378275268159))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599708244858433333)))), .y = @as(f64, @bitCast(@as(i64, 4606461842859638129))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600001879554137889)))), .y = @as(f64, @bitCast(@as(i64, 4606115065688330600))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600104561625641936)))), .y = @as(f64, @bitCast(@as(i64, 4605728656840302212))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600100958745940040)))), .y = @as(f64, @bitCast(@as(i64, 4605644889887233121))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600086547227132455)))), .y = @as(f64, @bitCast(@as(i64, 4605562023654089504))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600063128509070128)))), .y = @as(f64, @bitCast(@as(i64, 4605480958860796835))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600030702591753060)))), .y = @as(f64, @bitCast(@as(i64, 4605400794787429640))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599991070915032200)))), .y = @as(f64, @bitCast(@as(i64, 4605322432153913393))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599942432039056599)))), .y = @as(f64, @bitCast(@as(i64, 4605246771680173569))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600104561625641936)))), .y = @as(f64, @bitCast(@as(i64, 4605252175999726413))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599461447598853430)))), .y = @as(f64, @bitCast(@as(i64, 4604609061972937907))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599380382805560761)))), .y = @as(f64, @bitCast(@as(i64, 4604601856213534114))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599311928091224729)))), .y = @as(f64, @bitCast(@as(i64, 4604583841815024632))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599261487775398180)))), .y = @as(f64, @bitCast(@as(i64, 4604555018777409461))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599229061858081112)))), .y = @as(f64, @bitCast(@as(i64, 4604520791420241445))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599223657538528267)))), .y = @as(f64, @bitCast(@as(i64, 4604482060463446059))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599243473376888698)))), .y = @as(f64, @bitCast(@as(i64, 4604441528066799724))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599947836358609443)))), .y = @as(f64, @bitCast(@as(i64, 4603643490212829672))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598175219545276416)))), .y = @as(f64, @bitCast(@as(i64, 4603321933199435419))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4593412212579369379)))), .y = @as(f64, @bitCast(@as(i64, 4603643490212829672))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4587006292469397586)))), .y = @as(f64, @bitCast(@as(i64, 4605149493928222366))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4587020703988205172)))), .y = @as(f64, @bitCast(@as(i64, 4605149493928222366))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4587020703988205172)))), .y = @as(f64, @bitCast(@as(i64, 4605149493928222366))) }) }) }), cx_new(StillPolyS{ .color = 16368188, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599461447598853430)))), .y = @as(f64, @bitCast(@as(i64, 4606641986844732948))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600884585081102506)))), .y = @as(f64, @bitCast(@as(i64, 4605847551870464793))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601055721866942585)))), .y = @as(f64, @bitCast(@as(i64, 4605766487077172124))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601246674491143094)))), .y = @as(f64, @bitCast(@as(i64, 4605698933082761567))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601453840074002137)))), .y = @as(f64, @bitCast(@as(i64, 4605645790607158595))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601673615735817817)))), .y = @as(f64, @bitCast(@as(i64, 4605606158930437734))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601902398596888238)))), .y = @as(f64, @bitCast(@as(i64, 4605581839492449934))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602138387217362452)))), .y = @as(f64, @bitCast(@as(i64, 4605573733013120667))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602350957119774340)))), .y = @as(f64, @bitCast(@as(i64, 4605573733013120667))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602437426232619853)))), .y = @as(f64, @bitCast(@as(i64, 4605568328693567822))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602516689586061574)))), .y = @as(f64, @bitCast(@as(i64, 4605551215014983814))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602581541420695709)))), .y = @as(f64, @bitCast(@as(i64, 4605525994857070540))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602633783176373207)))), .y = @as(f64, @bitCast(@as(i64, 4605492668219827998))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602666209093690275)))), .y = @as(f64, @bitCast(@as(i64, 4605453036543107138))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))), .y = @as(f64, @bitCast(@as(i64, 4605409801986684381))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602621173097416570)))), .y = @as(f64, @bitCast(@as(i64, 4605197232084272493))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602459043510831232)))), .y = @as(f64, @bitCast(@as(i64, 4605006279460071984))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602208643371549432)))), .y = @as(f64, @bitCast(@as(i64, 4604844149873486646))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601884384198378757)))), .y = @as(f64, @bitCast(@as(i64, 4604718949803845747))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601500677510126790)))), .y = @as(f64, @bitCast(@as(i64, 4604637885010553078))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601077339145153964)))), .y = @as(f64, @bitCast(@as(i64, 4604609061972937907))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599461447598853430)))), .y = @as(f64, @bitCast(@as(i64, 4604609061972937907))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599461447598853430)))), .y = @as(f64, @bitCast(@as(i64, 4606641986844732948))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599461447598853430)))), .y = @as(f64, @bitCast(@as(i64, 4606641986844732948))) }) }) }), cx_new(StillPolyS{ .color = 2171169, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596218855867146673)))), .y = @as(f64, @bitCast(@as(i64, 4605407099826907958))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595876582295466515)))), .y = @as(f64, @bitCast(@as(i64, 4605417908466013648))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595570337520805321)))), .y = @as(f64, @bitCast(@as(i64, 4605450334383330715))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595310930182268781)))), .y = @as(f64, @bitCast(@as(i64, 4605500774699157265))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595109168918962582)))), .y = @as(f64, @bitCast(@as(i64, 4605565626533791400))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594979465249694312)))), .y = @as(f64, @bitCast(@as(i64, 4605643088447382172))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594932627813569659)))), .y = @as(f64, @bitCast(@as(i64, 4605728656840302212))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594979465249694312)))), .y = @as(f64, @bitCast(@as(i64, 4605814225233222251))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595109168918962582)))), .y = @as(f64, @bitCast(@as(i64, 4605890786426887550))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595310930182268781)))), .y = @as(f64, @bitCast(@as(i64, 4605955638261521685))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595570337520805321)))), .y = @as(f64, @bitCast(@as(i64, 4606006078577348234))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595876582295466515)))), .y = @as(f64, @bitCast(@as(i64, 4606038504494665302))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596218855867146673)))), .y = @as(f64, @bitCast(@as(i64, 4606050213853696465))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596561129438826830)))), .y = @as(f64, @bitCast(@as(i64, 4606038504494665302))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596867374213488024)))), .y = @as(f64, @bitCast(@as(i64, 4606006078577348234))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597130384431726461)))), .y = @as(f64, @bitCast(@as(i64, 4605955638261521685))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597332145695032659)))), .y = @as(f64, @bitCast(@as(i64, 4605890786426887550))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597461849364300929)))), .y = @as(f64, @bitCast(@as(i64, 4605814225233222251))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597505083920723686)))), .y = @as(f64, @bitCast(@as(i64, 4605728656840302212))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597461849364300929)))), .y = @as(f64, @bitCast(@as(i64, 4605643088447382172))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597332145695032659)))), .y = @as(f64, @bitCast(@as(i64, 4605565626533791400))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597130384431726461)))), .y = @as(f64, @bitCast(@as(i64, 4605500774699157265))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596867374213488024)))), .y = @as(f64, @bitCast(@as(i64, 4605450334383330715))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596561129438826830)))), .y = @as(f64, @bitCast(@as(i64, 4605417908466013648))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596218855867146673)))), .y = @as(f64, @bitCast(@as(i64, 4605407099826907958))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596218855867146673)))), .y = @as(f64, @bitCast(@as(i64, 4605407099826907958))) }) }) }), cx_new(StillPolyS{ .color = 13882323, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594687631993840704)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4593441035616984551)))), .y = @as(f64, @bitCast(@as(i64, 4603643490212829672))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599951439238311340)))), .y = @as(f64, @bitCast(@as(i64, 4603643490212829672))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600517091351509074)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598818333572064923)))), .y = @as(f64, @bitCast(@as(i64, 4602678819172646912))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595022699806117069)))), .y = @as(f64, @bitCast(@as(i64, 4602977858187904313))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599783905332173157)))), .y = @as(f64, @bitCast(@as(i64, 4598818333572064923))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598229262740804862)))), .y = @as(f64, @bitCast(@as(i64, 4576802937153626990))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597850960372105740)))), .y = @as(f64, @bitCast(@as(i64, 4574489888385009503))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597415011928176276)))), .y = @as(f64, @bitCast(@as(i64, 4571722876773953071))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596968254845141123)))), .y = @as(f64, @bitCast(@as(i64, 4567911030049346683))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596517894882404073)))), .y = @as(f64, @bitCast(@as(i64, 4562715677519212079))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596063932039965127)))), .y = @as(f64, @bitCast(@as(i64, 4554169646866313825))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595602763438122389)))), .y = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4592381788984627010))), .y = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4596024300363244267))), .y = @as(f64, @bitCast(@as(i64, 4579224072313301369))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598366172169476925))), .y = @as(f64, @bitCast(@as(i64, 4587885395116660307))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4599382184245411709))), .y = @as(f64, @bitCast(@as(i64, 4592951043977526641))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600129781783555211))), .y = @as(f64, @bitCast(@as(i64, 4596175621310723916))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600590950385397950))), .y = @as(f64, @bitCast(@as(i64, 4598866972448040524))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600749477092281392))), .y = @as(f64, @bitCast(@as(i64, 4600749477092281392))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598805723493108285))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594687631993840704)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594687631993840704)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }) }) }), cx_new(StillPolyS{ .color = 10197915, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598805723493108285))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4599216451779124475))), .y = @as(f64, @bitCast(@as(i64, 4603013886984923277))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4599618172865885923))), .y = @as(f64, @bitCast(@as(i64, 4603054419381569611))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600005482433839786))), .y = @as(f64, @bitCast(@as(i64, 4603119271216203747))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600371174723582270))), .y = @as(f64, @bitCast(@as(i64, 4603209343208751156))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600713448295262428))), .y = @as(f64, @bitCast(@as(i64, 4603323734639286367))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4601025097389476466))), .y = @as(f64, @bitCast(@as(i64, 4603460644067958430))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4601360165201752831))), .y = @as(f64, @bitCast(@as(i64, 4603569631178940796))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4601725857491495315))), .y = @as(f64, @bitCast(@as(i64, 4603601156376332390))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602080741142132110))), .y = @as(f64, @bitCast(@as(i64, 4603563326139462477))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602385184476942356))), .y = @as(f64, @bitCast(@as(i64, 4603464246947660327))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602599555819205191))), .y = @as(f64, @bitCast(@as(i64, 4603312926000180678))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4603116569056427324))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4600749477092281392))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4600726058374219065))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4600702639656156738))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4600679220938094412))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602678819172646912))), .y = @as(f64, @bitCast(@as(i64, 4600657603659883033))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602677017732795964))), .y = @as(f64, @bitCast(@as(i64, 4600634184941820707))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602677017732795964))), .y = @as(f64, @bitCast(@as(i64, 4600610766223758380))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4602395993116048045))), .y = @as(f64, @bitCast(@as(i64, 4598760687496834580))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4601670012856115921))), .y = @as(f64, @bitCast(@as(i64, 4596027903242946164))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4600562127347782779))), .y = @as(f64, @bitCast(@as(i64, 4592770899992431821))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4599138989865533702))), .y = @as(f64, @bitCast(@as(i64, 4587712456890969280))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4596752082063027339))), .y = @as(f64, @bitCast(@as(i64, 4579051134087610342))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4592381788984627010))), .y = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 0))), .y = @as(f64, @bitCast(@as(i64, 0))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4587568341702893424))), .y = @as(f64, @bitCast(@as(i64, 4569755704456717638))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4591927826142188064))), .y = @as(f64, @bitCast(@as(i64, 4578647611560997945))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4594489473610236402))), .y = @as(f64, @bitCast(@as(i64, 4583929433203978063))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4596078343558772713))), .y = @as(f64, @bitCast(@as(i64, 4587337757401972054))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4597548318477146443))), .y = @as(f64, @bitCast(@as(i64, 4590148003569451244))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598531904635764159))), .y = @as(f64, @bitCast(@as(i64, 4592381788984627010))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4581825351458070567))), .y = @as(f64, @bitCast(@as(i64, 4592381788984627010))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4587366580439587226)))), .y = @as(f64, @bitCast(@as(i64, 4592972661255738019))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4592806928789450785)))), .y = @as(f64, @bitCast(@as(i64, 4594172420196469519))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595130786197173961)))), .y = @as(f64, @bitCast(@as(i64, 4595527102964382564))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596571938077932519)))), .y = @as(f64, @bitCast(@as(i64, 4597328542815330763))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597490672401916101)))), .y = @as(f64, @bitCast(@as(i64, 4598852560929232939))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597814931575086776)))), .y = @as(f64, @bitCast(@as(i64, 4600126178903853315))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597577141514761614)))), .y = @as(f64, @bitCast(@as(i64, 4599938829159354702))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596845756935276646)))), .y = @as(f64, @bitCast(@as(i64, 4599474057677810067))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4595588351919314803)))), .y = @as(f64, @bitCast(@as(i64, 4598868773887891472))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4593783309188664708)))), .y = @as(f64, @bitCast(@as(i64, 4598263490097972878))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4589067139658882325)))), .y = @as(f64, @bitCast(@as(i64, 4597422217687580069))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4581825351458070567))), .y = @as(f64, @bitCast(@as(i64, 4597051121078284740))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4594730866550263461))), .y = @as(f64, @bitCast(@as(i64, 4597894194928528497))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4597634787589991956))), .y = @as(f64, @bitCast(@as(i64, 4599092152429409049))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598639991026821051))), .y = @as(f64, @bitCast(@as(i64, 4600466651035682524))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598883185406699058))), .y = @as(f64, @bitCast(@as(i64, 4601841149641956000))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598863369568338628))), .y = @as(f64, @bitCast(@as(i64, 4602788707003554752))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598805723493108285))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = @as(f64, @bitCast(@as(i64, 4598805723493108285))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }) }) }), cx_new(StillPolyS{ .color = 10840403, .pts = cx_ll_of(StillPt, &[_]StillPt{ cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600517091351509074)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600877379321698714)))), .y = @as(f64, @bitCast(@as(i64, 4602538306864272953))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601228660092633612)))), .y = @as(f64, @bitCast(@as(i64, 4601788907886278502))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601543912066549547)))), .y = @as(f64, @bitCast(@as(i64, 4601057523306793533))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601799716525384191)))), .y = @as(f64, @bitCast(@as(i64, 4600331543046861409))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601972654751075218)))), .y = @as(f64, @bitCast(@as(i64, 4599589349828270752))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602035705145858405)))), .y = @as(f64, @bitCast(@as(i64, 4598818333572064923))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601904200036739187)))), .y = @as(f64, @bitCast(@as(i64, 4597137590191130254))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4601527699107891013)))), .y = @as(f64, @bitCast(@as(i64, 4594997479648203794))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600936826836780004)))), .y = @as(f64, @bitCast(@as(i64, 4592540315691510451))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600162207700872279)))), .y = @as(f64, @bitCast(@as(i64, 4589362575794437829))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4599232664737783008)))), .y = @as(f64, @bitCast(@as(i64, 4584650009144357342))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598175219545276416)))), .y = @as(f64, @bitCast(@as(i64, 4576284122476553909))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598175219545276416)))), .y = @as(f64, @bitCast(@as(i64, 4598560727673379330))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598139190748257452)))), .y = @as(f64, @bitCast(@as(i64, 4599014690515818276))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4598031104357200560)))), .y = @as(f64, @bitCast(@as(i64, 4599463249038704378))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597850960372105740)))), .y = @as(f64, @bitCast(@as(i64, 4599906403242037635))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597602361672674889)))), .y = @as(f64, @bitCast(@as(i64, 4600340550246116150))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4597285308258908006)))), .y = @as(f64, @bitCast(@as(i64, 4600763888611088977))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4596899800130805092)))), .y = @as(f64, @bitCast(@as(i64, 4601172815457254218))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4594687631993840704)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600517091351509074)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }), cx_new(StillPtS{ .x = (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4600517091351509074)))), .y = @as(f64, @bitCast(@as(i64, 4603000376186041165))) }) }) }) });
@@ -2045,6 +2028,58 @@ fn cat_polys(b_: ScreenPt, h_: f64, lift: f64, ps: *CxList(StillPoly), i_: i64) 
 
 fn cat_draw(right: f64, forward: f64, height: f64, pose_idx: i64, lift: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
     return b0: { const base_ = project(cx_new(Vec3S{ .right = right, .forward = forward, .height = @as(f64, @bitCast(@as(i64, 0))) }), cf, view_w); break :b0 b1: { const top_ = project(cx_new(Vec3S{ .right = right, .forward = forward, .height = height }), cf, view_w); break :b1 b2: { const h_: f64 = (base_.y - top_.y); break :b2 (if ((h_ < @as(f64, @bitCast(@as(i64, 4607182418800017408))))) cx_ll_empty(DrawCmd) else cat_polys(base_, h_, lift, (if ((pose_idx == 0)) pose_rest_polys() else (if ((pose_idx == 1)) pose_stride_polys() else (if ((pose_idx == 2)) pose_frozen_polys() else (if ((pose_idx == 3)) pose_coil_polys() else (if ((pose_idx == 4)) pose_flight_polys() else (if ((pose_idx == 5)) pose_land_polys() else (if ((pose_idx == 6)) pose_collapse_polys() else cx_ll_empty(StillPoly)))))))), 0)); }; }; };
+}
+
+fn water_outline() *CxList(PondPt) {
+    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4611686018427387904)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628574517030027264)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4629418941960159232)))), .cv = @as(f64, @bitCast(@as(i64, 4624070917402656768))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4607182418800017408)))), .cv = @as(f64, @bitCast(@as(i64, 4625196817309499392))) }) });
+}
+
+fn water_color() i64 {
+    return 3112588;
+}
+
+fn bank() *CxList(PondPt) {
+    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629841154425225216))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4629137466983448576))) }) });
+}
+
+fn bank_color() i64 {
+    return 12759680;
+}
+
+fn duck_codepoint() i64 {
+    return 129414;
+}
+
+fn duck_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4606281698874543309)));
+}
+
+fn ducks() *CxList(Duck) {
+    return cx_ll_of(Duck, &[_]Duck{ cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4620693217682128896)))), .cv = @as(f64, @bitCast(@as(i64, 4622382067542392832))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4625196817309499392)))), .cv = @as(f64, @bitCast(@as(i64, 4625478292286210048))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4621256167635550208)))), .cv = @as(f64, @bitCast(@as(i64, 4626604192193052672))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4616189618054758400)))), .cv = @as(f64, @bitCast(@as(i64, 4618441417868443648))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4622945017495814144)))), .cv = @as(f64, @bitCast(@as(i64, 4619567317775286272))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4626322717216342016)))), .cv = @as(f64, @bitCast(@as(i64, 4620693217682128896))) }), .face_right = true }) });
+}
+
+fn no_species() Species {
+    return cx_new(SpeciesS{ .present = false, .cp_ = 0, .adult_h = @as(f64, @bitCast(@as(i64, 0))) });
+}
+
+fn adult_rail_buffer() f64 {
+    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
+}
+
+fn baby_ratio() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn baby_beyond() f64 {
+    return @as(f64, @bitCast(@as(i64, 4624070917402656768)));
+}
+
+fn species_of(c_: Creature) Species {
+    return switch (c_) { .Elephant => cx_new(SpeciesS{ .present = true, .cp_ = 128024, .adult_h = @as(f64, @bitCast(@as(i64, 4613487458278336102))) }), .Giraffe => cx_new(SpeciesS{ .present = true, .cp_ = 129426, .adult_h = @as(f64, @bitCast(@as(i64, 4616752568008179712))) }), .Zebra => cx_new(SpeciesS{ .present = true, .cp_ = 129427, .adult_h = @as(f64, @bitCast(@as(i64, 4609884578576439706))) }), .Rhino => cx_new(SpeciesS{ .present = true, .cp_ = 129423, .adult_h = @as(f64, @bitCast(@as(i64, 4612136378390124954))) }), .DuckPond => no_species(), .NoCreature => no_species(),  };
+}
+
+fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(Critter) {
+    return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
 }
 
 fn look_ahead() i64 {
@@ -2733,6 +2768,77 @@ fn truck_draw_body(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64
     return b0: { const bx = truck_box(center_along, hw); break :b0 b1: { const beams = (if (headlights) truck_wedges(segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b1 b2: { const body = draw_faces(sort_faces(truck_faces(segs, ch, pose, d_, bx)), cf, view_w, 0); break :b2 b3: { const lights = (if (braking) brake_lights(segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b3 cx_ll_concat(cx_ll_concat(beams, body), lights); }; }; }; };
 }
 
+fn cat_attention(w: *CxList(Segment), s_: RiderState) f64 {
+    return b0: { const seg = cx_list_at(w, s_.segment); break :b0 @as(f64, (if (seg.has_cat) cat_focus((seg.cat.along - s_.along), s_.v_) else @as(f64, @bitCast(@as(i64, 0))))); };
+}
+
+fn ride_focal(w: *CxList(Segment), s_: RiderState) f64 {
+    return b0: { const lean_frac: f64 = real_min((real_abs(s_.tilt) / max_lean()), @as(f64, @bitCast(@as(i64, 4607182418800017408)))); break :b0 b1: { const attention: f64 = real_max(cat_attention(w, s_), gaze_focus(s_.focus)); break :b1 cam_focal(lean_frac, attention); }; };
+}
+
+fn head_yaw_frac() f64 {
+    return @as(f64, @bitCast(@as(i64, 4594572339843380019)));
+}
+
+fn view_yaw_for(s_: RiderState) f64 {
+    return (s_.gaze_yaw + (head_yaw_frac() * s_.tilt));
+}
+
+fn heading_for(s_: RiderState) f64 {
+    return (s_.heading + view_yaw_for(s_));
+}
+
+fn closer_count(ts: *CxList(TreeItem), f: f64, i_: i64) i64 {
+    var _tl_i = i_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(ts))) { return 0; } else { if ((cx_list_at(ts, _tl_i).fwd < f)) { return (1 +% closer_count(ts, f, (_tl_i +% 1))); } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+    }
+}
+
+fn crown_shade_of(fwd: f64) f64 {
+    return b0: { const raw_: f64 = (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (fwd / crown_shade_dist())); break :b0 @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else @as(f64, (if ((raw_ > @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)))); };
+}
+
+fn draw_one_tree(ts: *CxList(TreeItem), i_: i64, cf: f64) *CxList(DrawCmd) {
+    return b0: { const t = cx_list_at(ts, i_); break :b0 tree_draw(t.right, t.fwd, t.height, t.color, cf, camera_w(), (closer_count(ts, t.fwd, 0) < 4), (t.fwd < detail_dist()), crown_shade_of(t.fwd)); };
+}
+
+fn tower_base(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tw: TowerItem, k_: i64) *CxList(RiderPt) {
+    return (if ((k_ >= 4)) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(w, ch, pose, tw.map, base_corner_ax(k_, tw.a0, tw.x0, tw.yaw).a_, base_corner_ax(k_, tw.a0, tw.x0, tw.yaw).x) }), tower_base(w, ch, pose, tw, (k_ +% 1))));
+}
+
+fn draw_one_tower(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tw: TowerItem, cf: f64, step: f64) *CxList(DrawCmd) {
+    return draw_flat(tower_base(w, ch, pose, tw, 0), map_pt(w, ch, pose, tw.map, tw.a0, tw.x0), cf, camera_w(), (step + tw.off_));
+}
+
+fn draw_one_critter(b_: Billboard, cf: f64) *CxList(DrawCmd) {
+    return critter_draw(b_.right, b_.fwd, b_.height, b_.cp_, b_.face_right, cf, camera_w());
+}
+
+fn draw_one_cat(k_: CatItem, cf: f64) *CxList(DrawCmd) {
+    return cat_draw(k_.right, k_.fwd, k_.height, k_.pose_idx, k_.lift, cf, camera_w());
+}
+
+fn draw_one_truck(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tk: TruckAt, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
+    return truck_draw_body(w, ch, pose, tk.d_, tk.along, (cx_list_at(w, cx_list_at(ch, tk.d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), braking, ((sun_height_px(step) + sun_radius_px()) < horizon_crest_px(sun_bearing())), cf, camera_w());
+}
+
+fn draw_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, it: Item, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
+    return switch (it.kind) { .KTree => draw_one_tree(c_.trees, it.i_, cf), .KTower => draw_one_tower(w, ch, pose, cx_list_at(c_.towers, it.i_), cf, step), .KRail => rail_draw_poly(cx_list_at(c_.rails, it.i_), cf, camera_w()), .KCow => draw_one_critter(cx_list_at(c_.cows, it.i_), cf), .KCat => draw_one_cat(cx_list_at(c_.cats, it.i_), cf), .KTruck => draw_one_truck(w, ch, pose, c_.truck, braking, cf, step),  };
+}
+
+fn draw_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, braking: bool, cf: f64, step: f64, i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(c_.order))) cx_ll_empty(DrawCmd) else cx_ll_concat(draw_item(w, ch, pose, c_, cx_list_at(c_.order, i_), braking, cf, step), draw_order(w, ch, pose, c_, braking, cf, step, (i_ +% 1))));
+}
+
+fn ride_initial() Ride {
+    return cx_new(RideS{ .rider = initial_rider_state(), .truck = truck_initial(), .clock = @as(f64, @bitCast(@as(i64, 0))) });
+}
+
+fn ride_frame(w: *CxList(Segment), r_: Ride) *CxList(DrawCmd) {
+    return b0: { const s_ = r_.rider; break :b0 b1: { const cf: f64 = ride_focal(w, s_); break :b1 b2: { const vy: f64 = view_yaw_for(s_); break :b2 b3: { const pose = cx_new(PoseS{ .along = s_.along, .across = s_.across, .yaw = (s_.yaw + vy), .hw = (cx_list_at(w, s_.segment).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }); break :b3 b4: { const ch = build_chain(w, s_.segment); break :b4 cx_ll_concat(cx_ll_concat(draw((s_.heading + vy), sun_set_fraction(r_.clock), cf, camera_w()), frame_ground(w, s_.segment, pose, cf, camera_w())), draw_order(w, ch, pose, collect(w, s_.segment, pose, cf, s_.along, s_.v_, r_.truck.pos), r_.truck.braking, cf, r_.clock, 0)); }; }; }; }; };
+}
+
 fn route_frames() f64 {
     return @as(f64, @bitCast(@as(i64, 4663758889118859264)));
 }
@@ -2789,49 +2895,6 @@ fn pose_in(w: *CxList(Segment), u_: f64) Pose {
     return b0: { const p_ = drive_pos_at(w, u_); break :b0 cx_new(PoseS{ .along = p_.along, .across = @as(f64, @bitCast(@as(i64, 0))), .yaw = @as(f64, @bitCast(@as(i64, 0))), .hw = (cx_list_at(w, p_.seg).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }); };
 }
 
-fn closer_count(ts: *CxList(TreeItem), f: f64, i_: i64) i64 {
-    var _tl_i = i_;
-    while (true) {
-        if ((_tl_i >= cx_list_len(ts))) { return 0; } else { if ((cx_list_at(ts, _tl_i).fwd < f)) { return (1 +% closer_count(ts, f, (_tl_i +% 1))); } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
-    }
-}
-
-fn crown_shade_of(fwd: f64) f64 {
-    return b0: { const raw_: f64 = (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (fwd / crown_shade_dist())); break :b0 @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 0))) else @as(f64, (if ((raw_ > @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)))); };
-}
-
-fn draw_one_tree(ts: *CxList(TreeItem), i_: i64, cf: f64) *CxList(DrawCmd) {
-    return b0: { const t = cx_list_at(ts, i_); break :b0 tree_draw(t.right, t.fwd, t.height, t.color, cf, camera_w(), (closer_count(ts, t.fwd, 0) < 4), (t.fwd < detail_dist()), crown_shade_of(t.fwd)); };
-}
-
-fn tower_base(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tw: TowerItem, k_: i64) *CxList(RiderPt) {
-    return (if ((k_ >= 4)) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(w, ch, pose, tw.map, base_corner_ax(k_, tw.a0, tw.x0, tw.yaw).a_, base_corner_ax(k_, tw.a0, tw.x0, tw.yaw).x) }), tower_base(w, ch, pose, tw, (k_ +% 1))));
-}
-
-fn draw_one_tower(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tw: TowerItem, cf: f64, step: f64) *CxList(DrawCmd) {
-    return draw_flat(tower_base(w, ch, pose, tw, 0), map_pt(w, ch, pose, tw.map, tw.a0, tw.x0), cf, camera_w(), (step + tw.off_));
-}
-
-fn draw_one_critter(b_: Billboard, cf: f64) *CxList(DrawCmd) {
-    return critter_draw(b_.right, b_.fwd, b_.height, b_.cp_, b_.face_right, cf, camera_w());
-}
-
-fn draw_one_cat(k_: CatItem, cf: f64) *CxList(DrawCmd) {
-    return cat_draw(k_.right, k_.fwd, k_.height, k_.pose_idx, k_.lift, cf, camera_w());
-}
-
-fn draw_one_truck(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, tk: TruckAt, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
-    return truck_draw_body(w, ch, pose, tk.d_, tk.along, (cx_list_at(w, cx_list_at(ch, tk.d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), braking, ((sun_height_px(step) + sun_radius_px()) < horizon_crest_px(sun_bearing())), cf, camera_w());
-}
-
-fn draw_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, it: Item, braking: bool, cf: f64, step: f64) *CxList(DrawCmd) {
-    return switch (it.kind) { .KTree => draw_one_tree(c_.trees, it.i_, cf), .KTower => draw_one_tower(w, ch, pose, cx_list_at(c_.towers, it.i_), cf, step), .KRail => rail_draw_poly(cx_list_at(c_.rails, it.i_), cf, camera_w()), .KCow => draw_one_critter(cx_list_at(c_.cows, it.i_), cf), .KCat => draw_one_cat(cx_list_at(c_.cats, it.i_), cf), .KTruck => draw_one_truck(w, ch, pose, c_.truck, braking, cf, step),  };
-}
-
-fn draw_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected, braking: bool, cf: f64, step: f64, i_: i64) *CxList(DrawCmd) {
-    return (if ((i_ >= cx_list_len(c_.order))) cx_ll_empty(DrawCmd) else cx_ll_concat(draw_item(w, ch, pose, c_, cx_list_at(c_.order, i_), braking, cf, step), draw_order(w, ch, pose, c_, braking, cf, step, (i_ +% 1))));
-}
-
 fn frame_at(u_: f64) *CxList(DrawCmd) {
     return frame_in(build_world(), u_);
 }
@@ -2844,28 +2907,12 @@ fn frame() *CxList(DrawCmd) {
     return frame_at(@as(f64, @bitCast(@as(i64, 0))));
 }
 
-fn head_yaw_frac() f64 {
-    return @as(f64, @bitCast(@as(i64, 4594572339843380019)));
-}
-
-fn view_yaw_for(s_: RiderState) f64 {
-    return (s_.gaze_yaw + (head_yaw_frac() * s_.tilt));
-}
-
-fn heading_for(s_: RiderState) f64 {
-    return (s_.heading + view_yaw_for(s_));
-}
-
-fn frame_for(w: *CxList(Segment), s_: RiderState, tk: TruckState, step: f64) *CxList(DrawCmd) {
-    return b0: { const pose = cx_new(PoseS{ .along = s_.along, .across = s_.across, .yaw = (s_.yaw + view_yaw_for(s_)), .hw = (cx_list_at(w, s_.segment).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) }); break :b0 b1: { const ch = build_chain(w, s_.segment); break :b1 cx_ll_concat(cx_ll_concat(draw(heading_for(s_), sun_set_fraction(step), focal(), camera_w()), frame_ground(w, s_.segment, pose, focal(), camera_w())), draw_order(w, ch, pose, collect(w, s_.segment, pose, focal(), s_.along, s_.v_, tk.pos), tk.braking, focal(), step, 0)); }; };
-}
-
 fn report(u_: f64) []const u8 {
     return b0: { const sun = (if (scene_sun_at(u_).visible) "\x13\x19\x12\x02\x10\x12\x02" else "\x13\x19\x12\x02\x10\x1c\x1c"); break :b0 cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x13\x0d\x1d\x02", cx_show_int(drive_pos_at(build_world(), u_).seg)), "\x02\x13\x22\x1e\x02"), cx_show_int(sky_color(scene_step_at(u_)))), "\x02\x14\x10\x15\x11\x26\x10\x12\x02"), cx_show_int(horizon_color(scene_step_at(u_)))), "\x02"), sun), "\x02\x24\x02"), cx_show_int(cx_real_to_int(scene_sun_at(u_).x))), "\x02\x18\x1a\x16\x13\x02"), cx_show_int(cx_list_len(frame_at(u_)))); };
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x11\x16\x0d\x15\x02", cx_show_int(cx_list_len(frame_for(build_world(), initial_rider_state(), truck_initial(), @as(f64, @bitCast(@as(i64, 0))))))), "\x02\x18\x1a\x16\x13\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x13\x0e\x0f\x15\x0e\x02\x17\x11\x12\x0d\x42\x02\x0e\x11\x17\x0e\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((initial_rider_state().tilt * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x13\x19\x12\x49\x24\x02\x0f\x0e\x02\x13\x0e\x0d\x1f\x02\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 0))), focal(), camera_w()).x))), "\x02\x0f\x12\x16\x02\x0f\x0e\x02\x07\x03\x03\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 4661014508095930368))), focal(), camera_w()).x))), "\x02\x1c\x11\x12\x11\x13\x14\x0d\x16\x02"), (if (is_finished(initial_rider_state(), build_world())) "\x1e\x0d\x13" else "\x12\x10")), "\x02\x12\x0d\x24\x0e\x49\x21\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((get_next_rider_state(initial_rider_state(), build_world()).v_ * @as(f64, @bitCast(@as(i64, 4652007308841189376)))))))); _ = cx_print_line(cx_concat(cx_concat("\x1a\x51\x1c\x15\x0f\x1a\x0d\x02", cx_show_int(cx_real_to_int((u_per_step() * @as(f64, @bitCast(@as(i64, 4681608360884174848))))))), "\x02\x0d\x49\x08\x02\x10\x1c\x02\x0e\x14\x0d\x02\x18\x10\x19\x15\x13\x0d")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x0e\x15\x19\x18\x22\x02", cx_show_int(cx_real_to_int(truck_initial().pos))), "\x02\x1a\x02\x0f\x14\x0d\x0f\x16\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x17\x11\x12\x0d\x42\x02\x0f\x12\x16\x02\x0f\x1c\x0e\x0d\x15\x02\x10\x12\x0d\x02\x1c\x15\x0f\x1a\x0d\x02"), cx_show_int(cx_real_to_int(truck_next(truck_initial(), route_distance(build_world(), initial_rider_state().segment, initial_rider_state().along), build_world(), course_length(build_world())).pos))), "\x02\x1a\x42\x02\x10\x21\x0d\x15\x02\x0f\x02\x18\x10\x19\x15\x13\x0d\x02\x10\x1c\x02"), cx_show_int(cx_real_to_int(course_length(build_world())))), "\x02\x1a")); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
+    return b0: { _ = cx_print_line(cx_concat("\x18\x1a\x16\x13\x02\x02", cx_show_int(cx_list_len(frame())))); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x15\x11\x16\x0d\x15\x02", cx_show_int(cx_list_len(ride_frame(build_world(), ride_initial())))), "\x02\x18\x1a\x16\x13\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x13\x0e\x0f\x15\x0e\x02\x17\x11\x12\x0d\x42\x02\x0e\x11\x17\x0e\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((initial_rider_state().tilt * @as(f64, @bitCast(@as(i64, 4652007308841189376))))))), "\x02\x13\x19\x12\x49\x24\x02\x0f\x0e\x02\x13\x0e\x0d\x1f\x02\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 0))), focal(), camera_w()).x))), "\x02\x0f\x12\x16\x02\x0f\x0e\x02\x07\x03\x03\x03\x02"), cx_show_int(cx_real_to_int(sun_pos(heading_for(initial_rider_state()), @as(f64, @bitCast(@as(i64, 4661014508095930368))), focal(), camera_w()).x))), "\x02\x1c\x11\x12\x11\x13\x14\x0d\x16\x02"), (if (is_finished(initial_rider_state(), build_world())) "\x1e\x0d\x13" else "\x12\x10")), "\x02\x12\x0d\x24\x0e\x49\x21\x02\x0d\x49\x06\x02"), cx_show_int(cx_real_to_int((get_next_rider_state(initial_rider_state(), build_world()).v_ * @as(f64, @bitCast(@as(i64, 4652007308841189376)))))))); _ = cx_print_line(cx_concat(cx_concat("\x1a\x51\x1c\x15\x0f\x1a\x0d\x02", cx_show_int(cx_real_to_int((u_per_step() * @as(f64, @bitCast(@as(i64, 4681608360884174848))))))), "\x02\x0d\x49\x08\x02\x10\x1c\x02\x0e\x14\x0d\x02\x18\x10\x19\x15\x13\x0d")); _ = cx_print_line(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x0e\x15\x19\x18\x22\x02", cx_show_int(cx_real_to_int(truck_initial().pos))), "\x02\x1a\x02\x0f\x14\x0d\x0f\x16\x02\x0f\x0e\x02\x0e\x14\x0d\x02\x17\x11\x12\x0d\x42\x02\x0f\x12\x16\x02\x0f\x1c\x0e\x0d\x15\x02\x10\x12\x0d\x02\x1c\x15\x0f\x1a\x0d\x02"), cx_show_int(cx_real_to_int(truck_next(truck_initial(), route_distance(build_world(), initial_rider_state().segment, initial_rider_state().along), build_world(), course_length(build_world())).pos))), "\x02\x1a\x42\x02\x10\x21\x0d\x15\x02\x0f\x02\x18\x10\x19\x15\x13\x0d\x02\x10\x1c\x02"), cx_show_int(cx_real_to_int(course_length(build_world())))), "\x02\x1a")); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 0)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x05\x08\x02", report(@as(f64, @bitCast(@as(i64, 4598175219545276416)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x08\x03\x02", report(@as(f64, @bitCast(@as(i64, 4602678819172646912)))))); _ = cx_print_line(cx_concat("\x19\x4d\x03\x41\x0a\x08\x02", report(@as(f64, @bitCast(@as(i64, 4604930618986332160)))))); _ = cx_print_line(cx_concat("\x19\x4d\x04\x41\x03\x03\x02", report(@as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b0; };
 }
 
 fn cx_entry() void {

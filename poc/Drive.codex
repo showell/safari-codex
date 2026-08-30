@@ -17,9 +17,16 @@ Chapter: Drive
   cites Safari chapter Rider
   cites Safari chapter Render
   cites Safari chapter Truck
-  cites Safari chapter TruckBody
+  cites Safari chapter Safari
 
- A browser frame of the REAL route, driven by the ported render.
+ A browser frame of the REAL route, SCRUBBED -- every value on the page a function
+ of one number `u` running 0..1.
+
+ THIS CHAPTER USED TO BE THE DRIVEN PAGE AS WELL, and it is not any more. The
+ driven half -- the state fold, the live camera, the frame's own sequence and the
+ dispatch over the depth sort -- is `Safari chapter Safari`, a port of the game's
+ own safari.zig, and this is a poc again: a still at a chosen point on the route,
+ which is what it was written to be. What is left here is the scrub itself.
 
  This replaces poc/Scene, which placed its own scenery by hand because almost
  nothing was ported when it was written. Nothing here is placed by hand. The road,
@@ -30,7 +37,7 @@ Chapter: Drive
  IT IS STILL A POC, AND HERE IS EXACTLY WHAT IS NOT REAL ABOUT IT.
 
  THE ANIMALS ARE HERE NOW. Their art is `Safari chapter EmojiStills`, generated
- from the game's own baked table by harness/bake_emoji_stills.py rather than
+ from the game's own baked table by harness/bake_stills.py rather than
  hand-carried, and `Safari chapter Critter` places it. One still per species, 129
  polygons in all -- nothing per-frame is baked; the animals are static billboards
  that scale with distance, and every bit of motion in this scene is computed.
@@ -43,19 +50,13 @@ Chapter: Drive
  hundred, with `Safari chapter Cat` picking one per crossing step and computing the
  lateral travel and the hop continuously.
 
- AND THE TRUCK IS HERE, which is the last drawing code in the game to arrive. It
- took three separate wirings and none of them alone changed anything visible: the
- route position handed to `collect` was a hardcoded zero, so its lead was always
- negative and it was never collected; the shim kept no truck state, so nothing
- called `truck-next` to move it; and the `KTruck` arm below drew nothing. All
- three are done, and `Safari chapter TruckBody` is what the arm calls.
+ AND THE TRUCK IS HERE, drawn by `Safari chapter TruckBody`.
 
- The rider is not simulated. `Safari chapter Rider` is ported and graded, but it is
- a step function over a mutable state and the shim's scrub is PURE -- frame-at (u)
- has to answer from u alone. So u walks the route by arc length at a constant
- speed, dead centre of the lane, looking straight down it. No lean, no gaze, no
- throttle. Driving the real rider means giving the shim state to carry, and that is
- a different change.
+ THE RIDER IS NOT SIMULATED ON THIS PAGE, and that is what makes it a scrub rather
+ than a drive. `frame-at u` has to answer from u alone, so u walks the route by arc
+ length at a constant speed, dead centre of the lane, looking straight down it: no
+ lean, no gaze, no throttle, and a truck riding its schedule rather than its three
+ rules. The driven page has all of those and is `Safari chapter Safari`.
 
  The backdrop heading is BLENDED ACROSS EACH CORNER rather than taken from the
  rider. A segment's north-heading is a step function -- it jumps by the whole turn
@@ -171,82 +172,6 @@ Section: The Pose
     let p = drive-pos-at w u
     in Pose { along = p.along, across = 0.0, yaw = 0.0, hw = (list-at w p.seg).width / 2.0 }
 
-Section: Drawing What Is Sorted
-
- The depth order Render produced, painted far to near. ALL SIX KINDS DRAW NOW --
- trees, towers, rails, the animals, the cat and the truck -- so the sort is doing
- the job it was built for rather than ordering holes.
-
-  tree-fwd-of : List TreeItem, Integer -> Real
-  tree-fwd-of (ts) (i) = (list-at ts i).fwd
-
- How many trees stand strictly nearer than this one. Only the closest four get a
- round shaded trunk, and since a roadside pair shares one depth, "fewer than four
- strictly closer" is the nearest two pairs.
-
-  closer-count : List TreeItem, Real, Integer -> Integer
-  closer-count (ts) (f) (i) =
-    if i >= list-length ts then 0
-    else if (list-at ts i).fwd < f then 1 + closer-count ts f (i + 1)
-    else closer-count ts f (i + 1)
-
-  crown-shade-of : Real -> Real
-  crown-shade-of (fwd) =
-    let raw = 1.0 - fwd / crown-shade-dist
-    in if raw < 0.0 then 0.0 else (if raw > 1.0 then 1.0 else raw)
-
-  draw-one-tree : List TreeItem, Integer, Real -> List DrawCmd
-  draw-one-tree (ts) (i) (cf) =
-    let t = list-at ts i
-    in tree-draw t.right t.fwd t.height t.color cf camera-w (closer-count ts t.fwd 0 < 4) (t.fwd < detail-dist) (crown-shade-of t.fwd)
-
- A tower's four base corners are re-derived from its yaw at draw time and mapped
- through the frame that owns it, which is why the collector kept the recipe rather
- than the points.
-
-  tower-base : List Segment, List Integer, Pose, TowerItem, Integer -> List RiderPt
-  tower-base (w) (ch) (pose) (tw) (k) =
-    if k >= 4 then []
-    else [map-pt w ch pose tw.map (base-corner-ax k tw.a0 tw.x0 tw.yaw).a (base-corner-ax k tw.a0 tw.x0 tw.yaw).x]
-         & tower-base w ch pose tw (k + 1)
-
-  draw-one-tower : List Segment, List Integer, Pose, TowerItem, Real, Real -> List DrawCmd
-  draw-one-tower (w) (ch) (pose) (tw) (cf) (step) =
-    draw-flat (tower-base w ch pose tw 0) (map-pt w ch pose tw.map tw.a0 tw.x0) cf camera-w (step + tw.off)
-
-  draw-one-critter : Billboard, Real -> List DrawCmd
-  draw-one-critter (b) (cf) = critter-draw b.right b.fwd b.height b.cp b.face-right cf camera-w
-
-  draw-one-cat : CatItem, Real -> List DrawCmd
-  draw-one-cat (k) (cf) = cat-draw k.right k.fwd k.height k.pose-idx k.lift cf camera-w
-
- THE TRUCK TAKES TWO THINGS THE COLLECTOR DOES NOT CARRY, and both come from
- outside the depth sort: whether it is braking, which is a field on the state the
- shim steps, and whether its headlights are on, which is the sunset clock -- the
- same `sun-behind-mountains` the backdrop uses, so the beams come on at the moment
- the sun leaves the crest rather than at a time of their own. Its half width is
- the width of the segment its CENTRE landed on, chain index `tk.d`, not the
- rider's own.
-
-  draw-one-truck : List Segment, List Integer, Pose, TruckAt, Boolean, Real, Real -> List DrawCmd
-  draw-one-truck (w) (ch) (pose) (tk) (braking) (cf) (step) =
-    truck-draw-body w ch pose tk.d tk.along ((list-at w (list-at ch tk.d)).width / 2.0) braking (sun-behind-mountains step) cf camera-w
-
-  draw-item : List Segment, List Integer, Pose, Collected, Item, Boolean, Real, Real -> List DrawCmd
-  draw-item (w) (ch) (pose) (c) (it) (braking) (cf) (step) =
-   when it.kind
-    is KTree -> draw-one-tree c.trees it.i cf
-    is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
-    is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
-    is KCow -> draw-one-critter (list-at c.cows it.i) cf
-    is KCat -> draw-one-cat (list-at c.cats it.i) cf
-    is KTruck -> draw-one-truck w ch pose c.truck braking cf step
-
-  draw-order : List Segment, List Integer, Pose, Collected, Boolean, Real, Real, Integer -> List DrawCmd
-  draw-order (w) (ch) (pose) (c) (braking) (cf) (step) (i) =
-    if i >= list-length c.order then []
-    else (draw-item w ch pose c (list-at c.order i) braking cf step) & draw-order w ch pose c braking cf step (i + 1)
-
 Section: The Frame
 
  Backdrop, then the floor, then everything that stands up in depth order. That is
@@ -275,69 +200,3 @@ Section: The Frame
 
   frame : List DrawCmd
   frame = frame-at 0.0
-
-Section: Driving The Real Rider
-
- THE MOTION IS NO LONGER INVENTED. Everything above this section answers from a
- scrub `u` at a constant speed, which was a stand-in for the physics while the
- shim had nowhere to keep state. `Safari chapter Rider` is ported and graded at
- 199 values one step from a shared state, so the page can simply run it -- and
- measuring what it actually does is what made clear that the stand-in was wrong.
- Over the first 4,000 frames the real rider averages 1.18 m/frame and ranges from
- 0.53 on the tight second leg to 1.75 on the long sixth. The scrub ran a flat 2.0.
-
- What driving the real rider fixes, all at once and all as consequences rather
- than as separate patches:
-
-   the SPEED is the game's, corner by corner, instead of one average;
-   there IS acceleration and braking, which a constant cannot have;
-   the LEAN comes out of it -- tilt is a field on the state, nonzero on 1,552 of
-     those 4,000 frames and reaching 17.6 degrees, and the page simply never asked;
-   the HEADING is the rider's own, so the blended stand-in above -- the one number
-     on this page that was invented -- is no longer needed.
-
- The head turn is the rider's gaze plus a fraction of his lean, exactly as
- safari.zig folds it before building the pose: the whole view swings, backdrop
- included.
-
-  head-yaw-frac : Real
-  head-yaw-frac = 0.15
-
-  view-yaw-for : RiderState -> Real
-  view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
-
- THE SUNSET CLOCK IS A PLAIN FRAME COUNT, which is what safari.zig does: step_clock
- starts at 0 and gains one per frame. It is passed in rather than derived, because
- it is state and this chapter is pure.
-
- IT WAS DERIVED FROM ROUTE DISTANCE AND THAT WAS WRONG. The mapping -- 3600 plus
- 1400 across the course -- came from the throwaway Scene, where it picked a
- flattering slice of a tableau that never moved. On a real route it is badly off:
- the sun drops 0.0613 px a frame from 244 to -46, so a full sunset is 4,734
- frames, and 3600..4890 begins three quarters of the way through one and covers
- barely a quarter of it. The sky changed by about one shade over thirteen seconds
- -- which is to say it looked like it was not changing at all, because it wasn't,
- to any eye.
-
- A frame count instead puts the whole day-to-dusk sweep inside one drive: the route
- takes about 6,400 frames and the sun is fully down by 4,734.
-
-  heading-for : RiderState -> Real
-  heading-for (s) = s.heading + view-yaw-for s
-
-  pose-for : List Segment, RiderState -> Pose
-  pose-for (w) (s) =
-    Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
-
- THE TRUCK STATE COMES IN THE WAY THE RIDER'S DOES, as a value the shim keeps and
- steps, because this chapter is pure and the chase is a simulation. `collect` wants
- its route position and the body wants its brake flag, and they are two fields of
- one record rather than two arguments that could drift apart.
-
-  frame-for : List Segment, RiderState, TruckState, Real -> List DrawCmd
-  frame-for (w) (s) (tk) (step) =
-    let pose = pose-for w s
-    in let ch = build-chain w s.segment
-    in (draw (heading-for s) (sun-set-fraction step) focal camera-w)
-       & (frame-ground w s.segment pose focal camera-w)
-       & (draw-order w ch pose (collect w s.segment pose focal s.along s.v tk.pos) tk.braking focal step 0)

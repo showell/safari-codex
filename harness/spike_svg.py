@@ -283,6 +283,32 @@ def svg(name, top, hor, cmds):
             f'<stop offset="0.5" stop-color="{shade(color, 1 + 0.25 * st)}"/>'
             f'<stop offset="1" stop-color="{shade(color, 1 - 0.4 * st)}"/>'
             f'</linearGradient>')
+    # TAGS 5 AND 6 ARE THE BULL'S: a 2-stop LINEAR gradient along an axis, and a
+    # 2-stop RADIAL one through an ellipse given by a centre and two axis VECTORS.
+    # SVG has both natively -- a gradientTransform carries the ellipse -- so these
+    # are drawn rather than approximated. Both stops are 0xAARRGGBB and the bull
+    # has a stop at alpha zero, which is a gradient that fades to nothing.
+    for i, (tag, color, st, pts, raw, color2, geom) in enumerate(cmds):
+        if tag == 5 and len(geom) >= 6:
+            o0, o1, ax, ay, bx, by = geom[:6]
+            grads.append(
+                f'<linearGradient id="g{i}" gradientUnits="userSpaceOnUse" '
+                f'x1="{ax:.2f}" y1="{ay:.2f}" x2="{bx:.2f}" y2="{by:.2f}">'
+                f'<stop offset="{o0:.3f}" stop-color="{rgb(color)}" stop-opacity="{alpha(color):.3f}"/>'
+                f'<stop offset="{o1:.3f}" stop-color="{rgb(color2)}" stop-opacity="{alpha(color2):.3f}"/>'
+                f'</linearGradient>')
+        elif tag == 6 and len(geom) >= 8:
+            o0, o1, cx, cy, ux, uy, vx, vy = geom[:8]
+            # the unit circle at the origin mapped by [u v] and translated to c --
+            # exactly what the blitter does with the same six numbers.
+            grads.append(
+                f'<radialGradient id="g{i}" gradientUnits="userSpaceOnUse" '
+                f'cx="0" cy="0" r="1" '
+                f'gradientTransform="matrix({ux:.4f} {uy:.4f} {vx:.4f} {vy:.4f} {cx:.2f} {cy:.2f})">'
+                f'<stop offset="{o0:.3f}" stop-color="{rgb(color)}" stop-opacity="{alpha(color):.3f}"/>'
+                f'<stop offset="{o1:.3f}" stop-color="{rgb(color2)}" stop-opacity="{alpha(color2):.3f}"/>'
+                f'</radialGradient>')
+
     # TAG 4 IS A RADIAL FILL WITH ALPHA IN BOTH STOPS -- the headlight beams and the
     # brake-light halo, whose whole character is that they are LIGHT rather than
     # paint. Its centre and radius arrive in screen pixels, which is what
@@ -318,7 +344,9 @@ def svg(name, top, hor, cmds):
             continue
         d = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         xs = [p[0] for p in pts]
-        use_grad = (tag == 1 and (max(xs) - min(xs)) >= 1) or (tag == 4 and len(geom) >= 3 and geom[2] >= 0.5)
+        use_grad = ((tag == 1 and (max(xs) - min(xs)) >= 1)
+                    or (tag == 4 and len(geom) >= 3 and geom[2] >= 0.5)
+                    or (tag == 5 and len(geom) >= 6) or (tag == 6 and len(geom) >= 8))
         fill = f"url(#g{i})" if use_grad else rgb(color)
         out.append(f'<polygon points="{d}" fill="{fill}"/>')
     out.append("</svg>")

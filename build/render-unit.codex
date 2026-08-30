@@ -760,6 +760,44 @@ Section: The Crossing Clock
       else if v <= 0.000001 then 0.0
       else clamp01 (1.0 - e / (cross-frames * v))
 
+ THE RIDER'S ATTENTION ON THIS CAT, which is the one thing cat.zig computes that
+ is not about drawing or placing it. It feeds `camera.camFocal`: the lens pulls in
+ -- narrows -- as he watches the crossing, peaks at an exaggerated 1.8 as the cat
+ lands, and eases back over eighty-three frames once he is level with the landing
+ point. View only; nothing about the ride changes.
+
+ THE TWO HALVES RUN ON DIFFERENT CLOCKS and that is the whole shape of it. Ramping
+ UP is the crossing's own progress, so it tracks the cat; ramping DOWN is metres
+ behind him over his speed, so it tracks the RIDER. Reading the second as a
+ crossing progress would hold the lens narrow for as long as the cat took to
+ cross, which is not what a person's attention does.
+
+  focus-peak : Real
+  focus-peak = 1.8
+
+  focus-ramp-down : Real
+  focus-ramp-down = 83.0
+
+ Its own smoothstep rather than Gaze's, and the duplication is forced: World cites
+ this chapter to place a cat on every segment, and Gaze cites World, so citing
+ Gaze from here is a cycle. One flat namespace also means the two cannot share a
+ name (PORTING_NOTES B5).
+
+  cat-smoothstep : Real -> Real
+  cat-smoothstep (t) = t * t * (3.0 - 2.0 * t)
+
+  cat-focus : Real, Real -> Real
+  cat-focus (gap-along) (v) =
+    if v <= 0.000001 then 0.0
+    else if gap-along - road-buffer > 0.0 then cat-smoothstep (cross-t gap-along v) * focus-peak
+    else cat-focus-past (gap-along - road-buffer) v
+
+ Past the landing point: `e` is negative, so `0 - e` is how far behind him it is.
+
+  cat-focus-past : Real, Real -> Real
+  cat-focus-past (e) (v) =
+    (1.0 - cat-smoothstep (real-min ((0.0 - e) / v / focus-ramp-down) 1.0)) * focus-peak
+
  Gait phase over a walk of `phase-len` steps: a whole number of leg cycles, so the
  legs start and end at rest.
 
@@ -2989,9 +3027,34 @@ Section: The Depth Sort
   merge-items (a) (b) (i) (j) =
     if i >= list-length a then rest-from b j
     else if j >= list-length b then rest-from a i
-    else if (list-at b j).fwd > (list-at a i).fwd
+    else if deeper-than (list-at b j).fwd (list-at a i).fwd
       then [list-at b j] & merge-items a b i (j + 1)
       else [list-at a i] & merge-items a b (i + 1) j
+
+ THE SORT DECLINES TO ORDER TWO DEPTHS IT CANNOT TELL APART, and that is the one
+ place this chapter's comparison is not the zig's character for character. The
+ zig's key is an f32; the port's is a Real, which is f64 in every plug. Two depths
+ that differ by less than the f32 grid are THE SAME NUMBER in the game -- its sort
+ sees a tie and keeps merge order -- while the port can see a difference and would
+ order them by it. Sorting on precision the oracle does not have is not fidelity;
+ it is the port inventing an order.
+
+ So `deeper-than` is a strict comparison with half an f32 ulp of slack, and the
+ slack is measured rather than chosen. A rail post and a rail bar in the whole
+ frame check land within 6e-8 of each other and swap without it; at 2e-8 they
+ still swap, so the gap is between a sixth and a half of an ulp. Half an ulp is
+ the largest threshold that cannot tie two depths the game holds apart, since two
+ distinct f32s differ by a whole one.
+
+ A grader that measures inversions has to use the same rule -- RenderCheck's does,
+ and its own prose says why. A property asserted at a finer resolution than the
+ sort works at reports the rule as a defect.
+
+  sort-tie : Real
+  sort-tie = 0.00000006
+
+  deeper-than : Real, Real -> Boolean
+  deeper-than (x) (y) = x - y > sort-tie * real-max (real-abs y) 1.0
 
   sort-items : List Item -> List Item
   sort-items (xs) =
@@ -3793,10 +3856,17 @@ Section: The Depth Order
  property covers is the merge and the sort itself. An unstable sort or a merge that
  dropped the truck would show here.
 
+ AN INVERSION IS MEASURED AT THE SORT'S OWN RESOLUTION, which is `deeper-than`
+ and not a bare `<`. The sort deliberately declines to order two depths closer
+ than half an f32 ulp -- the game's key is an f32 and two keys that close are the
+ same number over there -- so a pair left in merge order with the later one a
+ billionth deeper is the rule working, not a defect. Using a strict `<` here
+ counted exactly those pairs and reported a sort that was doing what it promised.
+
   inversions : List Item, Integer -> Integer
   inversions (xs) (i) =
     if i + 1 >= list-length xs then 0
-    else if (list-at xs i).fwd < (list-at xs (i + 1)).fwd then 1 + inversions xs (i + 1)
+    else if deeper-than (list-at xs (i + 1)).fwd (list-at xs i).fwd then 1 + inversions xs (i + 1)
     else inversions xs (i + 1)
 
   merged-count : Collected -> Integer

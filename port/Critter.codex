@@ -23,14 +23,18 @@ Chapter: Critter
  sub-pixel animal is not worth a polygon, and the collector's own size cull has
  usually caught it long before.
 
- GRADIENT POLYGONS DRAW FLAT, and it affects exactly one species. Seven of the
- eight animals are the Fluent Flat art and are solid throughout; the bull is the
- Color variant and 40 of its 43 polygons carry a 2-stop gradient. paint.zig has
- wire tags for those -- 5 for linear, 6 for radial -- and Safari chapter Paint
- models tags 0, 1 and 3 only, so the baker's Codex emitter flattens each gradient
- to its first stop. The bull is therefore FLAT-SHADED and every other animal is
- exact. Modelling the two gradient tags is the fix, and it is a change to Paint
- and the shim rather than to anything here.
+ THE BULL IS SHADED NOW, and it was the last animal that was not. Seven of the
+ eight are the Fluent Flat art and solid throughout; the bull is the Color variant
+ and 40 of its 43 polygons carry a 2-stop gradient, which the baker used to
+ flatten to its first stop because Paint modelled tags 0, 1 and 3 only. Paint has
+ 5 and 6, the table carries the stops and the geometry, and the arm below emits
+ them -- so the bull grades like every other animal instead of being excluded.
+
+ A POINT AND A VECTOR MAP DIFFERENTLY, and that is the one thing in this chapter
+ easy to get wrong. A gradient's linear endpoints and its radial CENTRE are
+ points: they translate to the feet anchor. Its radial AXES are vectors: they only
+ scale and flip. Mapping an axis as a point would anchor the ellipse's shape to
+ the animal's feet, which looks like a shading bug and is really a coordinate one.
 
  We say:
 
@@ -59,10 +63,35 @@ Section: The Billboard Map
   max-critter-pts : Integer
   max-critter-pts = 512
 
+ A VECTOR takes the mirror and the scale and NOT the translation. Mirrors mapV.
+
+  map-v : Real, Real, Real, Real -> ScreenPt
+  map-v (s) (ht) (x) (y) =
+    ScreenPt { x = s * x * ht, y = 0.0 - y * ht }
+
   critter-poly : ScreenPt, Real, Real, StillPoly -> List DrawCmd
   critter-poly (b) (s) (ht) (poly) =
     if list-length poly.pts > max-critter-pts then []
+    else if list-length poly.grad > 0 then critter-grad b s ht poly (list-at poly.grad 0)
     else push-poly poly.color (mapped-pts b s ht poly.pts 0)
+
+  critter-grad : ScreenPt, Real, Real, StillPoly, StillGrad -> List DrawCmd
+  critter-grad (b) (s) (ht) (poly) (g) =
+    let pts = mapped-pts b s ht poly.pts 0
+    in if g.kind == 1 then critter-linear b s ht g pts else critter-radial b s ht g pts
+
+  critter-linear : ScreenPt, Real, Real, StillGrad, List ScreenPt -> List DrawCmd
+  critter-linear (b) (s) (ht) (g) (pts) =
+    let p0 = map-p b s ht g.ax g.ay
+    in let p1 = map-p b s ht g.bx g.by
+    in push-linear-grad-poly g.rgba0 g.rgba1 g.off0 g.off1 p0.x p0.y p1.x p1.y pts
+
+  critter-radial : ScreenPt, Real, Real, StillGrad, List ScreenPt -> List DrawCmd
+  critter-radial (b) (s) (ht) (g) (pts) =
+    let c = map-p b s ht g.cx g.cy
+    in let u = map-v s ht g.ux g.uy
+    in let v = map-v s ht g.vx g.vy
+    in push-radial-grad-poly g.rgba0 g.rgba1 g.off0 g.off1 c.x c.y u.x u.y v.x v.y pts
 
   critter-polys : ScreenPt, Real, Real, List StillPoly, Integer -> List DrawCmd
   critter-polys (b) (s) (ht) (ps) (i) =

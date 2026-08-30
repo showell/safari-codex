@@ -314,6 +314,12 @@ Section: The Painter's Sort
  carried onto persistent lists gains a complexity class. Sixteen faces would
  survive it, but the answer is identical and there is no reason to keep two rules.
 
+ It shares Render's `deeper-than` too, and for the same argument: two depths
+ closer than half an f32 ulp are one number in the game and the port must not
+ order them. The truck is where that is most likely to matter -- square-on to the
+ eye, its two sides sit at exactly the same depth, and which one paints second
+ decides nothing about the picture but everything about the command stream.
+
   face-rest : List TruckFace, Integer -> List TruckFace
   face-rest (ys) (j) =
     if j >= list-length ys then []
@@ -323,7 +329,7 @@ Section: The Painter's Sort
   merge-faces (a) (b) (i) (j) =
     if i >= list-length a then face-rest b j
     else if j >= list-length b then face-rest a i
-    else if (list-at b j).fwd > (list-at a i).fwd
+    else if deeper-than (list-at b j).fwd (list-at a i).fwd
       then [list-at b j] & merge-faces a b i (j + 1)
       else [list-at a i] & merge-faces a b (i + 1) j
 

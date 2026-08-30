@@ -353,6 +353,25 @@ B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
     `grep -n "^fn <mangled>(" build/scene.zig` BEFORE building the wasm; the error
     otherwise arrives from the zig compiler, three steps downstream.
 
+    A THIRD TIME, AND IT IS NOT ONLY ALIASES: A CONDITIONAL BODY INLINES TOO.
+    Porting safari.zig's roll deadband as
+
+        rider-roll (s) = if real-abs s.tilt < roll-deadband then 0.0 else s.tilt
+
+    emitted nothing, and the shim failed on an undeclared `rider_roll`. That is
+    not an alias by any reading -- it is a branch.
+
+    MEASURED over four variants written side by side, because guessing the rule
+    twice was enough. The same `if` over a SCALAR parameter emits; the same `if`
+    over a RECORD parameter does not, whether its arms are a bare field, a field
+    times one, or a nested conditional. And the arithmetic-bodied `view-yaw-for`
+    beside it, which also takes a record, emits fine. So the trigger is narrower
+    than "one expression" and wider than "one application", and the useful
+    formulation is: A ONE-EXPRESSION BODY MAY VANISH; BIND SOMETHING WITH A `let`
+    AND IT WILL NOT. `let t = s.tilt in if ...` emits, and that is the whole fix.
+
+    The rule to carry is still B12's: grep for the mangled name before building.
+
 B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
 
     `segs : List Segment` / `segs = build-world` reads like a constant. It emits:
@@ -831,6 +850,36 @@ D8. A NEAR-PLANE CLIPPED VERTEX IS THE LOOSEST SCREEN GATE IN THE PORT, AND THE
     would be dropping the clipping case, which is the only structural assertion in
     the check about what happens when the chase closes.
 
+D9. TWO DEPTHS CLOSER THAN AN f32 ULP HAVE NO ORDER, AND THE SORT MUST SAY SO.
+
+    The one place in this port where a comparison is deliberately not the zig's.
+
+    render.zig sorts its scenery by an f32 depth. The port sorts by a Real, which
+    is f64 in every plug (A7). Two depths that differ by less than the f32 grid
+    are THE SAME NUMBER in the game -- its sort sees a tie and keeps merge order,
+    which is what stability means -- while the port can see a difference and will
+    order them by it. That is not fidelity; it is the port inventing an order out
+    of precision the oracle does not have.
+
+    FOUND BY THE WHOLE-FRAME CHECK AND BY NOTHING ELSE. A rail post and a rail
+    bar swapped places in a 3,091-command stream: one adjacent transposition,
+    every other command identical, and no per-module check could see it because
+    both modules were right. Measured by bisecting the slack: they still swap at
+    2e-8 relative and stop swapping at 6e-8, so the gap is between a sixth and a
+    half of an f32 ulp (1.19e-7).
+
+    THE THRESHOLD IS HALF AN ULP and the bound is the argument for it: two
+    DISTINCT f32s differ by a whole ulp, so half an ulp is the largest slack that
+    cannot tie a pair the game holds apart. Bigger would start inventing ties;
+    smaller does not close this one.
+
+    AND A PROPERTY CHECK HAS TO USE THE SAME RULE. RenderCheck asserts the sort is
+    non-increasing in depth by counting inversions with a strict `<`. Against a
+    sort with slack, that counts every pair the rule deliberately left in merge
+    order and reports them as defects -- which it promptly did, at index 0 of the
+    first state. A property asserted at a finer resolution than the thing it is
+    asserted about is not a stronger check, it is a wrong one.
+
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
 ================================================================================
@@ -928,3 +977,28 @@ E5. THE GAME'S COMMENTS GO STALE AND THE CODE IS THE ORACLE. Not a defect in
     wedge is a missing command and structure is graded exactly — but only after
     the fact. The rule is cheap: read a comment for INTENT and the code for
     BEHAVIOUR, and when they disagree, grade the code.
+
+E6. THE STRONGEST ORACLE IN THE PROJECT WAS AVAILABLE ALL ALONG: render.frame.
+
+    E1 works through what render.zig's four public names cost the check -- the
+    chain and the prev mapper graded indirectly, the collection observable only
+    through two cull tallies. Reading it now, the fourth name is `frame`, and
+    `frame` is the entire picture: backdrop, ground, and every kind dispatched to
+    its drawer in one depth order. A probe can call it and read the words it puts
+    on paint's wire.
+
+    It could not be USED until the last drawer was ported -- a frame with an
+    unported truck body or a flattened bull compares two different wires -- so the
+    check that grades it arrived with the last of them, and immediately paid for
+    itself twice: it found the bull's flattened gradients as a tag mismatch, and
+    then the depth-tie transposition of D9, which nothing else could have seen.
+
+    THE THING IT GRADES THAT NOTHING ELSE DID IS THE SEQUENCE. Every drawer was
+    already graded in isolation; what was not graded at all was the dispatch --
+    which kind goes to which drawer, in what order, with which focal. That logic
+    had lived in the browser poc, outside every check, for the whole project.
+
+    The general shape: when a module's public surface looks thin, check whether
+    one of the names on it is the WHOLE THING. An orchestrator that takes state
+    and produces output is a better oracle than any of its parts, and it is worth
+    revisiting the day its last dependency lands.

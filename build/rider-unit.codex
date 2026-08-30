@@ -664,6 +664,44 @@ Section: The Crossing Clock
       else if v <= 0.000001 then 0.0
       else clamp01 (1.0 - e / (cross-frames * v))
 
+ THE RIDER'S ATTENTION ON THIS CAT, which is the one thing cat.zig computes that
+ is not about drawing or placing it. It feeds `camera.camFocal`: the lens pulls in
+ -- narrows -- as he watches the crossing, peaks at an exaggerated 1.8 as the cat
+ lands, and eases back over eighty-three frames once he is level with the landing
+ point. View only; nothing about the ride changes.
+
+ THE TWO HALVES RUN ON DIFFERENT CLOCKS and that is the whole shape of it. Ramping
+ UP is the crossing's own progress, so it tracks the cat; ramping DOWN is metres
+ behind him over his speed, so it tracks the RIDER. Reading the second as a
+ crossing progress would hold the lens narrow for as long as the cat took to
+ cross, which is not what a person's attention does.
+
+  focus-peak : Real
+  focus-peak = 1.8
+
+  focus-ramp-down : Real
+  focus-ramp-down = 83.0
+
+ Its own smoothstep rather than Gaze's, and the duplication is forced: World cites
+ this chapter to place a cat on every segment, and Gaze cites World, so citing
+ Gaze from here is a cycle. One flat namespace also means the two cannot share a
+ name (PORTING_NOTES B5).
+
+  cat-smoothstep : Real -> Real
+  cat-smoothstep (t) = t * t * (3.0 - 2.0 * t)
+
+  cat-focus : Real, Real -> Real
+  cat-focus (gap-along) (v) =
+    if v <= 0.000001 then 0.0
+    else if gap-along - road-buffer > 0.0 then cat-smoothstep (cross-t gap-along v) * focus-peak
+    else cat-focus-past (gap-along - road-buffer) v
+
+ Past the landing point: `e` is negative, so `0 - e` is how far behind him it is.
+
+  cat-focus-past : Real, Real -> Real
+  cat-focus-past (e) (v) =
+    (1.0 - cat-smoothstep (real-min ((0.0 - e) / v / focus-ramp-down) 1.0)) * focus-peak
+
  Gait phase over a walk of `phase-len` steps: a whole number of leg cycles, so the
  legs start and end at rest.
 

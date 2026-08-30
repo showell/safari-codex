@@ -772,6 +772,14 @@ fn at(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, a_: f64, x:
     return b0: { const p_ = compose_down(segs, ch, d_, a_, x); break :b0 to_rider(p_.a_, p_.x, pose.along, pose.across, pose.yaw, pose.hw); };
 }
 
+fn sort_tie() f64 {
+    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
+}
+
+fn deeper_than(x: f64, y: f64) bool {
+    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
+}
+
 fn truck_length() f64 {
     return @as(f64, @bitCast(@as(i64, 4620918397663497421)));
 }
@@ -945,7 +953,7 @@ fn face_rest(ys: *CxList(TruckFace), j: i64) *CxList(TruckFace) {
 }
 
 fn merge_faces(a_: *CxList(TruckFace), b_: *CxList(TruckFace), i_: i64, j: i64) *CxList(TruckFace) {
-    return (if ((i_ >= cx_list_len(a_))) face_rest(b_, j) else (if ((j >= cx_list_len(b_))) face_rest(a_, i_) else (if ((cx_list_at(b_, j).fwd > cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(b_, j) }), merge_faces(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(a_, i_) }), merge_faces(a_, b_, (i_ +% 1), j)))));
+    return (if ((i_ >= cx_list_len(a_))) face_rest(b_, j) else (if ((j >= cx_list_len(b_))) face_rest(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(b_, j) }), merge_faces(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(a_, i_) }), merge_faces(a_, b_, (i_ +% 1), j)))));
 }
 
 fn sort_faces(xs: *CxList(TruckFace)) *CxList(TruckFace) {

@@ -320,10 +320,17 @@ Section: The Depth Order
  property covers is the merge and the sort itself. An unstable sort or a merge that
  dropped the truck would show here.
 
+ AN INVERSION IS MEASURED AT THE SORT'S OWN RESOLUTION, which is `deeper-than`
+ and not a bare `<`. The sort deliberately declines to order two depths closer
+ than half an f32 ulp -- the game's key is an f32 and two keys that close are the
+ same number over there -- so a pair left in merge order with the later one a
+ billionth deeper is the rule working, not a defect. Using a strict `<` here
+ counted exactly those pairs and reported a sort that was doing what it promised.
+
   inversions : List Item, Integer -> Integer
   inversions (xs) (i) =
     if i + 1 >= list-length xs then 0
-    else if (list-at xs i).fwd < (list-at xs (i + 1)).fwd then 1 + inversions xs (i + 1)
+    else if deeper-than (list-at xs (i + 1)).fwd (list-at xs i).fwd then 1 + inversions xs (i + 1)
     else inversions xs (i + 1)
 
   merged-count : Collected -> Integer

@@ -23,12 +23,12 @@ points -- 10,534 Reals -- and no single polygon is anywhere near the ceiling,
 because each polygon's point list is its own literal. The cat's table is bigger
 (26,906 Reals) and would want splitting per pose.
 
-GRADIENTS ARE FLATTENED TO THEIR FIRST STOP, and it affects exactly one species.
+GRADIENTS ARE CARRIED NOW, not flattened, and it affects exactly one species.
 Seven of the eight are the Fluent FLAT art and are solid throughout; only the bull
 is the Color variant, with 40 of its 43 polygons carrying a 2-stop linear or
-radial gradient. paint.zig has wire tags for those (5 and 6) and Safari chapter
-Paint does not model them yet, so the bull draws flat. Every other animal is
-exact. Critter.codex says so where it matters.
+radial gradient. This used to drop each to its first stop because Safari chapter
+Paint modelled tags 0, 1 and 3 only; Paint has 5 and 6 now, Critter has the arm
+that emits them, and the bull is graded like every other animal.
 """
 
 import pathlib
@@ -48,16 +48,40 @@ POSE_NAMES = ["pose_rest", "pose_stride", "pose_frozen", "pose_coil",
               "pose_flight", "pose_land", "pose_collapse"]
 
 
+# The gradient a polygon may carry, straight off the zig literal. Every field is
+# named in the source, so this reads them by name rather than by position -- the
+# baker emits them in a fixed order today and a reordering must not silently swap
+# an axis for a centre.
+GRAD_FIELDS = ("ax", "ay", "bx", "by", "cx", "cy", "ux", "uy", "vx", "vy")
+
+
+def parse_grad(text):
+    """-> (kind, rgba0, rgba1, off0, off1, ax..vy) or None."""
+    m = re.search(r"\.grad = \.\{ \.kind = (\d+), "
+                  r"\.s0 = \.\{ \.rgba = 0x([0-9A-Fa-f]+), \.off = (-?[\d.e-]+) \}, "
+                  r"\.s1 = \.\{ \.rgba = 0x([0-9A-Fa-f]+), \.off = (-?[\d.e-]+) \}, "
+                  r"(.*?)\}, \.pts", text, re.S)
+    if not m:
+        return None
+    geom = dict(re.findall(r"\.(\w+) = (-?[\d.e-]+)", m.group(6)))
+    missing = [f for f in GRAD_FIELDS if f not in geom]
+    if missing:
+        raise SystemExit(f"gradient is missing {missing} -- the baker's shape changed")
+    return (int(m.group(1)), int(m.group(2), 16), float(m.group(3)),
+            int(m.group(4), 16), float(m.group(5)),
+            [float(geom[f]) for f in GRAD_FIELDS])
+
+
 def poly_arrays(text):
     named = {}
     for m in re.finditer(r"const (\w+) = \[_\]Poly\{(.*?)\n\};", text, re.S):
         polys = []
-        for pm in re.finditer(r"\.color = 0x([0-9A-Fa-f]+).*?\.pts = &\[_\]Pt\{(.*?)\} \}",
+        for pm in re.finditer(r"\.color = 0x([0-9A-Fa-f]+)(.*?)\.pts = &\[_\]Pt\{(.*?)\} \}",
                               m.group(2), re.S):
             pts = [(float(a), float(b)) for a, b in
-                   re.findall(r"\.x = (-?[\d.e-]+), \.y = (-?[\d.e-]+)", pm.group(2))]
+                   re.findall(r"\.x = (-?[\d.e-]+), \.y = (-?[\d.e-]+)", pm.group(3))]
             if len(pts) >= 3:
-                polys.append((int(pm.group(1), 16), pts))
+                polys.append((int(pm.group(1), 16), parse_grad(pm.group(0)), pts))
         if polys:
             named[m.group(1)] = polys
     return named
@@ -74,6 +98,17 @@ def real(v):
     return f"(0.0 - {s[1:]})" if s.startswith("-") else s
 
 
+def grad_literal(g):
+    """A polygon's gradient as a Codex list of at most one -- see Stills' own prose
+    for why a list rather than an optional or a sentinel."""
+    if g is None:
+        return "[]"
+    kind, rgba0, off0, rgba1, off1, geom = g
+    fields = ", ".join(f"{n} = {real(v)}" for n, v in zip(GRAD_FIELDS, geom))
+    return (f"[StillGrad {{ kind = {kind}, rgba0 = {rgba0}, rgba1 = {rgba1}, "
+            f"off0 = {real(off0)}, off1 = {real(off1)}, {fields} }}]")
+
+
 def chapter(name, head, sections, lookup):
     """Assemble one stills chapter: a shared shape section, one section per still,
     and the lookup that selects between them."""
@@ -85,16 +120,17 @@ def chapter(name, head, sections, lookup):
         "", " We say:", "",
     ]
     for title, binding, polys in sections:
-        n = sum(len(p) for _, p in polys)
+        n = sum(len(p) for _, _g, p in polys)
         out += [f"Section: {title}", "", f" {len(polys)} polygons, {n} points.", "",
                 f"  {binding} : List StillPoly", f"  {binding} ="]
         # ONE LINE FOR THE WHOLE LIST. A Codex list literal may not span a newline
         # any more than an application may (PORTING_NOTES B1/C12) -- broken across
         # lines it halts with CDX1025 "Unclosed list literal".
         rows = []
-        for color, pts in polys:
+        for color, grad, pts in polys:
             body = ", ".join(f"StillPt {{ x = {real(x)}, y = {real(y)} }}" for x, y in pts)
-            rows.append(f"StillPoly {{ color = {color}, pts = [{body}] }}")
+            rows.append(f"StillPoly {{ color = {color}, grad = {grad_literal(grad)}, "
+                        f"pts = [{body}] }}")
         out += ["    [" + ", ".join(rows) + "]", ""]
     return "\n".join(out + lookup + [""])
 
@@ -109,8 +145,9 @@ SHAPES = """Chapter: Stills
  both. Hand-written, unlike the tables that cite it, because it never changes.
 
  A point is in the UNIT FRAME the billboards use: feet at y = 0, y up, height 1,
- facing LEFT. A polygon is solid; the one gradient in the game's art is flattened
- by the baker, and Safari chapter Critter says which animal that costs.
+ facing LEFT. A polygon is either solid or 2-stop gradient-shaded; the art's own
+ gradients are carried now rather than flattened, which is what makes the bull the
+ animal it is.
 
  We say:
 
@@ -121,8 +158,43 @@ Section: Shapes
     y : Real
   }
 
+ A 2-STOP GRADIENT IN THE UNIT FRAME, carried alongside the polygon it fills.
+ `kind` is 1 for a LINEAR gradient along the axis a to b, and 2 for a RADIAL one
+ through the ellipse given by a centre and two axis VECTORS -- and the difference
+ between a point and a vector is load-bearing when the billboard is mirrored: a
+ point translates to the feet anchor, a vector only scales and flips.
+
+ Both stops are 0xAARRGGBB, unlike the 0xRRGGBB a solid polygon carries, because
+ these composite. The bull has a stop at alpha zero, which is a gradient that
+ fades to nothing rather than to a colour.
+
+  StillGrad = record {
+    kind : Integer,
+    rgba0 : Integer,
+    rgba1 : Integer,
+    off0 : Real,
+    off1 : Real,
+    ax : Real,
+    ay : Real,
+    bx : Real,
+    by : Real,
+    cx : Real,
+    cy : Real,
+    ux : Real,
+    uy : Real,
+    vx : Real,
+    vy : Real
+  }
+
+ A LIST OF AT MOST ONE, because Codex has no optional and the alternatives are
+ worse. A sentinel `kind = 0` would put fourteen zeroes on every solid polygon in
+ both tables -- and there are hundreds -- while a shared `no-grad` binding would
+ be a nullary, which emits as a FUNCTION and would allocate a record per polygon
+ per frame (PORTING_NOTES B13). An empty list is two characters and no allocation.
+
   StillPoly = record {
     color : Integer,
+    grad : List StillGrad,
     pts : List StillPt
   }
 """
@@ -167,7 +239,7 @@ def write_emoji(named, order):
     text_out = chapter("EmojiStills", head, sections, lookup)
     dst = ROOT / "port" / "EmojiStills.codex"
     dst.write_text(text_out)
-    total = sum(sum(len(p) for _, p in named.get(n, [])) for _, n in order)
+    total = sum(sum(len(p) for _, _g, p in named.get(n, [])) for _, n in order)
     print(f"port/EmojiStills.codex  ({len(order)} species, {total} points, "
           f"{dst.stat().st_size // 1024} KB)")
 
@@ -203,7 +275,7 @@ def write_cat():
               "    " + arms + "\n    else []"]
     dst = ROOT / "port" / "CatStills.codex"
     dst.write_text(chapter("CatStills", head, sections, lookup))
-    total = sum(len(p) for n in POSE_NAMES for _, p in named.get(n, []))
+    total = sum(len(p) for n in POSE_NAMES for _, _g, p in named.get(n, []))
     print(f"port/CatStills.codex  ({len(sections)} poses, {total} points, "
           f"{dst.stat().st_size // 1024} KB)")
 

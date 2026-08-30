@@ -21,13 +21,27 @@ Chapter: CritterCheck
  one number, so a wrong point count is a wrong polygon and every colour is a
  literal carried through unchanged; neither takes any tolerance.
 
- THE BULL IS DELIBERATELY ABSENT from the animal cases, and saying so is the
- honest part. It is the only Fluent COLOR animal and 40 of its 43 polygons carry a
- 2-stop gradient, which paint.zig writes as wire tags 5 and 6. Safari chapter Paint
- models tags 0, 1 and 3, so the generated table flattens each gradient to its first
- stop and the port emits tag 0 where the game emits 5 or 6. Grading it would
- compare two different wire shapes and prove nothing. The seven FLAT species are
- exact, and the bull becomes gradeable the day Paint grows the two tags.
+ ALL EIGHT SPECIES ARE GRADED NOW, and the bull is the reason this paragraph used
+ to say the opposite. It is the only Fluent COLOR animal and 40 of its 43 polygons
+ carry a 2-stop gradient, which paint.zig writes as wire tags 5 and 6. While
+ Safari chapter Paint modelled tags 0, 1 and 3 the generated table flattened each
+ gradient to its first stop, so the port emitted tag 0 where the game emits 5 or
+ 6 -- two different wire shapes, and comparing them would have proved nothing.
+ Paint has the tags, the baker carries the stops and the geometry, and Critter has
+ the arm that emits them.
+
+ THE BULL IS DRAWN TWICE, FACING BOTH WAYS, and the mirrored case is the one worth
+ having. A gradient's axis is a VECTOR and its centre is a POINT: mirroring flips
+ the axis without translating it, and mapping an axis as a point would still
+ produce a polygon of exactly the right shape with its shading anchored somewhere
+ else. `cr-geom` is the stream where that shows, and it is why the gradient's own
+ numbers do not ride with the polygon's.
+
+ ONLY THE BULL'S COORDINATES ARE THINNED. Adding it took the coordinate stream
+ from 5,916 Reals to 15,152, close enough to C7's ceiling to be asking for the
+ abort; every third point of the bull brings it to 9,044. The other seven species
+ stay exact, and they exercise the same mapping code, so what the thinning costs
+ is density on art whose density is already proven elsewhere.
 
  THE CAT'S COORDINATES ARE SAMPLED EVERY THIRD POINT and that is C7 again: seven
  stills are 13,453 points, 26,906 Reals, and one Real literal past about 16,868
@@ -54,12 +68,20 @@ Section: The Cases
   }
 
   critter-cases : List CritterCase
-  critter-cases = [CritterCase { cp = 129414, h = 0.9, fwd = 14.0, face = False }, CritterCase { cp = 128024, h = 2.8, fwd = 40.0, face = True }, CritterCase { cp = 129426, h = 4.5, fwd = 90.0, face = False }, CritterCase { cp = 129427, h = 1.6, fwd = 25.0, face = True }, CritterCase { cp = 129423, h = 2.2, fwd = 60.0, face = False }, CritterCase { cp = 128004, h = 1.4, fwd = 18.0, face = True }, CritterCase { cp = 128022, h = 1.1, fwd = 9.0, face = False }]
+  critter-cases = [CritterCase { cp = 129414, h = 0.9, fwd = 14.0, face = False }, CritterCase { cp = 128024, h = 2.8, fwd = 40.0, face = True }, CritterCase { cp = 129426, h = 4.5, fwd = 90.0, face = False }, CritterCase { cp = 129427, h = 1.6, fwd = 25.0, face = True }, CritterCase { cp = 129423, h = 2.2, fwd = 60.0, face = False }, CritterCase { cp = 128004, h = 1.4, fwd = 18.0, face = True }, CritterCase { cp = 128022, h = 1.1, fwd = 9.0, face = False }, CritterCase { cp = 128002, h = 1.7, fwd = 22.0, face = False }, CritterCase { cp = 128002, h = 1.7, fwd = 22.0, face = True }]
+
+  bull-cp : Integer
+  bull-cp = 128002
+
+  case-wire : Integer -> List DrawCmd
+  case-wire (i) =
+    let c = list-at critter-cases i
+    in critter-draw 2.5 c.fwd c.h c.cp c.face focal camera-w
 
   critter-wire : Integer -> List DrawCmd
   critter-wire (i) =
     if i >= list-length critter-cases then []
-    else (critter-draw 2.5 (list-at critter-cases i).fwd (list-at critter-cases i).h (list-at critter-cases i).cp (list-at critter-cases i).face focal camera-w) & critter-wire (i + 1)
+    else (case-wire i) & critter-wire (i + 1)
 
 Section: Flattening
 
@@ -78,16 +100,54 @@ Section: Flattening
     if i >= list-length cs then []
     else [list-length (list-at cs i).pts / 2] & s-counts cs (i + 1)
 
-  s-coords : List DrawCmd, Integer -> List Real
-  s-coords (cs) (i) =
+  s-cols2 : List DrawCmd, Integer -> List Integer
+  s-cols2 (cs) (i) =
     if i >= list-length cs then []
-    else (list-at cs i).pts & s-coords cs (i + 1)
+    else [(list-at cs i).color2] & s-cols2 cs (i + 1)
+
+ Only tags 5 and 6 define `geom`, so concatenating every command's is the gradient
+ stream and nothing else -- a solid fill contributes an empty list.
+
+  s-geoms : List DrawCmd, Integer -> List Real
+  s-geoms (cs) (i) =
+    if i >= list-length cs then []
+    else (list-at cs i).geom & s-geoms cs (i + 1)
+
+ Codex has no `%`, so a modulo is spelled the way Tower spells it: n - (n/d)*d.
+ x and y are kept together so the pairing survives the thinning.
+
+  keep-nth : Integer, Integer -> Boolean
+  keep-nth (k) (n) = k - (k / n) * n == 0
+
+  every-nth : List Real, Integer, Integer -> List Real
+  every-nth (ps) (i) (n) =
+    if i + 1 >= list-length ps then []
+    else if keep-nth (i / 2) n then [list-at ps i, list-at ps (i + 1)] & every-nth ps (i + 2) n
+    else every-nth ps (i + 2) n
+
+  thin-cmds : List DrawCmd, Integer, Integer -> List Real
+  thin-cmds (cs) (n) (i) =
+    if i >= list-length cs then []
+    else (every-nth (list-at cs i).pts 0 n) & thin-cmds cs n (i + 1)
+
+ THE STEP IS PER CASE, not per check: the bull's stream is sampled and the other
+ seven are whole.
+
+  case-step : Integer -> Integer
+  case-step (i) = if (list-at critter-cases i).cp == bull-cp then 3 else 1
+
+  s-coords : Integer -> List Real
+  s-coords (i) =
+    if i >= list-length critter-cases then []
+    else (thin-cmds (case-wire i) (case-step i) 0) & s-coords (i + 1)
 
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-ints "cr-tag " (s-tags (critter-wire 0) 0) g-cr-tag)
-    print-line-uni (grade-ints "cr-col " (s-cols (critter-wire 0) 0) g-cr-col)
-    print-line-uni (grade-ints "cr-cnt " (s-counts (critter-wire 0) 0) g-cr-cnt)
-    print-line-uni (grade-px   "cr-xy  " (s-coords (critter-wire 0) 0) g-cr-xy 0.001 0.000001)
+    print-line-uni (grade-ints "cr-tag  " (s-tags (critter-wire 0) 0) g-cr-tag)
+    print-line-uni (grade-ints "cr-col  " (s-cols (critter-wire 0) 0) g-cr-col)
+    print-line-uni (grade-ints "cr-col2 " (s-cols2 (critter-wire 0) 0) g-cr-col2)
+    print-line-uni (grade-ints "cr-cnt  " (s-counts (critter-wire 0) 0) g-cr-cnt)
+    print-line-uni (grade-px   "cr-geom " (s-geoms (critter-wire 0) 0) g-cr-geom 0.001 0.000001)
+    print-line-uni (grade-px   "cr-xy   " (s-coords 0) g-cr-xy 0.001 0.000001)
   end

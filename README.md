@@ -196,10 +196,20 @@ Measured over one drive: the lead runs 500 m at the line down to 68 m by frame
 drops behind the crest. `truckLead`, `truckV` and `truckBraking` are exported for
 a probe, as `safari.zig` exports them for its HUD.
 
-**So nothing on the page is a stand-in any more**: the route, the rider's own
-physics and lean, the animals, the cat, the sky clock and the chase are all the
-real thing. What remains not-real is one *rendering* gap rather than a wiring one —
-the bull's gradients still flatten to their first stop in the baked table.
+**Nothing on the page is a stand-in any more.** The route, the rider's own physics
+and lean, the animals, the cat, the sky clock, the chase, the bull's gradient
+shading and the camera's own pull-in are all the real thing, and `poc/Drive.codex`
+is a *scrub* page again — the driven half is `port/Safari.codex`, a port of the
+game's own `safari.zig`, and `poc/drive_shim.zig` is an ABI with no logic left in
+it. What the shim still owns is what a pure program cannot hold: a value, a
+history ring, and the exported readouts.
+
+**The lens moves now, and it had been ported and idle since Camera landed.**
+`cam-focal`, `focal-for-lean` and `focal-for-gaze` were all in the port with
+nothing above them to compute the two fractions they take; `safari.zig` is that
+thing. Measured over a drive: the focal runs 204..685 px and is pulled in on
+**3,138 of 6,400 frames** — leaning into a corner, watching the cat cross, or
+gawking at the pigs.
 
 **NOTES §5 said a browser build through zig was "not close". It is four
 substitutions in the fixed prelude**, and `harness/wasmify.py` makes them: the
@@ -265,7 +275,7 @@ collide on the flat namespace.
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
 | `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
 | `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
-| `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, crossing clock |
+| `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, clock + attention |
 | `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
 | `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
 | `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
@@ -273,10 +283,11 @@ collide on the flat namespace.
 | `port/TruckBody.codex` | `wasm/truck.zig`'s `drawBody` | 2,962 values, **113 commands in order** |
 | `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
 | `port/EmojiStills.codex` | `wasm/emoji_frames.zig` | **generated**, 5,267 points |
-| `port/Critter.codex` | `wasm/critter.zig` | 6,174 values, 7 species exact |
+| `port/Critter.codex` | `wasm/critter.zig` | 9,924 values, **all 8 species** |
 | `port/CatStills.codex` | `wasm/cat_frames.zig` | **generated**, 7 poses |
 | `port/CatDraw.codex` | `wasm/cat.zig`'s `draw` | 9,993 values |
 | `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
+| `port/Safari.codex` | `wasm/safari.zig` **minus the ABI** | 9,341 values, **a whole frame** |
 
 
 **`Render` is the first module whose CHECK was shaped by the zig's `pub`
@@ -374,6 +385,32 @@ by construction, so the projection amplifies an error in metres by 1,713x; one f
 ulp at the rider's own 100 m `along` is 0.013 px at an x of −1300, which is the
 1e-5 measured. It is the near plane's looseness, not the truck's — the same seam
 holds at 1e-6 wherever nothing is clipped (`PORTING_NOTES` D8).
+
+**`Safari` grades a WHOLE FRAME, and that is the strongest oracle in the project.**
+`render.frame` is pub and it *is* the picture — backdrop, ground, and every kind
+dispatched to its drawer in one depth order — so the probe calls it and reads the
+words it wrote. Every check before this graded a drawer or a collection in
+isolation; the dispatch itself had lived in the browser poc and was graded by
+nothing at all. 3,091 commands over two states, tags, colours and point counts
+exact.
+
+It paid for itself twice on the first run. It found **the bull's flattened
+gradients** as a tag mismatch (tag 0 where the game writes 5), and once those were
+fixed it found **a single adjacent transposition** in 3,091 commands: a rail post
+and a rail bar swapped. That one is `PORTING_NOTES` D9 and it is the one place the
+port's comparison is deliberately not the zig's — the game sorts f32 depths and
+the port sorts f64 ones, so two depths closer than an f32 ulp are *the same
+number* over there and the port must not order them. The slack is half an ulp,
+which is the largest that cannot tie a pair the game holds apart, and it is
+measured: the pair still swaps at 2e-8 and stops at 6e-8.
+
+**The fold is graded as a definition, not against `advance`.** `safari.zig`'s state
+step is an export over private statics with no setter, so it cannot be seeded, and
+NOTES §4 rules out comparing trajectories anyway. What `advance` *is* is four pub
+calls in a fixed order, so the probe composes those four and the check grades one
+step from a shared state — including the finish line, where the whole ride
+restarts. The order is the content: the truck steps against the **new** rider
+distance, and nothing but this check can see that.
 
 **`SafariCritter` is a whole file, and it is worth noting why** when its neighbours
 arrive in halves: it is placement only, so nothing in it reaches the baked frames.
@@ -474,7 +511,7 @@ billboards that scale with distance. `cat_frames` is a **seven-pose flipbook**.
 Every bit of motion in this port is computed per frame, not looked up.
 
 So the port calls them stills: `port/EmojiStills.codex`, generated by
-`harness/bake_emoji_stills.py` from the table the game's baker already emitted.
+`harness/bake_stills.py` from the table the game's baker already emitted.
 Hand-carrying 5,267 points would be the wrong shape of work and would rot the
 moment the baker ran again — `NOTES` §5 says so. It is tracked like the gold
 chapters and regenerated by script, never edited.
@@ -482,12 +519,27 @@ chapters and regenerated by script, never edited.
 **Where a name is not pinned by a seam check, the port takes the better name.**
 Where it *is* pinned — anything a check compares against the zig — fidelity wins.
 
-**The bull draws flat**, and it is the only one that does. It is the sole Fluent
-Color animal and 40 of its 43 polygons carry a 2-stop gradient, which `paint.zig`
-writes as wire tags 5 and 6 that `Paint` does not model yet, so the generator
-flattens each to its first stop. The other seven species are graded exact on the
-wire — 5,916 coordinates against the real `critter.draw`. The bull becomes
-gradeable the day `Paint` grows the two tags.
+**The bull is shaded, and it was the last animal that was not.** It is the sole
+Fluent Color animal and 40 of its 43 polygons carry a 2-stop gradient, which
+`paint.zig` writes as wire tags 5 and 6. The generator used to flatten each to its
+first stop because `Paint` modelled 0, 1 and 3 only; `Paint` has the tags, the
+baked table carries the stops and the geometry, and `Critter` has the arm that
+emits them. All eight species are graded on the wire now — 172 commands, 568
+gradient values and 9,044 coordinates against the real `critter.draw`.
+
+**A gradient's optional-ness is a list of at most one.** Codex has no optional, and
+the two obvious alternatives are both worse: a sentinel `kind = 0` puts fourteen
+zeroes on every solid polygon in both tables — there are hundreds — while a shared
+`no-grad` binding would be nullary, which emits as a *function* and would allocate
+a record per polygon per frame (`PORTING_NOTES` B13). An empty list is two
+characters and no allocation.
+
+**The bull is graded facing both ways**, and the mirrored case is the one that
+earns its place: a gradient's axis is a **vector** and its centre is a **point**,
+so mirroring flips the axis without translating it. Map an axis as a point and you
+still get a polygon of exactly the right shape with its shading anchored somewhere
+else — which is why the gradient's own numbers get a stream of their own rather
+than riding with the polygon's.
 
 ## Decisions
 
@@ -541,18 +593,6 @@ are in `price-b/`.
 
 Parked 2026-08-29 with the sweep green, **and with every drawer in the game
 ported** — the truck was the last one. In rough order of value:
-
-**The bull draws flat, and the pieces to fix it now exist.** `Paint` has tags 5
-and 6; what is missing is that `harness/bake_stills.py` flattens each gradient to
-its first stop rather than emitting it, and `Critter` has no gradient arm. Doing
-both makes the bull gradeable, which is why `CritterCheck` excludes it today.
-
-**`safari.zig` is not ported**, and `poc/drive_shim.zig` currently reimplements a
-slice of it — the restart at the finish line, the history ring, the frame clock —
-in Zig, ungraded. Porting it would move that logic behind a check. It is also
-where the camera's focal pull-in during a lean and gaze lives (`cam-focal`,
-`focal-for-lean`, `focal-for-gaze` are all ported and none is wired), and that in
-turn wants `cat.focus`, which is not ported.
 
 **`Trig` is retirable and retiring it is a real change**, not a cleanup — see the
 section above. Expect to re-measure tolerances rather than assume they carry.

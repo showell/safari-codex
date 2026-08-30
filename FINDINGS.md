@@ -9,7 +9,7 @@ angry-gopher, and the two halves are independent.
 | | what | where it went |
 |---|---|---|
 | 1 | `OvError` becomes a wrapping multiply | **not sent** — needs an issue |
-| 2 | Cordic's accuracy vs its docstring | **not sent** — in progress, and CORRECTED |
+| 2 | Cordic's accuracy vs its docstring | **SENT** — [PR 108](https://github.com/damiant3/Cobblestone/pull/108) |
 | 3 | single-letter names collide | **not sent** — a one-line rename |
 | 4 | a one-caller definition is inlined away | **not sent** — diagnosed, needs an issue |
 | 5 | the zig arm reports no diagnostics | **not sent** — needs investigation |
@@ -65,7 +65,7 @@ depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
 
 **Send as a PR — small, mechanical, no policy call.**
 
-- **Item 2, Cordic. CORRECTED 2026-08-30, and the claim that nothing tests it is
+- **Item 2, Cordic. SENT 2026-08-30 as [PR 108](https://github.com/damiant3/Cobblestone/pull/108), and CORRECTED first — the claim that nothing tests it is
   WRONG.** `codex/test/forewords/math-cordic` is indeed a one-line smoke that
   calls nothing — but `math-cordic-quadrants` sits beside it with 32 lines of real
   values, each against a `true` column, plus three counted invariants. Cordic's

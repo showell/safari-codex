@@ -1530,11 +1530,6 @@ Section: Scalars
   bearings : List Real
   bearings = [0.0, 0.2, 0.0 - 0.2, 0.5, 0.94, 0.0 - 0.94, 0.96, 0.0 - 0.96, 0.0 - 2.0416, 0.0 - 1.7, 0.0 - 2.4, 0.0 - 2.76, 0.0 - 1.32, 0.0 - 2.2176, 3.0, 0.0 - 3.0, 3.14, 0.0 - 3.14, 1.5, 0.0 - 1.5]
 
-  crests : List Real, Integer -> List Real
-  crests (bs) (i) =
-    if i >= list-length bs then []
-    else [horizon-crest-px (list-at bs i)] & crests bs (i + 1)
-
   dusks : List Real
   dusks = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
 
@@ -1548,11 +1543,6 @@ Section: Scalars
 
   steps : List Real
   steps = [0.0, 2000.0, 3500.0, 3900.0, 4000.0, 4300.0, 5000.0, 8000.0]
-
-  behinds : List Real, Integer -> List Boolean
-  behinds (ss) (i) =
-    if i >= list-length ss then []
-    else [sun-behind-mountains (list-at ss i)] & behinds ss (i + 1)
 
 Section: The Frames
 
@@ -1607,9 +1597,9 @@ Section: The Frames
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-rel   "mt-crest      " (crests bearings 0) g-mt-crest 0.000001)
+    print-line-uni (grade-rel   "mt-crest      " (list-map horizon-crest-px bearings) g-mt-crest 0.000001)
     print-line-uni (grade-ints  "mt-rock       " (rocks dusks 0) g-mt-rock)
-    print-line-uni (grade-bools "mt-sun-behind " (behinds steps 0) g-mt-sun-behind)
+    print-line-uni (grade-bools "mt-sun-behind " (list-map sun-behind-mountains steps) g-mt-sun-behind)
     print-line-uni (grade-ints  "mt-tags       " (cmd-tags all-cmds 0) g-mt-tags)
     print-line-uni (grade-ints  "mt-colors     " (cmd-colors all-cmds 0) g-mt-colors)
     print-line-uni (grade-ints  "mt-counts     " (cmd-counts all-cmds 0) g-mt-counts)

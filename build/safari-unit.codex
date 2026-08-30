@@ -3644,6 +3644,21 @@ Section: The Depth Sort
  here than it looks: a rail bar and its post share a corner and can land on the
  same depth, and so can two roadside trees on opposite shoulders.
 
+ `core/Sort` EXISTS AND MUST NOT BE SUBSTITUTED HERE, which is worth saying before
+ the merge is described, because the shape of this chapter invites the swap. The
+ foreword's `sort-by : List a, (a, a -> Integer) -> List a` looks like exactly what
+ this wants and is an in-place QUICKSORT with median-of-three pivoting. Quicksort
+ swaps across equal keys; it is not stable and its chapter claims no stability.
+
+ STABILITY IS LOAD-BEARING HERE AND THE EVIDENCE IS A BUG THAT HAPPENED. Ties are
+ real -- render.zig sorts by an f32 depth and equal depths keep merge order -- and
+ PORTING_NOTES D9 records a rail post and a rail bar swapping places in a
+ 3,091-command stream, one adjacent transposition with every other command
+ identical, invisible to every per-module check because both modules were right.
+ Handing this to `sort-by` would reintroduce that class silently and only the
+ whole-frame check would ever say so. De-duplicating against the foreword is right
+ far more often than it is wrong; this is one of the times it is wrong.
+
  THE PORT SORTS BY MERGING RATHER THAN BY INSERTING, and that is the one place in
  this chapter where the algorithm departs from the zig on purpose. A stable merge
  sort and a stable insertion sort produce the SAME total order -- same comparison,

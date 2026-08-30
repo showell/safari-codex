@@ -1200,16 +1200,6 @@ Section: The Clock
   steps = [0.0, 250.0, 500.0, 1000.0, 2000.0, 3000.0, 3500.0, 3983.0, 4000.0, 4400.0, 4734.0, 4800.0, 5200.0, 6000.0, 8000.0]
 
 
-  sky-colors : List Real, Integer -> List Integer
-  sky-colors (ss) (i) =
-    if i >= list-length ss then []
-    else [sky-color (list-at ss i)] & sky-colors ss (i + 1)
-
-  horizon-colors : List Real, Integer -> List Integer
-  horizon-colors (ss) (i) =
-    if i >= list-length ss then []
-    else [horizon-color (list-at ss i)] & horizon-colors ss (i + 1)
-
 Section: The Placement
 
  Eight headings at two focals, the probe's order: every heading at the base focal,
@@ -1255,8 +1245,8 @@ Section: Entry
     print-line-uni (grade-px   "sky-height  " (list-map sun-height-px steps) g-sky-height 0.0001 0.000001)
     print-line-uni (grade-rel  "sky-dusk    " (list-map sun-set-fraction steps) g-sky-dusk 0.000001)
     print-line-uni (grade-rel  "sky-warmth  " (list-map sunset-warmth steps) g-sky-warmth 0.000001)
-    print-line-uni (grade-ints "sky-color   " (sky-colors steps 0) g-sky-color)
-    print-line-uni (grade-ints "sky-horizon " (horizon-colors steps 0) g-sky-horizon)
+    print-line-uni (grade-ints "sky-color   " (list-map sky-color steps) g-sky-color)
+    print-line-uni (grade-ints "sky-horizon " (list-map horizon-color steps) g-sky-horizon)
     print-line-uni (grade-bools "sun-visible" (pose-visible all-poses 0) g-sun-visible)
     print-line-uni (grade-px   "sun-x       " (pose-x all-poses 0) g-sun-x 0.001 0.000001)
     print-line-uni (grade-px   "sun-y       " (pose-y all-poses 0) g-sun-y 0.001 0.000001)

@@ -501,6 +501,7 @@ Section: Gold
 
 Chapter: NumCheck
   cites Foreword chapter Console
+  cites Foreword chapter ListUtils
   cites Safari chapter Num
   cites Judge chapter Grade
   cites Gold chapter NumGold
@@ -549,26 +550,6 @@ Section: Mapping
  One shape per primitive: walk the gold's input list and apply the chapter under
  test. Nothing here is clever; the interest is entirely in the tables.
 
-  map-round : List Real, Integer -> List Real
-  map-round (xs) (i) =
-    if i >= list-length xs then []
-    else [round-real (list-at xs i)] & map-round xs (i + 1)
-
-  map-floor : List Real, Integer -> List Real
-  map-floor (xs) (i) =
-    if i >= list-length xs then []
-    else [floor-real (list-at xs i)] & map-floor xs (i + 1)
-
-  map-exp : List Real, Integer -> List Real
-  map-exp (xs) (i) =
-    if i >= list-length xs then []
-    else [exp-real (list-at xs i)] & map-exp xs (i + 1)
-
-  map-pow2 : List Integer, Integer -> List Real
-  map-pow2 (ks) (i) =
-    if i >= list-length ks then []
-    else [pow2-int (list-at ks i)] & map-pow2 ks (i + 1)
-
  THE DIVISOR IS THE OUTER LOOP, matching the probe's `for (MOD_M) |m| for (MOD_X)
  |x|`. Getting this the wrong way round would compare a correct set of answers in
  the wrong order, which the grader would report as a disagreement at index 13 --
@@ -587,9 +568,9 @@ Section: Mapping
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-reals "n-round" (map-round g-n-round-in 0) g-n-round 0.0)
-    print-line-uni (grade-reals "n-floor" (map-floor g-n-floor-in 0) g-n-floor 0.0)
+    print-line-uni (grade-reals "n-round" (list-map round-real g-n-round-in) g-n-round 0.0)
+    print-line-uni (grade-reals "n-floor" (list-map floor-real g-n-floor-in) g-n-floor 0.0)
     print-line-uni (grade-reals "n-mod  " (mod-outer g-n-mod-m g-n-mod-x 0) g-n-mod 0.0)
-    print-line-uni (grade-reals "n-pow2 " (map-pow2 g-n-pow2-k 0) g-n-pow2 0.0)
-    print-line-uni (grade-rel   "n-exp  " (map-exp g-n-exp-in 0) g-n-exp 0.000000000000001)
+    print-line-uni (grade-reals "n-pow2 " (list-map pow2-int g-n-pow2-k) g-n-pow2 0.0)
+    print-line-uni (grade-rel   "n-exp  " (list-map exp-real g-n-exp-in) g-n-exp 0.000000000000001)
   end

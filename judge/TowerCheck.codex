@@ -39,11 +39,6 @@ Chapter: TowerCheck
 
 Section: The Beacon Clock
 
-  offsets-of : List Integer, Integer -> List Real
-  offsets-of (ns) (i) =
-    if i >= list-length ns then []
-    else [beacon-offset-for (list-at ns i)] & offsets-of ns (i + 1)
-
   offset-ns : List Integer
   offset-ns = [0, 1, 2, 3, 7, 12, 40, 119, 120, 121]
 
@@ -108,11 +103,6 @@ Section: Streams
  A quad reports 4 and a beacon reports 3, because a beacon's pts hold x, y and r
  rather than an even run of coordinates.
 
-  cmd-counts : List DrawCmd, Integer -> List Integer
-  cmd-counts (cs) (i) =
-    if i >= list-length cs then []
-    else [count-of (list-at cs i)] & cmd-counts cs (i + 1)
-
   count-of : DrawCmd -> Integer
   count-of (c) = if c.tag == 3 then 3 else list-length c.pts / 2
 
@@ -134,11 +124,11 @@ Section: Streams
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-rel  "tw-offset   " (offsets-of offset-ns 0) g-tw-offset 0.000001)
+    print-line-uni (grade-rel  "tw-offset   " (list-map beacon-offset-for offset-ns) g-tw-offset 0.000001)
     print-line-uni (grade-ints "tw-percase  " per-case g-tw-percase)
     print-line-uni (grade-ints "tw-tags     " (cmd-tags all-cmds 0) g-tw-tags)
     print-line-uni (grade-ints "tw-colors   " (cmd-colors all-cmds 0) g-tw-colors)
-    print-line-uni (grade-ints "tw-counts   " (cmd-counts all-cmds 0) g-tw-counts)
+    print-line-uni (grade-ints "tw-counts   " (list-map count-of all-cmds) g-tw-counts)
     print-line-uni (grade-rel  "tw-strengths" (cmd-strengths all-cmds 0) g-tw-strengths 0.000001)
     print-line-uni (grade-px   "tw-coords   " (cmd-coords all-cmds 0) g-tw-coords 0.001 0.000001)
   end

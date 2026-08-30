@@ -22,6 +22,18 @@ fn Tup5(comptime a_: type, comptime b_: type, comptime c_: type, comptime d_: ty
     };
 }
 
+fn list_map(comptime T21: type, comptime T22: type, f: CxFn1(T21, T22), xs: *CxList(T21)) *CxList(T22) {
+    return map_list_loop(T21, T22, f, xs, 0, cx_list_len(xs), cx_ll_empty(T22));
+}
+
+fn map_list_loop(comptime T25: type, comptime T26: type, f: CxFn1(T25, T26), xs: *CxList(T25), i_: i64, len_: i64, acc_: *CxList(T26)) *CxList(T26) {
+    var _tl_i = i_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_i == len_)) { return _tl_acc; } else { { const _tj1_2 = (_tl_i +% 1); const _tj1_4 = cx_ll_push(_tl_acc, f.call(f.ctx, cx_list_at(xs, _tl_i))); _tl_i = _tj1_2; _tl_acc = _tj1_4; continue; } }
+    }
+}
+
 fn round_real(x: f64) f64 {
     return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
 }
@@ -145,22 +157,6 @@ fn g_n_pow2() *CxList(f64) {
     return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4359484439294640128))), @as(f64, @bitCast(@as(i64, 4517110426252607488))), @as(f64, @bitCast(@as(i64, 4571153621781053440))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4611686018427387904))), @as(f64, @bitCast(@as(i64, 4643211215818981376))), @as(f64, @bitCast(@as(i64, 4697254411347427328))), @as(f64, @bitCast(@as(i64, 4854880398305394688))) });
 }
 
-fn map_round(xs: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ round_real(cx_list_at(xs, i_)) }), map_round(xs, (i_ +% 1))));
-}
-
-fn map_floor(xs: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ floor_real(cx_list_at(xs, i_)) }), map_floor(xs, (i_ +% 1))));
-}
-
-fn map_exp(xs: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ exp_real(cx_list_at(xs, i_)) }), map_exp(xs, (i_ +% 1))));
-}
-
-fn map_pow2(ks: *CxList(i64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ks))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ pow2_int(cx_list_at(ks, i_)) }), map_pow2(ks, (i_ +% 1))));
-}
-
 fn mod_inner(m_: f64, xs: *CxList(f64), j: i64) *CxList(f64) {
     return (if ((j >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ mod_real(cx_list_at(xs, j), m_) }), mod_inner(m_, xs, (j +% 1))));
 }
@@ -170,7 +166,7 @@ fn mod_outer(ms: *CxList(f64), xs: *CxList(f64), i_: i64) *CxList(f64) {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(grade_reals("\x12\x49\x15\x10\x19\x12\x16", map_round(g_n_round_in(), 0), g_n_round(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1c\x17\x10\x10\x15", map_floor(g_n_floor_in(), 0), g_n_floor(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1a\x10\x16\x02\x02", mod_outer(g_n_mod_m(), g_n_mod_x(), 0), g_n_mod(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1f\x10\x1b\x05\x02", map_pow2(g_n_pow2_k(), 0), g_n_pow2(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_rel("\x12\x49\x0d\x24\x1f\x02\x02", map_exp(g_n_exp_in(), 0), g_n_exp(), @as(f64, @bitCast(@as(i64, 4382569440205035030))))); break :b0; };
+    return b0: { _ = cx_print_line(grade_reals("\x12\x49\x15\x10\x19\x12\x16", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return round_real(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_n_round_in()), g_n_round(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1c\x17\x10\x10\x15", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return floor_real(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_n_floor_in()), g_n_floor(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1a\x10\x16\x02\x02", mod_outer(g_n_mod_m(), g_n_mod_x(), 0), g_n_mod(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_reals("\x12\x49\x1f\x10\x1b\x05\x02", list_map(i64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: i64) f64 { _ = _ctx4; return pow2_int(p0); } }; break :b4 CxFn1(i64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_n_pow2_k()), g_n_pow2(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_rel("\x12\x49\x0d\x24\x1f\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return exp_real(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_n_exp_in()), g_n_exp(), @as(f64, @bitCast(@as(i64, 4382569440205035030))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -198,6 +194,12 @@ pub fn main() void {
 
 const std = @import("std");
 
+// cx_gpa and the heap it allocates from live beside the buffer
+// builtins below: one region, one bump frontier, bare metal's model.
+
+fn CxFn1(comptime A: type, comptime R: type) type {
+    return struct { ctx: *anyopaque, call: *const fn (*anyopaque, A) R };
+}
 fn CxList(comptime T: type) type {
     return struct { items: std.ArrayListUnmanaged(T) = .empty };
 }
@@ -205,6 +207,10 @@ fn cx_ll_empty(comptime T: type) *CxList(T) {
     const cx_l = cx_gpa.create(CxList(T)) catch @panic("oom");
     cx_l.* = .{};
     return cx_l;
+}
+fn cx_ll_push(l: anytype, v: anytype) @TypeOf(l) {
+    l.items.append(cx_gpa, v) catch @panic("oom");
+    return l;
 }
 // Exact, not rounded. These three build most of what emission
 // allocates -- every instruction is a list literal (mov-rr is

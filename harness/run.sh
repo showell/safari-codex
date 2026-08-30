@@ -77,7 +77,28 @@ for check in "${checks[@]}"; do
   key="$( { cat "build/$mod-unit.codex" harness/run.sh; stat -c '%s %Y' "$codexzig"; } | sha256sum )"
   # The binaries are gitignored, so a fresh clone has a stamp-less build to do.
   if [ "$key" != "$(cat "build/$mod.stamp" 2>/dev/null)" ] || [ ! -x "build/$mod" ]; then
+    # A FAILED BUILD MUST NOT LEAVE SOMETHING THAT LOOKS CURRENT. The binary and
+    # the stamp go FIRST, so that whatever happens below, the next run rebuilds
+    # rather than trusting wreckage. Without this: a build fails, `set -e` exits
+    # before the stamp is rewritten, the source is then restored to what the OLD
+    # stamp describes -- and the key matches again while build/<mod> is the corrupt
+    # output of the failed run. The sweep then executes it. Measured 2026-08-30:
+    # `./harness/run.sh` printed `--- Mountains ---` and exited, silently, because
+    # build/mountains was 5,547 bytes of nothing and `Exec format error` went to a
+    # captured stream nobody printed.
+    rm -f "build/$mod" "build/$mod.stamp"
     "$codexzig" < "build/$mod-unit.codex" 2> "build/$mod.zig" > "build/$mod.diag"
+    # THE SAME GATE spike.sh AND build_wasm.sh ALREADY HAD, and this was the only
+    # build path without it. codexzig writes the program to stderr and diagnostics
+    # to stdout, so a refusal leaves a SHORT NON-EMPTY .zig -- the halt message
+    # itself -- which a plain -s test calls success and zig then compiles into
+    # something that is not a program.
+    grep -q "^// THE PRELUDE" "build/$mod.zig" || {
+      echo "codexzig emitted no program for $base:" >&2
+      head -1 "build/$mod.zig" >&2
+      head -3 "build/$mod.diag" >&2
+      exit 1
+    }
     # DEBUG, like the probe, and the saving is not what it first looked like.
     # ReleaseFast costs ~23 s here against Debug's ~0.85 s, but that is NOT the
     # Codex prelude being optimised: a TWO-LINE program whose whole body is one

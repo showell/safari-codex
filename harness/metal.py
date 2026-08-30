@@ -66,12 +66,19 @@ def snake(chapter):
 
 
 def zig_output(chapter):
-    """What the zig arm prints. Built by run.sh, which is left to own that."""
+    """What the zig arm prints. Built by run.sh, which is left to own that.
+
+    ALWAYS run.sh, NOT "run it if the binary is missing". The old form built only
+    when build/<mod> did not exist, so an edited check was compared as FRESH source
+    on bare metal against a STALE binary on the zig side -- and the two arms then
+    disagree for a reason that has nothing to do with either emitter. That reports
+    a defect where there is none, which is the expensive direction to be wrong in
+    even though it is the safe one. run.sh is stamp-guarded and costs under a
+    second when nothing changed, so there is no reason to guess.
+    """
     mod = snake(chapter)
-    exe = ROOT / "build" / mod
-    if not exe.is_file():
-        subprocess.run([str(ROOT / "harness/run.sh"), chapter], check=True,
-                       stdout=subprocess.DEVNULL)
+    subprocess.run([str(ROOT / "harness/run.sh"), chapter], check=True,
+                   stdout=subprocess.DEVNULL)
     out = subprocess.run([f"./{mod}"], cwd=ROOT / "build",
                          capture_output=True, text=True)
     return out.stderr  # a transpiled program prints to stderr (PORTING_NOTES C2)

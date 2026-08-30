@@ -136,17 +136,29 @@ the compiler; this does it for this port.
 3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
 printed verdicts, and verdicts are text.
 
-**`RideCheck` is the one that says the most, and it is not because of its
-verdicts.** It is the only check here that is a long-lived *stateful* computation
-rather than a pure function or a single frame — 6,960 frames of fold, in 9 s
-inside the guest — and the two arms agree on its derived NUMBERS as well as its
-verdicts: 6,960 against 7,000, segment 13 at 265 frames, 68,700 mm at the last
-shared sample. That matters because of what `PORTING_NOTES` D11 measured on the
-same ride: a persistent difference of 1e-7 moves the frame count by sixty and
-segment 13 by thirty-eight. So the two arms agreeing on all three numbers means
-they agree far *below* f32 epsilon across 6,960 frames of feedback that includes
-the binary-search lean, sin and cos every frame, and the corner brake. One bit of
-disagreement anywhere in that chain would very likely have moved the count.
+**`RideCheck` is the only check here that is a long-lived *stateful* computation**
+rather than a pure function or a single frame — 6,960 frames of fold, in 9 s inside
+the guest against 1.0 s native — and the two arms agree on its derived numbers as
+well as its verdicts: 6,960 against 7,000, segment 13 at 265 frames, 68,700 mm at
+the last shared sample.
+
+**Be careful what that is worth, because the obvious reading is wrong.** It is
+tempting to say the ride's knife edge makes it a sharp detector of a difference
+between the two emitters. It does not, and `probe_sens.zig` is what says so: a
+ONE-TIME perturbation of 1e-7 is absorbed completely, and a PERSISTENT relative
+bias only starts to move anything at 1e-7 — 1e-8 and 1e-9 change nothing at all.
+Two IEEE f64 emitters differ, if they differ, at about 1e-16 an operation, eight
+orders below that floor. So this check is **blind** to exactly the emitter faults a
+DDC check most wants — FMA contraction, x87 excess precision, a reassociated
+sum — because every one of them lives at 1e-16.
+
+**The knife edge is calibrated to f32 epsilon, which is the port-against-game gap
+and nowhere near the arm-against-arm one.** What the agreement genuinely rules out
+is gross divergence: a persistent difference of 1e-7 or more between the emitters.
+The 9 s is worth as much as the agreement — the ride depends on no input at all,
+so a sufficiently eager `fold-constants` could have evaluated the whole thing at
+compile time and had the guest print an answer the emitted x86 never computed. Nine
+seconds of guest time and a second of native time say neither arm did.
 
 **A check compares verdicts, not values**, and that is a real limit on what the
 sweep above proves: `Grade` prints `name ok 2468`, so two arms that both sit

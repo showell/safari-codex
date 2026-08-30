@@ -798,15 +798,35 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     the guest goes quiet rather than closing the port. Six minutes to be told
     OUT OF MEMORY is not a hang.
 
-    THE LONGEST THING THIS ARM HAS RUN IS RideCheck, and it is the one whose
-    agreement says the most. Every other check is a pure function or a single
-    frame; that one is 6,960 frames of FOLD -- it fits the guest's 3072 MB and
-    takes 9 s inside it -- and the arms agree on its derived NUMBERS as well as
-    its verdicts: 6,960 against 7,000, segment 13 at 265, 68,700 mm at the last
-    shared sample. D11 measured that same ride moving by sixty frames under a
-    persistent 1e-7. So the arms agree well BELOW f32 epsilon across 6,960 frames
-    of feedback carrying a binary search, sin and cos per frame and a brake curve;
-    one differing bit in that chain would most likely have moved the count.
+    THE LONGEST THING THIS ARM HAS RUN IS RideCheck: 6,960 frames of FOLD, where
+    every other check is a pure function or a single frame. It fits the guest's
+    3072 MB, takes 9 s inside it against 1.0 s native, and the arms agree on its
+    derived NUMBERS as well as its verdicts -- 6,960 against 7,000, segment 13 at
+    265, 68,700 mm at the last shared sample.
+
+    AND THE FIRST READING OF THAT WAS WRONG, WHICH IS WHY IT IS WRITTEN DOWN. The
+    claim drafted here was that the ride's knife edge makes it a sharp detector of
+    a difference between the emitters -- "one differing bit would have moved the
+    count". D11's own table refutes it. A ONE-TIME perturbation of 1e-7 is absorbed
+    completely, and a PERSISTENT bias does nothing at 1e-8 or 1e-9. Two IEEE f64
+    emitters differ at about 1e-16 an operation, eight orders below that floor, and
+    83,520 lean comparisons at that separation give a flip probability around 1e-10.
+    So the ride is BLIND to FMA contraction, to x87 excess precision and to a
+    reassociated sum -- the three things a DDC check most wants to catch.
+
+    THE KNIFE EDGE IS CALIBRATED TO f32 EPSILON, which is the PORT-against-GAME
+    gap, not the ARM-against-ARM one. What the agreement rules out is gross
+    divergence: a persistent difference of 1e-7 or more. That is worth having and
+    it is not what the first draft said.
+
+    THE RUNTIME CARRIES ITS OWN CHECK, and it is the one that would have been
+    missed. `ride-result` depends on NO input -- build-world, initial-rider-state
+    and ride-start are all constants -- so an eager fold-constants pass could
+    legally evaluate all 6,960 frames at compile time and leave the guest printing
+    numbers the emitted x86 never computed. The seed's pipeline line says
+    fold-constants is ON. Nine seconds of guest time and a second of native time
+    are what say it did not fire, and a check whose agreement is instant would
+    deserve exactly this suspicion.
 
     THE LESSON IS ABOUT ARMS, NOT ABOUT THIS PORT: an arm you develop against is
     an arm whose silence you have learned to trust. B5 records the flat-namespace
@@ -1087,14 +1107,13 @@ D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
     measured: compare one step from a shared state, and check the whole ride by
     INVARIANTS. What is new is that the ruling now has numbers under it.
 
-    AND THE SENSITIVITY CUTS THE OTHER WAY TOO, which is worth stating because it
-    turns a caveat into a measurement. The THIRD ARM runs this same ride -- the
-    Codex compiler's own x86-64 emitter, under QEMU -- and prints 6,960, segment
-    13, and 68,700 mm, byte-identically to the zig arm. On a computation this
-    table shows to be undetermined at 1e-7, that is the two emitters agreeing far
-    below f32 epsilon over 6,960 frames of feedback. The knife edge that makes the
-    frame count useless as a port oracle makes it an unusually sharp one for the
-    arms.
+    THE SENSITIVITY DOES NOT CUT THE OTHER WAY, AND THE DRAFT THAT SAID IT DID WAS
+    WRONG. The third arm runs this same ride and prints 6,960, segment 13 and
+    68,700 mm byte-identically -- but the table above is the reason that is a
+    weaker statement than it looks. The floor for a PERSISTENT bias is between 1e-8
+    and 1e-7, and a ONE-TIME 1e-7 is absorbed outright; two IEEE f64 emitters
+    differ at 1e-16 if at all. So the frame count detects the port-against-game gap
+    and is blind to the arm-against-arm one. C16 carries the corrected reading.
 
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK

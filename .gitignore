@@ -46,3 +46,8 @@ build/wasmringplug*
 # npm's tree for wabt. package.json and package-lock.json pin it; the tree is
 # 'npm ci' away and has no business in this history.
 tools/node_modules/
+
+# wasmtime, fetched by tools/README.md and 100 MB unpacked. It is a released
+# binary, not something this project builds, and the version is pinned in
+# PROVENANCE.md.
+tools/bin/

@@ -14,8 +14,10 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 cd "$root"
 
-: "${CODEX_ROOT:=$HOME/showell_repos/cobblestone-safari}"   # ours; PROVENANCE.md
-export CODEX_ROOT
+# SET, not defaulted: CODEX_ROOT is exported in this box's login environment,
+# so `${CODEX_ROOT:=...}` reads as a pin and is not one. harness/pins.py has
+# the incident. SAFARI_COBBLESTONE is the override nothing else exports.
+export CODEX_ROOT="${SAFARI_COBBLESTONE:-$HOME/showell_repos/cobblestone-safari}"
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 # OURS, built by its own project in a worktree this one owns. It used to
 # default into the SHARED transpiler checkout, which meant the compiler under

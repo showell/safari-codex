@@ -30,17 +30,14 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # ladder-root-bootstrap
-# OUR OWN COPY (harness/PROVENANCE.md names where from). The ladder resolves the
-# checkout through its own ladder_root module, which knows where the LADDER is;
-# this project has no ladder, so CODEX_ROOT is read directly and a missing or
-# wrong one is refused here rather than surfacing as a missing chapter later.
-import os
+# OUR OWN COPY (PROVENANCE.md names where from). The ladder resolves the checkout
+# through its own ladder_root module, which knows where the LADDER is; this
+# project has no ladder, so it asks harness/pins.py -- which SETS the tree rather
+# than reading an ambient CODEX_ROOT, and pins.py's docstring says why that
+# distinction cost an afternoon.
+import pins
 
-CODEX = pathlib.Path(os.environ.get(
-    'CODEX_ROOT', pathlib.Path.home() / 'showell_repos' / 'cobblestone-safari'))
-if not (CODEX / 'codex' / 'foreword').is_dir():
-    raise SystemExit(f'CODEX_ROOT={CODEX} does not hold codex/foreword; '
-                     'point it at a Cobblestone checkout')
+CODEX = pins.COBBLESTONE
 
 CITE = re.compile(r'^\s*cites\s+([A-Za-z_][A-Za-z0-9_]*)\s+chapter\s+'
                   r'([A-Za-z_][A-Za-z0-9_ -]*?)\s*(?:\(.*)?$', re.M)

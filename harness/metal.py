@@ -33,6 +33,8 @@ import sys
 
 from names import snake
 
+import pins  # noqa: F401  -- SETS CODEX_ROOT; see its docstring
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LADDER = pathlib.Path(os.environ.get("SAFARI_LADDER",
                                      pathlib.Path.home() / "showell_repos/codex-zig-ladder"))

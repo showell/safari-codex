@@ -29,6 +29,8 @@ import os
 import pathlib
 import sys
 
+import pins  # noqa: F401  -- SETS CODEX_ROOT; see its docstring
+
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 

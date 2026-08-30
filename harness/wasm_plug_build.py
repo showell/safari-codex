@@ -41,8 +41,8 @@ def cobblestone_root():
     silently bundling the shared one would produce a plug with three holes in
     it that fails only at wat2wasm, one module later.
     """
-    root = os.environ.get("COBBLESTONE_ROOT",
-                          pathlib.Path.home() / "showell_repos/cobblestone-safari")
+    import pins
+    root = pins.COBBLESTONE
     return str(pathlib.Path(root).expanduser().resolve())
 
 

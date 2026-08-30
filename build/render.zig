@@ -882,12 +882,12 @@ fn rail_poly(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, color: i64) RailPoly {
     return b0: { const fwd: f64 = ((((p0.forward + p1.forward) + p2.forward) + p3.forward) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b0 cx_new(RailPolyS{ .v_ = cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 }), .color = color, .fwd = fwd }); };
 }
 
-fn guardrail_bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
+fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
     return b0: { const p_bot = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_bot() }); break :b0 b1: { const q_bot = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_bot() }); break :b1 b2: { const q_top = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_top() }); break :b2 b3: { const p_top = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_top() }); break :b3 rail_poly(p_bot, q_bot, q_top, p_top, rail_metal()); }; }; }; };
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ guardrail_bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
@@ -1035,11 +1035,11 @@ fn max_vis_cats() i64 {
     return 8;
 }
 
-fn render_tower_beyond() f64 {
+fn tower_beyond() f64 {
     return @as(f64, @bitCast(@as(i64, 4639833516098453504)));
 }
 
-fn render_tower_right() f64 {
+fn tower_right() f64 {
     return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
 }
 
@@ -1126,7 +1126,7 @@ fn tower_if_ahead(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_:
 }
 
 fn seg_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 cx_ll_concat(tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length + render_tower_beyond()), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + render_tower_right()), tower_yaw(), cx_list_at(ch, d_)), seg_mid_tower(_arg_segs, ch, pose, d_)); };
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 cx_ll_concat(tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length + tower_beyond()), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), cx_list_at(ch, d_)), seg_mid_tower(_arg_segs, ch, pose, d_)); };
 }
 
 fn seg_mid_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
@@ -1178,7 +1178,7 @@ fn behind_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, 
 }
 
 fn behind_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(TowerItem) {
-    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 tower_if_ahead(_arg_segs, ch, pose, prev_map(pv), (pv.length + render_tower_beyond()), ((pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + render_tower_right()), tower_yaw(), prev_idx); };
+    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 tower_if_ahead(_arg_segs, ch, pose, prev_map(pv), (pv.length + tower_beyond()), ((pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), prev_idx); };
 }
 
 fn outer_cu(exit_right: bool, wd: f64) f64 {
@@ -1553,20 +1553,20 @@ fn chain_lens(i_: i64) *CxList(i64) {
     return (if ((i_ >= n_segs())) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(build_chain(segs(), i_)) }), chain_lens((i_ +% 1))));
 }
 
-fn rendercheck_tower_beyond() f64 {
+fn sample_beyond() f64 {
     return @as(f64, @bitCast(@as(i64, 4639833516098453504)));
 }
 
-fn rendercheck_tower_right() f64 {
+fn sample_right() f64 {
     return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
 }
 
 fn sample_as(s_: Segment) *CxList(f64) {
-    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), (s_.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), s_.length, (s_.length + rendercheck_tower_beyond()) });
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), (s_.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), s_.length, (s_.length + sample_beyond()) });
 }
 
 fn sample_xs(s_: Segment) *CxList(f64) {
-    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), (s_.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), s_.width, ((s_.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + rendercheck_tower_right()) });
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), (s_.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), s_.width, ((s_.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + sample_right()) });
 }
 
 fn poses() *CxList(Pose) {

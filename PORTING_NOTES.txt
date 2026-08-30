@@ -700,6 +700,49 @@ C15. A NEW MODULE MUST NOT BE ABLE TO KILL THE SWEEP SILENTLY.
     The general shape is worth keeping: an optimisation that assumes steady state
     has to be checked against the FIRST run, not just the second.
 
+C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
+
+    ./harness/metal.py <Chapter>...   or --all
+
+    The port is verified against the game through the ZIG PLUG: Codex in, zig
+    out, a native binary that prints a verdict. That proves the port and says
+    nothing about the plug. metal.py runs the SAME check a second way -- through
+    the Codex compiler's own x86-64 emitter, as a kernel image booted under QEMU
+    -- and requires the two to print the same bytes. Diverse Double-Compiling in
+    Wheeler's sense, on a program rather than on the compiler.
+
+    IT WAS ABOUT FORTY LINES OF HARNESS, and that is worth recording because it
+    had been imagined as a project. The machinery is the ladder's and is borrowed
+    rather than restated: `ring_compile.compile_ring` streams a cite-resolved unit
+    into the seed under QEMU and hands back a .cdx; `codex_vm.run_cdx` boots that
+    and captures the serial. Both take the compute lock and both refuse off the
+    venue, so this cannot start a guest without asking. The blob framing is
+    `b"CDX map\n" + unit + b"\x04"`, which bare_expected.py in the ladder is the
+    model for.
+
+    IT IS FASTER THAN EXPECTED: 2m53s for all fifteen checks, two guests each.
+    Pond (17 KB unit) is 8 seconds; Safari (1.16 MB, over the ring window, so it
+    exercises the refill path) is 40. The units are far bigger than anything the
+    ladder's own corpus compiles and nothing complained.
+
+    ALL FIFTEEN AGREED, FIRST RUN, BYTE FOR BYTE -- including the whole-frame
+    check's 3,091 commands and 7,518 coordinates. No tolerance is involved: this
+    compares the two arms' PRINTED OUTPUT, and the verdicts are text.
+
+    WHAT IT FOUND WAS IN THE DIAGNOSTICS, NOT THE OUTPUT. The seed emitted 1,268
+    CDX4010 (bounds proven, info), 15 CDX4030 (pipeline, info) and TEN CDX3006
+    warnings -- three real name collisions in a port that had been green for its
+    whole life: `bar-quad` in both Tower and GuardRail, `tower-beyond` and
+    `tower-right` in both Render and RenderCheck. codexzig's diagnostic stream
+    carried none of them. All three are renamed; the missing diagnostics are
+    FINDINGS.md item 5.
+
+    THE LESSON IS ABOUT ARMS, NOT ABOUT THIS PORT: an arm you develop against is
+    an arm whose silence you have learned to trust. B5 records the flat-namespace
+    hazard as something to watch for by hand, and by hand is how it was watched
+    for, and three instances still got in. A second compiler is a second opinion
+    about your own source, and it is cheap.
+
 ================================================================================
 D. NUMERIC CALIBRATION -- what the tolerances are actually measuring
 ================================================================================

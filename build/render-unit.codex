@@ -2041,10 +2041,17 @@ Section: Rods
     in let dy = b.y - a.y
     in let raw = real-sqrt (dx * dx + dy * dy)
     in let len = if raw < 0.0001 then 1.0 else raw
-    in bar-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
+    in rod-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
 
-  bar-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
-  bar-quad (a) (b) (ox) (oy) =
+ NAMED FOR ITS SECTION RATHER THAN ITS SHAPE, and the rename was forced by the
+ bare-metal arm: `bar-quad` is also GuardRail's, and Codex chapters share one flat
+ namespace. Each chapter sees its own definition so both compiled and ran
+ correctly -- but a mention in a chapter that defines NEITHER resolves by the
+ order the build globs files, which is not a property anything should rely on.
+ The seed diagnoses it (CDX3006); the zig arm says nothing.
+
+  rod-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
+  rod-quad (a) (b) (ox) (oy) =
     push-poly tower-metal [ScreenPt { x = a.x + ox, y = a.y + oy }, ScreenPt { x = b.x + ox, y = b.y + oy }, ScreenPt { x = b.x - ox, y = b.y - oy }, ScreenPt { x = a.x - ox, y = a.y - oy }]
 
  One rod, near-clipped: a 3D segment clipped to the near plane before projecting,
@@ -3634,21 +3641,29 @@ Section: The Sample Points
 
  Where render authors: the segment start, middle, end edge, and the tower's
  distance beyond it; the left edge, centre line, right edge, and the tower's
- offset off it. These two are render.zig's tower placement constants, and they are
- here rather than in the port because the port has not reached the towers yet --
- they choose sample points, so they are test inputs and not expected values.
+ offset off it. These two carry render.zig's tower placement constants, and they
+ are the probe's INPUTS rather than the port's values: they choose where to
+ sample, so a check that read them off the port would be letting the thing under
+ test decide where it is measured.
 
-  tower-beyond : Real
-  tower-beyond = 160.0
+ THEY ARE NAMED `sample-` FOR THAT REASON AND BECAUSE THEY COLLIDED. Render has
+ `tower-beyond` and `tower-right` of its own now, and chapters share one flat
+ namespace: two definitions of a name compile and each chapter sees its own, but a
+ mention in a chapter that defines neither resolves by file order. The bare-metal
+ arm diagnoses that (CDX3006) and the zig arm does not, which is how this one was
+ found.
 
-  tower-right : Real
-  tower-right = 20.0
+  sample-beyond : Real
+  sample-beyond = 160.0
+
+  sample-right : Real
+  sample-right = 20.0
 
   sample-as : Segment -> List Real
-  sample-as (s) = [0.0, s.length / 2.0, s.length, s.length + tower-beyond]
+  sample-as (s) = [0.0, s.length / 2.0, s.length, s.length + sample-beyond]
 
   sample-xs : Segment -> List Real
-  sample-xs (s) = [0.0, s.width / 2.0, s.width, s.width / 2.0 + tower-right]
+  sample-xs (s) = [0.0, s.width / 2.0, s.width, s.width / 2.0 + sample-right]
 
   poses : List Pose
   poses = [Pose { along = 120.0, across = 0.6, yaw = 0.05, hw = 2.0 }, Pose { along = 480.0, across = 0.0 - 1.2, yaw = 0.0 - 0.3, hw = 2.0 }]

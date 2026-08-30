@@ -10,8 +10,8 @@ Five documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
 — fifty-five numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
-**`FINDINGS.md`** is the six defects this port found in the toolchain and the game,
-written up to be sent. **`PLUG_WORK.md`** records the emitter change the port
+**`FINDINGS.md`** is the seven defects this port found in the toolchain and the
+game, written up to be sent. **`PLUG_WORK.md`** records the emitter change the port
 needed and why it was branched where it was. **`NOTES.txt`** is the research brief
 that opened the project; it is history now and several of its predictions were
 wrong in useful ways, which this file notes where it matters.
@@ -28,7 +28,7 @@ these are on branches made for this work and the port does not build on `master`
 | `~/showell_repos/NewRepository` | `u52-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. |
 | `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | a **worktree of NewRepository** holding the plug work — the emitter changes the port needed. `PLUG_WORK.md` is its record. |
-| `~/showell_repos/codex-zig-ladder` | `master` | borrowed for one file: `cite_resolve.py`, which `harness/bundle.py` imports rather than restating. Override with `SAFARI_LADDER`. |
+| `~/showell_repos/codex-zig-ladder` | `master` | borrowed for three things: `cite_resolve.py` (which `harness/bundle.py` imports rather than restating) and `ring_compile` + `codex_vm`, which are how the third arm boots a guest. Override with `SAFARI_LADDER`. |
 
 **`codexzig` is why this project moves at all.** It is one program — Codex source
 in, Zig out — built by `codex-zig-transpiler/build.py` into
@@ -114,8 +114,53 @@ keeps the promise below that a hand-edited gold cannot survive one run.
 
     ./harness/run.sh Render          # just one module, about 3s
 
-**Nothing here boots a QEMU guest** — this is not the ladder's usual cadence, and
-none of the ladder's compute rules apply.
+**The sweep boots no QEMU guest.** `harness/metal.py` does — that is the third arm,
+below — and the ladder's compute rules apply to it and to nothing else here.
+
+## The third arm: the same check on bare metal
+
+    ./harness/metal.py Pond          # one check, both ways
+    ./harness/metal.py --all         # all fifteen, smallest first (2m53s)
+
+The sweep above verifies the **port** against the game, and it does that through
+the zig plug: Codex source in, zig out, a native binary that prints a verdict.
+That proves the port and says **nothing about the plug**.
+
+So the same check is run a second way — through the Codex compiler's own x86-64
+emitter, as a kernel image booted under QEMU — and the two arms must print the
+same bytes. That is a Diverse Double-Compiling check in Wheeler's sense, applied
+to a program instead of to a compiler. `codex-zig-ladder` next door does it for
+the compiler; this does it for this port.
+
+**All fifteen checks agree, byte for byte**, including the whole-frame check's
+3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
+printed verdicts, and verdicts are text.
+
+The machinery is the ladder's, borrowed rather than restated: `ring_compile`
+streams a cite-resolved unit into the seed under QEMU and hands back a `.cdx`,
+`codex_vm.run_cdx` boots it and captures the serial. Both take the ladder's
+compute lock and both refuse off the venue, so this cannot start a guest without
+asking. It came to about forty lines of harness, which is worth saying because it
+had been imagined as a project.
+
+**What it found was in the diagnostics, not the output.** The seed emitted 1,268
+`CDX4010` (bounds proven, info), 15 `CDX4030` (pipeline, info) and **ten
+`CDX3006` warnings** — three real name collisions in a port that had been green
+for its whole life: `bar-quad` defined in both `Tower` and `GuardRail`,
+`tower-beyond` and `tower-right` in both `Render` and `RenderCheck`. `codexzig`'s
+diagnostic stream carried none of them. Nothing was misbehaving — each chapter
+sees its own definition — but a mention from a chapter that defines neither
+resolves by the order the build globs files, which is not a property to rely on.
+All three are renamed; the missing diagnostics are `FINDINGS.md` item 5.
+
+The lesson is about arms rather than about this port: **an arm you develop against
+is an arm whose silence you have learned to trust.** `PORTING_NOTES` B5 records
+the flat-namespace hazard as something to watch for by hand — by hand is how it
+was watched for, and three instances still got in.
+
+**What it does not prove.** Only that two emitters agree on this source. A defect
+in the shared front end is invisible to it, exactly as the ladder's own README
+says of its rungs.
 
 ## Layout
 
@@ -145,6 +190,9 @@ The chapter name is written once and everything else is derived from it. The
 probe is **snake_case, named after the game file it imports** — `GuardRail` gives
 `probe/probe_guard_rail.zig` beside `wasm/guard_rail.zig` — and the gold chapter
 is the name with `Gold` appended, so the check cites `Gold chapter <Chapter>Gold`.
+
+`harness/metal.py <Chapter>` then works on it with no further wiring: the third
+arm reads the same three files.
 
 `judge/Grade.codex` is the only grader. Every seam flattens to a list of Reals,
 Integers or Booleans, so one grader serves pond, the camera, and eventually the
@@ -616,6 +664,14 @@ owed.
 **The six findings are written up and not sent** — `FINDINGS.md`. Sending them is
 Steve's call: four go to Cobblestone / the zig plug and two to angry-gopher, and
 the angry-gopher pair includes a one-line buffer fix that is now on a live path.
+
+**The third arm runs the checks; it does not yet run the PAGE.** `metal.py` boots
+the fifteen `judge/` checks and compares verdicts. What it cannot reach the same
+way is `poc/DriveMain` — the browser build's entry — because that program's output
+is a wasm module rather than a line of text, and its shim is zig by construction.
+A bare-metal frame would want the draw-command buffer printed as text and diffed
+against the same from the zig arm, which is the `SpikeMain` shape rather than a
+new idea. That is the obvious next rung.
 
 **The whole-frame check grades two states.** They were chosen as branches — a hard
 lean, and a long straight with the truck close — and two is what the transpiler's

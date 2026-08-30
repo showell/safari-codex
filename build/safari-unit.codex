@@ -2450,10 +2450,17 @@ Section: Rods
     in let dy = b.y - a.y
     in let raw = real-sqrt (dx * dx + dy * dy)
     in let len = if raw < 0.0001 then 1.0 else raw
-    in bar-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
+    in rod-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
 
-  bar-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
-  bar-quad (a) (b) (ox) (oy) =
+ NAMED FOR ITS SECTION RATHER THAN ITS SHAPE, and the rename was forced by the
+ bare-metal arm: `bar-quad` is also GuardRail's, and Codex chapters share one flat
+ namespace. Each chapter sees its own definition so both compiled and ran
+ correctly -- but a mention in a chapter that defines NEITHER resolves by the
+ order the build globs files, which is not a property anything should rely on.
+ The seed diagnoses it (CDX3006); the zig arm says nothing.
+
+  rod-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
+  rod-quad (a) (b) (ox) (oy) =
     push-poly tower-metal [ScreenPt { x = a.x + ox, y = a.y + oy }, ScreenPt { x = b.x + ox, y = b.y + oy }, ScreenPt { x = b.x - ox, y = b.y - oy }, ScreenPt { x = a.x - ox, y = a.y - oy }]
 
  One rod, near-clipped: a 3D segment clipped to the near plane before projecting,

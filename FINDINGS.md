@@ -1,8 +1,8 @@
 # Findings owed upstream
 
-Six, written up and **not yet sent**. Each is self-contained: what was observed,
-how to reproduce it, and what the fix looks like. They are owed to two different
-projects and the two halves are independent.
+Seven, written up and **not yet sent**. Each is self-contained: what was observed,
+how to reproduce it, and what the fix looks like. Five are owed to Cobblestone and
+the zig plug, two to angry-gopher, and the two halves are independent.
 
 Every one of these came out of porting the Safari driving screensaver from Zig to
 Codex (`README.md` is the orientation) — that is, out of ordinary use of the
@@ -137,11 +137,54 @@ drops unused ones) or be reported. Silence plus inconsistency is the expensive
 combination — two definitions written together in the same style, one survives and
 one does not, and nothing says which.
 
+### 5. The zig arm reports no diagnostics at all where the seed reports real ones
+
+**Severity: medium.** Not a wrong answer — a missing warning, which is worse in
+one specific way: it is invisible, so nobody knows to look.
+
+Compiling this port's checks two ways — through `codexzig` and through the Codex
+compiler's own x86-64 emitter under QEMU — the two produce **byte-identical
+program output** on all fifteen checks. They do not produce the same diagnostics.
+Across those fifteen units the seed emitted:
+
+| code | count | what |
+|---|---|---|
+| CDX4010 | 1,268 | `bounds proven: runtime check elided` (info) |
+| CDX4030 | 15 | `PIPELINE fold-constants,inline-leaf-calls,inline-single-caller` (info) |
+| **CDX3006** | **10** | **`Definition 'x' is also defined in chapter 'Y'`** (warning) |
+
+`codexzig`'s diagnostic stream (stdout, per its own convention) carried **none of
+them** — for the largest unit it was empty apart from its `CX-DECK` heap lines.
+
+The CDX3006s were real. Three distinct name collisions in a port that had been
+green for its whole life:
+
+- `bar-quad` defined in both `Tower` and `GuardRail` — different signatures,
+  different types, same name;
+- `tower-beyond` and `tower-right` defined in both `Render` and `RenderCheck`.
+
+The warning's own text is exactly right about why this matters: *"which definition
+a mention gets depends on the chapter the mention sits in, and in a chapter that
+defines neither it depends on the order the build globs files."* Nothing was
+misbehaving — each chapter saw its own — but the port was one refactor away from
+a mention resolving by file order, and the arm it is developed against never said
+so. All three are renamed now.
+
+**Fix shape:** the plug arm should surface the front end's diagnostics rather than
+only its own. If they are being produced and discarded, that is a one-line
+plumbing change; if the plug's path does not run the check that produces them,
+that is the more interesting answer and worth knowing.
+
+**Why we can be sure it is not our harness:** the same script reads both streams
+the same way, and the seed's warnings arrive in a file the ladder's
+`ring_compile` writes (`<unit>.cdx.diags`) while `codexzig`'s go to stdout, which
+this repo already captures to `build/<mod>.diag` and has since the first module.
+
 ---
 
 ## To angry-gopher (`games/driving`)
 
-### 5. `paint.pushGradPoly` under-counts its header by one word
+### 6. `paint.pushGradPoly` under-counts its header by one word
 
 **Severity: low, latent — but it is now on the live path.**
 
@@ -168,7 +211,7 @@ draw on every dusk frame with the truck in view.
 
 **Fix:** `const need = 7 + pts.len * 2;`
 
-### 6. `truck.zig`'s comments say the headlights and brake glow are deferred; the code draws them
+### 7. `truck.zig`'s comments say the headlights and brake glow are deferred; the code draws them
 
 **Severity: documentation.** Three comments in `wasm/truck.zig` describe an
 earlier state of the file:

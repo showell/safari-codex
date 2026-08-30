@@ -1,8 +1,33 @@
 # Findings owed upstream
 
-Eight, written up and **not yet sent**. Each is self-contained: what was observed,
-how to reproduce it, and what the fix looks like. Six are owed to Cobblestone and
-the zig plug, two to angry-gopher, and the two halves are independent.
+Eight, each self-contained: what was observed, how to reproduce it, and what the
+fix looks like. Six are owed to Cobblestone and the zig plug, two to
+angry-gopher, and the two halves are independent.
+
+**Status, 2026-08-30 evening.** Three are sent and five are not:
+
+| | what | where it went |
+|---|---|---|
+| 1 | `OvError` becomes a wrapping multiply | **not sent** — needs an issue |
+| 2 | Cordic's accuracy vs its docstring | **not sent** — in progress, and CORRECTED |
+| 3 | single-letter names collide | **not sent** — a one-line rename |
+| 4 | a one-caller definition is inlined away | **not sent** — diagnosed, needs an issue |
+| 5 | the zig arm reports no diagnostics | **not sent** — needs investigation |
+| 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
+| 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |
+| 8 | `truck.zig`'s stale comments | **not sent** — angry-gopher |
+
+Two more things left this file and went upstream from the same porting work,
+though neither is numbered here: the f64 **conversions**
+([PR 100](https://github.com/damiant3/Cobblestone/pull/100)) and **bitcasts**
+([PR 105](https://github.com/damiant3/Cobblestone/pull/105)) the port needed, and
+the Real **arc tangent** it had to write for itself
+([PR 107](https://github.com/damiant3/Cobblestone/pull/107)).
+
+**Four entries were CORRECTED on 2026-08-30 and the corrections are the
+interesting part** — items 1, 3, 4 and 6 each had a real observation attached to a
+mechanism that had not been checked. Read the entry, not this table, before
+acting on any of them.
 
 Every one of these came out of porting the Safari driving screensaver from Zig to
 Codex (`README.md` is the orientation) — that is, out of ordinary use of the
@@ -30,22 +55,26 @@ Not all eight are the same kind of thing, and sending them the same way would wa
 the small ones and overreach on the large ones. The standing rule applies: we are
 not responsible for non-zig plugs, nor for fully testing core-compiler changes.
 
-**Already sent.** `real-to-int` / `real-from-int` went as **Cobblestone PR 100**
-(branch `zig-plug-real-conversions`). `real-to-bits` / `bits-to-real` went as
-**Cobblestone PR 105** on 2026-08-30 (branch `zig-plug-real-bitcast`, register
-entry `plugs-backlog 2.07`, new test `codex/test/ops/real-bitcast-f64`), stacked
-on PR 100's head and graded against it: 0 stage moves, 0 verdict moves, 579 of
-582 emitted zig files byte-identical and the three that differ differing only by
-the intended substitution.
+**Already sent.** `real-to-int` / `real-from-int` went as **Cobblestone PR 100**;
+`real-to-bits` / `bits-to-real` as **PR 105**, stacked on PR 100's head, register
+entry `plugs-backlog 2.07`, new test `codex/test/ops/real-bitcast-f64`. Both were
+graded on the ladder against plain Update 53: `real-to-int` blocked 17 of the
+depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
+`bits-to-real` 5, and all four go to zero
+(`results/8f26755f-vs-58b08c38-core-a456e0cc9414/` in the ladder).
 
 **Send as a PR — small, mechanical, no policy call.**
 
-- **Item 2, Cordic.** The whole test is `cites Math chapter Cordic` and one
-  `print-line-uni "Math/Cordic OK"` — verified 2026-08-30, it calls nothing, and
-  its `.expected` is that one line. It passes whether or not Cordic works. The fix
-  is two things a patch can carry: correct the docstring to the measured 0.45%, and
-  give the test values to compare. This is the same shape as PR 100's
-  `real-int-conversions` test and is the strongest remaining candidate.
+- **Item 2, Cordic. CORRECTED 2026-08-30, and the claim that nothing tests it is
+  WRONG.** `codex/test/forewords/math-cordic` is indeed a one-line smoke that
+  calls nothing — but `math-cordic-quadrants` sits beside it with 32 lines of real
+  values, each against a `true` column, plus three counted invariants. Cordic's
+  accuracy IS asserted. What survives is sharper: the docstring claims ~0.1%, and
+  a faithful model of the algorithm (`findings/cordic/model.py` in the ladder,
+  which reproduces `cordic-sin 300 = 291` exactly) measures **0.54% of full scale
+  and 3.68% relative** over the whole turn — 5.4x or 37x the claim depending on
+  which reading of "accuracy" you take, and the docstring does not say which. The
+  existing test cannot catch it because its own tolerance is 1.5 per cent.
 - **Item 3, single-letter names.** Plug-side, self-contained, and now a one-line
   rename: the tuple constructors' comptime parameters (`a_`–`d_`) must move out of
   the namespace `zig-sanitize` renames reserved user names into. **The second
@@ -58,11 +87,11 @@ the intended substitution.
   [#107](https://github.com/damiant3/Cobblestone/pull/107)**, as `real-atan` and
   `real-atan2` in `Gpu chapter DeviceMath`. Measured against zig 0.16.0 at
   6.7e-16 worst error over 60 values; the rig is kept in the ladder at
-  `findings/atan/`. There is **no Real arc tangent anywhere in the foreword**
-  — verified by signature across all 13 directories; Cordic, Geodesic, Kinematics
-  and Vector mention `atan` and none of them at Real. Ours matches zig's to 1e-9
-  over eighteen values including the reciprocal branch. `README`'s pickup section
-  has the context.
+  `findings/atan/`. There is **no Real arc tangent anywhere in the foreword** —
+  verified by signature across all 13 directories; Cordic, Geodesic, Kinematics
+  and Vector mention `atan` and none of them at Real. (The README's "1e-9 over
+  eighteen values" was never backed by anything in this repository and was
+  conservative by seven orders of magnitude; the rig above supersedes it.)
 
 **Open as an ISSUE — the fix is a decision we should not make from outside.**
 
@@ -196,22 +225,40 @@ Honouring them needs a decision about what trapping and saturating mean for an
 f64; refusing them needs none, and an honest refusal is the floor. Today the plug
 does neither.
 
-### 2. `Math chapter Cordic` is 4.5× less accurate than its docstring, and its test never calls it
+### 2. `Math chapter Cordic` claims an accuracy it does not have, and the claim is ambiguous about which accuracy
 
-**Severity: medium.** Two separate problems that keep each other alive.
+**Severity: medium.**
 
-The docstring claims ~0.1% error. Measured worst is **0.45%**: `cordic-sin 300`
-returns 291 against a true 295.52. Measured in `price-b/cordic_probe.codex`.
+The docstring says **"16 iterations gives ~0.1% accuracy."** Measured over the
+whole turn, 0 to 6283 milliradians, both functions:
 
-The reason nothing caught it: `codex/test/forewords/math-cordic.expected` is the
-single line
+| | |
+|---|---|
+| worst absolute error | **5.41** of 1000 full scale = **0.54% of scale** (`sin 3163`: got -16, true -21.41) |
+| worst relative error | **3.68%** (`sin 3255`: got -109, true -113.16) |
 
-```
-Math/Cordic OK
-```
+So the claim is off by **5.4x** read as a fraction of full scale, or **37x** read
+as relative error — and the docstring does not say which it means, which is half
+the defect. `findings/cordic/model.py` in the ladder is the measurement: a
+faithful transcription of the chapter's own arithmetic, truncating division
+included, which reproduces `cordic-sin 300 = 291` exactly before it is asked
+anything else.
 
-— the test never calls a Cordic function, so no accuracy is asserted anywhere.
-Re-verified 2026-08-30 by reading the file.
+**"16 iterations" is really ten.** `cordic-atan-table` is
+`[785, 463, 244, 124, 62, 31, 15, 7, 3, 1, 0, 0, 0, 0, 0, 0]` — at scale 1000,
+`atan(2^-k)` in milliradians rounds to zero from k=10 on, and the shift
+`x / (1 << 10)` on a value near 1000 truncates to zero as well. The last six
+iterations retire no angle and move neither coordinate. That is where the
+resolution ceiling comes from, and the chapter never says so.
+
+**CORRECTED 2026-08-30: this entry used to say the test never calls a Cordic
+function, and that is wrong.** `codex/test/forewords/math-cordic` is indeed a
+one-line smoke that calls nothing — but `math-cordic-quadrants` sits beside it
+with 32 lines of real values, every one against a `true` column, plus three
+counted invariants. Cordic's accuracy is asserted, and by a test that already
+documents the saturation history in its own prose. What that test cannot do is
+catch this: its tightest tolerance is **1.5 per cent**, three times the worst
+error, and no line in it compares against the docstring's figure at all.
 
 **Why it mattered here:** at that error a camera yaw swings distant scenery by
 metres frame to frame. The port wrote its own trigonometry rather than use it, and
@@ -219,8 +266,16 @@ metres frame to frame. The port wrote its own trigonometry rather than use it, a
 3.6e-6 — **1241× better** — in about forty lines. The library was never the
 problem, which is the useful half of this finding.
 
-**Fix shape:** correct the docstring to the measured figure, and give the test a
-value to compare rather than a name to print.
+**Fix shape.** Correct the docstring — say the measured figure and say which
+accuracy it is, since 0.54% of scale and 3.68% relative are both true and mean
+different things. Say that six of the sixteen iterations are no-ops at this
+scale, because a reader counting iterations is counting the wrong thing.
+
+Whether to make it more accurate is a separate question and not ours: the
+quantization floor at scale 1000 is about 0.05% of scale, so the measured 0.54%
+is roughly ten times the floor rather than at it, and the gap is accumulated
+truncation in the ten live iterations and the final gain multiply. There is room;
+whether it is worth spending is a judgment about a library we do not own.
 
 ### 3. Single-letter function names `a`–`d` are unusable in the zig arm
 

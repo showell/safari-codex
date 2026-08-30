@@ -31,6 +31,8 @@ import pathlib
 import subprocess
 import sys
 
+from names import snake
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LADDER = pathlib.Path(os.environ.get("SAFARI_LADDER",
                                      pathlib.Path.home() / "showell_repos/codex-zig-ladder"))
@@ -58,11 +60,6 @@ def load_venue():
 
 
 load_venue()
-
-
-def snake(chapter):
-    import re
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", chapter).lower()
 
 
 def zig_output(chapter):

@@ -372,6 +372,13 @@ Chapter: Trig
  emitter for it. That emitter landed (PLUG_WORK, 2026-08-29), so `r-sin` and
  `r-cos` are now DeviceMath's, and the duplicate implementation is gone.
 
+ THREE CONSTANTS SURVIVED THAT CLEANUP AND SHOULD NOT HAVE. `pi`, `two-pi` and
+ `half-pi` were written out here digit for digit while `dm-pi`, `dm-two-pi` and
+ `dm-half-pi` sat in the chapter this one already cites, identical to the last
+ place. They are aliases now. A retired implementation with its constants left
+ behind is the easy half of de-duplicating, and it is worth naming because the
+ prose above had already claimed the job was done.
+
  THE NAMES STAY AND THE IMPLEMENTATION DOES NOT, which is the whole change. Nine
  chapters call `r-sin`, `r-cos` or `r-tan`, and none of them should have to know
  whether the sine underneath is the foreword's or the port's -- that was the point
@@ -389,13 +396,13 @@ Chapter: Trig
 Section: Constants
 
   pi : Real
-  pi = 3.141592653589793
+  pi = dm-pi
 
   two-pi : Real
-  two-pi = 6.283185307179586
+  two-pi = dm-two-pi
 
   half-pi : Real
-  half-pi = 1.570796326794897
+  half-pi = dm-half-pi
 
   deg : Real
   deg = 0.017453292519943295
@@ -3655,6 +3662,21 @@ Section: The Depth Sort
  here than it looks: a rail bar and its post share a corner and can land on the
  same depth, and so can two roadside trees on opposite shoulders.
 
+ `core/Sort` EXISTS AND MUST NOT BE SUBSTITUTED HERE, which is worth saying before
+ the merge is described, because the shape of this chapter invites the swap. The
+ foreword's `sort-by : List a, (a, a -> Integer) -> List a` looks like exactly what
+ this wants and is an in-place QUICKSORT with median-of-three pivoting. Quicksort
+ swaps across equal keys; it is not stable and its chapter claims no stability.
+
+ STABILITY IS LOAD-BEARING HERE AND THE EVIDENCE IS A BUG THAT HAPPENED. Ties are
+ real -- render.zig sorts by an f32 depth and equal depths keep merge order -- and
+ PORTING_NOTES D9 records a rail post and a rail bar swapping places in a
+ 3,091-command stream, one adjacent transposition with every other command
+ identical, invisible to every per-module check because both modules were right.
+ Handing this to `sort-by` would reintroduce that class silently and only the
+ whole-frame check would ever say so. De-duplicating against the foreword is right
+ far more often than it is wrong; this is one of the times it is wrong.
+
  THE PORT SORTS BY MERGING RATHER THAN BY INSERTING, and that is the one place in
  this chapter where the algorithm departs from the zig on purpose. A stable merge
  sort and a stable insertion sort produce the SAME total order -- same comparison,
@@ -6429,6 +6451,12 @@ Section: Printing
  one megabyte of answer. Splitting the range in half instead copies each byte once
  per LEVEL, so the total is n log n: the same frame costs about 24 MB.
 
+ `text-concat-list` WOULD BE THE IDIOMATIC FORM and it existed the whole time --
+ Types/Builtins.codex:213, emitted by this very plug, used by the wasm, C#, python
+ and riscv emitters upstream. It copies each byte once where halving copies it once
+ per level. The halving stays because it is measured, byte-identical and already
+ here; the primitive is the right starting point for the next printer. C17.
+
  IT WAS BLAMED ON C6 FOR A WEEK. The bump heap never reclaiming is true and is why
  the peak is the total, but the peak was quadratic for a reason that had nothing to
  do with the allocator, and splitting entries was treating the symptom. Measured on
@@ -6484,14 +6512,16 @@ Chapter: SpikeMain
  commands as text, for harness/spike_svg.py to turn into a picture and for
  harness/metal.py --entry to compare against bare metal.
 
- TWO VIEWPOINTS PER ENTRY, AND THE GUEST IS WHY. The prelude never reclaims (C6)
- and neither arm has an arena rewind -- a native binary has no shim (C8) and the
- kernel image has no shim either -- so one run holds every frame it prints. A
- native process gets a 4 GiB reserve and fits six; the QEMU guest gets
- CODEX_MEM_MB, which is 3072 at this venue, and fits five before printing
- OUT OF MEMORY with HEAP at 2.94 GB. Six viewpoints in one entry is therefore an
- entry the third arm cannot run, and the third arm compares VALUES rather than a
- verdict, so it is the arm worth fitting.
+ TWO VIEWPOINTS PER ENTRY, AND AS OF 2026-08-30 THAT IS HABIT RATHER THAN NEED.
+ The prelude never reclaims (C6) and neither arm has an arena rewind, so one run
+ holds every frame it prints -- and while the printers concatenated left to right
+ they held a QUADRATIC amount of it, which is what actually set the ceiling. Six
+ viewpoints used to exhaust a native 4 GiB reserve and five a guest's 3072 MB.
+ With `SpikePrint`'s halving fix an entry peaks at 133 MB and all eight would fit
+ in one binary (C17).
+
+ The pairs are kept because they exist, are tested, and give the guest one entry
+ at a time to fail in. They are no longer the difference between running and not.
 
  The eight viewpoints are four entries of two, each named for what it looks at:
  this one, `SpikePondMain`, `SpikeCatMain` and `SpikeTruckMain`, with the speed

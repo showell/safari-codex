@@ -24,18 +24,14 @@ see real_literal.
 
 import decimal
 import pathlib
-import re
 import subprocess
 import sys
+
+from names import snake
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 ZIG = pathlib.Path.home() / 'zig-0.16.0' / 'zig'
-
-
-def snake(chapter):
-    """`GuardRail` -> `guard_rail`; a single-word chapter is unchanged but lowered."""
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', chapter).lower()
 
 
 # THE PARSER BEHIND THIS LIMIT, and it is not a style rule. Codex builds a Real

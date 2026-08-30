@@ -42,7 +42,9 @@ fail=0
 for check in "${checks[@]}"; do
   base="$(basename "$check" Check.codex)"
   # GuardRail -> guard_rail, matching wasm/guard_rail.zig. Pond stays pond.
-  mod="$(printf '%s' "$base" | sed 's/\(.\)\([A-Z]\)/\1_\2/g' | tr '[:upper:]' '[:lower:]')"
+  # harness/names.py owns this rule; the sed that used to live here was a fourth
+  # copy of it and disagreed with the python on consecutive capitals.
+  mod="$(python3 harness/names.py "$base")"
 
   # SKIP WHAT HAS NOT CHANGED. Every step below is deterministic -- the transpiler
   # is byte-stable and so is each probe's output -- so a content hash is a sound

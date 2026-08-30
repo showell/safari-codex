@@ -21,9 +21,9 @@ codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/c
 entries=(SpikeProfileMain SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain)
 mods=()
 for entry in "${entries[@]}"; do
-  # SpikePondMain -> spike_pond_main, matching metal.py's snake() so the two
-  # harnesses name the same build/ artifacts.
-  out="$(printf '%s' "$entry" | sed -E 's/(.)([A-Z])/\1_\2/g' | tr 'A-Z' 'a-z')"
+  # SpikePondMain -> spike_pond_main. harness/names.py owns the rule, so this and
+  # metal.py cannot drift into naming different build/ artifacts.
+  out="$(python3 harness/names.py "$entry")"
   mods+=("$out")
   python3 harness/bundle.py "poc/$entry.codex" "build/$out-unit.codex"
   "$codexzig" < "build/$out-unit.codex" 2> "build/$out.zig" > "build/$out.diag"

@@ -920,6 +920,63 @@ C17. THE SPIKES WERE NOT SHORT OF HEAP; THEY WERE ALLOCATING A QUADRATIC AMOUNT
     it is actually allocating. `%M` is one flag. And before writing a fold that
     builds text, check whether the foreword already has the join -- ours did.
 
+C18. THE REINVENTION HUNT, AND THE ONE THING THAT MADE IT WORTH RUNNING.
+
+    It started with `text-concat-list`. Having found a quadratic concatenation in
+    the spike printers (C17) and fixed it by halving, the obvious next question was
+    whether the language already had a join -- and it did, at
+    Types/Builtins.codex:213, emitted by the zig plug, used by the wasm, C#, python,
+    cobol and riscv emitters. Nothing was missing. We had reinvented it badly.
+
+    THE METHOD IS ONE SENTENCE: every "the foreword does not have X" in this repo
+    is a claim, and claims are checkable. The foreword is 13 directories and several
+    hundred chapters; no chapter's prose knows what the others hold.
+
+    WHAT THE SWEEP FOUND, all in code that already cited the library it ignored:
+
+      Trig defined pi, two-pi and half-pi digit for digit while dm-pi, dm-two-pi
+      and dm-half-pi sat in Gpu chapter DeviceMath -- cited on line 2, identical to
+      the last place. The chapter's own prose already celebrated retiring its
+      duplicate sine and cosine; the constants survived that cleanup.
+
+      RideCheck defined ck-abs, three lines identical to g-abs in Judge chapter
+      Grade, which it cites on line 8. Grade duplicates DeviceMath's real-abs ON
+      PURPOSE -- a judge must not be built out of what it judges -- and that
+      argument does not extend to a second copy inside the judge.
+
+      Ten hand-rolled 1:1 mappers were `list-map` from core/ListUtils, which eight
+      checks already cited. The library version is also better: map-list-loop pushes
+      onto an accumulator where `[x] & rest` allocates the sum of its suffixes.
+
+      FOUR COPIES OF THE CHAPTER-NAME RULE, and two of them were wrong. gen_gold.py
+      and metal.py each had a `snake()`; run.sh and spike.sh each had a `sed`. The
+      sed consumes two characters per match and matches non-overlapping, so it
+      separates every OTHER capital in a run: IOBuffer is i_o_buffer to the python
+      and i_obuffer to the shell. No chapter here has two capitals in a row, so it
+      never fired. harness/names.py is the one home now.
+
+    WHAT THE SWEEP CLEARED, which matters as much:
+
+      port/Num is NOT a reinvention. DeviceMath's whole public surface really is
+      min, max, abs, sqrt, sin and cos -- the dm-* names are its internals -- so the
+      rounding, floor, modulo and exponential there fill real gaps.
+
+      core/Sort MUST NOT be substituted in port/Render. Its sort-by is an in-place
+      QUICKSORT with median-of-three and claims no stability, while ties in the
+      depth sort are real and load-bearing: D9 records a rail post and a rail bar
+      swapping in a 3,091-command stream, invisible to every per-module check. This
+      is the case where de-duplicating would introduce the bug.
+
+      core/Maybe exists and Truck's `NextTurn { found, dist, v-turn }` is a
+      hand-rolled instance of it, as is World's Boolean-threaded tree search. Two
+      users is where the doctrine says name the noun -- but it is a game-path type
+      and the current form is already honest, so it is recorded rather than changed.
+
+    THE ASYMMETRY WORTH KEEPING: reusing the foreword is right far more often than
+    it is wrong, and when it is wrong it is wrong SILENTLY -- sort-by would have
+    compiled, run, and produced a frame with two commands transposed. So the rule is
+    to check what the library promises, not just what it is named.
+
 ================================================================================
 D. NUMERIC CALIBRATION -- what the tolerances are actually measuring
 ================================================================================

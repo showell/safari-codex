@@ -16,6 +16,14 @@ pattern is the one choice with no resolution to argue about. It is chosen for
 `harness/metal.py --entry`, which diffs the same text against a second compiler;
 the SVG just gets exactness for free. See the chapter.
 
+IT NO LONGER READS THE GAME'S BAKED ART, and that is a deletion rather than a
+gap. This file used to carry its own reader for emoji_frames.zig and
+cat_frames.zig -- a "spike-only cheat" that drew the real animals while the port
+could not -- with the same three regexes bake_stills.py uses. The port bakes those
+tables into Safari chapter EmojiStills and CatStills now, so every polygon in a
+spike arrives in the draw-command stream like everything else and the reader had
+been dead code for some time. Found by breaking it and seeing nothing change.
+
 The SVG is an APPROXIMATION of what blitter.js paints, deliberately. It does the
 sky gradient, the grass, solid fills and the round-gradient polygons, because
 those are what carry the shapes. It does NOT reproduce the blitter's exact shading
@@ -27,7 +35,6 @@ import html
 import pathlib
 import struct
 import xml.etree.ElementTree as ET
-import re
 import subprocess
 import time
 import sys
@@ -35,9 +42,6 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 W, H = 960, 600
 GRASS = "#4a8f43"
-
-
-EMOJI = pathlib.Path.home() / "showell_repos/angry-gopher/games/driving/wasm/emoji_frames.zig"
 
 
 def f64(n):
@@ -50,108 +54,6 @@ def f64(n):
     draws is what the port computed and not a rounding of it.
     """
     return struct.unpack("<d", struct.pack("<q", int(n)))[0]
-
-
-def _poly_arrays(text):
-    """Every `const <name> = [_]Poly{...}` in a baked table, as
-    {name: [(color, [(x, y), ...])]}. Shared by both loaders because bake_emoji and
-    bake_cat emit the same shape."""
-    named = {}
-    for m in re.finditer(r"const (\w+) = \[_\]Poly\{(.*?)\n\};", text, re.S):
-        polys = []
-        for pm in re.finditer(r"\.color = 0x([0-9A-Fa-f]+).*?\.pts = &\[_\]Pt\{(.*?)\} \}",
-                              m.group(2), re.S):
-            pts = [(float(a), float(b)) for a, b in
-                   re.findall(r"\.x = (-?[\d.e-]+), \.y = (-?[\d.e-]+)", pm.group(2))]
-            if len(pts) >= 3:
-                polys.append((int(pm.group(1), 16), pts))
-        if polys:
-            named[m.group(1)] = polys
-    return named
-
-
-def load_emoji():
-    """SPIKE-ONLY CHEAT, and a deliberate one. Read the game's baked polygon table
-    straight off disk and draw the real animals.
-
-    The PORT cannot do this -- 615 KB of generated coordinates is the wrong shape
-    of work to hand-carry into Codex, and NOTES says how it should arrive when it
-    does (teach the baker a Codex emitter). But this script is Python, is
-    throwaway, and its whole job is to let a human judge PLACEMENT. So the art
-    here is the game's own and the placement is the port's, which is exactly the
-    split that makes these pictures mean something: a pig in the wrong spot is
-    this port's fault, a pig that looks wrong is not.
-
-    Returns {codepoint: [(color, [(x, y), ...]), ...]} in the unit frame the
-    billboard uses -- feet at y = 0, y up, height 1, facing LEFT.
-    """
-    if not EMOJI.is_file():
-        return {}
-    named = _poly_arrays(EMOJI.read_text())
-    out = {}
-    for m in re.finditer(r"0x0([0-9A-F]{5}) => &(\w+),", EMOJI.read_text()):
-        cp = int(m.group(1), 16)
-        if m.group(2) in named:
-            out[cp] = named[m.group(2)]
-    return out
-
-
-CATZ = pathlib.Path.home() / "showell_repos/angry-gopher/games/driving/wasm/cat_frames.zig"
-POSE_NAMES = ["pose_rest", "pose_stride", "pose_frozen", "pose_coil",
-              "pose_flight", "pose_land", "pose_collapse"]
-
-
-def load_cat():
-    """SPIKE-ONLY CHEAT, same one. cat_frames.zig is the same shape of table as
-    emoji_frames -- named arrays of solid polygons in the same unit frame -- so the
-    only difference is that the key is a POSE INDEX rather than a codepoint.
-
-    Returns {pose_index: [(color, [(x, y), ...])]}.
-    """
-    if not CATZ.is_file():
-        return {}
-    named = _poly_arrays(CATZ.read_text())
-    return {i: named[n] for i, n in enumerate(POSE_NAMES) if n in named}
-
-
-ART = None
-CAT = None
-
-
-def cat_still(pose_idx, bx, by, h):
-    """One baked cat still at a screen anchor. Same unit frame as the animals, and
-    no mirror -- the cat crosses one way and cat.zig passes no facing."""
-    global CAT
-    if CAT is None:
-        CAT = load_cat()
-    polys = CAT.get(pose_idx)
-    if not polys:
-        return [f'<rect x="{bx-h*0.3:.1f}" y="{by-h:.1f}" width="{h*0.6:.1f}" '
-                f'height="{h:.1f}" fill="#ff00ff"/>']
-    out = []
-    for color, pts in polys:
-        d = " ".join(f"{bx + x * h:.1f},{by - y * h:.1f}" for x, y in pts)
-        out.append(f'<polygon points="{d}" fill="{rgb(color)}"/>')
-    return out
-
-
-def billboard(cp, face_right, bx, by, h):
-    """Transform one baked emoji to a screen anchor: a POINT translates to the feet
-    and scales by the pixel height; the art is baked facing LEFT so a right-facing
-    animal mirrors in x. Mirrors critter.zig's mapP."""
-    global ART
-    if ART is None:
-        ART = load_emoji()
-    polys = ART.get(cp)
-    if not polys:
-        return [f'<rect x="{bx-h*0.18:.1f}" y="{by-h:.1f}" width="{h*0.36:.1f}" '
-                f'height="{h:.1f}" fill="#888"/>']
-    sx = -1.0 if face_right else 1.0
-    out = []
-    for color, pts in polys:
-        d = " ".join(f"{bx + sx * x * h:.1f},{by - y * h:.1f}" for x, y in pts)
-        out.append(f'<polygon points="{d}" fill="{rgb(color)}"/>')
-    return out
 
 
 def rgb(v):
@@ -433,8 +335,8 @@ def main():
         "img{border:1px solid #444;display:block;margin-bottom:8px}"
         "h2{margin-bottom:2px}p{margin-top:0;color:#999}</style>"
         "<h1>safari-codex &mdash; scenery spikes</h1>"
-        "<p>Throwaway stills from the ported render. Boxes are animals that are "
-        "collected and depth-sorted but whose art is not ported.</p>"
+        "<p>Throwaway stills from the ported render. Every polygon here came out "
+        "of the port's own draw-command stream.</p>"
         + "".join(rows))
     print(f"web/spikes/index.html  ({len(scenes)} scenes)")
 

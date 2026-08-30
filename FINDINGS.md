@@ -69,8 +69,9 @@ the intended substitution.
   whether the type should stop promising what nothing downstream can deliver. The
   Real half of the old diagnosis is a genuine, separate, plug-side defect and is
   noted in the entry.
-- **Item 6, the `Real` literal. DRAFTED, not yet sent —
-  [`outbound/item6-real-literal-issue.md`](outbound/item6-real-literal-issue.md).**
+- **Item 6, the `Real` literal. SENT 2026-08-30 as Cobblestone issue
+  [#106](https://github.com/damiant3/Cobblestone/issues/106)**; the text is kept at
+  [`outbound/item6-real-literal-issue.md`](outbound/item6-real-literal-issue.md).
   It is the FRONT END — both arms print the same
   wrong constant and the value arrives at the emitter as a bit pattern. No longer a
   reconstruction: `ZigEmitter.codex:3885` states the wrapping accumulator in

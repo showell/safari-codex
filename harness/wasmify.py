@@ -84,6 +84,34 @@ def wasmify(text, heap_mb, shim='shim.zig'):
     return base + (ROOT / 'poc' / shim).read_text()
 
 
+WASI_ENTRY = """pub fn main() void {
+    // The hosted entry spawned a thread only to get a 512 MB stack, and
+    // wasm32-wasi is single-threaded. The stack comes from the linker instead
+    // (-zstack-size), so the entry is the call the thread was carrying.
+    cx_entry();
+}"""
+
+
+def wasify(text, heap_mb):
+    """Turn a transpiled Codex program into a wasm32-wasi COMMAND.
+
+    A cousin of wasmify above and deliberately a much smaller one. That function
+    exists to make a module for a browser, which has no stdout, so it must also
+    silence the printing and hand the frame out through linear memory. This one
+    is for a CHECK, whose whole output is what it prints -- WASI has fd_write, so
+    the hosted print pair is left exactly as it is and the module talks.
+
+    Two substitutions, both in the fixed prelude and neither in the transpiled
+    program: the thread, and a heap reservation that does not fit in a
+    wasm32 usize. 4096 * 1024 * 1024 is 2^32 and `usize` here is 32 bits, so
+    the reservation is not merely too big, it does not typecheck.
+    """
+    text = sub_once(text, HOSTED_ENTRY, WASI_ENTRY, 'hosted entry')
+    return sub_once(text, 'const cx_heap_reserve: usize = 4096 * 1024 * 1024;',
+                    f'const cx_heap_reserve: usize = {heap_mb} * 1024 * 1024;',
+                    'heap reservation')
+
+
 def main():
     # The SHIM IS PER SCENE now. It was hardcoded to poc/shim.zig while there was
     # one scene; Drive needs a different one because it carries state -- the world,

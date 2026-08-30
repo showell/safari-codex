@@ -30,3 +30,19 @@ web/spikes/
 # bundle.py's snake(), spike.sh drives spike_svg.py -- and an import writes one of
 # these. Nothing here is authored.
 __pycache__/
+
+# The fourth arm's wasm. Both roads produce a module per check and neither is a
+# deliverable: `harness/wasm_arm.py` remakes the left one in a second and the
+# right one is two guests. `build/safari_codex.wasm` is the browser's module and
+# stays tracked, which is why these are named rather than the extension dropped.
+build/*_zig.wasm
+build/*_plug.wasm
+build/*_wasi.zig
+# The wasm plug's bundle and kernel: 280 KB of ANOTHER repo's source, glued
+# together by harness/bundle_wasmplug.ps1 and identified by the .fp beside it.
+# Tracking a copy of Cobblestone here would be a second copy that drifts.
+build/wasmringplug*
+
+# npm's tree for wabt. package.json and package-lock.json pin it; the tree is
+# 'npm ci' away and has no business in this history.
+tools/node_modules/

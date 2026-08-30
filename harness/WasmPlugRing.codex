@@ -1,0 +1,41 @@
+Chapter: WasmPlugRing
+  cites Foreword chapter Maybe
+
+ The ring-fed wasm plug body: the same IR parser and the same WasmEmitter as
+ `codex/plugs/wasm/WasmPlug.codex`, behind the compiler's own serial-ring
+ intake instead of a serial file chardev. The ladder's `ZigPlugRing` is the
+ crib and the reason is its: the ring is a machine-code loop that builds the
+ Text one byte per byte and stops at NUL, and NUL is a byte no IR-CCE stream
+ ever contains.
+
+ IT DIFFERS FROM ZigPlugRing IN ITS FRAMING, and only there. The zig plug knows
+ its output's length before it emits a byte, so it announces `SIZE:<n>` and the
+ host reads exactly that many. This emitter cannot: `emit-wasm-chapter-stream`
+ prints the module as it walks the IR, precisely so that a multi-megabyte text
+ is never held at once against a bump allocator that never reclaims. So the end
+ is marked instead of the beginning, and `ring_compile`'s `sentinel=` argument
+ is the host half of that.
+
+ The trailer is printed on the SAME channel as the module, which is why it must
+ be a string no WAT can contain. `WASMRING-DONE` is not a wasm token and cannot
+ appear inside a name, since `wat-sanitize` maps every Codex hyphen to an
+ underscore before a name reaches the output.
+
+Section: Body
+
+  opening : [Console, FileSystem] Nothing = act
+   mode-result <- read-line
+   when mode-result
+    is Just (mode) -> ring-wasm-emit mode
+    is None -> print-line-uni "WASMRING-FAIL: no mode line"
+  end
+
+  ring-wasm-emit : Text -> [Console, FileSystem] Nothing
+  ring-wasm-emit (mode) = act
+   src <- read-serial-cce mode
+   let parsed = parse-ir-chapter src
+   in act
+    emit-wasm-chapter-stream (parsed.chapter) (parsed.type-defs)
+    print-line-uni ("WASMRING-DONE ir=" & show (text-length src) & " defs=" & show (list-length ((parsed.chapter).defs)))
+   end
+  end

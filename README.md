@@ -854,12 +854,13 @@ an answer to that.
 `r-atan` matches zig's to 1e-9 over eighteen values including the reciprocal
 branch. It is a candidate to OFFER upstream rather than a debt.
 
-**`core/Maybe` exists and two places here hand-roll it** — `Truck`'s
-`NextTurn { found, dist, v-turn }` and `World`'s Boolean-threaded tree search, both
-of which replace the game's `+inf` sentinel. Two users is where the doctrine says
-name the noun; it is a game-path type change and was left deliberately.
-
 ### Traps a fresh reader should know about
+
+**Absence is carried in the TYPE at the two places the game used `+inf`.**
+`Truck`'s next turn is `Maybe Turn` and `World`'s tree search threads `Maybe Real`;
+both used to pair a `found` Boolean with a payload, which is a Maybe with the tag
+unhooked from the thing it guards. Codex has `when m is Just (x) -> ... is None ->
+...` and the compiler's own code uses it throughout.
 
 **`core/Sort` must NOT be substituted into `port/Render`.** Its `sort-by` is an
 in-place quicksort claiming no stability, and the depth sort's ties are real —

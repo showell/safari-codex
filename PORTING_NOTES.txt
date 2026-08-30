@@ -967,10 +967,16 @@ C18. THE REINVENTION HUNT, AND THE ONE THING THAT MADE IT WORTH RUNNING.
       swapping in a 3,091-command stream, invisible to every per-module check. This
       is the case where de-duplicating would introduce the bug.
 
-      core/Maybe exists and Truck's `NextTurn { found, dist, v-turn }` is a
-      hand-rolled instance of it, as is World's Boolean-threaded tree search. Two
-      users is where the doctrine says name the noun -- but it is a game-path type
-      and the current form is already honest, so it is recorded rather than changed.
+      core/Maybe was the last one, and it was CHANGED rather than merely recorded.
+      Truck's `NextTurn { found, dist, v-turn }` and World's `(found, best)` pair
+      were both hand-rolled Maybes -- a tag unhooked from the thing it guards, so
+      nothing stopped a caller reading the payload without testing the flag. Both
+      are `Maybe` now, every graded stream byte-identical, both mutation-tested.
+      What made it worth doing rather than merely tidy: Codex has `when m is
+      Just (x) -> ... is None -> ...`, so both arms are forced and there is no
+      unguarded field. Had the only accessors been is-just and from-maybe, the
+      change would have needed a dummy default and been WORSE than the Boolean --
+      which is why the accessors were checked before the work started.
 
     THE ASYMMETRY WORTH KEEPING: reusing the foreword is right far more often than
     it is wrong, and when it is wrong it is wrong SILENTLY -- sort-by would have

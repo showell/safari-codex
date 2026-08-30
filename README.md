@@ -136,6 +136,28 @@ the compiler; this does it for this port.
 3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
 printed verdicts, and verdicts are text.
 
+**A check compares verdicts, not values**, and that is a real limit on what the
+sweep above proves: `Grade` prints `name ok 2468`, so two arms that both sit
+inside a tolerance agree whatever their last bits did. `--entry` is the answer.
+
+    ./harness/metal.py --entry SpikeTruckMain     # 89,902 exact values
+
+It runs a poc *entry* chapter instead of a check, and the spike entries print
+every coordinate of every frame as a scaled integer. `SpikeTruckMain` is **89,902
+exact values across two frames** — the sky, the ground, the trees, the towers, the
+rails, the elephants and the whole truck — and the two arms agree on all of them,
+digit for digit. That is the statement worth making; verdict agreement is the
+cheap sweep.
+
+**The guest's heap decides which entries fit, and it is smaller than the host's.**
+The prelude bump-allocates and never reclaims, so a run's whole output has to fit
+at once. `SpikeTruckMain` (two frames) fits comfortably; `SpikeMain` (six) does
+not — at the driver's default 1 GB it dies after one frame, and at the venue's
+3072 MB it gets through five and prints `OUT OF MEMORY` in the sixth, which is the
+guest saying so cleanly rather than corrupting anything. An entry that does not
+fit wants splitting, and `poc/` already shows the pattern for reasons that had
+nothing to do with bare metal.
+
 The machinery is the ladder's, borrowed rather than restated: `ring_compile`
 streams a cite-resolved unit into the seed under QEMU and hands back a `.cdx`,
 `codex_vm.run_cdx` boots it and captures the serial. Both take the ladder's

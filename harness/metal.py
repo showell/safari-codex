@@ -3,6 +3,7 @@
 
     ./harness/metal.py Pond [Camera ...]      # named checks
     ./harness/metal.py --all                  # every check, smallest first
+    ./harness/metal.py --entry SpikeTruckMain # a poc entry, compared on VALUES
 
 THE THIRD ARM. `harness/run.sh` verifies the port against the game by way of the
 zig plug: Codex source in, zig out, a native binary that prints its verdict. That
@@ -100,10 +101,84 @@ def metal_output(chapter):
     return "\n".join(lines) + "\n" if lines else ""
 
 
+def entry_outputs(entry):
+    """Both arms for a poc ENTRY chapter -- values rather than a verdict.
+
+    The zig side is whatever harness/spike.sh or build_wasm.sh already builds for
+    that entry; this rebuilds it in place rather than guessing, so the two arms
+    compile the same unit."""
+    import codex_vm
+    import ring_compile
+    src = ROOT / "poc" / f"{entry}.codex"
+    if not src.is_file():
+        raise SystemExit(f"no {src}")
+    mod = snake(entry)
+    unit = ROOT / "build" / f"{mod}-unit.codex"
+    subprocess.run([sys.executable, str(ROOT / "harness/bundle.py"), str(src), str(unit)],
+                   check=True)
+    zig_src = ROOT / "build" / f"{mod}.zig"
+    codexzig = os.environ.get("CODEXZIG", str(pathlib.Path.home() /
+                              "showell_repos/codex-zig-transpiler/generated/local/codexzig"))
+    with open(unit) as fi, open(zig_src, "w") as fe, open(ROOT / "build" / f"{mod}.diag", "w") as fo:
+        subprocess.run([codexzig], stdin=fi, stderr=fe, stdout=fo, check=True)
+    zig = os.environ.get("ZIG", str(pathlib.Path.home() / "zig-0.16.0/zig"))
+    subprocess.run([zig, "build-exe", f"{mod}.zig"], cwd=ROOT / "build", check=True)
+    want = subprocess.run([f"./{mod}"], cwd=ROOT / "build",
+                          capture_output=True, text=True).stderr
+    blob = ROOT / "build" / f"{mod}.blob"
+    blob.write_bytes(b"CDX map\n" + unit.read_bytes() + b"\x04")
+    cdx = ROOT / "build" / f"{mod}.cdx"
+    print(f"  compiling {unit.stat().st_size} bytes on the seed...", flush=True)
+    if not ring_compile.compile_ring(str(blob), str(cdx)):
+        return want, None
+    print(f"  running {cdx.stat().st_size} bytes...", flush=True)
+    # THE GUEST'S HEAP IS THE CEILING HERE, and it is lower than the host's. The
+    # emitted prelude bump-allocates and never reclaims (PORTING_NOTES C6), so a
+    # program's whole run has to fit; run_cdx defaults to 1 GB and the six-viewpoint
+    # spike printed one frame and then `OUT OF MEMORY` with HEAP at 1.005 GB. The
+    # venue's own CODEX_MEM_MB is the right number to ask for.
+    mem = int(os.environ.get("CODEX_MEM_MB", "3072"))
+    out = codex_vm.run_cdx(str(cdx), mem_mb=mem, timeout=1800, idle_timeout=300)
+    lines = [l for l in out.decode("utf-8", "replace").splitlines()
+             if not l.startswith(("WD:", "HEAP:", "STACK:"))]
+    return want, "\n".join(lines) + "\n" if lines else ""
+
+
+def report(name, want, got):
+    if got is None:
+        print("  SEED COMPILE FAILED")
+        return 1
+    if got == want:
+        vals = sum(len(l.split()) for l in got.splitlines())
+        print(f"  AGREES with the zig arm ({len(got.splitlines())} lines, {vals} fields)")
+        return 0
+    print("  DIFFERS from the zig arm")
+    import difflib
+    shown = 0
+    for d in difflib.unified_diff(want.splitlines(), got.splitlines(),
+                                  "zig", "bare-metal", lineterm=""):
+        print("   ", d[:400])
+        shown += 1
+        if shown > 20:
+            print("    ...")
+            break
+    return 1
+
+
 def main():
     args = sys.argv[1:]
     if not args:
         raise SystemExit(__doc__.strip().splitlines()[2].strip())
+    if args[0] == "--entry":
+        bad = 0
+        for entry in args[1:]:
+            print(f"\n######## {entry} (values)", flush=True)
+            want, got = entry_outputs(entry)
+            if got is not None:
+                (ROOT / "build" / f"{snake(entry)}.metal").write_text(got)
+            bad |= report(entry, want, got)
+        print("\nMETAL RED" if bad else "\nMETAL GREEN")
+        return bad
     if args == ["--all"]:
         checks = sorted((ROOT / "judge").glob("*Check.codex"),
                         key=lambda p: (ROOT / "build" / f"{snake(p.name[:-len('Check.codex')])}-unit.codex").stat().st_size

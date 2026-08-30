@@ -12,7 +12,7 @@ angry-gopher, and the two halves are independent.
 | 2 | Cordic's accuracy vs its docstring | **SENT** — [PR 108](https://github.com/damiant3/Cobblestone/pull/108) |
 | 3 | single-letter names collide | **not sent** — a one-line rename |
 | 4 | a one-caller definition is inlined away | **SENT** — [issue 110](https://github.com/damiant3/Cobblestone/issues/110) |
-| 5 | the zig arm reports no diagnostics | **not sent** — needs investigation |
+| 5 | the zig arm reports no diagnostics | **ANSWERED — ours, not upstream.** Nothing to send |
 | 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
 | 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |
 | 8 | `truck.zig`'s stale comments | **not sent** — angry-gopher |
@@ -115,7 +115,16 @@ depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
 
 **Investigate before choosing.**
 
-- **Item 4 SENT 2026-08-30 as [issue 110](https://github.com/damiant3/Cobblestone/issues/110)** (text at [`outbound/item4-inline-single-caller-issue.md`](outbound/item4-inline-single-caller-issue.md)); **item 5, the missing diagnostics**, remains.
+- **Item 4 SENT 2026-08-30 as [issue 110](https://github.com/damiant3/Cobblestone/issues/110)** (text at [`outbound/item4-inline-single-caller-issue.md`](outbound/item4-inline-single-caller-issue.md)).
+
+- **Item 5 is ANSWERED and is OURS, so nothing goes upstream.** The question this
+  entry posed — produced-and-discarded, or never produced — has an answer:
+  produced, reachable, and discarded, in the ladder's own harness. It merges
+  exactly the four bags the driver merges and then asks a single predicate,
+  `bag-has-errors`; on a clean compile the `else` branch prints nothing, and every
+  warning sits in that bag at the moment it is thrown away. Filed as ladder
+  finding 69, sibling of finding 49 — one harness never consults the bag, the
+  other consults it for errors only.
   Each fix shape names two acceptable outcomes and which one is right is the
   maintainer's call; item 5's own text says the interesting answer is *which* of
   two causes it is, and that is a question, not a patch.
@@ -431,10 +440,26 @@ misbehaving — each chapter saw its own — but the port was one refactor away 
 a mention resolving by file order, and the arm it is developed against never said
 so. All three are renamed now.
 
-**Fix shape:** the plug arm should surface the front end's diagnostics rather than
-only its own. If they are being produced and discarded, that is a one-line
-plumbing change; if the plug's path does not run the check that produces them,
-that is the more interesting answer and worth knowing.
+**ANSWERED 2026-08-30, and it is OURS — nothing goes upstream.** This entry asked
+which of two causes it was. It is the first: produced, reachable, discarded. The
+ladder's `CodexZigHarness` merges exactly the four bags the driver merges and then
+consults one predicate —
+
+```
+in let czg-bag = bag-merge-all [bag-from-list (toks.errors), doc.parse-bag, rr.bag, cr.state.bag]
+in if bag-has-errors czg-bag then print-text (czg-halted (bag-errors czg-bag))
+else ...
+```
+
+— and `bag-has-errors` is false for a clean compile, so the `else` branch prints
+nothing while every warning is sitting in `czg-bag`. The front end did its job and
+handed the diagnostics over; our harness dropped them.
+
+Not the one-line fix this entry hoped for, for a reason the harness's own
+docstring already recorded: the diagnostic printers live in `opening.codex`, which
+cannot be bundled beside a harness that defines `opening`. Even the error path
+prints a count and the first error rather than the driver's report. Filed as
+ladder finding 69.
 
 **Why we can be sure it is not our harness:** the same script reads both streams
 the same way, and the seed's warnings arrive in a file the ladder's

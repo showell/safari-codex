@@ -1,4 +1,5 @@
 Chapter: Truck
+  cites Foreword chapter Maybe
   cites Gpu chapter DeviceMath
   cites Safari chapter World
   cites Safari chapter Rider
@@ -70,32 +71,33 @@ Section: The Next Turn
  How far to the next real TURN ahead of `pos`, and the rider's safe speed for it.
  Past the course end there is no turn to brake for and the truck cruises in.
 
- The zig answers infinity for "no turn", which Codex has no literal for -- and a
- sentinel would be worse than saying what is meant, so `found` carries it. Every
- caller tests it before reading the distance.
+ The zig answers infinity for "no turn", which Codex has no literal for. A sentinel
+ would be worse than saying what is meant, so the absence is carried in the TYPE:
+ `Maybe Turn` from `Foreword chapter Maybe`.
 
-  NextTurn = record {
-    found : Boolean,
+ IT USED TO BE A `found` BOOLEAN BESIDE THE PAYLOAD, which is a Maybe with the tag
+ unhooked from the thing it guards -- nothing stops a caller reading `dist` without
+ testing `found`, and nothing but prose says the two agree. `when` forces both arms
+ and there is no unguarded field to read. The one caller reads better for it too.
+
+  Turn = record {
     dist : Real,
     v-turn : Real
   }
 
-  no-turn : NextTurn
-  no-turn = NextTurn { found = False, dist = 0.0, v-turn = 0.0 }
-
-  next-turn-loop : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-loop : List Segment, Real, Integer, Real -> Maybe Turn
   next-turn-loop (segs) (pos) (i) (cum0) =
-    if i >= list-length segs then no-turn
+    if i >= list-length segs then None
     else next-turn-step segs pos i (cum0 + (list-at segs i).length)
 
-  next-turn-step : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-step : List Segment, Real, Integer, Real -> Maybe Turn
   next-turn-step (segs) (pos) (i) (cum) =
     let s = list-at segs i
     in if pos < cum
-      then (if s.terminates then no-turn else NextTurn { found = True, dist = cum - pos, v-turn = turn-speed s.exit-angle })
+      then (if s.terminates then None else Just (Turn { dist = cum - pos, v-turn = turn-speed s.exit-angle }))
       else next-turn-loop segs pos (i + 1) cum
 
-  next-turn : List Segment, Real -> NextTurn
+  next-turn : List Segment, Real -> Maybe Turn
   next-turn (segs) (pos) = next-turn-loop segs pos 0 0.0
 
 Section: One Frame
@@ -122,11 +124,11 @@ Section: One Frame
   truck-next : TruckState, Real, List Segment, Real -> TruckState
   truck-next (truck) (rider-dist) (segs) (l) =
     let scheduled = truck-schedule rider-dist l
-    in let turn = next-turn segs truck.pos
-    in if turn.found then (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
-       else truck-free truck scheduled
+    in when next-turn segs truck.pos
+       is Just (turn) -> (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
+       is None -> truck-free truck scheduled
 
-  truck-braking : TruckState, NextTurn -> TruckState
+  truck-braking : TruckState, Turn -> TruckState
   truck-braking (truck) (turn) =
     let target = turn.v-turn * truck-turn-caution
     in let a = if turn.dist > 0.000001 then (target * target - truck.v * truck.v) / (2.0 * turn.dist) else 0.0

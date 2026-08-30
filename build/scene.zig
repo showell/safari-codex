@@ -35,6 +35,13 @@ const RiderStateS = struct {
 };
 const RiderState = *RiderStateS;
 
+fn Maybe(comptime a_: type) type {
+    return union(enum) {
+    Just: a_,
+    None: void,
+    };
+}
+
 const CatS = struct {
     along: f64,
     start_across: f64,
@@ -195,12 +202,11 @@ const TruckStateS = struct {
 };
 const TruckState = *TruckStateS;
 
-const NextTurnS = struct {
-    found: bool,
+const TurnS = struct {
     dist: f64,
     v_turn: f64,
 };
-const NextTurn = *NextTurnS;
+const Turn = *TurnS;
 
 const DrawCmdS = struct {
     tag: i64,
@@ -408,7 +414,7 @@ const RoutePosS = struct {
 };
 const RoutePos = *RoutePosS;
 
-fn list_tail_loop(comptime T17: type, xs: *CxList(T17), i_: i64, len_: i64, acc_: *CxList(T17)) *CxList(T17) {
+fn list_tail_loop(comptime T19: type, xs: *CxList(T19), i_: i64, len_: i64, acc_: *CxList(T19)) *CxList(T19) {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
@@ -416,11 +422,11 @@ fn list_tail_loop(comptime T17: type, xs: *CxList(T17), i_: i64, len_: i64, acc_
     }
 }
 
-fn list_take(comptime T18: type, xs: *CxList(T18), n_: i64) *CxList(T18) {
-    return list_take_loop(T18, xs, 0, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_ll_empty(T18));
+fn list_take(comptime T20: type, xs: *CxList(T20), n_: i64) *CxList(T20) {
+    return list_take_loop(T20, xs, 0, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_ll_empty(T20));
 }
 
-fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: *CxList(T19)) *CxList(T19) {
+fn list_take_loop(comptime T21: type, xs: *CxList(T21), i_: i64, n_: i64, acc_: *CxList(T21)) *CxList(T21) {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
@@ -428,8 +434,8 @@ fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: 
     }
 }
 
-fn list_drop(comptime T20: type, xs: *CxList(T20), n_: i64) *CxList(T20) {
-    return list_tail_loop(T20, xs, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_list_len(xs), cx_ll_empty(T20));
+fn list_drop(comptime T22: type, xs: *CxList(T22), n_: i64) *CxList(T22) {
+    return list_tail_loop(T22, xs, (if ((n_ > cx_list_len(xs))) cx_list_len(xs) else n_), cx_list_len(xs), cx_ll_empty(T22));
 }
 
 fn v_base() f64 {
@@ -502,7 +508,7 @@ fn real_cos(x: f64) f64 {
 }
 
 fn round_real(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
 }
 
 fn floor_real(x: f64) f64 {
@@ -542,15 +548,15 @@ fn exp_real(x: f64) f64 {
 }
 
 fn pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4614256656552045848)));
+    return dm_pi();
 }
 
 fn two_pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4618760256179416344)));
+    return dm_two_pi();
 }
 
 fn half_pi() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609753056924675354)));
+    return dm_half_pi();
 }
 
 fn deg() f64 {
@@ -603,6 +609,10 @@ fn r_atan2(y: f64, x: f64) f64 {
 
 fn r_sign(x: f64) f64 {
     return @as(f64, (if ((x > @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else @as(f64, @bitCast(@as(i64, 0)))))));
+}
+
+fn from_maybe(comptime T43: type, m_: Maybe(T43), default: T43) T43 {
+    return switch (m_) { .Just => |x| x, .None => default,  };
 }
 
 fn cat_height() f64 {
@@ -981,12 +991,16 @@ fn route() *CxList(Cfg) {
     return cx_ll_of(Cfg, &[_]Cfg{ cfg(@as(f64, @bitCast(@as(i64, 4647503709213818880))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4632233691727265792))), false, false, false, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4644337115725824000))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4634626229029306368)))), true, false, false, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4645744490609377280))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4626322717216342016))), false, true, false, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.YellowGreen, @as(f64, @bitCast(@as(i64, 4626322717216342016))), false, false, false, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4634626229029306368)))), false, false, true, false, Creature.Giraffe), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4634626229029306368)))), false, false, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4652992471259676672))), Scheme.RedGreen, @as(f64, @bitCast(@as(i64, 4635329916471083008))), false, false, true, false, Creature.Rhino), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4624633867356078080))), false, false, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4634626229029306368)))), false, false, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4650248090236747776))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4624633867356078080))), false, false, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4624633867356078080))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4624633867356078080))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.RedGreen, @as(f64, @bitCast(@as(i64, 4624633867356078080))), true, true, true, false, Creature.DuckPond), cfg(@as(f64, @bitCast(@as(i64, 4645744490609377280))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4632233691727265792)))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4632233691727265792))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.RedGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4632233691727265792)))), false, false, true, false, Creature.Zebra), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, @as(f64, @bitCast(@as(i64, 4632233691727265792))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.AllGreen, (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4632233691727265792)))), false, true, true, false, Creature.Elephant), cfg(@as(f64, @bitCast(@as(i64, 4643985272004935680))), Scheme.RedGreen, @as(f64, @bitCast(@as(i64, 0))), true, true, true, true, Creature.NoCreature) });
 }
 
-fn next_tree_loop(ts: *CxList(Tree), desired: f64, i_: i64, found: bool, best: f64) f64 {
-    return (if ((i_ >= cx_list_len(ts))) (if (found) best else desired) else next_tree_step(ts, desired, i_, found, best));
+fn tree_improves(best: Maybe(f64), a_: f64) bool {
+    return switch (best) { .Just => |b_| (a_ < b_), .None => true,  };
 }
 
-fn next_tree_step(ts: *CxList(Tree), desired: f64, i_: i64, found: bool, best: f64) f64 {
-    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) (if (found) (t.along < best) else true) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ +% 1), true, t.along) else next_tree_loop(ts, desired, (i_ +% 1), found, best)); }; };
+fn next_tree_loop(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Maybe(f64) {
+    return (if ((i_ >= cx_list_len(ts))) best else next_tree_step(ts, desired, i_, best));
+}
+
+fn next_tree_step(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Maybe(f64) {
+    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) tree_improves(best, t.along) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ +% 1), Maybe(f64){ .Just = t.along }) else next_tree_loop(ts, desired, (i_ +% 1), best)); }; };
 }
 
 fn heading_step(i_: i64) f64 {
@@ -1006,7 +1020,7 @@ fn pig_count_to(i_: i64, acc_: i64) i64 {
 }
 
 fn segment_at(i_: i64) Segment {
-    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ +% 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ +% 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(angle)))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), next_tree_loop(trees, cat_along(), 0, false, @as(f64, @bitCast(@as(i64, 0))))), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
+    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ +% 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ +% 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(angle)))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), from_maybe(f64, next_tree_loop(trees, cat_along(), 0, Maybe(f64){ .None = {} }), cat_along())), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
 }
 
 fn segments_from(i_: i64) *CxList(Segment) {
@@ -1453,19 +1467,15 @@ fn truck_initial() TruckState {
     return cx_new(TruckStateS{ .pos = start_ahead(), .v_ = v_base(), .braking = false });
 }
 
-fn no_turn() NextTurn {
-    return cx_new(NextTurnS{ .found = false, .dist = @as(f64, @bitCast(@as(i64, 0))), .v_turn = @as(f64, @bitCast(@as(i64, 0))) });
+fn next_turn_loop(segs: *CxList(Segment), pos: f64, i_: i64, cum0: f64) Maybe(Turn) {
+    return (if ((i_ >= cx_list_len(segs))) Maybe(Turn){ .None = {} } else next_turn_step(segs, pos, i_, (cum0 + cx_list_at(segs, i_).length)));
 }
 
-fn next_turn_loop(segs: *CxList(Segment), pos: f64, i_: i64, cum0: f64) NextTurn {
-    return (if ((i_ >= cx_list_len(segs))) no_turn() else next_turn_step(segs, pos, i_, (cum0 + cx_list_at(segs, i_).length)));
+fn next_turn_step(segs: *CxList(Segment), pos: f64, i_: i64, cum: f64) Maybe(Turn) {
+    return b0: { const s_ = cx_list_at(segs, i_); break :b0 (if ((pos < cum)) (if (s_.terminates) Maybe(Turn){ .None = {} } else Maybe(Turn){ .Just = cx_new(TurnS{ .dist = (cum - pos), .v_turn = turn_speed(s_.exit_angle) }) }) else next_turn_loop(segs, pos, (i_ +% 1), cum)); };
 }
 
-fn next_turn_step(segs: *CxList(Segment), pos: f64, i_: i64, cum: f64) NextTurn {
-    return b0: { const s_ = cx_list_at(segs, i_); break :b0 (if ((pos < cum)) (if (s_.terminates) no_turn() else cx_new(NextTurnS{ .found = true, .dist = (cum - pos), .v_turn = turn_speed(s_.exit_angle) })) else next_turn_loop(segs, pos, (i_ +% 1), cum)); };
-}
-
-fn next_turn(segs: *CxList(Segment), pos: f64) NextTurn {
+fn next_turn(segs: *CxList(Segment), pos: f64) Maybe(Turn) {
     return next_turn_loop(segs, pos, 0, @as(f64, @bitCast(@as(i64, 0))));
 }
 
@@ -1474,10 +1484,10 @@ fn truck_schedule(rider_dist: f64, l_: f64) f64 {
 }
 
 fn truck_next(truck: TruckState, rider_dist: f64, segs: *CxList(Segment), l_: f64) TruckState {
-    return b0: { const scheduled: f64 = truck_schedule(rider_dist, l_); break :b0 b1: { const turn = next_turn(segs, truck.pos); break :b1 (if (turn.found) (if ((turn.dist <= truck_brake_distance())) truck_braking(truck, turn) else truck_free(truck, scheduled)) else truck_free(truck, scheduled)); }; };
+    return b0: { const scheduled: f64 = truck_schedule(rider_dist, l_); break :b0 switch (next_turn(segs, truck.pos)) { .Just => |turn| (if ((turn.dist <= truck_brake_distance())) truck_braking(truck, turn) else truck_free(truck, scheduled)), .None => truck_free(truck, scheduled),  }; };
 }
 
-fn truck_braking(truck: TruckState, turn: NextTurn) TruckState {
+fn truck_braking(truck: TruckState, turn: Turn) TruckState {
     return b0: { const target: f64 = (turn.v_turn * truck_turn_caution()); break :b0 b1: { const a_: f64 = @as(f64, (if ((turn.dist > @as(f64, @bitCast(@as(i64, 4517329193108106637))))) (((target * target) - (truck.v_ * truck.v_)) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * turn.dist)) else @as(f64, @bitCast(@as(i64, 0))))); break :b1 b2: { const v_: f64 = real_max(target, (truck.v_ + a_)); break :b2 cx_new(TruckStateS{ .pos = (truck.pos + v_), .v_ = v_, .braking = (v_ < truck.v_) }); }; }; };
 }
 
@@ -1812,10 +1822,10 @@ fn corner_at(base_: *CxList(RiderPt), center: RiderPt, k_: i64, h_: f64, drop: f
 }
 
 fn bar(a_: ScreenPt, b_: ScreenPt, wpx: f64) *CxList(DrawCmd) {
-    return b0: { const dx: f64 = (b_.x - a_.x); break :b0 b1: { const dy: f64 = (b_.y - a_.y); break :b1 b2: { const raw_: f64 = real_sqrt(((dx * dx) + (dy * dy))); break :b2 b3: { const len_: f64 = @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 4547007122018943789))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b3 tower_bar_quad(a_, b_, ((((@as(f64, @bitCast(@as(i64, 0))) - dy) / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), (((dx / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); }; }; }; };
+    return b0: { const dx: f64 = (b_.x - a_.x); break :b0 b1: { const dy: f64 = (b_.y - a_.y); break :b1 b2: { const raw_: f64 = real_sqrt(((dx * dx) + (dy * dy))); break :b2 b3: { const len_: f64 = @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 4547007122018943789))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b3 rod_quad(a_, b_, ((((@as(f64, @bitCast(@as(i64, 0))) - dy) / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), (((dx / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); }; }; }; };
 }
 
-fn tower_bar_quad(a_: ScreenPt, b_: ScreenPt, ox: f64, oy: f64) *CxList(DrawCmd) {
+fn rod_quad(a_: ScreenPt, b_: ScreenPt, ox: f64, oy: f64) *CxList(DrawCmd) {
     return push_poly(tower_metal(), cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (a_.x + ox), .y = (a_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x + ox), .y = (b_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x - ox), .y = (b_.y - oy) }), cx_new(ScreenPtS{ .x = (a_.x - ox), .y = (a_.y - oy) }) }));
 }
 
@@ -1927,12 +1937,12 @@ fn rail_poly(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, color: i64) RailPoly {
     return b0: { const fwd: f64 = ((((p0.forward + p1.forward) + p2.forward) + p3.forward) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b0 cx_new(RailPolyS{ .v_ = cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 }), .color = color, .fwd = fwd }); };
 }
 
-fn guardrail_bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
+fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
     return b0: { const p_bot = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_bot() }); break :b0 b1: { const q_bot = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_bot() }); break :b1 b2: { const q_top = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_top() }); break :b2 b3: { const p_top = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_top() }); break :b3 rail_poly(p_bot, q_bot, q_top, p_top, rail_metal()); }; }; }; };
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ guardrail_bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {

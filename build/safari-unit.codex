@@ -131,6 +131,43 @@ Section: Definitions
 
 Page 1
 
+Chapter: Maybe
+
+ We say:
+
+Section: Definitions
+
+  Maybe (a) =
+    | Just (a)
+    | None
+
+  from-maybe : Maybe a, a -> a
+  from-maybe (m) (default) = when m
+    is Just (x) -> x
+    is None -> default
+
+  is-just : Maybe a -> Boolean
+  is-just (m) = when m
+    is Just (x) -> True
+    is None -> False
+
+  is-none : Maybe a -> Boolean
+  is-none (m) = when m
+    is Just (x) -> False
+    is None -> True
+
+  maybe-map : (a -> b), Maybe a -> Maybe b
+  maybe-map (f) (m) = when m
+    is Just (x) -> Just (f x)
+    is None -> None
+
+  maybe-bind : Maybe a, (a -> Maybe b) -> Maybe b
+  maybe-bind (m) (f) = when m
+    is Just (x) -> f x
+    is None -> None
+
+Page 1
+
 Chapter: DeviceMath
 
  We say:
@@ -815,6 +852,7 @@ Section: The Cat's State
     }
 
 Chapter: World
+  cites Foreword chapter Maybe
   cites Gpu chapter DeviceMath
   cites Safari chapter Num
   cites Safari chapter Trig
@@ -1167,23 +1205,35 @@ Section: Building
 
  The smallest right-side tree `along` at or after `desired` -- the cat tucks just
  past it, so a tree stands between the rider and the cat. The zig starts at
- infinity and takes the minimum; this threads a Boolean instead, because Codex has
- no infinity literal and a sentinel is a worse answer than saying what is meant.
+ INFINITY and takes the minimum, then answers `desired` if it is still infinite,
+ which is the sentinel doing duty as an absence.
 
-  next-tree-loop : List Tree, Real, Integer, Boolean, Real -> Real
-  next-tree-loop (ts) (desired) (i) (found) (best) =
-    if i >= list-length ts then (if found then best else desired)
-    else next-tree-step ts desired i found best
+ THE ACCUMULATOR CARRIES THE ABSENCE IN ITS TYPE. This threaded a `found` Boolean
+ beside a `best` Real -- two values that had to agree, with nothing but the loop's
+ own care keeping them in step, and a `best` of 0.0 that meant nothing whenever
+ `found` was False. `Maybe Real` is one value that cannot disagree with itself, and
+ `from-maybe ... desired` at the bottom is precisely the zig's `if (isInf(best))
+ desired else best` said in the language rather than in a magic number.
 
-  next-tree-step : List Tree, Real, Integer, Boolean, Real -> Real
-  next-tree-step (ts) (desired) (i) (found) (best) =
+  tree-improves : Maybe Real, Real -> Boolean
+  tree-improves (best) (a) = when best
+    is Just (b) -> a < b
+    is None -> True
+
+  next-tree-loop : List Tree, Real, Integer, Maybe Real -> Maybe Real
+  next-tree-loop (ts) (desired) (i) (best) =
+    if i >= list-length ts then best
+    else next-tree-step ts desired i best
+
+  next-tree-step : List Tree, Real, Integer, Maybe Real -> Maybe Real
+  next-tree-step (ts) (desired) (i) (best) =
     let t = list-at ts i
-    in let take = if t.across > 0.0 then (if t.along >= desired then (if found then t.along < best else True) else False) else False
-    in if take then next-tree-loop ts desired (i + 1) True t.along
-       else next-tree-loop ts desired (i + 1) found best
+    in let take = if t.across > 0.0 then (if t.along >= desired then tree-improves best t.along else False) else False
+    in if take then next-tree-loop ts desired (i + 1) (Just t.along)
+       else next-tree-loop ts desired (i + 1) best
 
   next-tree-along : List Tree, Real -> Real
-  next-tree-along (ts) (desired) = next-tree-loop ts desired 0 False 0.0
+  next-tree-along (ts) (desired) = from-maybe (next-tree-loop ts desired 0 None) desired
 
  Each segment's heading vs north, accumulated from the previous segments' exit
  turns. Segment 0 is zero.
@@ -5054,6 +5104,7 @@ Section: The Billboard
       else cat-polys base h lift (cat-polys-for pose-idx) 0
 
 Chapter: Truck
+  cites Foreword chapter Maybe
   cites Gpu chapter DeviceMath
   cites Safari chapter World
   cites Safari chapter Rider
@@ -5125,32 +5176,33 @@ Section: The Next Turn
  How far to the next real TURN ahead of `pos`, and the rider's safe speed for it.
  Past the course end there is no turn to brake for and the truck cruises in.
 
- The zig answers infinity for "no turn", which Codex has no literal for -- and a
- sentinel would be worse than saying what is meant, so `found` carries it. Every
- caller tests it before reading the distance.
+ The zig answers infinity for "no turn", which Codex has no literal for. A sentinel
+ would be worse than saying what is meant, so the absence is carried in the TYPE:
+ `Maybe Turn` from `Foreword chapter Maybe`.
 
-  NextTurn = record {
-    found : Boolean,
+ IT USED TO BE A `found` BOOLEAN BESIDE THE PAYLOAD, which is a Maybe with the tag
+ unhooked from the thing it guards -- nothing stops a caller reading `dist` without
+ testing `found`, and nothing but prose says the two agree. `when` forces both arms
+ and there is no unguarded field to read. The one caller reads better for it too.
+
+  Turn = record {
     dist : Real,
     v-turn : Real
   }
 
-  no-turn : NextTurn
-  no-turn = NextTurn { found = False, dist = 0.0, v-turn = 0.0 }
-
-  next-turn-loop : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-loop : List Segment, Real, Integer, Real -> Maybe Turn
   next-turn-loop (segs) (pos) (i) (cum0) =
-    if i >= list-length segs then no-turn
+    if i >= list-length segs then None
     else next-turn-step segs pos i (cum0 + (list-at segs i).length)
 
-  next-turn-step : List Segment, Real, Integer, Real -> NextTurn
+  next-turn-step : List Segment, Real, Integer, Real -> Maybe Turn
   next-turn-step (segs) (pos) (i) (cum) =
     let s = list-at segs i
     in if pos < cum
-      then (if s.terminates then no-turn else NextTurn { found = True, dist = cum - pos, v-turn = turn-speed s.exit-angle })
+      then (if s.terminates then None else Just (Turn { dist = cum - pos, v-turn = turn-speed s.exit-angle }))
       else next-turn-loop segs pos (i + 1) cum
 
-  next-turn : List Segment, Real -> NextTurn
+  next-turn : List Segment, Real -> Maybe Turn
   next-turn (segs) (pos) = next-turn-loop segs pos 0 0.0
 
 Section: One Frame
@@ -5177,11 +5229,11 @@ Section: One Frame
   truck-next : TruckState, Real, List Segment, Real -> TruckState
   truck-next (truck) (rider-dist) (segs) (l) =
     let scheduled = truck-schedule rider-dist l
-    in let turn = next-turn segs truck.pos
-    in if turn.found then (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
-       else truck-free truck scheduled
+    in when next-turn segs truck.pos
+       is Just (turn) -> (if turn.dist <= truck-brake-distance then truck-braking truck turn else truck-free truck scheduled)
+       is None -> truck-free truck scheduled
 
-  truck-braking : TruckState, NextTurn -> TruckState
+  truck-braking : TruckState, Turn -> TruckState
   truck-braking (truck) (turn) =
     let target = turn.v-turn * truck-turn-caution
     in let a = if turn.dist > 0.000001 then (target * target - truck.v * truck.v) / (2.0 * turn.dist) else 0.0

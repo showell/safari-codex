@@ -11,10 +11,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 cd "$root"
 
-: "${CODEX_ROOT:=$HOME/showell_repos/NewRepository}"
+: "${CODEX_ROOT:=$HOME/showell_repos/cobblestone-safari}"   # ours; PROVENANCE.md
 export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
-codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
+# OURS, built by its own project in a worktree this one owns. It used to
+# default into the SHARED transpiler checkout, which meant the compiler under
+# every number here was whatever that tree happened to hold this afternoon.
+# PROVENANCE.md names the pin; CODEXZIG still overrides.
+codexzig="$("$root/harness/build_codexzig.sh")"
 mkdir -p build web/driving
 
 # The entry chapter, defaulting to the REAL-ROUTE scene. `Scene` is the original

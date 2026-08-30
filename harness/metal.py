@@ -121,8 +121,8 @@ def entry_outputs(entry):
     subprocess.run([sys.executable, str(ROOT / "harness/bundle.py"), str(src), str(unit)],
                    check=True)
     zig_src = ROOT / "build" / f"{mod}.zig"
-    codexzig = os.environ.get("CODEXZIG", str(pathlib.Path.home() /
-                              "showell_repos/codex-zig-transpiler/generated/local/codexzig"))
+    codexzig = subprocess.run([str(ROOT / "harness/build_codexzig.sh")],
+                              capture_output=True, text=True, check=True).stdout
     with open(unit) as fi, open(zig_src, "w") as fe, open(ROOT / "build" / f"{mod}.diag", "w") as fo:
         subprocess.run([codexzig], stdin=fi, stderr=fe, stdout=fo, check=True)
     zig = os.environ.get("ZIG", str(pathlib.Path.home() / "zig-0.16.0/zig"))

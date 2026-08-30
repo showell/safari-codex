@@ -32,20 +32,24 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
-LADDER = pathlib.Path(os.environ.get(
-    'SAFARI_LADDER', pathlib.Path.home() / 'showell_repos' / 'codex-zig-ladder'))
-
-
 def _cite_resolve():
-    """The ladder's resolver, imported rather than copied.
+    """OUR OWN COPY of the ladder's resolver, in harness/cite_resolve.py.
 
-    A copy would drift from the walk the depot actually performs, and the whole
-    point of the unit is that it is the same program the depot would build.
+    It used to be imported from a sibling checkout, and the argument for that was
+    that a copy would drift from the walk the depot actually performs. True, and
+    outweighed: an import from a path that may not exist is a project that cannot
+    be built anywhere but this box, and one that silently changes its own bundling
+    rule when the neighbour edits a file. The copy is 6 KB, it is read-only here,
+    and harness/PROVENANCE.md names the commit it came from -- so a drift is a
+    thing you can see rather than a thing that happens to you.
+
+    SAFARI_LADDER still overrides, which is how the two are compared.
     """
-    if not (LADDER / 'cite_resolve.py').is_file():
-        raise SystemExit(
-            f'no cite_resolve.py under {LADDER}; set SAFARI_LADDER to the ladder checkout')
-    sys.path.insert(0, str(LADDER))
+    ladder = os.environ.get('SAFARI_LADDER')
+    if ladder and (pathlib.Path(ladder) / 'cite_resolve.py').is_file():
+        sys.path.insert(0, str(ladder))
+    else:
+        sys.path.insert(0, str(HERE))
     import cite_resolve
     return cite_resolve
 

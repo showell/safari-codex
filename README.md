@@ -18,34 +18,40 @@ wrong in useful ways, which this file notes where it matters.
 
 ## The trees this builds against
 
-Four checkouts, and the port is only one of them. Branches matter here: two of
-these are on branches made for this work and the port does not build on `master`.
+**Every tree this builds against is pinned, and `PROVENANCE.md` is the record.**
+Until 2026-08-30 each of them was a path into a checkout somebody else was
+working in, which made a green sweep a statement about whatever those trees held
+that afternoon. Two rules now: a tree we COMPILE is a worktree on our own branch,
+and a tree we merely READ is copied in with the commit it came from written down.
 
 | tree | branch | what it is |
 |---|---|---|
 | `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. Pushed to `showell/safari-codex` on every commit. |
-| `~/showell_repos/angry-gopher` | `master` | **the game being ported.** `games/driving/wasm/*.zig` is the Zig under test; `probe/wasm` here is a symlink to it. Read-only from this project — the port never edits the game. |
-| `~/showell_repos/NewRepository` | `u53-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
-| `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. |
-| `~/showell_repos/cobblestone-realbits` | `zig-plug-real-bitcast` | a **worktree of NewRepository** holding the plug work — the emitter rows the port needed. Branched from Cobblestone PR 100's head, and what `codexzig` is built from now. `PLUG_WORK.md` is its record; `cobblestone-realconv` is the superseded first attempt. |
-| `~/showell_repos/codex-zig-ladder` | `master` | borrowed for three things: `cite_resolve.py` (which `harness/bundle.py` imports rather than restating) and `ring_compile` + `codex_vm`, which are how the third arm boots a guest. Override with `SAFARI_LADDER`. |
+| `~/showell_repos/cobblestone-safari` | `safari` | **Cobblestone**, the Codex language: the foreword every chapter cites, the seed the guest arms boot, and the plugs. A worktree of `NewRepository` on our own branch, carrying Update 53 plus the plug rows the port needs. `CODEX_ROOT` and `COBBLESTONE_ROOT` point here. |
+| `~/showell_repos/codexzig-safari` | `safari` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. A worktree of `codex-zig-transpiler`; `./harness/build_codexzig.sh` is the only door to it. |
+| `HISTORICAL_WASM_ROOT/` | — | **the game being ported**, copied in from `angry-gopher/games/driving/wasm`. It is the ORACLE and this project never edits it. `./harness/refresh_game.sh` moves the pin; the provenance sits beside the files. |
+| `~/showell_repos/codex-zig-ladder` | `master` | borrowed, and deliberately NOT pinned: `ring_compile` + `codex_vm` are how the third and fourth arms boot a guest, and `codex_vm.launch` takes the host-wide lock that keeps this box to one guest at a time. A second tree would take a second lock. `PROVENANCE.md` has the argument. |
 
-**`codexzig` is why this project moves at all.** It is one program — Codex source
-in, Zig out — built by `codex-zig-transpiler/build.py` into
-`generated/local/codexzig`, and `harness/run.sh` takes it from `$CODEXZIG` or that
-path. Building it the first time costs QEMU guests, because the seed compiler
-emits x86 rather than Zig and the emitter has to be booted before there is any Zig
-to compile. **Once it exists, nothing in this project boots a guest.** That is the
-whole reason a sweep is thirty seconds instead of a ladder-scale job, and it is
-why the transpiler's branch is worth knowing: the binary on disk was built from a
-specific commit, and `codex-zig-transpiler/generated/PROVENANCE` names it.
+The single-purpose branches the plug work is SENT on -- `zig-plug-real-bitcast`,
+`wasm-plug-real-conversions`, and their worktrees -- are not in this table
+because nothing builds against them. `PLUG_WORK.md` is their record.
 
-Two environment variables and one tool path are all the loop needs:
+**`codexzig` is why this project moves at all.** It is one program -- Codex source
+in, Zig out -- and `./harness/build_codexzig.sh` prints the path to ours, building
+it in its worktree first if the fingerprint says it is stale. Building it costs
+three QEMU guests, because the seed compiler emits x86 rather than Zig and the
+emitter has to be booted before there is any Zig to compile; the build ends by
+checking the fixed point, which is why the door is that project's own `build.py`
+and not a `zig build-exe` here. **Once it exists, the sweep boots no guest.** That
+is why a sweep is seconds instead of a ladder-scale job.
 
-    CODEX_ROOT    ~/showell_repos/NewRepository       the foreword chapters
-    SAFARI_LADDER ~/showell_repos/codex-zig-ladder    cite_resolve.py
-    CODEXZIG      .../generated/local/codexzig        the transpiler
-    ZIG           ~/zig-0.16.0/zig                    0.16.0
+Four environment variables, all of them overrides with working defaults:
+
+    CODEX_ROOT     ~/showell_repos/cobblestone-safari   the foreword and the seed
+    CODEXZIG_TREE  ~/showell_repos/codexzig-safari      the transpiler's worktree
+    CODEXZIG       (unset)                              a specific binary instead
+    SAFARI_LADDER  ~/showell_repos/codex-zig-ladder     ring_compile, codex_vm
+    ZIG            ~/zig-0.16.0/zig                     0.16.0
 
 ## Porting philosophy: pragmatic best effort
 

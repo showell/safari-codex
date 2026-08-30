@@ -7,10 +7,14 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(dirname "$here")"
-: "${CODEX_ROOT:=$HOME/showell_repos/NewRepository}"
+: "${CODEX_ROOT:=$HOME/showell_repos/cobblestone-safari}"   # ours; PROVENANCE.md
 export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
-codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
+# OURS, built by its own project in a worktree this one owns. It used to
+# default into the SHARED transpiler checkout, which meant the compiler under
+# every number here was whatever that tree happened to hold this afternoon.
+# PROVENANCE.md names the pin; CODEXZIG still overrides.
+codexzig="$("$root/harness/build_codexzig.sh")"
 # ONE BINARY PER PAIR OF VIEWPOINTS, and the reason is the bump heap rather than
 # taste: the prelude never reclaims (PORTING_NOTES C6) and neither arm rewinds an
 # arena, so every frame a run prints is still held when it prints the next. Six

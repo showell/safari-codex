@@ -14,10 +14,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 cd "$root"
 
-: "${CODEX_ROOT:=$HOME/showell_repos/NewRepository}"
+: "${CODEX_ROOT:=$HOME/showell_repos/cobblestone-safari}"   # ours; PROVENANCE.md
 export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
-codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
+# OURS, built by its own project in a worktree this one owns. It used to
+# default into the SHARED transpiler checkout, which meant the compiler under
+# every number here was whatever that tree happened to hold this afternoon.
+# PROVENANCE.md names the pin; CODEXZIG still overrides.
+codexzig="$("$root/harness/build_codexzig.sh")"
 
 for tool in "$zig" "$codexzig"; do
   [ -x "$tool" ] || { echo "missing tool: $tool" >&2; exit 1; }
@@ -76,7 +80,7 @@ for check in "${checks[@]}"; do
   # slow steps after it. run.sh is in the key so changing a build flag rebuilds,
   # and the transpiler by size+mtime, which is enough for a locally built tool.
   python3 harness/bundle.py "$check" "build/$mod-unit.codex"
-  key="$( { cat "build/$mod-unit.codex" harness/run.sh; stat -c '%s %Y' "$codexzig"; } | sha256sum )"
+  key="$( { cat "build/$mod-unit.codex" harness/run.sh; cat "$(dirname "$codexzig")/../codexzig.qemu.zig"; } | sha256sum )"
   # The binaries are gitignored, so a fresh clone has a stamp-less build to do.
   if [ "$key" != "$(cat "build/$mod.stamp" 2>/dev/null)" ] || [ ! -x "build/$mod" ]; then
     # A FAILED BUILD MUST NOT LEAVE SOMETHING THAT LOOKS CURRENT. The binary and

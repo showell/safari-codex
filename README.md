@@ -241,6 +241,80 @@ was watched for, and three instances still got in.
 in the shared front end is invisible to it, exactly as the ladder's own README
 says of its rungs.
 
+## The fourth arm: the same program as wasm, twice, by two different roads
+
+    ./harness/wasm_plug_build.py         # once per emitter change, 18s, one guest
+    ./harness/wasm_arm.py Pond World Num Camera
+    ./harness/wasm_arm.py --entry SpikeProfileMain
+
+The first three arms agree, so this one does not re-run them. It asks a narrower
+question than the third arm and gets a sharper answer:
+
+    Codex -> zig -> wasm      codexzig, then zig build-exe -target wasm32-wasi
+    Codex -> IR  -> wasm      the seed, then plugs/wasm's own emitter
+
+Both roads end as a wasm32-wasi module run by node's WASI, and the two must
+print the same bytes. **They share no code below the IR.** The left road is the
+one this project has always used with a wasm back end bolted on the end; the
+right road never sees zig at all, and its emitter is a different program written
+by different hands. A difference between them is a defect in one of the two, and
+the source is the same source either way, so it is not in the port.
+
+`harness/wasm_arm.py` is the whole thing and it is about a hundred and seventy
+lines. Two guests per module: one compiles the bundled unit to IR on the seed,
+one runs the wasm plug over that IR. `wat2wasm` is wabt's own JS build under
+`tools/` and the runner is node's `node:wasi`, so nothing is installed for this.
+
+**The QEMU is cheap, and that was the open question.** 18 s and one guest for the
+plug; 4-13 s to compile a unit to IR; 2-9 s to transpile it. A check is under ten
+seconds end to end and the whole 20,002-field spike entry is 27 s. Nothing here
+is near the third arm's minute-a-guest, because none of these units are the
+compiler.
+
+**What it found was that Real did not work at all.** No Codex program that
+computes with `Real` had ever assembled through the wasm plug. Every real on that
+target is carried as f64 bits in an i64 slot, which is the right representation
+and was half implemented: the reinterprets that get a value into an f64
+operation and back out of it were simply missing, so `f64.add` was handed two
+i64s and its f64 result stored into an i64 slot. The four ordered comparisons
+emitted `i64.lt_s` on the bit patterns, which is not a near miss — it reads the
+sign bit as the top of a two's-complement integer, so every negative real sorts
+above every positive one and `-2.0 < -1.0` comes out False, and the foreword's
+own `real-min`, `real-max` and `real-abs` are three lines of `<` and `>`. Three
+builtins had no form at all. `PLUG_WORK.md` has the change; it is on
+`wasm-plug-real-conversions` for sending.
+
+**What agrees now.** `Pond`, `World`, `Num` and `Camera` — and `SpikeProfileMain`
+on **20,002 IEEE-754 bit patterns, with no tolerance anywhere**: the ported
+physics over the whole route, by two emitters that share no code below the IR.
+
+### What it takes to make it fail
+
+A check compares VERDICTS, and a verdict is `name ok 2468` — the third arm's own
+limit, and this arm inherits it. So the arm was made to fail on purpose, three
+ways, each a plausible one-token slip in the emitter rather than a perturbed
+input:
+
+| fault in `WasmEmitter.codex` | wrong only when | `World` verdicts | `SpikeProfileMain` values |
+|---|---|---|---|
+| `real-from-int` converts unsigned | the integer is negative | **agrees** | CAUGHT (hangs, no output) |
+| ordered compare `f64.lt` -> `f64.le` | the two are equal | — | CAUGHT (296 of 257,787 bytes) |
+| `real-to-int` rounds, not truncates | the fraction is >= 0.5 | — | CAUGHT (1,736 bytes) |
+
+**The first row is the one worth reading.** A faulted emitter, seven wrong
+instructions in the emitted module, and `World` was GREEN. That is not the arm
+being blind: rebuilding the same module with the fault repaired, host-side,
+prints byte-identical output, so `WorldCheck` never calls `real-from-int` with a
+negative at all. The fault was unreachable in that program. But the verdict said
+`ok` either way, and a verdict that says `ok` for a program carrying seven wrong
+instructions is exactly as much comfort as it sounds like.
+
+**`--entry` is the answer, as it was for the third arm.** The spike entries print
+every value as its exact IEEE-754 pattern, and all three faults are caught there
+— two of them by the program failing to terminate, which is its own kind of
+evidence that the physics genuinely runs. Verdicts are the cheap sweep; values
+are the statement.
+
 ## Layout
 
 | directory | holds | written by |

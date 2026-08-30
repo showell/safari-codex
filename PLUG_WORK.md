@@ -318,3 +318,54 @@ compare at the ulp. The checks will not build on an older `codexzig`.
 2.07 lists them and asks the maintainer the one question they all turn on. Anyone
 "finishing the family" without an answer to it would be turning honest refusals
 into plausible wrong numbers.
+
+## 2026-08-30: the WASM plug, and a hole much bigger than a builtin row
+
+**The fourth arm needed the wasm plug, and found that `Real` did not work on it
+at all.** Not a missing builtin -- no Codex program that computes with `Real` had
+ever assembled through `codex/plugs/wasm/WasmEmitter.codex`. Branch
+`wasm-plug-real-conversions`, worktree `cobblestone-wasmreal`, off Update 53.
+
+Every real on that target is carried as f64 bits in an i64 slot. That is the
+right representation, the same one bare metal uses, and it was half implemented:
+
+- `IrNumLit` wrapped its literal in `f64.reinterpret_i64`, putting an f64 on a
+  stack the ABI says is i64. The literal already IS the bit pattern.
+- the Num/Real arithmetic emitted a bare `f64.add` on two i64 operands and stored
+  an f64 result into an i64 slot. **wat2wasm refuses the module**, which is the
+  honest direction to fail in and is why this was never a wrong number.
+- the four ordered comparisons emitted `i64.lt_s` on the bit patterns. Not a near
+  miss: it reads the sign bit as the top of a two's-complement integer, so every
+  negative real sorts above every positive one and `-2.0 < -1.0` is False. The
+  foreword's `real-min`, `real-max` and `real-abs` are three lines of `<` and
+  `>`, so this reaches everything.
+- `==` and `/=` agreed with `f64.eq` everywhere except the two places IEEE-754
+  says they must not: NaN, and the two zeros.
+- negation was a two's-complement subtract from zero.
+
+**And three builtin rows with no form at all**, which is the same list the zig
+plug needed in the two entries above: `real-to-bits` / `bits-to-real`, the
+identity here because the value is already its own bits, and `real-from-int` /
+`real-to-int`.
+
+**The truncation is x86's, not wasm's, and that is the one place the row is not
+obvious.** Bare metal emits `cvttsd2si` (`X86_64Builtins.codex:1663-1679`) and
+answers INT64_MIN for a NaN, an infinity, or anything whose truncation will not
+fit. wasm's own `i64.trunc_sat_f64_s` agrees on every one of those EXCEPT NaN,
+where it saturates to 0, and the positive overflow, where it saturates to
+INT64_MAX. Emitting the bare instruction would be a plausible wrong number on
+exactly the inputs a guard exists for, so the two disagreeing cases are tested
+first and the instruction handles the rest.
+
+**Width and mode are discarded exactly as the zig plug discards them** -- an f32
+real is computed as f64 and a trapping real does not trap. That is the
+house-wide position recorded above and not this chapter's to take.
+
+**What verified it is the arm itself**, which is worth stating because the plug
+had no test that could: the zig plug is a different emitter sharing no code below
+the IR, and `harness/wasm_arm.py` requires the two to print the same bytes.
+`Pond`, `World`, `Num` and `Camera` agree, and `SpikeProfileMain` agrees on
+20,002 IEEE-754 patterns with no tolerance anywhere. Three deliberate faults
+injected into the emitter afterwards are all caught at that granularity --
+README's "What it takes to make it fail" has the table, including the one that
+`World`'s verdicts did NOT catch and why.

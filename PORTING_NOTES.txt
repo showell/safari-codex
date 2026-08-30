@@ -771,10 +771,29 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     ENTRY chapter instead, and the spike entries print every coordinate as a
     scaled integer, and all EIGHT viewpoints now run: SpikeMain 143,976 fields,
     SpikePondMain 128,402, SpikeCatMain 161,134, SpikeTruckMain 89,902 -- 523,414
-    in all, 2,892,765 bytes, and the two arms produce them BYTE FOR BYTE. Sky,
+    in all, 4,532,052 bytes, and the two arms produce them BYTE FOR BYTE. Sky,
     ground, trees, towers, rails, animals, the cat's leap and the whole truck.
     That is the statement worth making. Verdict agreement is the cheap sweep.
     Eight guests, about six minutes.
+
+    AND THE SCALE OF THE PRINT IS THE RESOLUTION OF THE COMPARISON, which nobody
+    decided. `scaled` multiplied by 100 because spike_svg.py draws at 960 by 600
+    and a hundredth of a pixel is already invisible there -- a scale chosen for a
+    DRAWING, inherited unexamined by a comparison against a second compiler, where
+    two emitters could have disagreed by four orders of magnitude and this would
+    have reported agreement. It is a millionth now: 4,532,052 bytes rather than
+    2,892,765, still inside the guest's heap, four more orders of agreement.
+
+    IT STILL DOES NOT REACH AN ULP and the gap should be stated rather than
+    implied. At the 270,939-pixel vertex D8 calibrates against, an f64 ulp is
+    1.5e-11; a millionth of a pixel is 1e-6. Closing that needs `real-to-bits`,
+    which no plug emits -- the same shape of row as the real-to-int pair this port
+    already had filled. Until then the metal arm cannot see FMA contraction or
+    excess precision, and D11 is the other half of the same sentence.
+
+    THE GENERAL FORM IS WORTH MORE THAN THIS INSTANCE: when a value is printed for
+    one purpose and later COMPARED for another, the resolution of the comparison is
+    whatever the first purpose happened to need. Nothing warns you. Go and look.
 
     THE GUEST'S HEAP IS THE CEILING ON WHICH ENTRIES FIT, and it is lower than
     the host's 4 GiB. Measured: six viewpoints in one entry die after ONE frame at
@@ -785,7 +804,8 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     SO THE ENTRY SIZE IS THE GUEST'S NUMBER, NOT THE HOST'S: every spike entry is
     two viewpoints, and duck-pond/zebras and the cat's two stills left SpikeMain
     for SpikePondMain and SpikeCatMain. The split moved no values -- the four
-    binaries concatenated print the same 2,892,765 bytes as the two they replaced
+    binaries concatenated print the same bytes as the two they replaced (2,892,765
+    of them at the scale in force that day)
     -- which is the check worth running on a split, because a regrouping that
     changes an answer has changed something it had no business touching.
 

@@ -16,9 +16,18 @@ Chapter: SpikePrint
 
  COORDINATES GO OUT AS SCALED INTEGERS because `show` on a Real is still refused
  by the zig plug -- it needs a __real_to_text it does not have. real-to-int landed
- in 2026-08-29's plug work, so hundredths of a pixel is a plain multiply and a
- truncation, and a hundredth of a pixel is far finer than anything an SVG viewed
- at 960 by 600 can show.
+ in 2026-08-29's plug work, so a scale is a plain multiply and a truncation.
+
+ THE SCALE IS MILLIONTHS OF A PIXEL AND THE PICTURE IS NOT WHY. A hundredth was
+ already far finer than an SVG at 960 by 600 can show, and that was the whole
+ justification while these entries only fed spike_svg.py. They now also feed
+ `harness/metal.py --entry`, where the number is not drawn but COMPARED against a
+ second compiler -- and there the last digit printed IS the resolution of the
+ comparison. At a hundredth of a pixel two emitters could disagree by four orders
+ of magnitude and this would call them equal. A millionth costs four digits a
+ number and buys four orders of agreement. It does not reach an f64 ulp, which at
+ a 270,000-pixel vertex is 1.5e-11: that needs `real-to-bits`, which no plug
+ emits. The far vertex at 2.7e5 px scales to 2.7e11, comfortably inside i64.
 
  ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
  print per command. A Codex `act` has no recursive loop shape, and a chapter is
@@ -26,14 +35,14 @@ Chapter: SpikePrint
  handing it to a single print is the boring option and it is fine here, because a
  frame is about a hundred kilobytes of digits.
 
-   C <tag> <colour> <strength e-3> <n> <x e-2> <y e-2> ... [<colour2> <geom e-2>...]
+   C <tag> <colour> <strength e-3> <n> <x e-6> <y e-6> ... [<colour2> <geom e-6>...]
 
  We say:
 
 Section: Printing
 
   scaled : Real -> Text
-  scaled (v) = show (real-to-int (v * 100.0))
+  scaled (v) = show (real-to-int (v * 1000000.0))
 
   coords : List Real, Integer -> Text
   coords (ps) (i) =

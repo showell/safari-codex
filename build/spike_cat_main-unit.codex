@@ -232,15 +232,26 @@ Chapter: Num
 Section: Rounding
 
  Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
- give, so the half is added before the conversion and the sign is handled. The
- colour channels this rounds are all in 0..255 and never take the negative arm --
- it is written because a round that is wrong for half its domain is a trap for
- the next caller.
+ give. TRUNCATE FIRST AND THEN LOOK AT WHAT IS LEFT: real-to-int already truncates
+ toward zero, `x - t` is exact for every x this converter accepts, and a leftover
+ of half or more in either direction is precisely the away-from-zero tie. One rule
+ covers both signs, which is why there is no sign branch here any more.
+
+ ADDING THE HALF FIRST IS THE VERSION THAT WAS WRONG, and NumCheck is what found
+ it. `real-to-int (x + 0.5)` answers 1 for x = 0.49999999999999994 -- the largest
+ double below a half -- because x + 0.5 is not representable and rounds UP to
+ exactly 1.0, and the mirrored form answered -1 at -0.49999999999999994 where zig
+ answers -0. Every caller in the game rounds a 0..255 colour channel, a stride
+ count, a step count or a whole number of degrees, so not one of them could see
+ it; a round that is wrong on a value none of today's callers produces is a trap
+ for the next caller, and that is the whole reason this chapter is graded on a
+ domain wider than its callers'.
 
   round-real : Real -> Real
   round-real (x) =
-    if x < 0.0 then 0.0 - real-from-int (real-to-int (0.5 - x))
-    else real-from-int (real-to-int (x + 0.5))
+    let t = real-from-int (real-to-int x)
+    in let f = x - t
+    in if f >= 0.5 then t + 1.0 else if f <= 0.0 - 0.5 then t - 1.0 else t
 
  real-to-int truncates toward zero, so for a negative non-integral value it lands
  ABOVE its argument and floor is one less. An exact integer is its own floor in
@@ -295,8 +306,25 @@ Section: The Exponential
   ln2 : Real
   ln2 = 0.6931471805599453
 
- Twelve terms over |r| <= 0.347 leaves a remainder around 1e-17, which is under an
- f64 ulp at 1, so the scaling cannot magnify anything that matters.
+ TWELVE TERMS OVER |r| <= 0.347 LEAVE A REMAINDER OF 1.7e-16, NOT THE 1e-17 THIS
+ NOTE CLAIMED BEFORE IT WAS MEASURED. r^13/13! at r = ln2/2 is 1.671e-16, which is
+ an arithmetic fact nobody had worked out. NumCheck now measures the whole chapter
+ end to end against zig's @exp over eighteen arguments: the worst RELATIVE error is
+ 8.5e-16, at x = 20, and the gate is 1e-15 because the stream reddens at 8e-16.
+
+ AND IT IS THE REDUCTION, NOT THE SERIES, THAT SETS THAT NUMBER. The three
+ arguments small enough to need no reduction at all -- -0.05, 0 and 0.05 -- come
+ out EXACT; every nonzero error in the table belongs to a reduced case. Taking
+ k * ln2 off x cancels, and `ln2` here is one f64 where a library keeps a hi/lo
+ pair for exactly this reason. Splitting it is the fix if it ever matters:
+ rider.zig consumes the answer in f32, where 8.5e-16 is nine orders below the last
+ bit it can hold, so today it does not.
+
+ WRITING A BOUND NOBODY CHECKED IS THE DEFECT THIS PORT IS SENDING UPSTREAM.
+ FINDINGS.md item 2 is `Math chapter Cordic` claiming ~0.1% and delivering 0.45%,
+ with a test that never calls a Cordic function. The claim above was 17x out for
+ the same reason -- it was reasoned about rather than run -- and it is corrected
+ here rather than left standing while we mail someone else's.
 
   exp-poly : Real -> Real
   exp-poly (r) =
@@ -6352,9 +6380,18 @@ Chapter: SpikePrint
 
  COORDINATES GO OUT AS SCALED INTEGERS because `show` on a Real is still refused
  by the zig plug -- it needs a __real_to_text it does not have. real-to-int landed
- in 2026-08-29's plug work, so hundredths of a pixel is a plain multiply and a
- truncation, and a hundredth of a pixel is far finer than anything an SVG viewed
- at 960 by 600 can show.
+ in 2026-08-29's plug work, so a scale is a plain multiply and a truncation.
+
+ THE SCALE IS MILLIONTHS OF A PIXEL AND THE PICTURE IS NOT WHY. A hundredth was
+ already far finer than an SVG at 960 by 600 can show, and that was the whole
+ justification while these entries only fed spike_svg.py. They now also feed
+ `harness/metal.py --entry`, where the number is not drawn but COMPARED against a
+ second compiler -- and there the last digit printed IS the resolution of the
+ comparison. At a hundredth of a pixel two emitters could disagree by four orders
+ of magnitude and this would call them equal. A millionth costs four digits a
+ number and buys four orders of agreement. It does not reach an f64 ulp, which at
+ a 270,000-pixel vertex is 1.5e-11: that needs `real-to-bits`, which no plug
+ emits. The far vertex at 2.7e5 px scales to 2.7e11, comfortably inside i64.
 
  ONE LINE FOR THE WHOLE FRAME, commands separated by semicolons, rather than a
  print per command. A Codex `act` has no recursive loop shape, and a chapter is
@@ -6362,14 +6399,14 @@ Chapter: SpikePrint
  handing it to a single print is the boring option and it is fine here, because a
  frame is about a hundred kilobytes of digits.
 
-   C <tag> <colour> <strength e-3> <n> <x e-2> <y e-2> ... [<colour2> <geom e-2>...]
+   C <tag> <colour> <strength e-3> <n> <x e-6> <y e-6> ... [<colour2> <geom e-6>...]
 
  We say:
 
 Section: Printing
 
   scaled : Real -> Text
-  scaled (v) = show (real-to-int (v * 100.0))
+  scaled (v) = show (real-to-int (v * 1000000.0))
 
   coords : List Real, Integer -> Text
   coords (ps) (i) =

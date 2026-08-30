@@ -178,10 +178,21 @@ the two arms agree digit for digit on every one:**
 | `SpikeTruckMain` — the truck in daylight and at dusk | 89,902 |
 | | **523,414** |
 
-Concatenated that is **2,892,765 bytes, and the two arms produce them byte for
+Concatenated that is **4,532,052 bytes, and the two arms produce them byte for
 byte** — the sky, the ground, the trees, the towers, the rails, the animals, the
 cat's leap and the whole truck. That is the statement worth making; verdict
 agreement is the cheap sweep. Eight guests, about six minutes.
+
+**The comparison is only as fine as the last digit printed**, and that scale was
+inherited rather than chosen. These entries were written to feed `spike_svg.py`,
+which draws at 960 by 600, so hundredths of a pixel was overkill *for a picture* —
+and then the same text was pointed at a second compiler, where at a hundredth of a
+pixel two emitters could disagree by four orders of magnitude and this would call
+them equal. The scale is millionths now: four more digits a number, four more
+orders of agreement, and 1.6 MB more text that all four entries still fit in the
+guest. It does **not** reach an f64 ulp — 1.5e-11 at the far vertex the port
+projects — and reaching that needs `real-to-bits`, which no plug emits. So "the
+arms agree" has a resolution, and the resolution is not *exact*.
 
 **The guest's heap decides how big an entry may be, and it is smaller than the
 host's.** The prelude bump-allocates and never reclaims, so a run's whole output

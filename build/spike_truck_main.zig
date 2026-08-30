@@ -502,7 +502,7 @@ fn real_cos(x: f64) f64 {
 }
 
 fn round_real(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
 }
 
 fn floor_real(x: f64) f64 {
@@ -2592,7 +2592,7 @@ fn spike_truck_lead() f64 {
 }
 
 fn scaled(v_: f64) []const u8 {
-    return cx_show_int(cx_real_to_int((v_ * @as(f64, @bitCast(@as(i64, 4636737291354636288))))));
+    return cx_show_int(cx_real_to_int((v_ * @as(f64, @bitCast(@as(i64, 4696837146684686336))))));
 }
 
 fn coords(ps: *CxList(f64), i_: i64) []const u8 {

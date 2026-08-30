@@ -10,8 +10,10 @@ the browser page to the right spot.
 
 Reads the text the poc Spike*Main entries print -- a SCENE header then one line of
 semicolon-separated draw commands -- and writes web/spikes/<name>.svg plus an
-index. Coordinates arrive as hundredths of a pixel because `show` on a Real is
-still refused by the zig plug; see the chapter.
+index. Coordinates arrive as MILLIONTHS of a pixel -- `show` on a Real is still
+refused by the zig plug, so they are scaled integers, and the scale is set by what
+`harness/metal.py --entry` needs to compare rather than by what an SVG can draw.
+See the chapter.
 
 The SVG is an APPROXIMATION of what blitter.js paints, deliberately. It does the
 sky gradient, the grass, solid fills and the round-gradient polygons, because
@@ -246,7 +248,7 @@ def parse(text):
                     continue
                 tag, color, strength, n = int(f[1]), int(f[2]), int(f[3]), int(f[4])
                 body, tail = f[5:5 + 2 * n], f[5 + 2 * n:]
-                nums = [int(x) / 100.0 for x in body]
+                nums = [int(x) / 1000000.0 for x in body]
                 pts = list(zip(nums[0::2], nums[1::2]))
                 # TAGS 4-6 TRAIL A SECOND COLOUR AND THEIR OWN GEOMETRY, after the
                 # polygon rather than before it, so every other tag's line is
@@ -254,7 +256,7 @@ def parse(text):
                 # is the only one this renders; 5 and 6 are the bull's, and the
                 # baked table still flattens those to their first stop.
                 color2 = int(tail[0]) if tag >= 4 and tail else 0
-                geom = [int(x) / 100.0 for x in tail[1:]] if tag >= 4 else []
+                geom = [int(x) / 1000000.0 for x in tail[1:]] if tag >= 4 else []
                 cur[3].append((tag, color, strength / 1000.0, pts, nums + geom, color2, geom))
     return scenes
 

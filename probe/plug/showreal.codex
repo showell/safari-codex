@@ -1,0 +1,17 @@
+Chapter: PlugShowReal
+  cites Foreword chapter Console
+
+ `show` on a Real. The zig plug refuses it -- judge/Grade.codex is built around
+ the refusal, and PORTING_NOTES D12 is the note -- so this probe is here to ask
+ what the WASM plug does with the same source, which is a question the safari
+ port never gets to ask.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("half   = " & show 0.5)
+    print-line-uni ("third  = " & show (1.0 / 3.0))
+    print-line-uni ("negone = " & show (0.0 - 1.0))
+  end

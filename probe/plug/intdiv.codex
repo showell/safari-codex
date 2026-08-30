@@ -1,0 +1,19 @@
+Chapter: PlugIntDiv
+  cites Foreword chapter Console
+
+ Integer division and remainder, at the signs where the two disagree if they
+ disagree. `int-mod` gets a helper in both plugs; `/` and the remainder operator
+ go straight to an instruction.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("7/2      = " & show (7 / 2))
+    print-line-uni ("-7/2     = " & show (0 - 7 / 2))
+    print-line-uni ("(0-7)/2  = " & show ((0 - 7) / 2))
+    print-line-uni ("(0-7)/(0-2) = " & show ((0 - 7) / (0 - 2)))
+    print-line-uni ("int-mod (0-7) 3 = " & show (int-mod (0 - 7) 3))
+    print-line-uni ("int-mod 7 (0-3) = " & show (int-mod 7 (0 - 3)))
+  end

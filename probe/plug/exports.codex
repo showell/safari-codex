@@ -1,0 +1,23 @@
+Chapter: PlugExports
+  cites Foreword chapter Console
+
+ The wasm plug decides a module's EXPORTS by matching every definition name
+ against `wasm-export-list`, a hardcoded pipe-separated string of about four
+ hundred names taken from other applications -- `select-all`, `random-color`,
+ `species-count`, `cad-set-units`. A program of this project's that happens to
+ use one of those names is exported to the host whether it meant to be or not.
+
+ Nothing here is wrong-answer; it is a surface question. The probe prints the
+ same values either way, and what differs is the module's shape.
+
+ We say:
+
+Section: Entry
+
+  select-all : Integer = 41
+  random-color : Integer = 42
+  species-count : Integer = 43
+
+  opening : [Console] Nothing = act
+    print-line-uni ("sum = " & show (select-all + random-color + species-count))
+  end

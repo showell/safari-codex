@@ -1,0 +1,44 @@
+Chapter: PlugRealEdge
+  cites Foreword chapter Console
+
+ The Real edges, printed as IEEE-754 patterns because `show` on a Real is not
+ available on both plugs. real-to-int is the interesting one: bare metal emits
+ cvttsd2si, which answers INT64_MIN for a NaN, an infinity, or an out-of-range
+ truncation, and neither target's instruction does that unaided.
+
+ `==` ON A REAL IS REFUSED BY THE COMPILER -- CDX2085, "floating-point equality
+ is not safe, use the ~ operator" -- which is worth recording because it means
+ the plugs' IrEq arm for a Real is unreachable from ordinary source. It is
+ reached through `~`, and through a record's generated equality.
+
+ The values are BUILT rather than written. Codex has no exponent literal, and a
+ constant expression would in any case be a fair target for fold-constants --
+ which would move the arithmetic out of the emitter and into the compiler, where
+ this probe cannot see it.
+
+ We say:
+
+Section: Entry
+
+  sq : Real -> Real
+  sq (x) = x * x
+
+  zero : Integer -> Real
+  zero (n) = real-from-int (n - n)
+
+  opening : [Console] Nothing = act
+    print-line-uni ("to-int 2.7    = " & show (real-to-int 2.7))
+    print-line-uni ("to-int -2.7   = " & show (real-to-int (0.0 - 2.7)))
+    print-line-uni ("to-int 2^64   = " & show (real-to-int (sq (sq (sq (sq (sq (sq 2.0)))))))) 
+    print-line-uni ("to-int -2^64  = " & show (real-to-int (0.0 - sq (sq (sq (sq (sq (sq 2.0))))))))
+    print-line-uni ("from-int -5   = " & show (real-to-bits (real-from-int (0 - 5))))
+    print-line-uni ("1/0 bits      = " & show (real-to-bits (1.0 / zero 3)))
+    print-line-uni ("-1/0 bits     = " & show (real-to-bits ((0.0 - 1.0) / zero 3)))
+    print-line-uni ("to-int 1/0    = " & show (real-to-int (1.0 / zero 3)))
+    print-line-uni ("nan < 1       = " & show (if (zero 3 / zero 3) < 1.0 then 1 else 0))
+    print-line-uni ("nan >= 1      = " & show (if (zero 3 / zero 3) >= 1.0 then 1 else 0))
+    print-line-uni ("to-int 0/0    = " & show (real-to-int (zero 3 / zero 3)))
+    print-line-uni ("-0.0 ~0 0.0   = " & show (if (0.0 - 0.0) ~0 0.0 then 1 else 0))
+    print-line-uni ("-0.0 bits     = " & show (real-to-bits (0.0 - 0.0)))
+    print-line-uni ("-2.0 < -1.0   = " & show (if (0.0 - 2.0) < (0.0 - 1.0) then 1 else 0))
+  end

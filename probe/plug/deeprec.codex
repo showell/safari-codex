@@ -1,0 +1,21 @@
+Chapter: PlugDeepRec
+  cites Foreword chapter Console
+
+ NON-TAIL RECURSION, ONE FRAME PER ELEMENT. `sum-to` recurses and then adds, so
+ no tail-call rewriting can flatten it; this is the shape every list walk in the
+ safari port has. The question is how much wasm stack one frame costs, because
+ the answer decides whether a module the plug emits can run in a BROWSER, where
+ the stack is about 1 MB and there is no flag to raise it.
+
+ We say:
+
+Section: Entry
+
+  sum-to : Integer -> Integer
+  sum-to (n) = if n <= 0 then 0 else n + sum-to (n - 1)
+
+  opening : [Console] Nothing = act
+    print-line-uni ("sum-to 1000   = " & show (sum-to 1000))
+    print-line-uni ("sum-to 10000  = " & show (sum-to 10000))
+    print-line-uni ("sum-to 50000  = " & show (sum-to 50000))
+  end

@@ -1,0 +1,23 @@
+Chapter: PlugIndirect
+  cites Foreword chapter Console
+
+ Deep recursion that goes through a FUNCTION VALUE at every level, so each frame
+ carries a call_indirect rather than a direct call. `deeprec` is the direct
+ shape and V8 handles its overflow as a clean trap; this asks whether the
+ indirect one is handled the same way.
+
+ We say:
+
+Section: Entry
+
+  bump : Integer -> Integer
+  bump (n) = n + 1
+
+  chain : (Integer -> Integer), Integer -> Integer
+  chain (f) (n) = if n <= 0 then 0 else f (chain f (n - 1))
+
+  opening : [Console] Nothing = act
+    print-line-uni ("chain 1000  = " & show (chain bump 1000))
+    print-line-uni ("chain 20000 = " & show (chain bump 20000))
+    print-line-uni ("chain 200000 = " & show (chain bump 200000))
+  end

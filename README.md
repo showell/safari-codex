@@ -6,12 +6,13 @@ the Zig it came from.
 The Zig version stays intact and keeps running on lynrummy.com/driving. This is a
 parallel port, not a migration.
 
-Five documents, and they do not overlap. **This file** is the orientation: what
+Six documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
 — sixty-one numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
 **`FINDINGS.md`** is the seven defects this port found in the toolchain and the
-game, written up to be sent. **`PLUG_WORK.md`** records the emitter change the port
+game, written up to be sent. **`WASM_FINDINGS.md`** is the seven the fourth arm
+found in `codex/plugs/wasm` specifically, three of them fixed. **`PLUG_WORK.md`** records the emitter change the port
 needed and why it was branched where it was. **`NOTES.txt`** is the research brief
 that opened the project; it is history now and several of its predictions were
 wrong in useful ways, which this file notes where it matters.

@@ -1,0 +1,17 @@
+Chapter: PlugPow
+  cites Foreword chapter Console
+
+ INTEGER EXPONENTIATION. `^` desugars to OpPow and lowers to IrPowInt
+ (Desugarer.codex:257, LoweringTypes.codex:186). The zig plug emits a call to
+ its prelude's cx_ipow; the wasm plug's instruction table answers "i64.mul".
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni ("2^10 = " & show (2 ^ 10))
+    print-line-uni ("3^4  = " & show (3 ^ 4))
+    print-line-uni ("5^0  = " & show (5 ^ 0))
+    print-line-uni ("7^1  = " & show (7 ^ 1))
+  end

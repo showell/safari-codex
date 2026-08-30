@@ -1,0 +1,24 @@
+Chapter: SpikeCatMain
+  cites Foreword chapter Console
+  cites Safari chapter Sky
+  cites Poc chapter Spike
+  cites Poc chapter SpikePrint
+
+ SPIKE ONLY. THROWAWAY. The cat's two stills -- frozen in the road, and airborne
+ mid-leap -- split off `SpikeMain` for the reason its header gives.
+
+ THESE TWO ARE THE PAIR WORTH HAVING ON BARE METAL. The leap is the port's one
+ deliberate difference from the game (`b^0.75` where the game uses `pow(b, 0.7)`),
+ so it is the frame whose numbers are the port's own rather than a transcription,
+ and the third arm compares every one of them.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (scene-line "cat-frozen" u-cat-frozen)
+    print-line-uni (all-cmds (spike-frame-at u-cat-frozen) 0)
+    print-line-uni (scene-line "cat-leap" u-cat-leap)
+    print-line-uni (all-cmds (spike-frame-at u-cat-leap) 0)
+  end

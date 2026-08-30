@@ -2468,10 +2468,17 @@ Section: Rods
     in let dy = b.y - a.y
     in let raw = real-sqrt (dx * dx + dy * dy)
     in let len = if raw < 0.0001 then 1.0 else raw
-    in bar-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
+    in rod-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
 
-  bar-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
-  bar-quad (a) (b) (ox) (oy) =
+ NAMED FOR ITS SECTION RATHER THAN ITS SHAPE, and the rename was forced by the
+ bare-metal arm: `bar-quad` is also GuardRail's, and Codex chapters share one flat
+ namespace. Each chapter sees its own definition so both compiled and ran
+ correctly -- but a mention in a chapter that defines NEITHER resolves by the
+ order the build globs files, which is not a property anything should rely on.
+ The seed diagnoses it (CDX3006); the zig arm says nothing.
+
+  rod-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
+  rod-quad (a) (b) (ox) (oy) =
     push-poly tower-metal [ScreenPt { x = a.x + ox, y = a.y + oy }, ScreenPt { x = b.x + ox, y = b.y + oy }, ScreenPt { x = b.x - ox, y = b.y - oy }, ScreenPt { x = a.x - ox, y = a.y - oy }]
 
  One rod, near-clipped: a 3D segment clipped to the near plane before projecting,
@@ -6396,52 +6403,27 @@ Section: Printing
   scene-line (name) (u) =
     "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
 
-Chapter: SpikeMain
+Chapter: SpikePondMain
   cites Foreword chapter Console
   cites Safari chapter Sky
   cites Poc chapter Spike
   cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. Prints one still frame's draw commands as text, for
- harness/spike_svg.py to turn into a picture. Nothing grades this and nothing
- depends on it.
+ SPIKE ONLY. THROWAWAY. The duck pond and the zebras, split off `SpikeMain` for
+ the reason its header gives: two viewpoints is what the QEMU guest's heap holds,
+ and an entry the third arm cannot run is an entry compared on nothing.
 
- SIX VIEWPOINTS IS WHAT ONE PROCESS HOLDS. The prelude never reclaims (C6) and a
- native binary has no arena rewind, so the frames of one run accumulate; six comes
- to just under the 4 GiB reserve. The truck's two stills therefore live in
- `Poc chapter SpikeTruckMain`, which cites the printing below rather than
- repeating it, and harness/spike.sh runs both binaries.
-
- The printing itself is `Poc chapter SpikePrint`, shared with the truck entry.
+ Named for the pond because that is what the first viewpoint looks at; the zebras
+ ride along because they are the next viewpoint down the route and a pair is the
+ unit here.
 
  We say:
 
 Section: Entry
 
- One block per viewpoint.
-
-  prof-pt : ProfilePt -> Text
-  prof-pt (p) =
-    show (real-to-int p.dist) & " " & show (real-to-int (p.v * 1000.0)) & " " & show (real-to-int (p.tilt * 1000.0)) & " " & show p.seg
-
-  prof-all : List ProfilePt, Integer -> Text
-  prof-all (ps) (i) =
-    if i >= list-length ps then ""
-    else prof-pt (list-at ps i) & " ; " & prof-all ps (i + 1)
-
   opening : [Console] Nothing = act
-    print-line-uni ("PROFILE " & show (list-length speed-profile))
-    print-line-uni (prof-all speed-profile 0)
-    print-line-uni (scene-line "pig-herd" u-pig-herd)
-    print-line-uni (all-cmds (spike-frame-at u-pig-herd) 0)
-    print-line-uni (scene-line "mid-tower" u-mid-tower)
-    print-line-uni (all-cmds (spike-frame-at u-mid-tower) 0)
     print-line-uni (scene-line "duck-pond" u-pond)
     print-line-uni (all-cmds (spike-frame-at u-pond) 0)
     print-line-uni (scene-line "zebras" u-zebras)
     print-line-uni (all-cmds (spike-frame-at u-zebras) 0)
-    print-line-uni (scene-line "cat-frozen" u-cat-frozen)
-    print-line-uni (all-cmds (spike-frame-at u-cat-frozen) 0)
-    print-line-uni (scene-line "cat-leap" u-cat-leap)
-    print-line-uni (all-cmds (spike-frame-at u-cat-leap) 0)
   end

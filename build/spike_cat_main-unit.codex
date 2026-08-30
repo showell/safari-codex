@@ -2468,10 +2468,17 @@ Section: Rods
     in let dy = b.y - a.y
     in let raw = real-sqrt (dx * dx + dy * dy)
     in let len = if raw < 0.0001 then 1.0 else raw
-    in bar-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
+    in rod-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
 
-  bar-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
-  bar-quad (a) (b) (ox) (oy) =
+ NAMED FOR ITS SECTION RATHER THAN ITS SHAPE, and the rename was forced by the
+ bare-metal arm: `bar-quad` is also GuardRail's, and Codex chapters share one flat
+ namespace. Each chapter sees its own definition so both compiled and ran
+ correctly -- but a mention in a chapter that defines NEITHER resolves by the
+ order the build globs files, which is not a property anything should rely on.
+ The seed diagnoses it (CDX3006); the zig arm says nothing.
+
+  rod-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
+  rod-quad (a) (b) (ox) (oy) =
     push-poly tower-metal [ScreenPt { x = a.x + ox, y = a.y + oy }, ScreenPt { x = b.x + ox, y = b.y + oy }, ScreenPt { x = b.x - ox, y = b.y - oy }, ScreenPt { x = a.x - ox, y = a.y - oy }]
 
  One rod, near-clipped: a 3D segment clipped to the near plane before projecting,
@@ -6396,40 +6403,27 @@ Section: Printing
   scene-line (name) (u) =
     "SCENE " & name & " " & show (sky-color (scene-step-at u)) & " " & show (horizon-color (scene-step-at u))
 
-Chapter: SpikeTruckMain
+Chapter: SpikeCatMain
   cites Foreword chapter Console
   cites Safari chapter Sky
   cites Poc chapter Spike
   cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. The two truck stills, and a SECOND ENTRY rather than two
- more lines in SpikeMain, for one reason: THE BUMP HEAP.
+ SPIKE ONLY. THROWAWAY. The cat's two stills -- frozen in the road, and airborne
+ mid-leap -- split off `SpikeMain` for the reason its header gives.
 
- The transpiled prelude bump-allocates and never reclaims (PORTING_NOTES C6), and
- the wasm shim's per-frame arena rewind (C8) is a thing the SHIM does -- a native
- spike binary has no shim and no rewind, so one process pays for every frame it
- prints, for the whole run. Six viewpoints came to within a rounding error of the
- 4 GiB reserve; adding a seventh exhausted it and the binary aborted with
-
-     cx heap: exhausted at 4294965457 + 7000 of 4294967296
-
- which is a page-perfect illustration of C6 and not a bug in anything. A second
- process starts with a fresh 4 GiB, so the fix is a second entry and one more line
- in harness/spike.sh. It is also the cheapest fix available: raising the reserve
- would make the RUN cost real memory rather than address space, on a two-core box.
-
- The printing is `Poc chapter SpikePrint`, cited rather than restated, so the two
- binaries emit the same format and spike_svg.py reads them concatenated without
- knowing there were two. It is a chapter rather than a cite of SpikeMain because a
- bundle is one flat namespace and two `opening`s collide -- B5, found by trying it.
+ THESE TWO ARE THE PAIR WORTH HAVING ON BARE METAL. The leap is the port's one
+ deliberate difference from the game (`b^0.75` where the game uses `pow(b, 0.7)`),
+ so it is the frame whose numbers are the port's own rather than a transcription,
+ and the third arm compares every one of them.
 
  We say:
 
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (scene-line "truck-day" u-truck-day)
-    print-line-uni (all-cmds (spike-frame-near u-truck-day spike-truck-lead) 0)
-    print-line-uni (scene-line "truck-dusk" u-truck-dusk)
-    print-line-uni (all-cmds (spike-frame-near u-truck-dusk spike-truck-lead) 0)
+    print-line-uni (scene-line "cat-frozen" u-cat-frozen)
+    print-line-uni (all-cmds (spike-frame-at u-cat-frozen) 0)
+    print-line-uni (scene-line "cat-leap" u-cat-leap)
+    print-line-uni (all-cmds (spike-frame-at u-cat-leap) 0)
   end

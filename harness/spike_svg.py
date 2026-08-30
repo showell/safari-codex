@@ -6,9 +6,9 @@ it; ./harness/run.sh does not call it. It exists so a piece of scenery can be
 LOOKED AT rather than reasoned about, which is a faster feedback loop than driving
 the browser page to the right spot.
 
-    ./harness/spike.sh          # build poc/SpikeMain, render every viewpoint
+    ./harness/spike.sh          # build the spike entries, render every viewpoint
 
-Reads the text poc/SpikeMain.codex prints -- a SCENE header then one line of
+Reads the text the poc Spike*Main entries print -- a SCENE header then one line of
 semicolon-separated draw commands -- and writes web/spikes/<name>.svg plus an
 index. Coordinates arrive as hundredths of a pixel because `show` on a Real is
 still refused by the zig plug; see the chapter.
@@ -366,11 +366,13 @@ def check_xml(path, text):
 
 
 def main():
-    # ONE BINARY PER GROUP OF VIEWPOINTS. Named on the command line, output
-    # concatenated: the prelude's bump heap never reclaims and a native binary has
-    # no arena rewind, so six frames is what one process holds (C6). Nothing here
-    # cares which binary a SCENE block came from.
-    names = sys.argv[1:] or ["spike"]
+    # ONE BINARY PER PAIR OF VIEWPOINTS. Named on the command line, output
+    # concatenated: the prelude's bump heap never reclaims and neither arm rewinds
+    # an arena, so a run holds every frame it printed (C6). Two is what the QEMU
+    # guest holds as well as the host, which is why the pairing is what it is --
+    # harness/spike.sh owns the list. Nothing here cares which binary a SCENE
+    # block came from.
+    names = sys.argv[1:] or ["spike_main"]
     chunks = []
     for name in names:
         exe = ROOT / "build" / name

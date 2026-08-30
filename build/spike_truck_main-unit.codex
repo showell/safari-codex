@@ -6409,26 +6409,19 @@ Chapter: SpikeTruckMain
   cites Poc chapter Spike
   cites Poc chapter SpikePrint
 
- SPIKE ONLY. THROWAWAY. The two truck stills, and a SECOND ENTRY rather than two
- more lines in SpikeMain, for one reason: THE BUMP HEAP.
+ SPIKE ONLY. THROWAWAY. The two truck stills, and the entry that first made the
+ split: `SpikeMain`'s header holds the rule and the measurements.
 
- The transpiled prelude bump-allocates and never reclaims (PORTING_NOTES C6), and
- the wasm shim's per-frame arena rewind (C8) is a thing the SHIM does -- a native
- spike binary has no shim and no rewind, so one process pays for every frame it
- prints, for the whole run. Six viewpoints came to within a rounding error of the
- 4 GiB reserve; adding a seventh exhausted it and the binary aborted with
+ THE ORIGINAL EVIDENCE WAS THE NATIVE CEILING. Six viewpoints in one process came
+ to within a rounding error of the 4 GiB reserve, and adding a seventh exhausted
+ it:
 
      cx heap: exhausted at 4294965457 + 7000 of 4294967296
 
- which is a page-perfect illustration of C6 and not a bug in anything. A second
- process starts with a fresh 4 GiB, so the fix is a second entry and one more line
- in harness/spike.sh. It is also the cheapest fix available: raising the reserve
- would make the RUN cost real memory rather than address space, on a two-core box.
-
- The printing is `Poc chapter SpikePrint`, cited rather than restated, so the two
- binaries emit the same format and spike_svg.py reads them concatenated without
- knowing there were two. It is a chapter rather than a cite of SpikeMain because a
- bundle is one flat namespace and two `opening`s collide -- B5, found by trying it.
+ which is a page-perfect illustration of C6 and not a bug in anything. Raising the
+ reserve would make the run cost real memory rather than address space, on a
+ two-core box; a second process starts fresh, and that is the whole trick. The
+ guest's ceiling is lower still, which is what later cut every entry to two.
 
  We say:
 

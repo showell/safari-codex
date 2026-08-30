@@ -1369,10 +1369,10 @@ fn corner_at(base_: *CxList(RiderPt), center: RiderPt, k_: i64, h_: f64, drop: f
 }
 
 fn bar(a_: ScreenPt, b_: ScreenPt, wpx: f64) *CxList(DrawCmd) {
-    return b0: { const dx: f64 = (b_.x - a_.x); break :b0 b1: { const dy: f64 = (b_.y - a_.y); break :b1 b2: { const raw_: f64 = real_sqrt(((dx * dx) + (dy * dy))); break :b2 b3: { const len_: f64 = @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 4547007122018943789))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b3 tower_bar_quad(a_, b_, ((((@as(f64, @bitCast(@as(i64, 0))) - dy) / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), (((dx / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); }; }; }; };
+    return b0: { const dx: f64 = (b_.x - a_.x); break :b0 b1: { const dy: f64 = (b_.y - a_.y); break :b1 b2: { const raw_: f64 = real_sqrt(((dx * dx) + (dy * dy))); break :b2 b3: { const len_: f64 = @as(f64, (if ((raw_ < @as(f64, @bitCast(@as(i64, 4547007122018943789))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b3 rod_quad(a_, b_, ((((@as(f64, @bitCast(@as(i64, 0))) - dy) / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), (((dx / len_) * wpx) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); }; }; }; };
 }
 
-fn tower_bar_quad(a_: ScreenPt, b_: ScreenPt, ox: f64, oy: f64) *CxList(DrawCmd) {
+fn rod_quad(a_: ScreenPt, b_: ScreenPt, ox: f64, oy: f64) *CxList(DrawCmd) {
     return push_poly(tower_metal(), cx_ll_of(ScreenPt, &[_]ScreenPt{ cx_new(ScreenPtS{ .x = (a_.x + ox), .y = (a_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x + ox), .y = (b_.y + oy) }), cx_new(ScreenPtS{ .x = (b_.x - ox), .y = (b_.y - oy) }), cx_new(ScreenPtS{ .x = (a_.x - ox), .y = (a_.y - oy) }) }));
 }
 
@@ -1484,12 +1484,12 @@ fn rail_poly(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, color: i64) RailPoly {
     return b0: { const fwd: f64 = ((((p0.forward + p1.forward) + p2.forward) + p3.forward) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b0 cx_new(RailPolyS{ .v_ = cx_ll_of(Vec3, &[_]Vec3{ p0, p1, p2, p3 }), .color = color, .fwd = fwd }); };
 }
 
-fn guardrail_bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
+fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
     return b0: { const p_bot = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_bot() }); break :b0 b1: { const q_bot = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_bot() }); break :b1 b2: { const q_top = cx_new(Vec3S{ .right = q.right, .forward = q.forward, .height = bar_top() }); break :b2 b3: { const p_top = cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = bar_top() }); break :b3 rail_poly(p_bot, q_bot, q_top, p_top, rail_metal()); }; }; }; };
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ guardrail_bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
@@ -1973,6 +1973,18 @@ fn behind_pond_ground(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, pv: 
 
 fn frame_ground(segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_w: f64) *CxList(DrawCmd) {
     return b0: { const ch = build_chain(segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(segs, ch, pose, cf, view_w, 0), behind_ground(segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(segs, ch, pose, cf, view_w, 0)); };
+}
+
+fn start_ahead() f64 {
+    return @as(f64, @bitCast(@as(i64, 4647503709213818880)));
+}
+
+fn finish_lead() f64 {
+    return @as(f64, @bitCast(@as(i64, 4636737291354636288)));
+}
+
+fn truck_schedule(rider_dist: f64, l_: f64) f64 {
+    return ((rider_dist + finish_lead()) + ((start_ahead() - finish_lead()) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (rider_dist / l_))));
 }
 
 fn truck_length() f64 {
@@ -2559,8 +2571,8 @@ fn spike_order(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, c_: Collected,
     return (if ((i_ >= cx_list_len(c_.order))) cx_ll_empty(DrawCmd) else cx_ll_concat(spike_item(w, ch, pose, c_, cx_list_at(c_.order, i_), cf, step), spike_order(w, ch, pose, c_, cf, step, (i_ +% 1))));
 }
 
-fn spike_frame_near(u_: f64, lead: f64) *CxList(DrawCmd) {
-    return spike_frame_in(build_world(), u_, (drive_dist_at(build_world(), u_) + lead));
+fn spike_frame_at(u_: f64) *CxList(DrawCmd) {
+    return spike_frame_in(build_world(), u_, truck_schedule(drive_dist_at(build_world(), u_), course_length(build_world())));
 }
 
 fn spike_frame_in(w: *CxList(Segment), u_: f64, truck_pos: f64) *CxList(DrawCmd) {
@@ -2579,16 +2591,12 @@ fn u_at_metres(m_: f64) f64 {
     return (m_ / spike_course());
 }
 
-fn u_truck_day() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4657496070887047168))));
+fn u_cat_frozen() f64 {
+    return u_at_metres(@as(f64, @bitCast(@as(i64, 4648471279446261760))));
 }
 
-fn u_truck_dusk() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4664308644932747264))));
-}
-
-fn spike_truck_lead() f64 {
-    return @as(f64, @bitCast(@as(i64, 4628011567076605952)));
+fn u_cat_leap() f64 {
+    return u_at_metres(@as(f64, @bitCast(@as(i64, 4648686783725305856))));
 }
 
 fn scaled(v_: f64) []const u8 {
@@ -2612,7 +2620,7 @@ fn scene_line(name: []const u8, u_: f64) []const u8 {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(scene_line("\x0e\x15\x19\x18\x22\x49\x16\x0f\x1e", u_truck_day())); _ = cx_print_line(all_cmds(spike_frame_near(u_truck_day(), spike_truck_lead()), 0)); _ = cx_print_line(scene_line("\x0e\x15\x19\x18\x22\x49\x16\x19\x13\x22", u_truck_dusk())); _ = cx_print_line(all_cmds(spike_frame_near(u_truck_dusk(), spike_truck_lead()), 0)); break :b0; };
+    return b0: { _ = cx_print_line(scene_line("\x18\x0f\x0e\x49\x1c\x15\x10\x26\x0d\x12", u_cat_frozen())); _ = cx_print_line(all_cmds(spike_frame_at(u_cat_frozen()), 0)); _ = cx_print_line(scene_line("\x18\x0f\x0e\x49\x17\x0d\x0f\x1f", u_cat_leap())); _ = cx_print_line(all_cmds(spike_frame_at(u_cat_leap()), 0)); break :b0; };
 }
 
 fn cx_entry() void {

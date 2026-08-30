@@ -2879,22 +2879,6 @@ fn u_mid_tower() f64 {
     return u_at_metres(@as(f64, @bitCast(@as(i64, 4658045826700935168))));
 }
 
-fn u_pond() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4662874881770127360))));
-}
-
-fn u_zebras() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4663978791444414464))));
-}
-
-fn u_cat_frozen() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4648471279446261760))));
-}
-
-fn u_cat_leap() f64 {
-    return u_at_metres(@as(f64, @bitCast(@as(i64, 4648686783725305856))));
-}
-
 fn profile_pt(w: *CxList(Segment), s_: RiderState) ProfilePt {
     return cx_new(ProfilePtS{ .dist = route_distance(w, s_.segment, s_.along), .v_ = s_.v_, .tilt = s_.tilt, .seg = s_.segment });
 }
@@ -2940,7 +2924,7 @@ fn prof_all(ps: *CxList(ProfilePt), i_: i64) []const u8 {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(cx_concat("\x39\x2f\x2a\x36\x2b\x31\x27\x02", cx_show_int(cx_list_len(speed_profile())))); _ = cx_print_line(prof_all(speed_profile(), 0)); _ = cx_print_line(scene_line("\x1f\x11\x1d\x49\x14\x0d\x15\x16", u_pig_herd())); _ = cx_print_line(all_cmds(spike_frame_at(u_pig_herd()), 0)); _ = cx_print_line(scene_line("\x1a\x11\x16\x49\x0e\x10\x1b\x0d\x15", u_mid_tower())); _ = cx_print_line(all_cmds(spike_frame_at(u_mid_tower()), 0)); _ = cx_print_line(scene_line("\x16\x19\x18\x22\x49\x1f\x10\x12\x16", u_pond())); _ = cx_print_line(all_cmds(spike_frame_at(u_pond()), 0)); _ = cx_print_line(scene_line("\x26\x0d\x20\x15\x0f\x13", u_zebras())); _ = cx_print_line(all_cmds(spike_frame_at(u_zebras()), 0)); _ = cx_print_line(scene_line("\x18\x0f\x0e\x49\x1c\x15\x10\x26\x0d\x12", u_cat_frozen())); _ = cx_print_line(all_cmds(spike_frame_at(u_cat_frozen()), 0)); _ = cx_print_line(scene_line("\x18\x0f\x0e\x49\x17\x0d\x0f\x1f", u_cat_leap())); _ = cx_print_line(all_cmds(spike_frame_at(u_cat_leap()), 0)); break :b0; };
+    return b0: { _ = cx_print_line(cx_concat("\x39\x2f\x2a\x36\x2b\x31\x27\x02", cx_show_int(cx_list_len(speed_profile())))); _ = cx_print_line(prof_all(speed_profile(), 0)); _ = cx_print_line(scene_line("\x1f\x11\x1d\x49\x14\x0d\x15\x16", u_pig_herd())); _ = cx_print_line(all_cmds(spike_frame_at(u_pig_herd()), 0)); _ = cx_print_line(scene_line("\x1a\x11\x16\x49\x0e\x10\x1b\x0d\x15", u_mid_tower())); _ = cx_print_line(all_cmds(spike_frame_at(u_mid_tower()), 0)); break :b0; };
 }
 
 fn cx_entry() void {

@@ -1,0 +1,24 @@
+Chapter: SpikePondMain
+  cites Foreword chapter Console
+  cites Safari chapter Sky
+  cites Poc chapter Spike
+  cites Poc chapter SpikePrint
+
+ SPIKE ONLY. THROWAWAY. The duck pond and the zebras, split off `SpikeMain` for
+ the reason its header gives: two viewpoints is what the QEMU guest's heap holds,
+ and an entry the third arm cannot run is an entry compared on nothing.
+
+ Named for the pond because that is what the first viewpoint looks at; the zebras
+ ride along because they are the next viewpoint down the route and a pair is the
+ unit here.
+
+ We say:
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (scene-line "duck-pond" u-pond)
+    print-line-uni (all-cmds (spike-frame-at u-pond) 0)
+    print-line-uni (scene-line "zebras" u-zebras)
+    print-line-uni (all-cmds (spike-frame-at u-zebras) 0)
+  end

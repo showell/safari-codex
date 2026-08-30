@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPIKE ONLY. THROWAWAY TOOLING, not part of the verification loop -- run.sh does
-# not call this and nothing here is graded. It builds poc/SpikeMain and renders
-# each of its viewpoints to an SVG you can open in a browser.
+# not call this and nothing here is graded. It builds the poc spike entries and
+# renders each of their viewpoints to an SVG you can open in a browser.
 #
 #     ./harness/spike.sh && open http://localhost:9200/spikes/
 set -euo pipefail
@@ -11,16 +11,23 @@ cd "$(dirname "$here")"
 export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 codexzig="${CODEXZIG:-$HOME/showell_repos/codex-zig-transpiler/generated/local/codexzig}"
-# ONE BINARY PER GROUP OF VIEWPOINTS, and the reason is the bump heap rather than
-# taste: the prelude never reclaims (PORTING_NOTES C6) and a native binary has no
-# arena rewind, so every frame a process prints is still held when it prints the
-# next. Six viewpoints came to within 1.8 KB of the 4 GiB reserve. A second process
-# starts fresh, which is the whole trick.
-for pair in SpikeMain:spike SpikeTruckMain:spike_truck; do
-  entry="${pair%%:*}"; out="${pair##*:}"
+# ONE BINARY PER PAIR OF VIEWPOINTS, and the reason is the bump heap rather than
+# taste: the prelude never reclaims (PORTING_NOTES C6) and neither arm rewinds an
+# arena, so every frame a run prints is still held when it prints the next. Six
+# fit a native process's 4 GiB reserve; only five fit the QEMU guest's 3072 MB,
+# and the guest is the arm that compares VALUES (`./harness/metal.py --entry`).
+# Two per entry is what BOTH arms hold, so the pairing is the guest's number.
+# This list is the one place it is written down -- metal.py takes entries by name.
+entries=(SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain)
+mods=()
+for entry in "${entries[@]}"; do
+  # SpikePondMain -> spike_pond_main, matching metal.py's snake() so the two
+  # harnesses name the same build/ artifacts.
+  out="$(printf '%s' "$entry" | sed -E 's/(.)([A-Z])/\1_\2/g' | tr 'A-Z' 'a-z')"
+  mods+=("$out")
   python3 harness/bundle.py "poc/$entry.codex" "build/$out-unit.codex"
   "$codexzig" < "build/$out-unit.codex" 2> "build/$out.zig" > "build/$out.diag"
   grep -q "^// THE PRELUDE" "build/$out.zig" || { echo "codexzig emitted no program for $entry:" >&2; head -3 "build/$out.diag" >&2; exit 1; }
   ( cd build && "$zig" build-exe "$out.zig" )
 done
-python3 harness/spike_svg.py spike spike_truck
+python3 harness/spike_svg.py "${mods[@]}"

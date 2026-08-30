@@ -54,7 +54,11 @@ the intended substitution.
 
 **Offer as a PR — an addition rather than a defect.**
 
-- **`Trig`'s `r-atan`.** There is **no Real arc tangent anywhere in the foreword**
+- **`Trig`'s `r-atan`. SENT 2026-08-30 as Cobblestone PR
+  [#107](https://github.com/damiant3/Cobblestone/pull/107)**, as `real-atan` and
+  `real-atan2` in `Gpu chapter DeviceMath`. Measured against zig 0.16.0 at
+  6.7e-16 worst error over 60 values; the rig is kept in the ladder at
+  `findings/atan/`. There is **no Real arc tangent anywhere in the foreword**
   — verified by signature across all 13 directories; Cordic, Geodesic, Kinematics
   and Vector mention `atan` and none of them at Real. Ours matches zig's to 1e-9
   over eighteen values including the reciprocal branch. `README`'s pickup section

@@ -356,7 +356,7 @@ what does not work: two `opening`s in one bundle collide on the flat namespace.
 | `port/Sky.codex` | `wasm/sky.zig` | 148 values; **colours exact** |
 | `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
 | `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
-| `port/Num.codex` | — | round, floor, mod: **gaps in the foreword** |
+| `port/Num.codex` | — | 111 values, **exact**; round, floor, mod, exp are foreword gaps |
 | `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
 | `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, clock + attention |
 | `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
@@ -437,6 +437,30 @@ is what you would hope for by the tenth module.
 Every drawer `render.zig` dispatches to is ported now. `truck.drawBody` was the
 last one, and `port/TruckBody.codex` has it; the critter and cat drawers that used
 to sit beside it in this sentence went first.
+
+**`NumCheck` is the odd one out and it is worth saying why it exists.** `Num` is
+not a port of a wasm/ file: it is the Real primitives Codex's foreword does not
+have — rounding, flooring, modulo and an exponential — written to zig's semantics
+because zig is what the game calls. So `probe/probe_num.zig` imports no game
+module at all and the oracle is `@round`, `@floor`, `@mod`, `@exp` and `@exp2`
+themselves. That makes it the one check in this port with **no f32/f64 gap to
+absorb**: both sides are f64 running the same operations, so four of its five
+streams are graded at tolerance 0.0 and only the exponential gets a tolerance.
+
+Ten chapters already used `Num` and all ten were green, which is exactly the
+argument for checking it directly: they only ever call it on their own domains.
+Every `@round` in the game rounds a 0..255 colour channel, a stride count, a step
+count or a whole number of degrees, so **a rounding wrong on a value none of them
+produces is invisible to every other check in `judge/`**. It was. `round-real`
+added the half before truncating, which answers 1 for the largest double below a
+half; the new form truncates first and looks at what is left, and needs no sign
+branch. The same check caught `exp-real`'s docstring claiming a truncation
+remainder of 1e-17 where `r^13/13!` is 1.7e-16 and the measured end-to-end error
+is 8.5e-16 — the same defect this port is sending upstream about `Math chapter
+Cordic`, in our own chapter, corrected rather than left standing.
+
+And its third failure was not in the port at all: see `FINDINGS.md` item 6, where
+the **gold** was wrong.
 
 **`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
 here had before. `at` composes a point down a kilometre of chain and hands back one
@@ -695,8 +719,8 @@ is graded against `render.frame` command for command. There is no list of missin
 pieces any more, so what follows is what would be worth doing rather than what is
 owed.
 
-**The six findings are written up and not sent** — `FINDINGS.md`. Sending them is
-Steve's call: four go to Cobblestone / the zig plug and two to angry-gopher, and
+**The eight findings are written up and not sent** — `FINDINGS.md`. Sending them
+is Steve's call: six go to Cobblestone / the zig plug and two to angry-gopher, and
 the angry-gopher pair includes a one-line buffer fix that is now on a live path.
 
 **The third arm runs the checks and the frames; it does not run the PAGE.**
@@ -738,16 +762,24 @@ from a frame.**
 
 ## Findings owed upstream
 
-**Six, and they are written up now: `FINDINGS.md`.** Each is self-contained —
+**Eight, and they are written up now: `FINDINGS.md`.** Each is self-contained —
 observation, repro, evidence, and the shape of the fix — and none has been sent.
 They are owed to two different projects.
 
 To **Cobblestone / the Zig plug**: `OvError` silently emitting a wrapping `*%`
-(`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); `Math chapter
-Cordic` being 4.5× less accurate than its docstring, with a test that never calls
-a Cordic function; single-letter names `a`–`d` colliding with `Tup4`'s comptime
-parameters; and a one-expression function over a record parameter being silently
-inlined rather than emitted, which only breaks at the shim boundary.
+(`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); a `Real`
+literal wider than an i64 being read as a different number, so that `1e18` written
+out longhand arrives as `-8.4467e17` with no diagnostic; `Math chapter Cordic`
+being 4.5× less accurate than its docstring, with a test that never calls a Cordic
+function; single-letter names `a`–`d` colliding with `Tup4`'s comptime parameters;
+the zig arm reporting no diagnostics where the seed reports real ones; and a
+one-expression function over a record parameter being silently inlined rather than
+emitted, which only breaks at the shim boundary.
+
+**The literal one is the first defect this port found in the FRONT END rather
+than in a plug**, and it is the first it found in the harness's own oracle: a
+nineteen-digit gold literal made `NumCheck` red at a value the port had computed
+correctly. Both arms print the same wrong constant, which is how it was placed.
 
 To **angry-gopher**: `pushGradPoly` reserving six header words where it writes
 seven — latent until this port, because the truck's headlight beams are its only

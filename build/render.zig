@@ -411,7 +411,7 @@ fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
 }
 
 fn round_real(x: f64) f64 {
-    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - cx_real_from_int(cx_real_to_int((@as(f64, @bitCast(@as(i64, 4602678819172646912))) - x)))) else cx_real_from_int(cx_real_to_int((x + @as(f64, @bitCast(@as(i64, 4602678819172646912)))))));
+    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
 }
 
 fn floor_real(x: f64) f64 {

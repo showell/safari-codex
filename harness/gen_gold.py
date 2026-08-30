@@ -18,6 +18,8 @@ Real literals: zig's {d} prints the shortest round-tripping form, so `3` and
 `0.9` arrive as text that already carries the f32 exactly. Codex wants a decimal
 point on every Real, and exponent forms are expanded rather than passed through,
 because a literal is the one place a port cannot afford a parse it has not seen.
+A value needing more than an i64's worth of digits is REFUSED rather than written;
+see real_literal.
 """
 
 import decimal
@@ -36,11 +38,33 @@ def snake(chapter):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', chapter).lower()
 
 
+# THE PARSER BEHIND THIS LIMIT, and it is not a style rule. Codex builds a Real
+# literal by accumulating EVERY digit from the first significant one to the last
+# into a 64-bit integer and then dividing by a power of ten -- and that
+# accumulation wraps silently, because the zig plug emits `*%` for a multiply the
+# language declares as checked (FINDINGS.md item 1). Past i64 the literal becomes
+# a different number, usually a NEGATIVE one, with no diagnostic anywhere: written
+# out in full, 1e18 reaches the compiler as -8.4467e17. The value is folded in the
+# front end and reaches the emitter as a bit pattern, so no plug can see it.
+#
+# A GOLD FILE IS THE ORACLE, so a value it cannot carry must stop the run rather
+# than be written. This is the one place that can tell -- by the time a check is
+# red, the literal looks like a disagreement in the port.
+I64_MAX = 2 ** 63 - 1
+
+
 def real_literal(tok):
     """A Codex Real literal for one token of zig {d} output."""
     if 'e' in tok or 'E' in tok:
         tok = format(decimal.Decimal(tok), 'f')
-    return tok if '.' in tok else tok + '.0'
+    lit = tok if '.' in tok else tok + '.0'
+    digits = lit.lstrip('-').replace('.', '').lstrip('0')
+    if digits and int(digits) > I64_MAX:
+        raise SystemExit(
+            f'gold value {tok} needs {len(digits)} significant digits; Codex parses '
+            f'a Real literal through a wrapping i64 and would read it as a different '
+            f'number. Narrow the probe\'s domain, or scale the value it prints.')
+    return lit
 
 
 def build_and_run(chapter):

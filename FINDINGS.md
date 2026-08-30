@@ -1,7 +1,7 @@
 # Findings owed upstream
 
-Seven, written up and **not yet sent**. Each is self-contained: what was observed,
-how to reproduce it, and what the fix looks like. Five are owed to Cobblestone and
+Eight, written up and **not yet sent**. Each is self-contained: what was observed,
+how to reproduce it, and what the fix looks like. Six are owed to Cobblestone and
 the zig plug, two to angry-gopher, and the two halves are independent.
 
 Every one of these came out of porting the Safari driving screensaver from Zig to
@@ -182,9 +182,68 @@ this repo already captures to `build/<mod>.diag` and has since the first module.
 
 ---
 
+### 6. A `Real` literal wider than an i64 is read as a different number — silently
+
+**Severity: high.** Same shape as item 1 and, on the evidence below, the same
+family: a decimal constant that does not fit a 64-bit accumulator becomes a
+plausible wrong number — usually a negative one — with no diagnostic anywhere.
+
+```
+  ck : Text, Real -> Text
+  ck (name) (v) = name & " -> " & show (real-to-int v)
+
+  opening : [Console] Nothing = act
+    print-line-uni (ck "115292150460684700.0  (18 digits, fits)" 115292150460684700.0)
+    print-line-uni (ck "1152921504606846976.0 (2^60, 19 digits)" 1152921504606846976.0)
+    print-line-uni (ck "1000000000000000000.0 (1e18, 19 digits)" 1000000000000000000.0)
+  end
+```
+
+prints, with exit status 0:
+
+```
+115292150460684700.0  (18 digits, fits) -> 115292150460684704
+1152921504606846976.0 (2^60, 19 digits) -> -691752902764108160
+1000000000000000000.0 (1e18, 19 digits) -> -844674407370955136
+```
+
+The repro is kept as `poc/LiteralMain.codex`. **Written out in full, `1e18` is
+enough to trigger it.**
+
+**It is the front end, not a plug, and that is checkable two ways.** The emitted
+zig contains no digits at all — the literal arrives as
+`@as(f64, @bitCast(@as(i64, -4349576520114425037)))`, already folded. And
+`./harness/metal.py --entry LiteralMain` runs the same source through Codex's own
+x86-64 emitter as a kernel image under QEMU: **both arms print the same three
+lines, byte for byte.** Two independent back ends agreeing on a wrong constant is
+a constant that was wrong before either of them saw it.
+
+**The arithmetic is consistent with a wrapping accumulate-then-divide.** `1e18`
+written out carries twenty digits once the `.0` is included, so the accumulator
+reaches 10^19 — which read as a signed 64-bit value is -8446744073709551616.
+Divide that by ten for the one fractional digit and round to f64 and you get
+exactly -844674407370955136, the number the program prints. 2^60 reconstructs the
+same way, through -6917529027641081856. So the parser appears to
+accumulate every digit from the first significant one to the last into an i64 and
+then scale, and the accumulation wraps. Whether that wrap is a deliberate i64
+accumulator or is item 1's collapse showing up inside the compiler's own lexer is
+not visible from outside; both readings point at the same code.
+
+**Why it mattered here:** `probe/probe_num.zig` graded `pow2-int` at 2^60 and the
+check went red at that index. The port was right and the **gold file** — the
+oracle — was wrong, because `harness/gen_gold.py` had written a nineteen-digit
+literal. A defect that makes the oracle lie is worse than one that makes a program
+lie. `gen_gold.py` now refuses to write such a value; the same run reported an
+`exp-real` error with the wrong sign because a scale factor of `1e18` had been
+written out longhand in a diagnostic.
+
+**Fix shape:** parse the decimal into the float directly, or accumulate in a wider
+(or checked) integer and diagnose the overflow. Failing loudly would be enough —
+the damage here is entirely in the silence.
+
 ## To angry-gopher (`games/driving`)
 
-### 6. `paint.pushGradPoly` under-counts its header by one word
+### 7. `paint.pushGradPoly` under-counts its header by one word
 
 **Severity: low, latent — but it is now on the live path.**
 
@@ -211,7 +270,7 @@ draw on every dusk frame with the truck in view.
 
 **Fix:** `const need = 7 + pts.len * 2;`
 
-### 7. `truck.zig`'s comments say the headlights and brake glow are deferred; the code draws them
+### 8. `truck.zig`'s comments say the headlights and brake glow are deferred; the code draws them
 
 **Severity: documentation.** Three comments in `wasm/truck.zig` describe an
 earlier state of the file:

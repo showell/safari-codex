@@ -1,0 +1,30 @@
+Chapter: LiteralMain
+  cites Foreword chapter Console
+
+ THE REPRO FOR FINDINGS.md ITEM 1B: a Real literal whose digits do not fit an
+ i64 is read as a different number, silently, with no diagnostic.
+
+ It is an ENTRY rather than a check so that `./harness/metal.py --entry
+ LiteralMain` can run it on bare metal too. That is the point of keeping it: the
+ zig arm and the x86 arm share a FRONT END, so if both print the same wrong
+ number the constant was folded before either emitter saw it, and no plug can be
+ at fault. The zig it emits says as much on its face -- the literal arrives as
+ `@as(f64, @bitCast(@as(i64, -4349576520114425037)))`, a bit pattern, with the
+ digits nowhere in the file.
+
+ Nineteen digits are the boundary: the parser accumulates every digit from the
+ first significant one to the last into a wrapping i64 and then divides by a power
+ of ten, so a literal is safe exactly while that accumulation fits.
+
+ We say:
+
+Section: Entry
+
+  ck : Text, Real -> Text
+  ck (name) (v) = name & " -> " & show (real-to-int v)
+
+  opening : [Console] Nothing = act
+    print-line-uni (ck "115292150460684700.0  (18 digits, fits)" 115292150460684700.0)
+    print-line-uni (ck "1152921504606846976.0 (2^60, 19 digits)" 1152921504606846976.0)
+    print-line-uni (ck "1000000000000000000.0 (1e18, 19 digits)" 1000000000000000000.0)
+  end

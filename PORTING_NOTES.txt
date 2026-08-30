@@ -196,6 +196,34 @@ A7. Real is f64 in every plug; bare metal computes f32 in f32.       [KNOWN]
     builtins are all missing too, which is why the collapse has never been
     observable from this arm: the hole hides the wrong answer.
 
+A8. A Real LITERAL wider than an i64 is read as a different number.  [DEFECT]
+
+    Written out in full, 1e18 reaches the program as -8.4467e17. Exit 0, no
+    diagnostic. Nineteen digits is the boundary and it is not about the VALUE:
+    115292150460684700.0 is fine and 1152921504606846976.0 is not, because the
+    parser accumulates every digit from the first significant one to the last
+    into a 64-bit integer and then scales, and that accumulation wraps. The
+    reconstruction is exact both ways -- 10^19 read as signed, divided by ten,
+    rounded to f64, IS the number printed -- so this is A3 in the front end
+    rather than a second mechanism, whether or not it is literally A3's operator.
+
+    IT IS THE FRONT END AND BOTH ARMS PROVE IT. The emitted zig carries no digits
+    at all; the literal arrives as `@as(f64, @bitCast(@as(i64, ...)))`, folded
+    before emission. `./harness/metal.py --entry LiteralMain` runs the same source
+    through the x86-64 emitter under QEMU and the two arms print the same three
+    lines byte for byte. Two back ends agreeing on a wrong constant is a constant
+    that was wrong before either saw it -- which is also why the bare-metal oracle
+    cannot catch this class, exactly as with the ladder's finding 42.
+
+    IT REACHED THE ORACLE BEFORE IT REACHED A PROGRAM, and that is the part worth
+    remembering. probe_num.zig graded pow2-int at 2^60; NumCheck went red at that
+    index; the PORT was right and the GOLD was wrong, because gen_gold.py had
+    written a nineteen-digit literal. A wrong gold looks exactly like a wrong
+    port. gen_gold.py now refuses to write a value it cannot carry -- fail loud is
+    the floor -- and the repro is kept as poc/LiteralMain.codex. The same session
+    also reported an exp-real error with the wrong SIGN, because a diagnostic had
+    written its 1e18 scale factor out longhand.
+
 ================================================================================
 B. CORRECT BUT SURPRISING -- read before writing Codex
 ================================================================================

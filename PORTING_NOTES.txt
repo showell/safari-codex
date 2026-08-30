@@ -748,7 +748,7 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     `b"CDX map\n" + unit + b"\x04"`, which bare_expected.py in the ladder is the
     model for.
 
-    IT IS FASTER THAN EXPECTED: 2m53s for all fifteen checks, two guests each.
+    IT IS FASTER THAN EXPECTED: 3m00s for all sixteen checks, two guests each.
     Pond (17 KB unit) is 8 seconds; Safari (1.16 MB, over the ring window, so it
     exercises the refill path) is 40. The units are far bigger than anything the
     ladder's own corpus compiles and nothing complained.

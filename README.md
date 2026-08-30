@@ -120,7 +120,7 @@ below — and the ladder's compute rules apply to it and to nothing else here.
 ## The third arm: the same check on bare metal
 
     ./harness/metal.py Pond          # one check, both ways
-    ./harness/metal.py --all         # all fifteen, smallest first (2m53s)
+    ./harness/metal.py --all         # all sixteen, smallest first (3m00s)
 
 The sweep above verifies the **port** against the game, and it does that through
 the zig plug: Codex source in, zig out, a native binary that prints a verdict.
@@ -132,7 +132,7 @@ same bytes. That is a Diverse Double-Compiling check in Wheeler's sense, applied
 to a program instead of to a compiler. `codex-zig-ladder` next door does it for
 the compiler; this does it for this port.
 
-**All fifteen checks agree, byte for byte**, including the whole-frame check's
+**All sixteen checks agree, byte for byte**, including the whole-frame check's
 3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
 printed verdicts, and verdicts are text.
 
@@ -724,7 +724,7 @@ is Steve's call: six go to Cobblestone / the zig plug and two to angry-gopher, a
 the angry-gopher pair includes a one-line buffer fix that is now on a live path.
 
 **The third arm runs the checks and the frames; it does not run the PAGE.**
-`metal.py` boots the fifteen `judge/` checks and compares verdicts, and `--entry`
+`metal.py` boots the sixteen `judge/` checks and compares verdicts, and `--entry`
 compares all eight spike viewpoints on 523,414 values. What it still cannot reach
 the same way is `poc/DriveMain` — the browser build's entry — because that
 program's output is a wasm module rather than a line of text, and its shim is zig

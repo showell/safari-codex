@@ -266,7 +266,7 @@ spelling, so this is a rename with no user-visible surface. The alternative this
 entry used to offer — "reserve the four names" — is already done, and is the half
 that makes the collision reachable.
 
-### 4. A one-expression function over a RECORD parameter is silently not emitted
+### 4. A definition with exactly ONE caller is inlined away and never emitted
 
 **Severity: medium**, and higher than it looks: the failure is silent inside Codex
 and only surfaces at the language boundary, three steps downstream.
@@ -298,11 +298,46 @@ Binding anything with a `let` makes any of them emit:
     in if real-abs t < roll-deadband then 0.0 else t
 ```
 
-**Fix shape:** whatever the intended rule is, a definition that is inlined away
-should either still be emitted as a callable function (harmless: the zig compiler
-drops unused ones) or be reported. Silence plus inconsistency is the expensive
-combination — two definitions written together in the same style, one survives and
-one does not, and nothing says which.
+**CORRECTED 2026-08-30 against u53: the rule is CALL-SITE COUNT, and the table
+above is confounded.** The pass is `inline-single-caller`, named in the seed's own
+CDX4030 line and implemented at `Lowering.codex:2429`. A definition is a candidate
+when `collect-once-defs` (`:2353`) accepts it — **1 to 4 parameters, not
+`deck-record`, no bounded boundary, and a body that is `once-binder-free`** — and
+`keep-single-caller` (`:2368`) then keeps only those referenced **exactly once**.
+
+Two arms of `once-binder-free` (`:2183`) settle it:
+
+```
+is IrFieldAccess (r) (f) (ty) (sp) -> once-binder-free r     -- field access is FINE
+is otherwise -> False                                        -- IrLet has no arm
+```
+
+So a record field access does **not** disqualify a body, and the parameter's shape
+is not consulted anywhere in the gate. What disqualifies a body is a **binder** —
+which is exactly why the `let` workaround discovered empirically above works, and
+the reason is now a line of code rather than a guess.
+
+**The contrast row proves it.** `view-yaw-for` was offered as "one expression,
+record parameter, arithmetic body — does emit". It has **four call sites**:
+`Safari.codex:87`, `:91`, `:231` and `SafariCheck.codex:121`. `keep-single-caller`
+rejects it because its count is not 1, and its body has nothing to do with it.
+`rider-roll`, the one that needed the `let`, has exactly one caller
+(`SafariCheck.codex:126`).
+
+**What is still open**, stated so nobody reads more into this than was shown: the
+four `zz-*` probes no longer exist, so whether their row-to-row differences were
+also call-count cannot be re-checked, and `inline-leaf-calls` is a SECOND pass in
+the same pipeline that could account for some of them. The rule above is read from
+the source at u53 and confirmed against `view-yaw-for`; it is not a claim that
+every row of that table has been re-explained.
+
+**Fix shape:** the intended rule is now known, so the question is the narrow one.
+A definition that `inline-single-caller` erases should either still be emitted as
+a callable function — harmless, since the zig compiler drops unused ones — or say
+so. The expensive combination is silence plus a rule nobody outside the compiler
+can predict: the surviving definition and the erased one differ by *how many times
+something else happens to call them*, which is not a property the author of either
+one is looking at.
 
 ### 5. The zig arm reports no diagnostics at all where the seed reports real ones
 

@@ -25,9 +25,9 @@ these are on branches made for this work and the port does not build on `master`
 |---|---|---|
 | `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. No remote; local checkpoints only. |
 | `~/showell_repos/angry-gopher` | `master` | **the game being ported.** `games/driving/wasm/*.zig` is the Zig under test; `probe/wasm` here is a symlink to it. Read-only from this project — the port never edits the game. |
-| `~/showell_repos/NewRepository` | `u52-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
+| `~/showell_repos/NewRepository` | `u53-rebank` | **Cobblestone**, the Codex language and its foreword. Shared and read-only; many worktrees hang off it. `CODEX_ROOT` points here. |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. |
-| `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | a **worktree of NewRepository** holding the plug work — the emitter changes the port needed. `PLUG_WORK.md` is its record. |
+| `~/showell_repos/cobblestone-realbits` | `zig-plug-real-bitcast` | a **worktree of NewRepository** holding the plug work — the emitter rows the port needed. Branched from Cobblestone PR 100's head, and what `codexzig` is built from now. `PLUG_WORK.md` is its record; `cobblestone-realconv` is the superseded first attempt. |
 | `~/showell_repos/codex-zig-ladder` | `master` | borrowed for three things: `cite_resolve.py` (which `harness/bundle.py` imports rather than restating) and `ring_compile` + `codex_vm`, which are how the third arm boots a guest. Override with `SAFARI_LADDER`. |
 
 **`codexzig` is why this project moves at all.** It is one program — Codex source

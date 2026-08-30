@@ -1,4 +1,4 @@
-# Plug work: closing the real-to-int / real-from-int hole
+# Plug work: closing the real conversion and bitcast holes
 
 Where the emitter work lives, what was branched, and where things run. Started
 2026-08-29. Companion to `PORTING_NOTES.txt` item A1, which is the finding this
@@ -13,7 +13,8 @@ worktrees. A note saying which branch is where is cheaper than reconstructing it
 | tree | branch | base | who owns it |
 |---|---|---|---|
 | `~/showell_repos/safari-codex` | `master` | — | this project; no remote, local checkpoints |
-| `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | `16751b22` | **created 2026-08-29 for this work** |
+| `~/showell_repos/cobblestone-realconv` | `zig-plug-real-int-conversions` | `16751b22` | created 2026-08-29; superseded, see below |
+| `~/showell_repos/cobblestone-realbits` | `zig-plug-real-bitcast` | `13edc9a6` | **created 2026-08-30; what safari builds against now** |
 | `~/showell_repos/codex-zig-transpiler` | `real-int-conversions` | `4ac5982` (master) | **created 2026-08-29 for this work**; builds codexzig |
 | `~/showell_repos/NewRepository` | `u52-rebank` | — | **SHARED, READ-ONLY.** 11 live worktrees hang off it |
 
@@ -254,3 +255,47 @@ like a fixed-point failure and was not.
 because its value is that pass 1 comes from an INDEPENDENT implementation -- the
 emitter compiled to a bootable kernel -- not from the binary under test. Nothing
 self-hosted can supply that. `./build.py --force` before anything ships.
+
+
+## 2026-08-30: real-to-bits, and a change of lineage
+
+**The conversion work went upstream without us, and we followed it rather than
+our own branch.** Another Claude, working from `codex-zig-ladder`, rebuilt the
+`real-to-int` / `real-from-int` pair as `zig-plug-real-conversions` and filed it
+as **Cobblestone PR 100**. That branch is a SIBLING of ours, not a descendant:
+same base (`58b08c38`, Update 53), the same two logical commits, different SHAs
+and tidier messages.
+
+So `zig-plug-real-bitcast` is branched from **`13edc9a6`, the PR's head**, not
+from our own `da6526f4`. A stack should sit on what the maintainer is actually
+looking at.
+
+**Swapping lineage changed nothing, and that was measured rather than assumed.**
+`build/safari.zig` is BYTE-IDENTICAL across the swap, and all 17 checks are green
+on the rebuilt `codexzig`. That is the evidence for "substantively the same"; the
+two branches could have differed in emission and the only way to know was to look.
+
+**What the new rows are:** `real-to-bits` and `bits-to-real`, the f64 bitcast
+pair. Bare metal emits `mov-rr` for both -- a register move, which is to say
+nothing, because it holds a Real f64 as its own bits in a general register. Zig
+separates the types, so the identity is `@bitCast`. No guards: total both ways.
+Register entry `plugs-backlog 2.07`; test `codex/test/ops/real-bitcast-f64`.
+
+**The other thirteen members of the family are declined on purpose**, and the
+reason is one fact upstream of all of them: `ZigEmitter.codex:342` and `:373` map
+`RealTy (w) (m)` to `f64`, discarding BOTH the width and the mode. So an f32 Real
+is an f64 here and a trapping Real does not trap. `real-approx-to-bits` would have
+to narrow an f64 bare metal never held; `to-real-trapping` would hand back a value
+the program is entitled to believe traps. Filling them replaces an honest refusal
+with a plausible wrong number. 2.07 lists all thirteen and puts the representation
+question to the maintainer.
+
+**`codexzig` was rebuilt from this worktree** -- `./build.py --force` with
+`COBBLESTONE_ROOT=~/showell_repos/cobblestone-realbits`, 449s, three guests. The
+fixed point HOLDS byte-identical and `arith` matches all nine lines.
+`generated/PROVENANCE` names `cobblestone-realbits 2f7e7375`.
+
+**And safari now DEPENDS on the new rows**, which is worth stating because it
+means the checks no longer build on an older `codexzig`. `judge/Grade.codex` uses
+`real-to-bits` to reject a non-finite value -- see `PORTING_NOTES` D12, the NaN
+that had been passing every Real gate in the project.

@@ -1135,6 +1135,57 @@ D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
     differ at 1e-16 if at all. So the frame count detects the port-against-game gap
     and is blind to the arm-against-arm one. C16 carries the corrected reading.
 
+D12. A NaN PASSED EVERY REAL GATE IN THE PROJECT, AND NO TOLERANCE WAS EVER
+     GOING TO CATCH IT.
+
+    Every grader in judge/Grade.codex asks the same question: is |got - want|
+    GREATER THAN the tolerance. Feed it a NaN and the subtraction is a NaN,
+    `g-abs` hands the NaN back (because `NaN < 0.0` is false and the else arm
+    returns its argument), and `NaN > tol` is FALSE. Not flagged. Walk continues.
+
+    INFINITY WAS ALWAYS CAUGHT and that is what made the hole easy to miss:
+    `inf - want` is `inf`, which exceeds any tolerance, so the obvious bad value
+    behaves. It is specifically the NaN that a comparison-shaped gate cannot see,
+    and it cannot see it BY CONSTRUCTION rather than by oversight -- every
+    comparison against a NaN is false, so any gate phrased as "flag it if it is
+    too far" waves it through. A gate phrased as "flag it unless it is close
+    enough" would have caught it. The two read as synonyms in English.
+
+    Measured before fixing, in zig, with the exact expressions the chapter uses:
+    g-abs of (NaN - 42.0) is NaN, and `NaN > 0.0` is false.
+
+    IT WAS UNDETECTABLE FROM INSIDE CODEX UNTIL THE SAME DAY. `show` on a Real is
+    refused (A2), and a NaN is the one value that does not equal itself, so no
+    printing and no comparison this project had could witness one. `real-to-bits`
+    is what changed -- plugs-backlog 2.07, the row added on 2026-08-30 for a
+    completely different reason (printing spike coordinates exactly). The fix
+    costs one mask and one comparison:
+
+        g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+    Clear the sign bit and every finite double is below #7FF0000000000000,
+    positive infinity IS that number, and every NaN is above it. One gate, both
+    classes, exact.
+
+    THE GATE WAS THEN PROVEN TO FIRE, because a gate that has never fired is
+    indistinguishable from one that cannot. PondCheck was fed
+    `bits-to-real #7FF8000000000000`, then `#7FF0000000000000`, then
+    `#FFF0000000000000`; all three report `duck-height BAD at 0` and the sweep
+    goes red. Restored, it is green again.
+
+    NOTHING IN THE PORT PRODUCES A NaN TODAY -- the sweep was green before the fix
+    and is green after it, so this closed a hole rather than caught a bug. That is
+    the honest reading and it is not a reason to skip it: the two infinity sites
+    in the game are both turned into a Boolean by the port (Truck's `NextTurn`
+    carries `found`, World's tree search threads a flag), so the one obvious
+    source of a non-finite Real was designed out. What the gate protects against
+    is the next one.
+
+    THE GENERAL SHAPE: a tolerance is a claim about MAGNITUDE, and a NaN has no
+    magnitude. Any gate built only out of ordering silently admits the values that
+    are not ordered. Ask what your comparison does with the values that answer
+    false to every question.
+
 ================================================================================
 E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
 ================================================================================

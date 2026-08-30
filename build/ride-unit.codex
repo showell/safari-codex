@@ -2323,11 +2323,35 @@ Section: Judging Reals
   g-abs : Real -> Real
   g-abs (x) = if x < 0.0 then 0.0 - x else x
 
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
   first-real-diff : List Real, List Real, Real, Integer -> Integer
   first-real-diff (got) (want) (tol) (i) =
     if i >= list-length got then 0 - 1
-    else if g-abs (list-at got i - list-at want i) > tol then i
-    else first-real-diff got want tol (i + 1)
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
 
   grade-reals : Text, List Real, List Real, Real -> Text
   grade-reals (name) (got) (want) (tol) =
@@ -2352,9 +2376,11 @@ Section: Judging Reals Relatively
   first-rel-diff : List Real, List Real, Real, Integer -> Integer
   first-rel-diff (got) (want) (tol) (i) =
     if i >= list-length got then 0 - 1
-    else let w = list-at want i
-      in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
-      else first-rel-diff got want tol (i + 1)
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
 
   grade-rel : Text, List Real, List Real, Real -> Text
   grade-rel (name) (got) (want) (tol) =
@@ -2403,9 +2429,11 @@ Section: Judging Cancelled Coordinates
   first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
   first-px-diff (got) (want) (atol) (rtol) (i) =
     if i >= list-length got then 0 - 1
-    else let w = list-at want i
-      in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
-      else first-px-diff got want atol rtol (i + 1)
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
 
 Section: Judging Integers
 

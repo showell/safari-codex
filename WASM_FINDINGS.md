@@ -19,7 +19,8 @@ arm), so where the two disagree the zig side has evidence behind it. A defect
 BOTH plugs share is invisible to this and `./harness/metal.py` is the arm that
 would see it.
 
-**Status.** Eleven findings, seven fixed and four open. **The seven fixed are
+**Status.** Thirteen findings — eleven in the plug (seven fixed, four open) and
+two in our own harness (12 fixed, 13 open). **The seven fixed are
 SENT, as [Cobblestone PR 111](https://github.com/damiant3/Cobblestone/pull/111)**
 — eleven commits plus three tests, cut from Update 53 itself rather than from
 the integration branch, so the PR is independent of open PRs 100 and 105. The
@@ -56,19 +57,56 @@ cannot reach. Finding 8 is a silent wrong answer that had been there all along.
 `PROVENANCE.md` describes that branch and why an integration branch is not a
 pull request.
 
+**2026-08-31: nine more plug commits arrived from `codex-wasm-transpiler` and
+this port was re-pinned onto them the same day.** They were written for a
+different subject entirely -- making the wasm plug compile the Codex compiler
+itself -- and they are open upstream as
+[PR 112](https://github.com/damiant3/Cobblestone/pull/112).
+
+**The pin is `wasm-slot-from-type` 9632bb87 and PR 112 is
+`wasm-plug-selfhost-batch` ccfde8d7**, which are the same nine changes on two
+different bases and therefore two different sha sets. What was verified here is
+PR 112's emitter, and that is a content claim rather than a commit one:
+`WasmEmitter.codex` hashes `feb09250410c13d2` on both branches, as do the two
+PowerShell files beside it. `PROVENANCE.md` has the full comparison. **That is what makes this port useful to
+them.** Seventeen ported game modules and ten differential probes are an oracle
+none of that work could see, and they were run against the new emitter with
+nothing else moved: all 523 changed lines are in `codex/plugs/wasm/`, and the
+codexzig subject re-bundles byte-identical at the new pin, so arms 1 through 3
+are the same measurement they were before.
+
+    run.sh                              GREEN, 6.8 s warm -- nothing rebuilt
+    metal.py --all                      METAL GREEN, 17/17 agreeing
+    wasm_arm.py --native --all          WASM-ARM GREEN, 17/17 agreeing
+    plug_probe.py                       9 agree, showreal differs -- finding 4
+
+The interesting result is the boring one: **nothing moved.** Nine commits that
+halved the compiler's peak memory and cut its self-compile from 223 s to 15 s
+changed no answer on any of seventeen programs. That is what the port is for.
+
+**Both things the exercise did surface are OURS, not the plug's**, which is the
+other reason to re-pin: findings 12 and 13 below. Twelve is a staleness check
+this harness did not have and now does. Thirteen is worse and older — the fourth
+arm's `--both` mode has been comparing two roads that run DIFFERENT IR
+pipelines since the day the native road was built, so its byte comparison could
+never have attributed a difference to an emitter. Neither was reachable without
+moving the pin under a harness and watching what it said.
+
 | # | finding | kind | status |
 |---|---|---|---|
 | 1 | `Real` is not implemented | wrong module / refused | **fixed** |
 | 2 | `a ^ b` emits `a * b` | **silent wrong answer** | **fixed** |
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
-| 5 | exports come from another app's hardcoded name list | surface | open |
+| 5 | exports come from another app's hardcoded name list | surface | **mechanism landed**, not yet used here — see below |
 | 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | **fixed in both plugs** — all 17 units emit, and `cat_draw` went 2,904→418 MB on the zig arm |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 | 8 | a text literal in a match-branch GUARD is missing from the string table | **silent wrong answer** | **fixed** |
 | 9 | neither `env` import can be reached by any program | wrong module / hole | open |
 | 10 | a `when` inside a GUARD overwrites the scrutinee the branches below read | **silent wrong answer** | **fixed** |
 | 11 | `needs-blit` asked whether the name OCCURS, not whether it is called | wrong module | **fixed** |
+| 12 | the fourth arm's guest road accepted a plug built from ANY emitter | **our harness** | **fixed** |
+| 13 | `--both`'s two roads run DIFFERENT IR pipelines, so it cannot attribute a difference | **our harness** | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
 `node:wasi` aborts on modules with a large linear memory. It is at the bottom.
@@ -191,7 +229,23 @@ formatter**, because it converts a wrong answer into an error.
 
 `probe/plug/showreal.codex`.
 
-## 5. A module's exports come from another application's name list — OPEN
+## 5. A module's exports come from another application's name list — THE MECHANISM LANDED
+
+**A chapter can now say what it exports.** `7ee23eb9` in the wasm plug (Cobblestone
+PR 112) reads a `wasm-exports : List Text` definition and roots those names; the
+484-name allowlist stays as the fallback for chapters that declare nothing, which
+is every chapter that exists today. So the hole this finding describes is now
+*answerable* rather than closed, and the distinction matters: after re-pinning,
+`build/world_native.wat` still exports `disk_reserve`, because `WorldCheck` has
+never been given a `wasm-exports` line and falls through to the coincidence.
+
+That is the honest state. Declaring exports in the seventeen checks would close
+it here, and is worth doing when there is a reason to care about their public
+surface; nothing in this port reads it today. The finding stays open against the
+*allowlist itself*, which should eventually go away rather than remain a fallback.
+
+The original report follows.
+
 
 `wat-emit-exports` decides what a module exports by testing each definition name
 against `wasm-export-list`: a single pipe-separated string of **484**
@@ -680,6 +734,108 @@ name in the HEAD of an apply spine.
 Finding 9 stands as written — both builtins remain unreachable by any program
 that assembles, and this fix does not change that. What it removes is a way for
 a program with no interest in the builtin to emit an import for it.
+
+## 12. The fourth arm's guest road accepted a plug from any emitter — FIXED (ours)
+
+**This one is not the plug's; it is ours, and re-pinning is what exposed it.**
+`harness/wasm_arm.py`'s guest road opened with
+
+    if not PLUG.is_file():
+        raise SystemExit("no build/wasmringplug.cdx -- run ./harness/wasm_plug_build.py")
+
+which asks whether the file EXISTS. `build/wasmringplug.cdx` is gitignored, so
+no branch switch and no `git status` has anything to say about it; moving
+`CODEX_ROOT` onto a pin with nine new commits in `codex/plugs/wasm` left
+yesterday's compiled emitter sitting there looking exactly as ready as a fresh
+one.
+
+**The failure it sets up is the expensive kind.** `--both` would have compared
+today's native road against yesterday's guest road and printed `DIFFER`, and
+that reads as a defect in an emitter rather than as a stale artifact. The arm's
+whole job is to attribute a difference to one of two emitters; an input it
+cannot date makes every verdict it prints unattributable.
+
+`harness/wasm_plug_build.py` already had the right answer and was not being
+asked: its fingerprint is the sha of the BUNDLE, so `stale()` re-bundles (50 ms,
+no guest) and compares. The arm now refuses, naming both fingerprints:
+
+    build/wasmringplug.cdx was built from bundle 5453d84665f9,
+    but the bundle is now 84613555c7ee
+      -- run ./harness/wasm_plug_build.py
+
+**Refuses rather than rebuilds.** That road already boots two guests per module;
+a third appearing by itself is a cost the caller did not ask for.
+
+That message is the gate firing on the real thing, not a perturbation: the plug
+on disk genuinely was a pin behind when the check was written.
+
+## 13. `--both` compares two roads that do not run the same IR — OPEN (ours)
+
+**`./harness/wasm_arm.py --native --both` is RED, and no emitter is at fault.**
+Measured 2026-08-31 on Num, Truck and GuardRail, after the re-pin, with the
+guest plug rebuilt from the same commit the native road was built from:
+
+    Num        135,565 vs 135,393 bytes
+    Truck      186,538 vs 185,502
+    GuardRail  243,548 vs 243,367
+
+All three still AGREE with the zig arm on verdicts, so nothing here is a wrong
+answer. The whole of Num's diff is one function:
+
+    guest   (func $list_map ... (return_call $map_list ...))
+            (func $map_list ...)                              (table $ft 33)
+    native  (func $list_map ...)                              (table $ft 32)
+
+plus the heap base moving by one byte and the elem/data sections shifting to
+match. `$map_list` has exactly one caller.
+
+**The mechanism, confirmed in the compiler rather than inferred from the shape.**
+The two roads ask for different pipelines and always have:
+
+    harness/wasm_arm.py:61       IR_FLAGS = " passes=text-plug"
+    IR/Passes.codex:71           text-plug-ir-pipeline = ["fold-constants"]
+
+    harness/CodexWasmHarness.codex:133   run-ir-pipeline default-ir-pipeline
+    IR/Passes.codex:36           default-ir-pipeline =
+                                   ["fold-constants", "inline-leaf-calls",
+                                    "inline-single-caller"]
+
+So `inline-single-caller` runs on the native road and not on the guest one. Any
+check containing a one-caller function differs, and a check containing none does
+not. **An earlier session had already derived that pass's rule from the compiler
+source, independently and for another reason** -- see
+`outbound/item4-inline-single-caller-issue.md`, an unsent draft asking upstream
+whether an erased definition should be visible. It reaches the same mechanism
+from `IR/Lowering.codex:2429` without ever looking at a WAT, which is the
+corroboration this finding would otherwise be missing — All three checks measured differ, so the claim "they are, on every check
+here" was more likely never measured than measured on checks that happen to
+contain no one-caller function.
+
+**This is not the re-pin.** The nine 2026-08-31 commits are confined to
+`codex/plugs/wasm/` and touch no pipeline, and the divergence dates to
+`bff8e23`, the commit that introduced the native road — the same commit that
+introduced the `default-ir-pipeline` call. It has been true of every `--both`
+run since, and was simply never contradicted by the checks it was run on.
+
+**Two ways out, and they are not equivalent.**
+
+1. **Make the native harness ask for `text-plug` too.** Cheapest, and makes
+   `--both` mean what it says. It also narrows what `--native --all` tests: the
+   native road stops being the pipeline a real program would get.
+2. **Give the guest road the default pipeline.** Truer to real use, but
+   `wasm_arm.py`'s own docstring explains why `text-plug` is there — a plug that
+   emits SOURCE resolves builtins by NAME, and `inline-leaf-calls` deletes the
+   call that is the emitter's only handle on one. That hazard is real for this
+   plug, and the native road is running into it today unremarked.
+
+That second point is the interesting one and the reason this is written down
+rather than patched: **the native road has been running the plug under a
+pipeline the plug's own documentation says it should not be run under, and
+17/17 pass anyway.** Either the hazard is narrower than the docstring claims, or
+these checks do not reach it. Worth knowing which before choosing.
+
+Until then `--native --all` is the arm; `--both` reports a difference it cannot
+attribute.
 
 ## Not the plug: `node:wasi` aborts on a large linear memory
 

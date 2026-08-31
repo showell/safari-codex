@@ -54,6 +54,33 @@ def bundle():
     return hashlib.sha256(BUNDLE.read_bytes()).hexdigest()
 
 
+def stale():
+    """Why build/wasmringplug.cdx is not current, or None when it is.
+
+    Split out of main() so the ARM can ask without booting anything. Bundling
+    is 50 ms and the fingerprint is the bundle's own sha, so the question is
+    cheap and it is the only honest one: an mtime says when the file was
+    written and not which emitter wrote it.
+
+    The caller that needed this is harness/wasm_arm.py, whose guest road used
+    to test `PLUG.is_file()` and nothing else. Moving CODEX_ROOT to a pin with
+    nine new commits in codex/plugs/wasm left a cdx from the previous emitter
+    sitting there, and an is_file test calls that ready -- so the arm would
+    have compared today's native road against last night's plug and reported
+    the difference as a defect. Existence is not currency.
+    """
+    want = bundle()
+    if not CDX.is_file():
+        return "there is no build/wasmringplug.cdx"
+    if not FP.is_file():
+        return "build/wasmringplug.cdx has no fingerprint beside it"
+    got = FP.read_text().strip()
+    if got != want:
+        return (f"build/wasmringplug.cdx was built from bundle {got[:12]}, "
+                f"but the bundle is now {want[:12]}")
+    return None
+
+
 def main():
     force = "--force" in sys.argv[1:]
     want = bundle()

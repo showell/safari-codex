@@ -36,6 +36,9 @@ flattering.
 4. **Wasm, by two roads.** `./harness/wasm_arm.py` compares `Codex -> zig -> wasm`
    against `Codex -> IR -> plugs/wasm`, which share no code below the IR. With
    `--native` the right road is `build/codexwasm` and no guest boots at all.
+   **Its `--both` mode is RED and the emitters are not why** — the two roads run
+   different IR pass pipelines, so its byte comparison cannot attribute a
+   difference. `WASM_FINDINGS.md` finding 13; `--native --all` is the arm.
 
 **What the four together establish.** The port agrees with the game (1 and 2), and
 three independent compile paths reproduce that agreement — which is what rules out
@@ -953,6 +956,18 @@ it earns the same cold read.
 probes, nine agreeing and `showreal` differing as finding 4 records. The
 transpiler was rebuilt through its own nine stages and three guests
 (`codexzig-safari` 432b80a) and the fixed point holds byte-identical.
+
+**Re-verified 2026-08-31 on a moved pin**, which is the more interesting form of
+the same sentence. `cobblestone-safari` went from `15ef1862` to `9632bb87` --
+nine wasm-plug commits written next door in `codex-wasm-transpiler`, open
+upstream as PR 112 -- and all four arms were run against them: `run.sh` GREEN in
+6.8 s warm, `metal.py --all` METAL GREEN 17/17, `wasm_arm.py --native --all`
+GREEN 17/17, probes 9 of 10 with `showreal` differing as before. **Nothing
+moved**, which is the result this port exists to be able to state. Only arm 4
+CAN move on a wasm-plug diff, and that is checked rather than assumed: the
+codexzig subject re-bundles to the same 2,985,476 bytes at the new pin.
+`PROVENANCE.md` carries the pin block; `WASM_FINDINGS.md` finding 12 carries the
+one thing the exercise broke, which was in our own harness.
 
 Two tools arrived that did not exist at the second parking:
 **`./harness/build_codexwasm.sh`** builds a NATIVE `codexwasm` — Codex straight to

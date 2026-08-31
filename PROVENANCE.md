@@ -41,12 +41,60 @@ bundles the wasm plug from.
               e6f09556  wasm: neither env import is reachable
               2a53929f  wasm: a scrutinee local per guard-nesting depth
               15ef1862  the mask ceiling is a @compileError, not a hope
-    head      15ef1862532e0afdf5139bb1a67d0b34e4304381
+    + 08-31   cac5851b  wasm: the emitted runtime made 2.9M host calls, 56k grows
+              fa6b0f5d  wasm: assert the two runtime properties the e2e bed misses
+              c36cf69b  wasm: the receiver's TYPE is the authority for a field
+                        slot, not the IR text wire
+              7ee23eb9  wasm: a chapter can say what it exports (finding 5)
+              4e141340  wasm: the two text readers grow instead of truncating
+              0faaf191  wasm: two more quadratic joins in emission, 608 MB
+              8460e035  wasm: a Boolean literal pattern is 1 or 0, not the word
+              02186d04  wasm: an unknown name refuses instead of pretending
+              9632bb87  wasm: a guard's scrutinee bump leaked into its siblings
+    head      9632bb870cd684efa89b497b563a19a39e939ae4
 
 WASM_FINDINGS.md maps those to the eleven findings and says which are fixed.
 This block was left at `e8486215` for ten commits, which is the whole failure
 mode a pin exists to prevent: a stale pin is not a weaker claim than no pin, it
 is a false one.
+
+**The 2026-08-31 rows came from a different project and are the reason to read
+the next paragraph.** They were written in `codex-wasm-transpiler`, where the
+wasm plug is made to compile the compiler itself.
+
+**THE SHAs ABOVE ARE NOT THE PULL REQUEST'S SHAs, and that is worth a paragraph
+rather than a footnote.** The same nine changes exist on two branches with two
+bases, so neither sha set is wrong and neither is interchangeable:
+
+    wasm-slot-from-type        9632bb87   on 15ef1862, this integration branch
+                                          -- THIS is what the arms below ran
+    wasm-plug-selfhost-batch   ccfde8d7   on upstream master 58b08c38, and it
+                                          carries PR 111's commits beneath it
+                                          -- THIS is Cobblestone PR 112
+
+A commit-id comparison between them says nothing, so the question was settled on
+CONTENT: `codex/plugs/wasm/WasmEmitter.codex` hashes `feb09250410c13d2` on both,
+and so do `check-emitted-runtime.ps1` and `wasm-e2e.ps1`. **The emitter this port
+verified is byte-for-byte the emitter PR 112 proposes.** The two branches differ
+elsewhere — the PR carries three `codex/plugs/wasm/test/*-rt.codex` fixtures and
+PR 111's zig-plug rows that this integration branch reaches by another route —
+but nothing in that difference is emitter code.
+
+`safari` and `wasm-slot-from-type` now point at the same commit because this was
+a fast-forward. They are still different branches and will diverge the next time
+either one moves; the table at the top of this file names `safari` as the pin. This port did not ask for them and does not test the thing they were
+written for; what it does is put seventeen programs and ten differential probes
+in front of them, against an oracle none of that work could see. That is the
+whole value of re-pinning here, and it is why the pin moved the same day rather
+than the next time somebody needed something.
+
+**Only ONE ARM CAN MOVE, and the diff is what says so.** All 523 changed lines
+are in `codex/plugs/wasm/`; the zig plug, the compiler and the seed are
+untouched, so arms 1 through 3 run on exactly what they ran on before. That is
+checked rather than argued: re-bundling `codexzig-subject.codex` at the new pin
+gives the same 2,985,476 bytes, sha `45f66827…`, as the bundle the binary in
+`codexzig-safari` was built from. If that comparison ever fails, the pin move is
+not a one-arm change and `build_codexzig.sh` has a guest to boot.
 
 **The branch is an INTEGRATION branch and not a pull request.** Each change here
 also exists as a single-purpose branch off Update 53 for sending upstream
@@ -79,6 +127,14 @@ comparable.
               generated/PROVENANCE in that worktree records the seed, the
               guests and what each one touched: 462s, fixed point HOLDS
               byte-identical at 2,463,047 bytes, arith matches all nine lines.
+    still     current at 9632bb87. That record names the commit it was built
+    current   from and the checkout has moved past it, which normally means a
+              rebuild is owed -- so it was measured instead of assumed: the
+              subject re-bundles to the same 2,985,476 bytes at the new pin,
+              because nothing in those nine commits is a chapter codexzig
+              cites. `build_codexzig.sh` agrees, and its agreement is visible
+              rather than silent: it fingerprints the generated zig, and a
+              sweep that finds nothing to rebuild finishes in 6.8s warm.
 
 ## The game: `HISTORICAL_WASM_ROOT/`
 

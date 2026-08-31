@@ -31,10 +31,25 @@ seed involved anywhere. ./harness/build_codexwasm.sh is 77 seconds and no guest.
 
 THEY ARE NOT THE SAME EVIDENCE and --both is how that is kept honest. The guest
 road runs the emitter on BARE METAL under the seed's own x86; the native road
-runs it as zig compiled by codexzig. Same emitter, same IR, different machine.
---both runs each and requires the two WATs to be byte-identical, which is the
-claim that lets --native stand in for the guest road day to day. They are, on
-every check here.
+runs it as zig compiled by codexzig. Same emitter, different machine.
+
+**--both IS CURRENTLY RED AND THE EMITTERS ARE NOT WHY.** It requires the two
+WATs to be byte-identical, and the sentence that used to end this paragraph said
+they were on every check. Measured 2026-08-31 on Num, Truck and GuardRail: they
+are not, and the two roads DO NOT RUN THE SAME IR. This road asks the seed for
+`passes=text-plug`, which is `["fold-constants"]`; the native road is
+`build/codexwasm`, whose harness (harness/CodexWasmHarness.codex:133) calls
+`run-ir-pipeline default-ir-pipeline`, which is
+`["fold-constants", "inline-leaf-calls", "inline-single-caller"]`. So a function
+with exactly one caller survives on this road and is inlined away on that one --
+in Num, `$map_list`, leaving a 33-entry table against a 32-entry one and a
+one-byte heap base shift. Nothing in the diff is an emitter disagreement.
+
+That divergence has been there since bff8e23, the commit that built the native
+road; it is not the 2026-08-31 re-pin, whose nine commits are confined to
+codex/plugs/wasm and touch no pipeline. WASM_FINDINGS finding 13 has the
+measurement and the two ways out. Until one is taken, **--native --all is the
+arm** and --both reports a difference it cannot attribute.
 
 WHY THE IR IS COMPILED WITH passes=text-plug. A plug that emits SOURCE resolves
 a Codex call by its NAME -- `wat-try-builtin` is a table of names -- so a pass
@@ -130,8 +145,19 @@ def native_wat(mod, src):
 
 def plug_wasm(chapter, mod, src):
     """The RIGHT road: the seed for IR, then plugs/wasm's emitter for the module."""
-    if not PLUG.is_file():
-        raise SystemExit("no build/wasmringplug.cdx -- run ./harness/wasm_plug_build.py")
+    # CURRENT, not merely present. This used to be `PLUG.is_file()`, which
+    # calls a cdx built from any emitter ready -- so moving CODEX_ROOT to a pin
+    # with new commits in codex/plugs/wasm left this road running last night's
+    # plug while the native road ran today's, and the arm would have reported
+    # the version skew as a disagreement between two emitters. wasm_plug_build
+    # already fingerprints the bundle; asking it costs a 50 ms re-bundle and no
+    # guest. It REFUSES rather than rebuilding: this road boots two guests per
+    # module already, and a third appearing on its own is a cost the caller did
+    # not ask for.
+    import wasm_plug_build
+    why = wasm_plug_build.stale()
+    if why is not None:
+        raise SystemExit(f"{why}\n  -- run ./harness/wasm_plug_build.py")
     import ring_compile
     unit = ROOT / "build" / f"{mod}-unit.codex"
     bundle(src, unit)

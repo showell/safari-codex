@@ -43,6 +43,22 @@ build/*_wasi.zig
 # Tracking a copy of Cobblestone here would be a second copy that drifts.
 build/wasmringplug*
 
+# THE NATIVE ROAD'S OUTPUT, which the two rules above already cover for the
+# other two roads. `build/*_zig.wasm` and `build/*_plug.wasm` are ignored and
+# `build/<mod>_native.wasm` was not, for no better reason than that
+# harness/build_codexwasm.sh was written after those lines. Twenty-two modules
+# were sitting untracked and eligible, which is the 3.7 MB-blob failure this
+# file's opening comment is about. `build/safari_codex.wasm` is the browser's
+# module and is still tracked -- that is why this is a suffix and not `*.wasm`.
+build/*_native.wasm
+
+# codexwasm's subject and its transpiled self, 2.8 MB each and the same argument
+# as wasmringplug above: a bundle is a COPY of the compiler plus the emitter,
+# rebuilt from the pin in ninety seconds and identified by build/codexwasm.fp.
+# `build/codexzig-try-subject.codex` is build_codexzig_try.sh's equivalent.
+build/codexwasm*
+build/codexzig-try-subject.codex
+
 # npm's tree for wabt. package.json and package-lock.json pin it; the tree is
 # 'npm ci' away and has no business in this history.
 tools/node_modules/

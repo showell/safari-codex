@@ -224,6 +224,38 @@ A8. A Real LITERAL wider than an i64 is read as a different number.  [DEFECT]
     also reported an exp-real error with the wrong SIGN, because a diagnostic had
     written its 1e18 scale factor out longhand.
 
+A9. A TEXT LITERAL OPENED AT THE END OF A LINE IS SILENTLY EMPTY.   [DEFECT]
+
+    A quote that opens with nothing after it before the newline compiles clean --
+    no diagnostic at any severity -- and the literal is "". So does the closing
+    quote on the next line, which becomes a second empty literal and disappears.
+
+        f : Text -> Text
+        f (n) = "a" & n & "
+        "
+
+    emits `cx_concat(cx_concat("a", n), "")`. The newline the author wrote is
+    gone and nothing says so.
+
+    A literal with any content before the newline is diagnosed properly, CDX7
+    "Unterminated text literal: hit end of line before closing '\"'", so this is
+    a hole in a rule that otherwise holds. Syntax/Lexer.codex:263 is the cause:
+    scan-string-body returns early on `if stop == st.offset then st` -- the case
+    where the scan advanced nothing -- and that early return is BEFORE the
+    `terminated` test three lines below, so the one input that produces an empty
+    scan is the one input that skips the check.
+
+    IT IS ALREADY IN SHIPPED CODE. `czg-halted` in the ladder's CodexZigHarness
+    and `cwm-halted` in ours are both written this way and neither emits the
+    trailing newline it appears to; the halt message runs into whatever follows
+    it. That is cosmetic where it landed, and the reason to report it is the
+    class rather than the instance -- a Text is data, and a lexer that silently
+    drops content is capable of dropping a delimiter, a separator or a path.
+
+    Found by writing a `\n` into a generated harness the same way the file
+    already did, and noticing the emitted zig had no newline in it. Repro:
+    poc/EmptyLiteral.codex.
+
 ================================================================================
 B. CORRECT BUT SURPRISING -- read before writing Codex
 ================================================================================

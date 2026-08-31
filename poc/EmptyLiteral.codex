@@ -1,0 +1,19 @@
+Chapter: EmptyLiteral
+
+ A9. The literal on the first line opens at end of line and is silently "",
+ and so is the lone quote closing it. Both vanish; no diagnostic is raised.
+ Expected "a<newline>", emitted `cx_concat(cx_concat("a", n), "")`.
+
+ One character before the newline -- `"a" & n & "b` then a closing quote --
+ halts with CDX7 instead, which is the finding: the rule exists and only the
+ empty case skips it. It is not in this file because it would stop the file
+ compiling, and what is worth running is the half that does not complain.
+
+  silent : Text -> Text
+  silent (n) = "a" & n & "
+"
+
+  opening : [Console] Nothing = act
+    print-text (silent "x")
+    print-text "END"
+  end

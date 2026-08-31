@@ -1,10 +1,10 @@
 # Findings owed upstream
 
-Eight, each self-contained: what was observed, how to reproduce it, and what the
-fix looks like. Six are owed to Cobblestone and the zig plug, two to
+Nine, each self-contained: what was observed, how to reproduce it, and what the
+fix looks like. Seven are owed to Cobblestone and the zig plug, two to
 angry-gopher, and the two halves are independent.
 
-**Status, 2026-08-30 evening.** Three are sent and five are not:
+**Status, 2026-08-31.** Three are sent and six are not:
 
 | | what | where it went |
 |---|---|---|
@@ -16,6 +16,7 @@ angry-gopher, and the two halves are independent.
 | 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
 | 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |
 | 8 | `truck.zig`'s stale comments | **not sent** — angry-gopher |
+| 9 | a text literal opened at end of line is silently empty | **not sent** — found 2026-08-31 |
 
 Two more things left this file and went upstream from the same porting work,
 though neither is numbered here: the f64 **conversions**
@@ -572,6 +573,58 @@ it already uses `real-to-bits`, and three lines — `1e18` written out, 2^60 wri
 out, and an eighteen-digit value that still fits — would have caught this. We are
 not sending that as a PR because the `.expected` would have to record either
 today's wrong answers or a fix that has not been made.
+
+### 9. A text literal opened at the end of a line is silently empty
+
+**Severity: medium.** No diagnostic at any severity, and the content the author
+wrote is dropped. A `Text` is data, so this is a lexer that can silently delete a
+delimiter, a separator or a path — it landed on a newline here only because that
+is what somebody happened to write.
+
+```
+  silent : Text -> Text
+  silent (n) = "a" & n & "
+"
+```
+
+compiles clean, zero diagnostics, exit 0, and the zig plug emits
+
+```
+fn silent(n_: []const u8) []const u8 {
+    return cx_concat(cx_concat("\x0f", n_), "");
+}
+```
+
+The opening quote at end of line becomes `""`; the lone closing quote on the
+next line becomes a second `""` and vanishes. The newline is gone.
+
+**The rule exists and only this case escapes it.** One character before the
+newline — `"a" & n & "b` — halts properly with CDX7, *Unterminated text literal:
+hit end of line before closing `"`*. `Syntax/Lexer.codex:259-271` is why:
+
+```
+  scan-string-body (st) =
+   let len = text-length (st.source)
+   in let stop = scan-string-end (st.source) (st.offset) len
+   in if stop == st.offset then st                    <-- returns here
+      else ...
+      in let terminated = stop <= len & stop > 0 & ...  <-- the check
+```
+
+`scan-string-end` stops at the newline and returns the offset it was given, so
+`stop == st.offset`, and the early return for "the scan advanced nothing" fires
+three lines above the `terminated` test. **The one input that produces an empty
+scan is the one input that skips the check.** Moving the terminated test above
+the early return, or dropping the early return, closes it.
+
+**It is already in shipped code**, which is how it was found. `czg-halted` in
+`ast/CodexZigHarness.codex` and `cwm-halted` in this project's copy are both
+written this way, and neither emits the trailing newline it appears to — the
+halt message runs into whatever is printed next. Cosmetic where it landed; the
+class is the reason to send it.
+
+Repro: `poc/EmptyLiteral.codex`, through `codexzig` or any plug — this is the
+front end, so every arm agrees.
 
 ## To angry-gopher (`games/driving`)
 

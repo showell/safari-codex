@@ -27,6 +27,7 @@ when it is:
     cobblestone-safari  e8486215  finding 1, also on `wasm-plug-real-conversions`
                         b5b1bb74  findings 2 and 3
                         121b61fb  finding 6's discarded scans
+                        2aff6e4d  finding 6's ceiling: list literals in halves
 
 `PROVENANCE.md` describes that branch and why an integration branch is not a
 pull request.
@@ -38,7 +39,7 @@ pull request.
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
 | 5 | exports come from another app's hardcoded name list | surface | open |
-| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | the wasted scans **fixed**; the ceiling open — **push here** |
+| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | the wasm side **fixed** — all 17 units now emit; the zig plug has the same disease and is untouched |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
@@ -240,7 +241,7 @@ cursor patched into the prelude for the part the marks cannot see.
 codexzig's 2,904 MB, 2,549 MB is `emit-zig-chapter` alone. There is no shared
 cost to attack; there are two emitters, and they fail in two different ways.
 
-### codexzig: the whole module is one `Text`
+### codexzig: the whole module is one `Text` — still open, and now the worse arm
 
 `emit-zig-chapter` returns the module as a single value and nothing is streamed,
 so every definition's working set is live at once and the concatenations pay the
@@ -253,38 +254,65 @@ byte of output, which is what says it is superlinear rather than merely large:
 | `world` | 197,505 | 74 MB | 375 |
 | `cat_draw` | 2,555,224 | 2,549 MB | 998 |
 
-### codexwasm: it already HAS the fix codexzig lacks, and dies anyway
+### codexwasm: it already HAD the fix codexzig lacks — FIXED, `2aff6e4d`
 
 `emit-wasm-chapter-stream` brackets every definition in
 `__heap-save`/`__heap-restore` and prints it, so its cost is the max over
 definitions instead of the sum. That works: on `world` it RETAINS 11 MB where
 the zig emitter retains 74. **On the axis the finding accused it of, the wasm
-plug is seven times better than the zig plug.**
+plug was already seven times better than the zig plug.**
 
-What kills it is inside one definition. Measured on `world`, per-definition
+What killed it was inside one definition. Measured on `world`, per-definition
 transient against the bytes that definition emits:
 
-| definition | WAT emitted | heap consumed |
-|---|---|---|
-| `$g_w_trees` | 171,884 | 97.3 MB |
-| `$g_w_cows` | 130,850 | 53.2 MB |
-| `$g_w_treecolor` | 49,250 | 9.5 MB |
+| definition | WAT emitted | heap, before | heap, after |
+|---|---|---|---|
+| `$g_w_trees` | 171,884 | 97.3 MB | **4.4 MB** |
+| `$g_w_cows` | 130,850 | 53.2 MB | 3.3 MB |
+| `$g_w_treecolor` | 49,250 | 9.5 MB | 1.2 MB |
 
-That is `len² / 300` to within 20% across all three — **quadratic in the size of
-one definition.** `emit-wat-expr` returns `Text` and a Codex list literal lowers
-to a right-nested chain as deep as it is long, so the text of every level
-contains the text of the level below it and gets rebuilt there. On `cat_draw` a
-single definition runs the frontier from 856 MB into the 4 GiB ceiling:
+Before, that is `len² / 300` to within 20% across all three — **quadratic in the
+size of one definition**, and on `cat_draw` a single definition ran the frontier
+from 856 MB into the ceiling:
 
     thread panic: cx heap: exhausted at 4294829549 + 973866 of 4294967296
 
-**So the two plugs do not sit either side of one line.** codexzig's cost grows
-with the module and codexwasm's with the biggest single definition; each will
-die on a unit the other survives, and `cat_draw` happens to be shaped to kill
-the wasm one first. The fix for the wasm side is the one C17 names: stop
-returning `Text` from a recursive walk. An emitter that pushes chunks onto an
-accumulator and concatenates once is linear, and `text-concat-list` — which the
-compiler's own `decode-escapes` already uses that way — is the primitive.
+**The cause is C17, exactly, one level down.** `emit-wat-list-elems` walked a
+list literal's elements left to right and concatenated as it went, and text is
+immutable, so it allocated the sum of its own suffixes — quadratic in the number
+of elements for output linear in them. The per-definition restore cannot help,
+because all of it is inside ONE bracket. That is why the ceiling was the biggest
+DEFINITION rather than the biggest chapter, and why `$g_kd_xy` — one generated
+table in one chapter — was enough on its own.
+
+**The fix is C17's fix: split the range in half, build each half, concatenate
+once.** Each byte is then copied once per level instead of once per remaining
+element. The output is byte-identical *by construction* — same pieces, same
+order, different association — which is what makes it safe to do to an emitter
+whose whole job is exact bytes.
+
+| unit | before | after |
+|---|---|---|
+| `world` | 151 MB, 0.63 s | **57 MB, 0.42 s** |
+| `critter` (385 KB) | died at 4 GiB | **226 MB, 1.2 s** |
+| `cat_draw` (696 KB) | died at 4 GiB, 33.0 s | **394 MB, 2.2 s** |
+| `safari` (1.17 MB) | died at 4 GiB | **680 MB, 5.7 s** |
+
+**`codexwasm` now reaches all seventeen units in one process**, which is what
+the two-process guest road could do and this one could not — so the
+`codexir | wasmemit` split is not needed and was never the right answer.
+`./harness/wasm_arm.py --native --all` is GREEN: 14 of the 17 emit byte-identical
+WAT and the 3 that differ are exactly the 3 that used to die mid-emit and write
+a truncated module. All seventeen agree with the zig arm.
+
+**And the comparison has inverted.** `world`, peak RSS: `codexzig` 116 MB,
+`codexwasm` **58 MB**. The finding opened by saying the wasm emitter costs 1.26x
+the zig one; it costs half, and the arm that is now not robust is `codexzig`.
+
+The same right-recursive shape is in seventeen other emitters in
+`WasmEmitter.codex` — params, locals, apply args, exports — and is harmless in
+most of them because the lists are short. `emit-wat-list-elems` is the one that
+was killing chapters.
 
 ### Two thirds of what the wasm emitter did was thrown away — FIXED
 

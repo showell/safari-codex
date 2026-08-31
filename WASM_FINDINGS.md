@@ -19,12 +19,14 @@ arm), so where the two disagree the zig side has evidence behind it. A defect
 BOTH plugs share is invisible to this and `./harness/metal.py` is the arm that
 would see it.
 
-**Status.** Seven findings, three fixed and four open. Nothing has been sent
-upstream yet, and the fixes sit on the integration branch as separate commits so
-that each can be cherry-picked onto a single-purpose branch when it is:
+**Status.** Seven findings, three fixed, one half fixed and three open. Nothing
+has been sent upstream yet, and the fixes sit on the integration branch as
+separate commits so that each can be cherry-picked onto a single-purpose branch
+when it is:
 
     cobblestone-safari  e8486215  finding 1, also on `wasm-plug-real-conversions`
                         b5b1bb74  findings 2 and 3
+                        121b61fb  finding 6's discarded scans
 
 `PROVENANCE.md` describes that branch and why an integration branch is not a
 pull request.
@@ -36,7 +38,7 @@ pull request.
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
 | 5 | exports come from another app's hardcoded name list | surface | open |
-| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | open — **push here** |
+| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | the wasted scans **fixed**; the ceiling open — **push here** |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
@@ -284,7 +286,7 @@ returning `Text` from a recursive walk. An emitter that pushes chunks onto an
 accumulator and concatenates once is linear, and `text-concat-list` — which the
 compiler's own `decode-escapes` already uses that way — is the primitive.
 
-### Two thirds of what the wasm emitter does is thrown away
+### Two thirds of what the wasm emitter did was thrown away — FIXED
 
 Found on the way, and independent of the above.
 
@@ -315,9 +317,28 @@ is not what is protecting anybody there.)
 This does not move the peak — the scans and the print run at the same frontier,
 so the ceiling is still the worst definition — but it is 2/3 of emission's time
 and churn for nothing. It also decides where a failure lands: on `cat_draw`
-codexwasm dies at definition 41 **of the first needle scan**, so it never
-reaches the definitions it was asked to print, and the panic names a phase that
+codexwasm died at definition 41 **of the first needle scan**, so it never
+reached the definitions it was asked to print, and the panic named a phase that
 exists only to compute a boolean.
+
+**Fixed in `121b61fb`.** `wat-expr-calls-name` asks the IR instead, mirroring
+`collect-strings-expr` arm for arm — which is the argument for its coverage,
+since that shape already has to reach every text literal in the program or the
+string table comes out short. The three fixed pieces are still scanned as text
+because they are built already.
+
+Where the two criteria differ the old one was **wrong**: a chapter defining
+`blit-framebuf` emits `(func $blit_framebuf`, the needle hit, and the module
+declared an import and a function under one name — which `wat2wasm` refuses.
+
+**Output is unchanged and that is the check**: 16 of this project's 17 checks
+emit byte-identical WAT through `./harness/wasm_arm.py --native --all`. The
+seventeenth is `cat_draw`, which still exhausts the reserve — that is the
+ceiling above, not this — but now gets 120 definitions and 10.9 MB of WAT in
+before it dies, on `$g_kd_xy`, which is the definition the quadratic model
+names. `world` went from 0.63 s to 0.44 s at an unchanged 150 MB peak, which is
+exactly the shape predicted: the wasted work was time and churn, never the
+ceiling.
 
 ## 7. The vector ops have finding 1's shape — OPEN
 

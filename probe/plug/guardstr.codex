@@ -1,0 +1,25 @@
+Chapter: GuardStr
+
+ A TEXT LITERAL IN A MATCH-BRANCH GUARD. `collect-strings-branches-loop` walks
+ each branch's BODY and never its guard, so a literal that appears only in a
+ guard never reaches the string table. `strtab-lookup` answers 0 for a miss, so
+ the comparison runs against address zero and quietly fails.
+
+ The literals are built at run time -- `"zeb" & "ra"` -- so constant folding
+ cannot turn the comparison into a decision the emitter makes for itself.
+
+ Expected, and what the zig plug prints: yes, then no.
+
+  Box =
+    | Boxed (Text)
+
+  classify : Text -> Text
+  classify (v) =
+   when Boxed v
+    is Boxed (x) when x == "zebra" -> "yes"
+    is otherwise -> "no"
+
+  opening : [Console] Nothing = act
+    print-line-uni (classify ("zeb" & "ra"))
+    print-line-uni (classify ("no" & "pe"))
+  end

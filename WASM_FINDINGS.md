@@ -19,15 +19,24 @@ arm), so where the two disagree the zig side has evidence behind it. A defect
 BOTH plugs share is invisible to this and `./harness/metal.py` is the arm that
 would see it.
 
-**Status.** Seven findings, three fixed, one half fixed and three open. Nothing
-has been sent upstream yet, and the fixes sit on the integration branch as
-separate commits so that each can be cherry-picked onto a single-purpose branch
-when it is:
+**Status.** Nine findings, five fixed and four open. Nothing has been sent
+upstream yet, and the fixes sit on the integration branch as separate commits so
+that each can be cherry-picked onto a single-purpose branch when it is:
 
     cobblestone-safari  e8486215  finding 1, also on `wasm-plug-real-conversions`
                         b5b1bb74  findings 2 and 3
                         121b61fb  finding 6's discarded scans
                         2aff6e4d  finding 6's ceiling: list literals in halves
+                        3c13334d  finding 6 in the zig plug: join once
+                        1893cf1e  finding 6 in the zig plug: stream a chapter
+                        2660d3af  1893cf1e's mask split, guarded
+                        ab4612aa  finding 8
+                        e6f09556  finding 9, recorded rather than fixed
+
+**Findings 8 and 9 came from a COLD REVIEW of the four commits above them, not
+from the probes.** That is the useful fact about them: the corpus was green, the
+byte comparisons were green, and both defects were sitting in code the sweep
+cannot reach. Finding 8 is a silent wrong answer that had been there all along.
 
 `PROVENANCE.md` describes that branch and why an integration branch is not a
 pull request.
@@ -41,6 +50,8 @@ pull request.
 | 5 | exports come from another app's hardcoded name list | surface | open |
 | 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | **fixed in both plugs** — all 17 units emit, and `cat_draw` went 2,904→418 MB on the zig arm |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
+| 8 | a text literal in a match-branch GUARD is missing from the string table | **silent wrong answer** | **fixed** |
+| 9 | neither `env` import can be reached by any program | wrong module / hole | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
 `node:wasi` aborts on modules with a large linear memory. It is at the bottom.
@@ -186,7 +197,7 @@ four-hundred-name allowlist that grows every time an app is written.
 
 `probe/plug/exports.codex`.
 
-## 6. Nothing is ever reclaimed — OPEN, and this is the one to push on
+## 6. Nothing is ever reclaimed — FIXED in both plugs
 
 ### In the emitted modules
 
@@ -231,6 +242,7 @@ cursor patched into the prelude for the part the marks cannot see.
 | resolve | 4 | 4 |
 | check | 9 | 9 |
 | lower + IR pipeline + lift | 3 | 3 |
+| resolve the expression-type table | 1 | 1 |
 | emit IR text | 77 | 77 |
 | parse IR text back | 120 | 120 |
 | **the whole front end** | **294** | **294** |
@@ -255,7 +267,7 @@ which is what says it was superlinear rather than merely large:
 
 **A fixed cost per byte does not grow with the file**, and `emit-zig-list-elems`
 turned out to be the same right-recursive join the wasm plug had — in a file
-that already carries the argument against it. `emit-zig-defs`, three thousand
+that already carries the argument against it. `emit-zig-defs`, seventeen hundred
 lines down, says: *"joining N pieces with a right-recursive `&` copies every
 piece it has not reached yet, so the cost is the output size times the number of
 definitions rather than the output size. Collect and join once."* That note was
@@ -322,9 +334,10 @@ takes the candidate through `CODEXZIG`.
 
 `emit-wasm-chapter-stream` brackets every definition in
 `__heap-save`/`__heap-restore` and prints it, so its cost is the max over
-definitions instead of the sum. That works: on `world` it RETAINS 11 MB where
-the zig emitter retains 74. **On the axis the finding accused it of, the wasm
-plug was already seven times better than the zig plug.**
+definitions instead of the sum. That worked: on `world` it retained 11 MB where
+the zig emitter of the day retained 74. **On the axis the finding accused it of,
+the wasm plug was already seven times better than the zig plug.** Both numbers
+are of that moment — the zig emitter has since been fixed twice.
 
 What killed it was inside one definition. Measured on `world`, per-definition
 transient against the bytes that definition emits:
@@ -335,9 +348,14 @@ transient against the bytes that definition emits:
 | `$g_w_cows` | 130,850 | 53.2 MB | 3.3 MB |
 | `$g_w_treecolor` | 49,250 | 9.5 MB | 1.2 MB |
 
-Before, that is `len² / 300` to within 20% across all three — **quadratic in the
-size of one definition**, and on `cat_draw` a single definition ran the frontier
-from 856 MB into the ceiling:
+Before, that is roughly `len² / 300` — within 4%, 2% and 23% of the three, in
+the MiB the instrument reports — and **quadratic in the size of one
+definition**. The exponent between successive pairs is 1.76, 1.86 and 2.21, so
+the word is carried by the named mechanism below rather than by three points;
+and the 300 is not a law, because the cost is `n · len / 2` and only equals
+`len² / 2e` while the elements run about 150 bytes each, as these three happen
+to. On `cat_draw` a single definition ran the frontier from 856 MB into the
+ceiling:
 
     thread panic: cx heap: exhausted at 4294829549 + 973866 of 4294967296
 
@@ -357,22 +375,46 @@ whose whole job is exact bytes.
 
 | unit | before | after |
 |---|---|---|
-| `world` | 151 MB, 0.63 s | **57 MB, 0.42 s** |
+| `world` | 150 MB, 0.44 s | **57 MB, 0.42 s** |
 | `critter` (385 KB) | died at 4 GiB | **226 MB, 1.2 s** |
 | `cat_draw` (696 KB) | died at 4 GiB, 33.0 s | **394 MB, 2.2 s** |
 | `safari` (1.17 MB) | died at 4 GiB | **680 MB, 5.7 s** |
 
+**The `world` "before" is 0.44 s and not 0.63 s.** The discarded scans had
+already gone by then and took 0.63 → 0.44 with them; an earlier version of this
+table charged their saving to this change as well. What this change bought is
+almost no time at all — it bought the other three rows.
+
 **`codexwasm` now reaches all seventeen units in one process**, which is what
 the two-process guest road could do and this one could not — so the
 `codexir | wasmemit` split is not needed and was never the right answer.
-`./harness/wasm_arm.py --native --all` is GREEN: 14 of the 17 emit byte-identical
-WAT and the 3 that differ are exactly the 3 that used to die mid-emit and write
-a truncated module. All seventeen agree with the zig arm.
+`./harness/wasm_arm.py --native --all` is GREEN — which is the tool's own check:
+it runs both roads and compares what the two modules PRINT, not their bytes. The
+byte comparison is a separate `cmp` against the previous sweep's saved WAT, 14 of
+17 identical, and the 3 that differ are exactly the 3 that used to die mid-emit
+and write a truncated module.
 
-**And the comparison has inverted.** `world`, peak RSS: `codexzig` 116 MB,
-`codexwasm` **58 MB**. The finding opened by saying the wasm emitter costs 1.26x
-the zig one; it costs half. The zig plug has since had the same fix — below —
-and lands at 60 MB, so the two arms now agree to within 3%.
+**And the comparison stopped meaning what it did.** The finding opened by
+saying the wasm emitter costs 1.26x the zig one, as if that ratio located a
+defect. Both plugs have since been fixed and the ratio has not settled anywhere
+in particular, because it never was the thing to measure — peak RSS, both plain
+binaries, after everything below:
+
+| unit | `codexzig` | `codexwasm` |
+|---|---|---|
+| `pond` | 13 MB | 17 MB |
+| `world` | 44 MB | 57 MB |
+| `critter` | 253 MB | 226 MB |
+| `cat_draw` | 418 MB | 394 MB |
+| `safari` | 674 MB | 680 MB |
+
+The wasm arm is ahead on the big units, behind on the small ones, and within one
+per cent on the largest. Both peaks are the front end plus the biggest
+definition, and the wasm arm carries a larger fixed runtime on top, so any
+single ratio quoted from this table is a fact about one unit. **An intermediate
+version of this section said "the two arms now agree to within 3%", measured on
+`world` between the two zig-plug fixes. It was true for about an hour, and it is
+the kind of sentence to stop writing.**
 
 The same right-recursive shape is in seventeen other emitters in
 `WasmEmitter.codex` — params, locals, apply args, exports — and is harmless in
@@ -400,9 +442,10 @@ separates the passes; on `world`, 160 definitions:
 **`$on_key_import` is emitted by no arm of the emitter at all** — the only
 occurrence in the file is the import line the flag guards — so that scan can
 never answer True and always walks the whole chapter to say False.
-`$blit_framebuf` has exactly one producer, the `blit-framebuf` builtin arm at
-`WasmEmitter.codex:1453`, so both flags are decidable from the IR without
-emitting a byte. (A chapter DEFINING `blit-framebuf` would emit
+`$blit_framebuf` has exactly one producer, the `blit-framebuf` arm of
+`wat-try-builtin`, so both flags are decidable from the IR without emitting a
+byte. (Cited by name: that line has moved twice since, both times because of a
+commit in this document.) (A chapter DEFINING `blit-framebuf` would emit
 `(func $blit_framebuf` and hit the needle too — but that module already declares
 an import and a function under one name and `wat2wasm` refuses it, so the scan
 is not what is protecting anybody there.)
@@ -425,13 +468,24 @@ Where the two criteria differ the old one was **wrong**: a chapter defining
 declared an import and a function under one name — which `wat2wasm` refuses.
 
 **Output is unchanged and that is the check**: 16 of this project's 17 checks
-emit byte-identical WAT through `./harness/wasm_arm.py --native --all`. The
-seventeenth is `cat_draw`, which still exhausts the reserve — that is the
-ceiling above, not this — but now gets 120 definitions and 10.9 MB of WAT in
-before it dies, on `$g_kd_xy`, which is the definition the quadratic model
-names. `world` went from 0.63 s to 0.44 s at an unchanged 150 MB peak, which is
-exactly the shape predicted: the wasted work was time and churn, never the
-ceiling.
+emitted byte-identical WAT, `cat_draw` got 120 definitions and 10.9 MB in before
+dying on `$g_kd_xy` — the definition the quadratic model names — and `world`
+went 0.63 s → 0.44 s at an unchanged 150 MB peak, exactly the shape predicted,
+since the wasted work was time and churn and never the ceiling.
+
+**That 16 was worth less than it looked, and how it misled is the useful part.**
+THREE units were still exhausting the reserve here, not one: `critter` and
+`safari` as well, as the next section's table says. They scored as
+"byte-identical" because a run that dies mid-emit writes a TRUNCATED module, and
+each truncated in the same place as the run before it. A byte comparison against
+a previous failure is evidence of nothing, and a count that folds two of them in
+reads as though a single unit failed.
+
+**The sharper limit is what the corpus cannot reach at all**: none of the
+seventeen emits an `env` import, so none exercises the branch this commit
+rewrote. The check shows the flag did not accidentally turn ON. Nothing here
+could have shown it wrongly turning OFF — for which see finding 8, found by a
+cold review that went looking rather than by the sweep.
 
 ## 7. The vector ops have finding 1's shape — OPEN
 
@@ -445,6 +499,83 @@ representation decision about how a `Vec` is carried, which is the same question
 **Reported from reading, not from running** — the safari port uses no vectors, so
 no probe here reaches it. It is listed because it is the same defect class as
 finding 1 and the fix for finding 1 does not touch it.
+
+
+## 8. A text literal in a match-branch guard compares against address zero — FIXED
+
+    classify (v) =
+     when Boxed v
+      is Boxed (x) when x == "zebra" -> "yes"
+      is otherwise -> "no"
+
+    zig plug   yes / no          wasm plug   no / no
+
+`collect-strings-branches-loop` walked each branch's BODY and never its guard,
+so a text literal appearing only in a guard never reached the string table.
+`strtab-lookup` answers **0** for a miss, so the comparison ran against address
+zero and quietly failed. The module assembles, runs, and prints a wrong answer —
+findings 2, 3 and 4's shape, and the worst one a plug can have.
+
+`collect-locals-branches-loop` had the identical hole: a `let` inside a guard
+yields a local that is used and never declared. `wat2wasm` refuses that by name,
+so that half fails LOUDLY — which is the only reason it was the second one found
+and not the first.
+
+**The zig plug had already fixed this class and left the note**, at
+`zig-occurs-branches`: *"A branch's GUARD is part of the branch. Reading only the
+body answered 'does not occur' for a name a guard mentions… every caller of this
+uses the answer to decide whether to discard something."* The wasm plug never got
+that pass. An unguarded branch carries a `True` literal as its guard, so walking
+it costs nothing on the common shape.
+
+**`wat-branches-call-name` — added by finding 6's own fix, four commits earlier —
+copied the hole from the same model, and that is the part worth keeping.** The
+argument offered for that walker's coverage was that it *"mirrors
+`collect-strings-expr` arm for arm, which is the argument for its coverage: that
+shape already has to reach every text literal in the program or the string table
+comes out short."* The mirroring was exact. The premise was false. **Mirroring a
+walker inherits its blind spots, and an argument from a model is worth an audit
+of the model.**
+
+Not found by the corpus: none of this project's seventeen checks puts a literal
+in a guard, all seventeen still emit byte-identical WAT, and all seventeen agree
+with the zig arm. `probe/plug/guardstr.codex` is the case.
+
+## 9. Neither `env` import can be reached by any program — OPEN
+
+`wat-runtime-header` can declare two imports, `blit_framebuf` and `on_key`, each
+behind a flag. **Neither flag can be True for a program that assembles.**
+
+`$on_key_import` is emitted by no arm of the emitter at all — the only
+occurrence is the import line the flag guards — so `needs-key` is False always.
+That much was known when finding 6's fix went in.
+
+`blit-framebuf` is the same hole wearing a different coat, and finding 6's fix
+claimed to have improved it. It has exactly one producer, the `blit-framebuf` arm
+of `wat-try-builtin`. But **`blit-framebuf` is not a name the language has** — it
+is nowhere in `codex/foreword` — so:
+
+- a chapter that CALLS it without defining it halts at `CDX3002 Undefined name:
+  blit-framebuf`, before any plug runs;
+- a chapter that DEFINES it emits `(func $blit_framebuf …)` beside the import the
+  flag just turned on, and `wat2wasm` answers `error: redefinition of function
+  "$blit_framebuf"`. `wat-try-builtin` also hijacks the call sites ahead of the
+  arity map, so the calls come out with the wrong arity too.
+
+So `needs-blit` is True only for programs that cannot assemble anyway. **The
+commit that introduced the IR query asserted the opposite** — *"a chapter that
+DEFINES `blit-framebuf` … declared an import and a function under one name, which
+`wat2wasm` refuses. Asking about call sites cannot do that."* It can, and does:
+defining it and calling it sets the flag through the call. The query is correct
+and cheap and is not what is wrong here.
+
+The fix is not in this emitter: it is that both builtins need to be names the
+language offers, the way every other builtin is, so that a program can call one
+without defining it. That is finding 1's shape — an emitter arm with no reachable
+front end — and it is a foreword decision about the browser shim's API rather
+than a plug bug. Recorded, not fixed. `wasm-no-builtin` is named at the call site
+so that whoever fills the `on-key` hole cannot miss the second place that has to
+move with it.
 
 ---
 

@@ -29,8 +29,24 @@ bundles the wasm plug from.
     + PR 100  real-to-int / real-from-int, and real-to-bits / bits-to-real in
               the ZIG plug -- judge/Grade.codex calls real-to-bits to reject a
               non-finite value, so the checks do not build without them
-    + ours    e8486215 wasm plug: Real is an f64, not an i64 with f64 bits in it
-    head      e84862156905da3b3e533d1e89050af1a6877738
+              (37d7eed7, 13edc9a6, 2f7e7375)
+    + ours    e8486215  wasm: Real is an f64, not an i64 with f64 bits in it
+              b5b1bb74  wasm: a ^ b was emitting a * b; INT64_MIN garbage
+              121b61fb  wasm: ask the IR which imports a module needs
+              2aff6e4d  wasm: list literals in halves -- the 4 GiB ceiling
+              3c13334d  zig: join a list literal's elements once
+              1893cf1e  zig: emit a chapter one definition at a time
+              ab4612aa  wasm: a branch's GUARD is part of the branch
+              2660d3af  zig: size the prelude mask split to the table
+              e6f09556  wasm: neither env import is reachable
+              2a53929f  wasm: a scrutinee local per guard-nesting depth
+              15ef1862  the mask ceiling is a @compileError, not a hope
+    head      15ef1862532e0afdf5139bb1a67d0b34e4304381
+
+WASM_FINDINGS.md maps those to the eleven findings and says which are fixed.
+This block was left at `e8486215` for ten commits, which is the whole failure
+mode a pin exists to prevent: a stale pin is not a weaker claim than no pin, it
+is a false one.
 
 **The branch is an INTEGRATION branch and not a pull request.** Each change here
 also exists as a single-purpose branch off Update 53 for sending upstream
@@ -56,10 +72,13 @@ the safety checks are on and nothing here is a benchmark. A stray `-O` on one
 side of a comparison is how this project once made two binaries that were not
 comparable.
 
-    checkout  1c2d358a86c82e08e01a2c3952b17ad94f2f6ede
-              Rebuild on the real BITCASTS, from cobblestone-realbits
-    built     from cobblestone-safari; generated/PROVENANCE in that worktree
-              records the seed, the guests and what each one touched
+    checkout  432b80af08942a7d0a8ccb4ecea2470779d3da97
+              Rebuild on the guarded ceiling, with the guests this time
+    built     from cobblestone-safari 15ef1862, CLEAN -- no `+dirty`, which
+              means the record names a commit the build was actually made from.
+              generated/PROVENANCE in that worktree records the seed, the
+              guests and what each one touched: 462s, fixed point HOLDS
+              byte-identical at 2,463,047 bytes, arith matches all nine lines.
 
 ## The game: `HISTORICAL_WASM_ROOT/`
 

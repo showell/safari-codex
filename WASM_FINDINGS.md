@@ -19,9 +19,15 @@ arm), so where the two disagree the zig side has evidence behind it. A defect
 BOTH plugs share is invisible to this and `./harness/metal.py` is the arm that
 would see it.
 
-**Status.** Eleven findings, seven fixed and four open. Nothing has been sent
-upstream yet, and the fixes sit on the integration branch as separate commits so
-that each can be cherry-picked onto a single-purpose branch when it is:
+**Status.** Eleven findings, seven fixed and four open. **The seven fixed are
+SENT, as [Cobblestone PR 111](https://github.com/damiant3/Cobblestone/pull/111)**
+— eleven commits plus three tests, cut from Update 53 itself rather than from
+the integration branch, so the PR is independent of open PRs 100 and 105. The
+fixed point holds on that branch alone: 2,448,436 bytes each way, nine stages,
+three guests.
+
+The fixes sit on the integration branch as separate commits, which is what made
+that cherry-pick clean:
 
     cobblestone-safari  e8486215  finding 1, also on `wasm-plug-real-conversions`
                         b5b1bb74  findings 2 and 3

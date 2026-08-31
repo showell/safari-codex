@@ -26,6 +26,7 @@ frees turns an algorithmic mistake into an out-of-memory, which makes it very
 good at hiding one behind itself." A 696 KB unit costing 2.9 GB is that shape
 until measurement says otherwise.
 """
+import hashlib
 import os
 import pathlib
 import re
@@ -47,6 +48,20 @@ PWSH = str(pathlib.Path.home() / ".local/pwsh/pwsh")
 # beside the front end. Both bundles carry IRTextParser because both harnesses
 # take the IR text wire round trip -- that is load-bearing, not an optimisation
 # (CodexWasmHarness's own prose says why).
+#
+# THESE ARE A MATCHED PAIR, NOT THE SHIPPED BINARIES, and the difference matters
+# for how a number here may be quoted. The pair is what makes the front-end
+# comparison worth anything: one driver, one line apart, so a per-phase row that
+# differs is the emitter and cannot be anything else. What it is NOT is a
+# stand-in for `codexzig` itself. Since the zig plug learned to stream
+# (cobblestone-safari 1893cf1e) the shipped harness --
+# codexzig-safari/source/CodexZigHarness.codex -- ends `emit-zig-chapter-stream`
+# where the ladder's copy still ends `print-text (emit-zig-chapter ...)`, and it
+# runs four fewer front-end phases besides. So the zig arm here reports a peak
+# ABOVE the real binary's: 61 MB against 44 MB on world, measured 2026-08-31.
+# The wasm arm IS build/codexwasm's own harness, so the asymmetry is one-sided.
+# Quote the per-phase DELTAS from this table; take peak RSS from the plain
+# binaries.
 ARMS = {
     "zig": dict(harness=LADDER / "ast" / "CodexZigHarness.codex",
                 plug="codex/plugs/zig/ZigEmitter.codex", prefix="czg"),
@@ -67,11 +82,15 @@ def instrument(text):
     """
     lines = text.splitlines()
     start = next(i for i, l in enumerate(lines) if l.startswith("  opening :"))
-    out, marks, depth, pending = lines[:start], [], 0, None
+    out, marks, skipped, depth, pending = lines[:start], [], [], 0, None
+    # `else let` and not only `in let`: the IRTextMeta binding opens the else
+    # arm, and a pattern that misses it does not fail -- it silently drops the
+    # phase and shortens the table. That is what the count check below is for.
+    binding = re.compile(r"^(\s+)(?:in |else )?let ([a-z][a-z0-9-]*) = ")
     for line in lines[start:]:
         out.append(line)
         if pending is None:
-            m = re.match(r"^(\s+)(?:in )?let ([a-z][a-z0-9-]*) = ", line)
+            m = binding.match(line)
             if not m:
                 continue
             pending = m
@@ -79,12 +98,25 @@ def instrument(text):
         if depth > 0:
             continue
         indent, name = pending.group(1), pending.group(2)
-        # The deck prologue is the baseline, not a phase: mark after it and not
-        # inside it, so hp-0 is where the front end actually starts.
-        if name not in ("mountain-base", "deck-base", "deck-set"):
+        # The deck prologue is the baseline, not a phase: the first mark goes
+        # after it, so hp-1 is where the front end actually starts.
+        if name in ("mountain-base", "deck-base", "deck-set"):
+            skipped.append(name)
+        else:
             marks.append(name)
             out.append(f"{indent}in let hp-{len(marks)} = __heap-save")
         pending = None
+
+    # A DROPPED PHASE IS INVISIBLE IN THE OUTPUT -- the table is just shorter,
+    # and its cost folds silently into the row above. So every binding a looser
+    # pattern can see has to be one this pass accounted for. Found by review:
+    # the depth machinery above was dead code for a year because the pattern
+    # could not match `else let`, and nothing said so.
+    loose = re.findall(r"\blet ([a-z][a-z0-9-]*) = ", "\n".join(lines[start:]))
+    missed = [n for n in loose if n not in marks and n not in skipped]
+    if missed:
+        raise SystemExit("mem_probe: the driver has bindings this pass did not "
+                         f"mark, so the table would silently omit them: {missed}")
     text = "\n".join(out) + "\n"
 
     report = " & ".join(f'prof-line "{n}" hp-{i + 1}' for i, n in enumerate(marks))
@@ -131,6 +163,11 @@ HIGH_WATER = [
      "var cx_hp: i64 = 6291456;\nvar cx_hw: i64 = 6291456;"),
     ("    cx_hp = @intCast(base + len);\n    cx_deck_armed = false;",
      "    cx_hp = @intCast(base + len);\n    if (cx_hp > cx_hw) cx_hw = cx_hp;\n    cx_deck_armed = false;"),
+    # cx_bump_resize raises the frontier too -- it is bare metal's __list_snoc
+    # path 2, extending the topmost block in place -- so a transient driven by
+    # list growth is invisible without this second site. Found by review.
+    ("        cx_hp = @intCast(off + new_len);\n        return true;",
+     "        cx_hp = @intCast(off + new_len);\n        if (cx_hp > cx_hw) cx_hw = cx_hp;\n        return true;"),
     ("fn cx_heap_restore(h: i64) i64 {\n    cx_hp = h;",
      "fn cx_heap_restore(h: i64) i64 {\n    cx_hw_report(h);\n    cx_hp = h;"),
 ]
@@ -138,6 +175,13 @@ HIGH_WATER = [
 # Written on the same fd and in the same shape as cx_deck_report, so the two
 # traces read as one stream. `hw - h` is what the bracket about to close cost
 # transiently -- the number a per-definition emitter is judged on.
+#
+# ONE LEVEL DEEP. Resetting to `h` means an inner bracket's restore erases the
+# high-water an enclosing bracket had reached, so a nested outer transient reads
+# as only the part since the last inner restore. Both emitters bracket exactly
+# one level -- the traces show two distinct restore bases and no more -- so it
+# does not bite today; it is silent when it does, and a stack is what would fix
+# it.
 HW_REPORT = """
 fn cx_hw_report(h: i64) void {
     if (@import("builtin").os.tag != .linux) return;
@@ -180,8 +224,12 @@ def build(arm, force=False):
                    check=True, capture_output=True, text=True)
 
     exe = OUT / f"prof_{arm}"
+    # The stamp covers the PATCH as well as the bundle: editing HIGH_WATER and
+    # re-running without --force otherwise hands back a probe built from the old
+    # instrumentation, saying it is current.
     fp = subprocess.run(["sha256sum", str(subject)], capture_output=True, text=True,
                         check=True).stdout.split()[0]
+    fp += ":" + hashlib.sha256(repr(HIGH_WATER + [HW_REPORT]).encode()).hexdigest()[:16]
     stamp = OUT / f"prof_{arm}.fp"
     if not force and exe.is_file() and stamp.is_file() and stamp.read_text() == fp:
         print(f"  {arm}: probe is current ({fp[:12]})", file=sys.stderr)
@@ -217,7 +265,15 @@ def run(exe, unit, tag):
     peak, secs = t.read_text().strip().splitlines()[-1].split()[:2]
     rows = [(l.split()[1], int(l.split()[2])) for l in r.stdout.splitlines()
             if l.startswith("PROF ")]
-    return int(peak), float(secs), rows, r.returncode
+    # The binary emits three traces on this fd and the marks are only one of
+    # them. Dropping the other two is how the deck went missing from the
+    # accounting for a day: CX-DECK is the arena's own high-water, it lives
+    # INSIDE the reserved gap, and it is resident. CX-HW is the per-bracket
+    # transient, which is the whole story for a streaming emitter.
+    deck = max([int(l.split()[1].split("=")[1]) for l in r.stdout.splitlines()
+                if l.startswith("CX-DECK ")] or [0])
+    hw = [int(l.split()[1]) for l in r.stdout.splitlines() if l.startswith("CX-HW ")]
+    return int(peak), float(secs), rows, r.returncode, deck, hw
 
 
 def mb(n):
@@ -230,31 +286,50 @@ def report(unit, results):
     # stops at is the phase that killed it.
     names, seen = [], set()
     for arm in ("zig", "wasm"):
-        for n, _ in results.get(arm, (0, 0, [], 0))[2]:
+        for n, _ in results.get(arm, (0, 0, [], 0, 0, []))[2]:
             if n not in seen:
                 seen.add(n)
                 names.append(n)
     src = (ROOT / "build" / f"{unit}-unit.codex").stat().st_size
     print(f"\n{unit}-unit.codex: {src:,} bytes")
     print(f"  {'phase':<24} {'zig MB':>9} {'wasm MB':>9} {'delta':>9}")
-    # deck-adv is the 512 MB the harness reserves with __heap-advance. It is a
-    # GAP in the frontier, not memory: nothing touches it, so it never becomes
-    # resident and it is not part of any peak RSS below. Everything else is real.
-    prev = {a: 0 for a in results}
+    # deck-adv is the 512 MB the harness reserves with __heap-advance, and it is
+    # a GAP in the frontier rather than an allocation: page_allocator hands back
+    # lazily faulted pages, so the reservation is address space and costs
+    # nothing resident.
+    #
+    # THE DECK ITSELF IS NOT. It sits inside that gap, it is written, and it IS
+    # resident -- 47 MB on cat_draw, 6 MB on world, the same on both arms. An
+    # earlier version of this comment said "nothing touches it", which is how
+    # cat_draw's peak came to be 60 MB more than the phases explained: 294 (front
+    # end) + 398 (emit) = 692 against a measured 752, and the deck is the 47 that
+    # closes it. The `deck` row below is that number; it is not a phase delta and
+    # it is not inside any of them.
+    prev = {"zig": 0, "wasm": 0}
     for i, name in enumerate(names):
         cells = []
         for arm in ("zig", "wasm"):
-            rows = dict(results.get(arm, (0, 0, [], 0))[2])
+            rows = dict(results.get(arm, (0, 0, [], 0, 0, []))[2])
             v = rows.get(name, prev[arm])
             cells.append(v - prev[arm])
             prev[arm] = v
         if max(cells) < 1048576 // 2 and name not in ("EMIT",):
             continue
         print(f"  {name:<24} {mb(cells[0]):>9} {mb(cells[1]):>9} {mb(cells[1] - cells[0]):>9}")
+    deck = [results[a][4] if a in results else 0 for a in ("zig", "wasm")]
+    print(f"  {'deck (inside the gap)':<24} {mb(deck[0]):>9} {mb(deck[1]):>9}"
+          f" {mb(deck[1] - deck[0]):>9}")
+    worst = []
+    for arm in ("zig", "wasm"):
+        hw = results[arm][5] if arm in results else []
+        worst.append(max(hw) if hw else 0)
+    print(f"  {'worst bracket (transient)':<24} {mb(worst[0]):>9} {mb(worst[1]):>9}"
+          f" {mb(worst[1] - worst[0]):>9}")
     for arm in ("zig", "wasm"):
         if arm in results:
-            peak, secs, rows, rc = results[arm]
-            print(f"  {arm:<24} peak RSS {peak / 1024:,.0f} MB   {secs:.1f}s"
+            peak, secs, rows, rc, dk, hw = results[arm]
+            brackets = f"   {len(hw)} brackets" if hw else "   no brackets"
+            print(f"  {arm:<24} peak RSS {peak / 1024:,.0f} MB   {secs:.1f}s{brackets}"
                   + ("" if rc == 0 else f"   EXIT {rc}"))
 
 

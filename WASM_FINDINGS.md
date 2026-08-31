@@ -39,7 +39,7 @@ pull request.
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
 | 5 | exports come from another app's hardcoded name list | surface | open |
-| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | the wasm side **fixed** — all 17 units now emit; the zig plug has the same disease and is untouched |
+| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | **fixed in both plugs** — all 17 units emit, and `cat_draw` went 2,904→751 MB on the zig arm |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
@@ -241,18 +241,52 @@ cursor patched into the prelude for the part the marks cannot see.
 codexzig's 2,904 MB, 2,549 MB is `emit-zig-chapter` alone. There is no shared
 cost to attack; there are two emitters, and they fail in two different ways.
 
-### codexzig: the whole module is one `Text` — still open, and now the worse arm
+### codexzig: the same defect, in the same place — FIXED, `3c13334d`
 
 `emit-zig-chapter` returns the module as a single value and nothing is streamed,
-so every definition's working set is live at once and the concatenations pay the
-sum of their own suffixes — `PORTING_NOTES` C17's shape, one level up. Cost per
-byte of output, which is what says it is superlinear rather than merely large:
+so every definition's working set is live at once. Cost per byte of output,
+which is what says it was superlinear rather than merely large:
 
 | unit | zig emitted | emit cost | bytes of heap per byte out |
 |---|---|---|---|
 | `pond` | 31,211 | 5 MB | 160 |
 | `world` | 197,505 | 74 MB | 375 |
 | `cat_draw` | 2,555,224 | 2,549 MB | 998 |
+
+**A fixed cost per byte does not grow with the file**, and `emit-zig-list-elems`
+turned out to be the same right-recursive join the wasm plug had — in a file
+that already carries the argument against it. `emit-zig-defs`, three thousand
+lines down, says: *"joining N pieces with a right-recursive `&` copies every
+piece it has not reached yet, so the cost is the output size times the number of
+definitions rather than the output size. Collect and join once."* That note was
+written about the module; the elements of a list literal were left doing exactly
+what it warns against.
+
+Collect-and-join, this file's own idiom, byte-identical output:
+
+| unit | before | after |
+|---|---|---|
+| `pond` | 16 MB | 16 MB |
+| `world` | 116 MB | **60 MB** |
+| `cat_draw` | 2,904 MB | **751 MB** |
+| `safari` | — | 1,243 MB |
+
+**Time barely moves** — `cat_draw` 14.5 s → 14.1 s — and that is the honest
+reading of the whole finding: a bump allocator makes the allocation itself
+cheap, so what the quadratic bought was a CEILING, not a slowdown. It is also
+why it hid for so long, and why C17's warning that an allocator which never
+frees is very good at hiding an algorithmic mistake behind itself is the note
+that mattered here.
+
+The fixed point HOLDS byte-identical, `samples/arith` matches all nine lines,
+the emitted zig for `pond`, `world`, `cat_draw` and `safari` is byte-for-byte
+what the previous binary emitted, and `./harness/run.sh` is GREEN.
+
+**What is still open on this arm** is the shape rather than the constant: the
+zig plug builds the whole module as one `Text` where the wasm plug streams a
+definition at a time, so its cost is still the sum over definitions and not the
+max. At 751 MB for a 696 KB unit that is no longer a ceiling anyone is hitting,
+but it is the reason `codexzig` is still the more expensive of the two.
 
 ### codexwasm: it already HAD the fix codexzig lacks — FIXED, `2aff6e4d`
 
@@ -307,7 +341,8 @@ a truncated module. All seventeen agree with the zig arm.
 
 **And the comparison has inverted.** `world`, peak RSS: `codexzig` 116 MB,
 `codexwasm` **58 MB**. The finding opened by saying the wasm emitter costs 1.26x
-the zig one; it costs half, and the arm that is now not robust is `codexzig`.
+the zig one; it costs half. The zig plug has since had the same fix — below —
+and lands at 60 MB, so the two arms now agree to within 3%.
 
 The same right-recursive shape is in seventeen other emitters in
 `WasmEmitter.codex` — params, locals, apply args, exports — and is harmless in

@@ -245,17 +245,25 @@ A9. A TEXT LITERAL OPENED AT THE END OF A LINE IS SILENTLY EMPTY.   [DEFECT]
     `terminated` test three lines below, so the one input that produces an empty
     scan is the one input that skips the check.
 
-    THE OBVIOUS FIX IS WRONG, and the first version of this note proposed it.
-    Removing the early return, or hoisting the terminated test above it, changes
-    nothing: scan-string-body is entered AFTER the opening quote (:421 calls it
-    as `scan-string-body (advance-char s)`), so when stop == st.offset the test's
-    `stop - 1` indexes the OPENING quote and `terminated` comes out True. The
-    check cannot tell the two cases apart because it never asks whether the scan
-    consumed anything. The clause that closes it is `stop > entry`, against an
-    entry offset captured before the `__seq` mutation, in place of `stop > 0`.
+    NEITHER OBVIOUS FIX WORKS ALONE, and the first two versions of this note
+    each proposed one of them. Removing the early return, or hoisting the
+    terminated test above it, changes nothing: scan-string-body is entered AFTER
+    the opening quote (:421 calls it as `scan-string-body (advance-char s)`), so
+    when stop == st.offset the test's `stop - 1` indexes the OPENING quote and
+    `terminated` comes out True. But `stop > entry` alone changes nothing
+    either -- while the early return at :263 stands, the clause is dead code on
+    the only input this is about, because that input is exactly stop ==
+    st.offset. The fix is BOTH: remove the early return and require the scan to
+    have advanced, against an entry offset captured before the `__seq` mutation.
     Keep `stop <= len` -- an escape skip is `offset + 2`, so a trailing backslash
     at EOF returns len + 1 -- and note that a real `""` gives stop == entry + 1
     and still passes.
+
+    MEASURED 2026-08-31 with three candidate compilers from
+    safari-codex/harness/build_codexzig_try.sh (host-only, no guest): early
+    return removed alone, exit 0 and no diagnostic; `stop > entry` alone, exit 0
+    and no diagnostic; both, halts with CDX7. With both, ./harness/run.sh is
+    GREEN and a terminated control literal emits byte-identical zig.
 
     A quote that is the last byte of the FILE takes the same path and is silently
     empty too, so this is not only an end-of-line rule.

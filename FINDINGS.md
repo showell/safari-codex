@@ -4,7 +4,7 @@ Nine, each self-contained: what was observed, how to reproduce it, and what the
 fix looks like. Seven are owed to Cobblestone and the zig plug, two to
 angry-gopher, and the two halves are independent.
 
-**Status, 2026-08-31.** Three are sent and six are not:
+**Status, 2026-08-31.** Four are sent and five are not:
 
 | | what | where it went |
 |---|---|---|
@@ -600,7 +600,7 @@ next line becomes a second `""` and vanishes. The newline is gone.
 
 **The rule exists and only this case escapes it.** One character before the
 newline — `"a" & n & "b` — halts properly with CDX7, *Unterminated text literal:
-hit end of line before closing `"`*. `Syntax/Lexer.codex:259-271` is why:
+hit end of line before closing `"`*. `Syntax/Lexer.codex:259-272` is why:
 
 ```
   scan-string-body (st) =
@@ -616,31 +616,55 @@ hit end of line before closing `"`*. `Syntax/Lexer.codex:259-271` is why:
 three lines above the `terminated` test. **The one input that produces an empty
 scan is the one input that skips the check.**
 
-**The obvious fix does not work, and that is worth writing down.** Dropping the
-early return, or hoisting the `terminated` test above it, leaves the program
-accepted in silence — because `scan-string-body` is entered AFTER the opening
-quote (`Lexer.codex:421` calls it as `scan-string-body (advance-char s)`). With
+**Neither obvious fix works, and it takes both of them.** Dropping the early
+return, or hoisting the `terminated` test above it, leaves the program accepted
+in silence — because `scan-string-body` is entered AFTER the opening quote
+(`Lexer.codex:421` calls it as `scan-string-body (advance-char s)`). With
 `stop == st.offset`, `stop - 1` indexes **the opening quote itself**, so
 `terminated` comes out True and there is nothing to report. The check is not
 being skipped by bad luck; it cannot tell an unterminated literal from a
 terminated one, because it never asks whether the scan consumed anything.
 
-What closes it is one clause. Capture the entry offset before the `__seq`
-mutation moves it, and require the scan to have advanced:
+And the clause that would teach it to ask is unreachable while the early return
+stands: on the one input this is about, `stop == st.offset` *exactly*, so
+`Lexer.codex:263` returns four lines above the test. **Each change alone is a
+no-op. The fix is both**, with the entry offset captured before the `__seq`
+mutation moves it:
 
 ```
+  scan-string-body (st) =
+   let len = text-length (st.source)
    in let entry = st.offset
    in let stop = scan-string-end (st.source) (st.offset) len
-   ...
+   in let new-col = st.column + (stop - entry)        <-- no early return above
+   in let __seq = st.offset = stop
+   in let __seq = st.column = new-col
    in let terminated = stop <= len & stop > entry
                      & char-code-at (st.source) (stop - 1) == cc-double-quote
+   in if terminated then st
+      else ...the error push, unchanged...
 ```
 
 `stop > entry` replaces `stop > 0`, and it says the thing that matters: a
-closing quote is a quote the scan reached, not the one it started behind. The
-early return can go at the same time — the four siblings at `Lexer.codex:171`,
-`:208`, `:226` and `:244` show the shape is a genuine no-op, so removing it is
-behaviour-preserving — but removing it is not what fixes this.
+closing quote is a quote the scan reached, not the one it started behind.
+
+**Measured 2026-08-31**, three candidate compilers built through
+`harness/build_codexzig_try.sh` — host-only, no guest, about a minute each:
+
+| variant | on the case above |
+|---|---|
+| early return removed, clause unchanged | exit 0, no diagnostic, still `""` |
+| `stop > entry`, early return kept | exit 0, no diagnostic, still `""` |
+| **both** | **halts, `CDX7 Unterminated text literal`** |
+
+With both, `./harness/run.sh` is GREEN across all seventeen checks and a
+terminated control literal emits byte-identical zig.
+
+The four sibling no-op returns at `Lexer.codex:171`, `:208`, `:226` and `:244`
+are why removing this one is *safe*, not why it is optional: they have nothing
+after them, and this one has the `terminated` test and the error push below it.
+That is the whole difference, and the first version of this entry read it the
+wrong way round.
 
 `stop <= len` must stay. `scan-string-end` skips an escape with `offset + 2`, so
 a trailing backslash at end of file returns `len + 1`, and `stop - 1` would read

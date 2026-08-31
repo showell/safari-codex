@@ -1,0 +1,17 @@
+Chapter: BlitName
+
+ A LOCAL NAMED LIKE A BUILTIN. `wat-expr-calls-name` asks whether the name
+ OCCURS, not whether it is CALLED, so an ordinary binding spelled
+ `blit-framebuf` sets `needs-blit` and the module carries an `env` import that
+ nothing can satisfy. It assembles; it fails at instantiation.
+
+ Expected, and what the zig plug prints: 84.
+
+  double : Integer -> Integer
+  double (n) =
+   let blit-framebuf = n * 2
+   in blit-framebuf + blit-framebuf
+
+  opening : [Console] Nothing = act
+    print-line-uni (show (double 21))
+  end

@@ -19,7 +19,7 @@ arm), so where the two disagree the zig side has evidence behind it. A defect
 BOTH plugs share is invisible to this and `./harness/metal.py` is the arm that
 would see it.
 
-**Status.** Nine findings, five fixed and four open. Nothing has been sent
+**Status.** Eleven findings, seven fixed and four open. Nothing has been sent
 upstream yet, and the fixes sit on the integration branch as separate commits so
 that each can be cherry-picked onto a single-purpose branch when it is:
 
@@ -32,9 +32,11 @@ that each can be cherry-picked onto a single-purpose branch when it is:
                         2660d3af  1893cf1e's mask split, guarded
                         ab4612aa  finding 8
                         e6f09556  finding 9, recorded rather than fixed
+                        2a53929f  findings 10 and 11
 
-**Findings 8 and 9 came from a COLD REVIEW of the four commits above them, not
-from the probes.** That is the useful fact about them: the corpus was green, the
+**Findings 8 through 11 came from COLD REVIEWS rather than from the probes** —
+8 and 9 from a review of the four commits above them, 10 and 11 from a second
+review of the commits that fixed those. That is the useful fact about them: the corpus was green, the
 byte comparisons were green, and both defects were sitting in code the sweep
 cannot reach. Finding 8 is a silent wrong answer that had been there all along.
 
@@ -52,6 +54,8 @@ pull request.
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 | 8 | a text literal in a match-branch GUARD is missing from the string table | **silent wrong answer** | **fixed** |
 | 9 | neither `env` import can be reached by any program | wrong module / hole | open |
+| 10 | a `when` inside a GUARD overwrites the scrutinee the branches below read | **silent wrong answer** | **fixed** |
+| 11 | `needs-blit` asked whether the name OCCURS, not whether it is called | wrong module | **fixed** |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
 `node:wasi` aborts on modules with a large linear memory. It is at the bottom.
@@ -578,6 +582,69 @@ so that whoever fills the `on-key` hole cannot miss the second place that has to
 move with it.
 
 ---
+
+## 10. A `when` inside a guard overwrites the scrutinee — FIXED
+
+`emit-wat-match` parks the scrutinee in ONE per-function local and the
+else-chain re-reads it for every branch below. The guard is emitted INSIDE that
+chain's condition — five sites in `emit-wat-match-arm`/`emit-wat-ctor-pat` and
+five more in the TCO twin — so a match in a guard reassigned the local and every
+later branch then dispatched on the INNER scrutinee.
+
+```
+  classify (v) =
+   when v
+    is Boxed (x) when (when x is 7 -> True is otherwise -> False) -> 100
+    is Boxed (y) -> 200 + y
+    is Plain (z) -> 300 + z
+```
+
+    zig plug   100 / 205 / 305      wasm plug   100 / 720575940396056776 / 305
+
+It assembles, `wat2wasm` is happy, and the answer is a pointer read as an
+integer. `probe/plug/guardnest.codex`. The match has to be INLINE in the guard:
+a call to a function whose body is a match compiles to a separate wasm function
+with a scrutinee local of its own and agrees — which is also why the port never
+saw this, and why the inliner can produce the shape from code that does not
+contain it.
+
+**Fixed in `2a53929f`**: the scrutinee local is per guard-nesting depth. A match
+in a branch BODY still shares the local, correctly — once a body is selected the
+else-chain is dead. The names are unary (`_s`, `_ss`, `_sss`) so the locals
+collector shifts a guard's names by one and merges, instead of threading a depth
+parameter it could get out of step with. All 17 units come out BYTE-IDENTICAL,
+because nothing in the port nests a match in a guard.
+
+**This is the third defect in a row in the walkers around match branches**, and
+the first two were found by the reviews of the commits that fixed the ones
+before. Finding 8 fixed the string table's blind spot toward guards; this is the
+same blind spot in the emitter half, which that fix's own comment declared
+swept.
+
+## 11. `needs-blit` asked whether the name occurs, not whether it is called — FIXED
+
+`wat-expr-calls-name`'s `IrName` arm was `nm == n`. That is an OCCURRENCE test,
+so an ordinary binding spelled like the builtin set the flag:
+
+```
+  double (n) =
+   let blit-framebuf = n * 2
+   in blit-framebuf + blit-framebuf
+```
+
+emits `(import "env" "blit_framebuf" ...)`, **assembles**, and dies at
+instantiation with `unknown import: env::blit_framebuf`. A parameter of that
+name does the same. `probe/plug/blitname.codex`; 84 both ways now.
+
+`121b61fb` introduced the query to replace a text scan over the emitted module,
+and `e6f09556` reviewed it and said in as many words that it "is correct and
+cheap, and it is not what is wrong here". Both were describing what the walker
+was meant to ask rather than what it asked. **Fixed in `2a53929f`**: a call is a
+name in the HEAD of an apply spine.
+
+Finding 9 stands as written — both builtins remain unreachable by any program
+that assembles, and this fix does not change that. What it removes is a way for
+a program with no interest in the builtin to emit an import for it.
 
 ## Not the plug: `node:wasi` aborts on a large linear memory
 

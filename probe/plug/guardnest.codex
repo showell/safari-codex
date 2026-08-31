@@ -1,0 +1,32 @@
+Chapter: GuardNest
+
+ A MATCH INSIDE A GUARD. `emit-wat-match` parks the scrutinee in ONE per-function
+ local, `$_s`, and emits each branch's guard INSIDE the condition -- before the
+ else-chain re-reads `$_s` for the branches below. A `when` in a guard reassigns
+ it, so once that guard is false every later branch dispatches on the INNER
+ scrutinee instead of the outer one.
+
+ `Boxed 5` is the case: its guard runs, the inner `when` overwrites `$_s` with 5,
+ the guard is false, and the `is Boxed (y)` arm below then reads a `$_s` that no
+ longer holds the Boxed record. The match must be INLINE in the guard: a call to
+ a function whose body is a match is compiled as a separate wasm function with a
+ `$_s` of its own, and agrees.
+
+ Expected, and what the zig plug prints: 100, 205, 305.
+
+  Box =
+    | Boxed (Integer)
+    | Plain (Integer)
+
+  classify : Box -> Integer
+  classify (v) =
+   when v
+    is Boxed (x) when (when x is 7 -> True is otherwise -> False) -> 100
+    is Boxed (y) -> 200 + y
+    is Plain (z) -> 300 + z
+
+  opening : [Console] Nothing = act
+    print-line-uni (show (classify (Boxed 7)))
+    print-line-uni (show (classify (Boxed 5)))
+    print-line-uni (show (classify (Plain 5)))
+  end

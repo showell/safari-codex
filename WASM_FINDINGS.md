@@ -33,6 +33,13 @@ that each can be cherry-picked onto a single-purpose branch when it is:
                         ab4612aa  finding 8
                         e6f09556  finding 9, recorded rather than fixed
                         2a53929f  findings 10 and 11
+                        15ef1862  the mask ceiling as a gate, and the comment
+                                  corrections a second cold review forced
+
+Built and shipped: `codexzig-safari` 432b80a is the binary every arm here runs,
+rebuilt through nine stages and three guests on 15ef1862 -- fixed point HOLDS
+byte-identical, and the 27 units emit byte-identical zig against the compiler
+from before all of it.
 
 **Findings 8 through 11 came from COLD REVIEWS rather than from the probes** —
 8 and 9 from a review of the four commits above them, 10 and 11 from a second

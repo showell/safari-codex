@@ -39,7 +39,7 @@ pull request.
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
 | 5 | exports come from another app's hardcoded name list | surface | open |
-| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | **fixed in both plugs** — all 17 units emit, and `cat_draw` went 2,904→751 MB on the zig arm |
+| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | **fixed in both plugs** — all 17 units emit, and `cat_draw` went 2,904→418 MB on the zig arm |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
@@ -282,11 +282,41 @@ The fixed point HOLDS byte-identical, `samples/arith` matches all nine lines,
 the emitted zig for `pond`, `world`, `cat_draw` and `safari` is byte-for-byte
 what the previous binary emitted, and `./harness/run.sh` is GREEN.
 
-**What is still open on this arm** is the shape rather than the constant: the
-zig plug builds the whole module as one `Text` where the wasm plug streams a
-definition at a time, so its cost is still the sum over definitions and not the
-max. At 751 MB for a 696 KB unit that is no longer a ceiling anyone is hitting,
-but it is the reason `codexzig` is still the more expensive of the two.
+**The shape was the other half, and it is fixed too — `1893cf1e`.** With the
+quadratic gone, the zig emitter's cost per byte of output is flat at 96–160
+across `pond`, `world` and `cat_draw`. Flat is not safe: it is a SUM over
+definitions, so it grows with the module, and there is no unit large enough to
+be safe — only units small enough to have got away with it.
+`emit-zig-chapter-stream` marks the heap, emits one definition, prints it and
+restores, which makes the cost the max.
+
+**The obstacle is worth naming, because it is what kept this emitter whole-text
+while the wasm one streamed.** `zig-prelude-for` shakes the prelude against the
+FINISHED program text — it searches it for each of a hundred part names — so an
+emitter that prints a definition and forgets it has nothing left to search. The
+answer is to ask the question definition by definition and carry only the
+answer: a hundred yes/no bits is two `Integer`s, and an integer is a scalar, so
+both survive a `__heap-restore` where a list would not.
+
+| unit | before | after |
+|---|---|---|
+| `pond` | 16 MB | 13 MB |
+| `world` | 60 MB | **44 MB** |
+| `cat_draw` | 752 MB | **418 MB** |
+| `safari` | 1,243 MB | **674 MB** |
+
+`emit-zig-chapter` is **kept and is not a fallback**: `ZigPlug`, `ZigStdio` and
+`ZigPlugRing` still call it, so the ring plug that compiles this emitter on bare
+metal emits the whole-text way while the native binary streams — and **the
+transpiler's fixed point then compares the two paths against each other** on
+2.98 MB of the compiler's own source. It holds byte-identical, which is a better
+test of the change than anything written for it.
+
+Against where finding 6 started, `cat_draw` through `codexzig` is 2,904 → 418
+MB, and most of what is left is the front end's own 294 MB rather than the
+emitter's. `./harness/build_codexzig_try.sh` is what made this cheap to iterate
+on: `build.py`'s three host-only stages, about a minute, no guest, and every arm
+takes the candidate through `CODEXZIG`.
 
 ### codexwasm: it already HAD the fix codexzig lacks — FIXED, `2aff6e4d`
 

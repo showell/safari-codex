@@ -614,14 +614,52 @@ hit end of line before closing `"`*. `Syntax/Lexer.codex:259-271` is why:
 `scan-string-end` stops at the newline and returns the offset it was given, so
 `stop == st.offset`, and the early return for "the scan advanced nothing" fires
 three lines above the `terminated` test. **The one input that produces an empty
-scan is the one input that skips the check.** Moving the terminated test above
-the early return, or dropping the early return, closes it.
+scan is the one input that skips the check.**
 
-**It is already in shipped code**, which is how it was found. `czg-halted` in
-`ast/CodexZigHarness.codex` and `cwm-halted` in this project's copy are both
-written this way, and neither emits the trailing newline it appears to — the
-halt message runs into whatever is printed next. Cosmetic where it landed; the
-class is the reason to send it.
+**The obvious fix does not work, and that is worth writing down.** Dropping the
+early return, or hoisting the `terminated` test above it, leaves the program
+accepted in silence — because `scan-string-body` is entered AFTER the opening
+quote (`Lexer.codex:421` calls it as `scan-string-body (advance-char s)`). With
+`stop == st.offset`, `stop - 1` indexes **the opening quote itself**, so
+`terminated` comes out True and there is nothing to report. The check is not
+being skipped by bad luck; it cannot tell an unterminated literal from a
+terminated one, because it never asks whether the scan consumed anything.
+
+What closes it is one clause. Capture the entry offset before the `__seq`
+mutation moves it, and require the scan to have advanced:
+
+```
+   in let entry = st.offset
+   in let stop = scan-string-end (st.source) (st.offset) len
+   ...
+   in let terminated = stop <= len & stop > entry
+                     & char-code-at (st.source) (stop - 1) == cc-double-quote
+```
+
+`stop > entry` replaces `stop > 0`, and it says the thing that matters: a
+closing quote is a quote the scan reached, not the one it started behind. The
+early return can go at the same time — the four siblings at `Lexer.codex:171`,
+`:208`, `:226` and `:244` show the shape is a genuine no-op, so removing it is
+behaviour-preserving — but removing it is not what fixes this.
+
+`stop <= len` must stay. `scan-string-end` skips an escape with `offset + 2`, so
+a trailing backslash at end of file returns `len + 1`, and `stop - 1` would read
+past the source. And a real empty literal must keep working: `""` gives
+`stop == entry + 1`, which passes the new clause and reads the CLOSING quote.
+
+**Scope: one caller.** `Lexer.codex:421` is the only one, so the change is
+contained. **It is not only end-of-line**: a quote that is the last byte of the
+file takes the same path through `scan-string-end`'s `if offset >= len` and is
+silently empty too.
+
+**It is already in shipped code**, which is how it was found — and the instances
+are GENERATED rather than typed. `codex-zig-ladder/ast/emit_harness.py:240-241`
+builds the `<prefix>-halted` definition with a literal newline inside the quotes,
+so `czg-halted` in `ast/CodexZigHarness.codex`, `cwm-halted` in this project's
+copy, and every other harness that generator emits all carry it; none emits the
+trailing newline it appears to. The consequence there is only cosmetic —
+`ast/f4_boot.py:48` matches `CODEGEN-HALTED` with `startswith` on the first
+line, so detection is unaffected — and the class is the reason to send it.
 
 Repro: `poc/EmptyLiteral.codex`, through `codexzig` or any plug — this is the
 front end, so every arm agrees.

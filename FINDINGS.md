@@ -11,7 +11,7 @@ angry-gopher, and the two halves are independent.
 | 1 | `OvError` becomes a wrapping multiply | **SENT** — [issue 109](https://github.com/damiant3/Cobblestone/issues/109) |
 | 2 | Cordic's accuracy vs its docstring | **SENT** — [PR 108](https://github.com/damiant3/Cobblestone/pull/108) |
 | 3 | single-letter names collide | **not sent** — a one-line rename |
-| 4 | a one-caller definition is inlined away | **SENT** — [issue 110](https://github.com/damiant3/Cobblestone/issues/110) |
+| 4 | a one-caller definition is inlined away | **SENT** — [issue 110](https://github.com/damiant3/Cobblestone/issues/110), plus the measurement it asked for ([comment](https://github.com/damiant3/Cobblestone/issues/110#issuecomment-5486334032), 2026-08-31) |
 | 5 | the zig arm reports no diagnostics | **ANSWERED — ours, not upstream.** Nothing to send |
 | 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
 | 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |

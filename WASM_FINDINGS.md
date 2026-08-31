@@ -804,8 +804,8 @@ So `inline-single-caller` runs on the native road and not on the guest one. Any
 check containing a one-caller function differs, and a check containing none does
 not. **An earlier session had already derived that pass's rule from the compiler
 source, independently and for another reason** -- see
-`outbound/item4-inline-single-caller-issue.md`, an unsent draft asking upstream
-whether an erased definition should be visible. It reaches the same mechanism
+`outbound/item4-inline-single-caller-issue.md`, the draft behind **issue 110**,
+which asks upstream whether an erased definition should be visible. It reaches the same mechanism
 from `IR/Lowering.codex:2429` without ever looking at a WAT, which is the
 corroboration this finding would otherwise be missing — All three checks measured differ, so the claim "they are, on every check
 here" was more likely never measured than measured on checks that happen to
@@ -834,8 +834,24 @@ pipeline the plug's own documentation says it should not be run under, and
 17/17 pass anyway.** Either the hazard is narrower than the docstring claims, or
 these checks do not reach it. Worth knowing which before choosing.
 
+**The divergence paid for itself before it was fixed.** Issue 110's own "what we
+have not done" said the pass's scale was unmeasured and that `inline-leaf-calls`
+might account for cases blamed on `inline-single-caller`. Diffing the two roads
+answers both, because a definition the pipeline erased is exactly one present on
+this road and absent on that one: nine across Num, Truck and GuardRail, and
+**eight are `inline-single-caller` only** -- their bodies still contain calls, so
+they are not leaves, and each is referenced exactly once. `$both_sides` is a leaf
+and stays ambiguous. Truck alone, a four-line check, loses seven: `bull_of`,
+`step_at`, `next_tree_along`, `tree_x_for`, `r_tan`, `truck_schedule`,
+`course_length`. Posted to issue 110 on 2026-08-31.
+
+So a mode that cannot attribute a difference between two EMITTERS turned out to
+attribute one between two PIPELINES exactly. That is worth keeping in mind when
+choosing the fix: making both roads run the same pipeline would close finding 13
+and also blind the only instrument that has ever measured this pass on real code.
+
 Until then `--native --all` is the arm; `--both` reports a difference it cannot
-attribute.
+attribute to an emitter.
 
 ## Not the plug: `node:wasi` aborts on a large linear memory
 

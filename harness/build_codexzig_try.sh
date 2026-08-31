@@ -55,17 +55,23 @@ subject=build/codexzig-try-subject.codex
 
 out=build/codexzig-try/generated
 mkdir -p "$out/local"
-want=$(sha256sum "$subject" | awk '{print $1}')
-if [ "${1:-}" != "--force" ] && [ -x "$out/local/codexzig" ] \
-   && [ "$(cat "$out/local/codexzig.fp" 2>/dev/null)" = "$want" ]; then
-    echo "the candidate already matches this bundle (${want:0:12}) -- not rebuilding" >&2
-    printf '%s' "$root/$out/local/codexzig"; exit 0
-fi
 
 # The transpiler that compiles the candidate is the CURRENT one, deliberately:
 # what is being tested is the emitter's OUTPUT, so the compiler producing the
 # candidate should be the known-good binary and not the candidate itself.
+#
+# It is RESOLVED BEFORE the freshness check and folded into the key, because the
+# candidate is a function of both. Keying on the bundle alone -- which this did
+# until a review caught it -- hands back a stale binary saying "already matches
+# this bundle" after the base codexzig has been rebuilt underneath it, which is
+# the one situation where a candidate is most likely to be wrong.
 codexzig="$("$root/harness/build_codexzig.sh")"
+want=$( { sha256sum "$subject"; sha256sum "$codexzig"; } | sha256sum | awk '{print $1}')
+if [ "${1:-}" != "--force" ] && [ -x "$out/local/codexzig" ] \
+   && [ "$(cat "$out/local/codexzig.fp" 2>/dev/null)" = "$want" ]; then
+    echo "the candidate already matches this bundle and this codexzig (${want:0:12})" >&2
+    printf '%s' "$root/$out/local/codexzig"; exit 0
+fi
 echo "transpiling $(wc -c < "$subject") bytes with $codexzig..." >&2
 "$codexzig" < "$subject" 2> "$out/codexzig.qemu.zig" > "$out/local/codexzig.diag" || true
 if ! grep -q "^// THE PRELUDE" "$out/codexzig.qemu.zig"; then

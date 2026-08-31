@@ -110,12 +110,17 @@ def native_wat(mod, src):
         subprocess.run([binary], stdin=fi, stderr=fe, stdout=fo)
     text = wat.read_text()
     if not text.startswith("(module"):
-        # THE HEAP IS THE NATIVE ROAD'S ONE LIMIT, and it is structural rather
-        # than a tuning miss. The guest road is two processes and each gets a
-        # fresh bump heap; this is one process doing both halves on one heap that
-        # never reclaims, so the front end's peak and the emitter's peak add up.
-        # Three units here exceed the prelude's 4 GiB reserve. Say which, and let
-        # the run continue -- the other fourteen are still evidence.
+        # THE HEAP USED TO BE THE NATIVE ROAD'S ONE LIMIT. Three units --
+        # Critter, CatDraw and Safari -- exceeded the prelude's 4 GiB reserve,
+        # because this is one process doing both halves on one heap that never
+        # reclaims where the guest road is two processes with a fresh heap each.
+        # NOT ANY MORE: the emitters stopped allocating a quadratic amount
+        # (cobblestone-safari 2aff6e4d, 1893cf1e) and all seventeen now emit,
+        # the largest at 680 MB. WASM_FINDINGS 6 is the measurement.
+        #
+        # The refusal stays because it is the honest shape for this arm: say
+        # which unit produced no module and let the run continue, so one failure
+        # does not cost the evidence from the other sixteen.
         first = text.splitlines()[0] if text.strip() else "(no output)"
         print(f"  codexwasm produced no module: {first[:120]}", flush=True)
         return None

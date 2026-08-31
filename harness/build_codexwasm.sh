@@ -51,10 +51,16 @@ back=../../safari-codex
     -MoreChapters @('codex/plugs/common/IRTextParser.codex','codex/plugs/wasm/WasmEmitter.codex')
 " | tail -1 >&2
 
-want=$(sha256sum "$subject" | awk '{print $1}')
+# The key covers the CODEXZIG as well as the bundle, because the binary is a
+# function of both: rebuild the base transpiler underneath this and a key on the
+# bundle alone hands back a stale codexwasm saying it already matches -- in the
+# one situation where it is most likely to be wrong. Same fix as 02a90f6 in
+# build_codexzig_try.sh, found by the review of that commit; $codexzig is
+# already resolved above.
+want=$( { sha256sum "$subject"; sha256sum "$codexzig"; } | sha256sum | awk '{print $1}')
 if [ "${1:-}" != "--force" ] && [ -x build/codexwasm ] \
    && [ "$(cat build/codexwasm.fp 2>/dev/null)" = "$want" ]; then
-    echo "build/codexwasm already matches this bundle (${want:0:12}) -- not rebuilding" >&2
+    echo "build/codexwasm already matches this bundle and this codexzig (${want:0:12}) -- not rebuilding" >&2
     printf '%s' "$root/build/codexwasm"; exit 0
 fi
 

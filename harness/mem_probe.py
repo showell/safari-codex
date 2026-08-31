@@ -224,19 +224,27 @@ def build(arm, force=False):
                    check=True, capture_output=True, text=True)
 
     exe = OUT / f"prof_{arm}"
-    # The stamp covers the PATCH as well as the bundle: editing HIGH_WATER and
-    # re-running without --force otherwise hands back a probe built from the old
-    # instrumentation, saying it is current.
-    fp = subprocess.run(["sha256sum", str(subject)], capture_output=True, text=True,
-                        check=True).stdout.split()[0]
+    # The stamp covers all THREE inputs the probe binary is a function of: the
+    # bundle, the patch, and the codexzig that compiles them. The patch is in it
+    # because editing HIGH_WATER and re-running without --force otherwise hands
+    # back a probe built from the old instrumentation, saying it is current. The
+    # COMPILER is in it for the same reason one commit later: rebuild the base
+    # transpiler -- which is exactly what you do when testing an emitter change,
+    # and the only reason to run this script -- and a stamp on the bundle alone
+    # says "probe is current" about binaries the old compiler produced. That is
+    # build_codexzig_try.sh's bug (02a90f6), which this file was edited beside
+    # and did not learn from. So codexzig is resolved BEFORE the check.
+    codexzig = subprocess.run([str(ROOT / "harness/build_codexzig.sh")],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    fp = subprocess.run(["sha256sum", str(subject), codexzig], capture_output=True,
+                        text=True, check=True).stdout
+    fp = hashlib.sha256(fp.encode()).hexdigest()[:32]
     fp += ":" + hashlib.sha256(repr(HIGH_WATER + [HW_REPORT]).encode()).hexdigest()[:16]
     stamp = OUT / f"prof_{arm}.fp"
     if not force and exe.is_file() and stamp.is_file() and stamp.read_text() == fp:
         print(f"  {arm}: probe is current ({fp[:12]})", file=sys.stderr)
         return exe
 
-    codexzig = subprocess.run([str(ROOT / "harness/build_codexzig.sh")],
-                              capture_output=True, text=True, check=True).stdout.strip()
     zsrc = OUT / f"prof_{arm}.zig"
     print(f"  {arm}: transpiling {subject.stat().st_size} bytes...", file=sys.stderr)
     with open(subject) as fi, open(zsrc, "w") as fe, open(OUT / f"prof_{arm}.diag", "w") as fo:

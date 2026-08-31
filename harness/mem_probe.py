@@ -155,9 +155,15 @@ Section: Profile
 # sees it and the marks do not -- which is exactly the 63 MB the world table
 # could not account for.
 #
-# So the prelude gets a high-water cursor. Three substitutions, each required to
+# So the prelude gets a high-water cursor. FOUR substitutions, each required to
 # match EXACTLY ONCE, the same rule harness/wasmify.py uses on the same file: a
-# prelude that drifts fails here instead of silently measuring nothing.
+# prelude that drifts fails here instead of silently measuring nothing. (It said
+# three for as long as there were four.)
+#
+# cx_heap_advance is a THIRD writer of cx_hp and is deliberately not patched: it
+# advances the frontier over a reservation without touching a byte, and this
+# cursor measures residency. Reachable from Codex -- `__heap-advance`, which
+# emit-build calls -- so the omission is a decision, not an oversight.
 HIGH_WATER = [
     ("var cx_hp: i64 = 6291456;",
      "var cx_hp: i64 = 6291456;\nvar cx_hw: i64 = 6291456;"),
@@ -262,7 +268,11 @@ def build(arm, force=False):
 
 # -------------------------------------------------------------------- running
 
-def run(exe, unit, tag):
+def strip_prefix(name, prefix):
+    return name[len(prefix) + 1:] if name.startswith(prefix + "-") else name
+
+
+def run(exe, unit, tag, prefix):
     t = OUT / f"{tag}.time"
     with open(unit) as fi, open(OUT / f"{tag}.prog", "w") as fe:
         r = subprocess.run(["/usr/bin/time", "-f", "%M %e", "-o", str(t), str(exe)],
@@ -271,8 +281,16 @@ def run(exe, unit, tag):
     # child dies, and the transpiler dying on a big unit is the case this exists
     # to measure -- so read the LAST line, not the first.
     peak, secs = t.read_text().strip().splitlines()[-1].split()[:2]
-    rows = [(l.split()[1], int(l.split()[2])) for l in r.stdout.splitlines()
-            if l.startswith("PROF ")]
+    # THE ARM PREFIX COMES OFF so the two arms' phases line up. The drivers
+    # name five bindings `czg-bset...czg-bag` against `cwm-bset...cwm-bag`; left
+    # as they are, those ten names never match, the union puts them in sequence,
+    # and each arm's five fold silently into whichever row follows -- in the one
+    # tool whose premise is that a differing row means the emitter and nothing
+    # else. `czg-bset` is 288,840 bytes, 55% of the suppression threshold below,
+    # so this was one builtin-table growth away from printing two spurious
+    # differing rows. The `prefix` field existed for this and nothing read it.
+    rows = [(strip_prefix(l.split()[1], prefix), int(l.split()[2]))
+            for l in r.stdout.splitlines() if l.startswith("PROF ")]
     # The binary emits three traces on this fd and the marks are only one of
     # them. Dropping the other two is how the deck went missing from the
     # accounting for a day: CX-DECK is the arena's own high-water, it lives
@@ -289,9 +307,16 @@ def mb(n):
 
 
 def report(unit, results):
-    # A row can be MISSING rather than zero: a run that dies mid-emit prints the
-    # marks it reached and no more, and that truncation is data -- the phase it
-    # stops at is the phase that killed it.
+    # A row can be MISSING rather than zero: a run that dies mid-EMIT prints the
+    # front-end marks and no EMIT row, and that truncation is data -- the phase
+    # it stops at is the phase that killed it.
+    #
+    # Only mid-emit, though. instrument() writes all the front-end marks in ONE
+    # write-binary at the top of the act block, after every one of those phases
+    # has already run, so a death IN the front end -- the OOM this exists to
+    # chase -- prints no rows at all rather than a short table. If that is the
+    # case being measured, the evidence is the exit status and peak RSS, not
+    # this table.
     names, seen = [], set()
     for arm in ("zig", "wasm"):
         for n, _ in results.get(arm, (0, 0, [], 0, 0, []))[2]:
@@ -309,10 +334,15 @@ def report(unit, results):
     # THE DECK ITSELF IS NOT. It sits inside that gap, it is written, and it IS
     # resident -- 47 MB on cat_draw, 6 MB on world, the same on both arms. An
     # earlier version of this comment said "nothing touches it", which is how
-    # cat_draw's peak came to be 60 MB more than the phases explained: 294 (front
-    # end) + 398 (emit) = 692 against a measured 752, and the deck is the 47 that
-    # closes it. The `deck` row below is that number; it is not a phase delta and
-    # it is not inside any of them.
+    # cat_draw's peak came to be 60 MB more than the phases explained. The deck
+    # closes 47 of that 60 and the process baseline closes another 8 -- this
+    # binary on a five-line input peaks at 8,448 KB before it has done anything
+    # (measured 2026-08-31, the wasm arm 9,088 KB). So cat_draw reconciles as
+    # 294 (front end) + 398 (emit) + 47 (deck) + 8 (baseline) = 747 against a
+    # measured 752: about 5 MB, 0.7%, still unexplained. An earlier version of
+    # this comment said the deck "closes it", which overstated a 47 into a 60.
+    # The `deck` row below is that number; it is not a phase delta and it is not
+    # inside any of them.
     prev = {"zig": 0, "wasm": 0}
     for i, name in enumerate(names):
         cells = []
@@ -321,9 +351,16 @@ def report(unit, results):
             v = rows.get(name, prev[arm])
             cells.append(v - prev[arm])
             prev[arm] = v
-        if max(cells) < 1048576 // 2 and name not in ("EMIT",):
+        # abs, not max: a row where both arms fall is still a difference. With
+        # `max` a -27 MB row was suppressed because its largest cell was 0.
+        if max(abs(c) for c in cells) < 1048576 // 2 and name not in ("EMIT",):
             continue
-        print(f"  {name:<24} {mb(cells[0]):>9} {mb(cells[1]):>9} {mb(cells[1] - cells[0]):>9}")
+        # deck-adv is the reservation, not a cost: it is the first mark, so its
+        # "delta" is the absolute frontier after __heap-advance. It was printing
+        # as the largest row in the table with nothing to say it is address
+        # space, in a table whose numbers get quoted.
+        label = "deck-adv (address space)" if name == "deck-adv" else name
+        print(f"  {label:<24} {mb(cells[0]):>9} {mb(cells[1]):>9} {mb(cells[1] - cells[0]):>9}")
     deck = [results[a][4] if a in results else 0 for a in ("zig", "wasm")]
     print(f"  {'deck (inside the gap)':<24} {mb(deck[0]):>9} {mb(deck[1]):>9}"
           f" {mb(deck[1] - deck[0]):>9}")
@@ -351,7 +388,8 @@ def main():
         u = ROOT / "build" / f"{unit}-unit.codex"
         if not u.is_file():
             raise SystemExit(f"no {u} -- ./harness/run.sh {unit} builds it")
-        report(unit, {arm: run(exes[arm], u, f"{unit}.{arm}") for arm in ARMS})
+        report(unit, {arm: run(exes[arm], u, f"{unit}.{arm}", ARMS[arm]["prefix"])
+                      for arm in ARMS})
     return 0
 
 

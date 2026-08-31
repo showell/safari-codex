@@ -229,7 +229,12 @@ def main():
         if native or both:
             wat = native_wat(mod, src)
             got = wat_output(mod, wat, "native") if wat is not None else None
-            if wat is None and not both:
+            # Under --both this used to fall through to a byte comparison against
+            # `wat`, which is None -- a TypeError that took the whole sweep down,
+            # in the branch whose own comment promises that one failure does not
+            # cost the evidence from the other sixteen. There is nothing to
+            # compare a missing module to, so the unit is skipped either way.
+            if wat is None:
                 bad = 1
                 print("  SKIPPED on the native road", flush=True)
                 continue

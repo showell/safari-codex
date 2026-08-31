@@ -44,6 +44,9 @@ export CODEX_ROOT="${SAFARI_COBBLESTONE:-$HOME/showell_repos/cobblestone-safari}
 export COBBLESTONE_ROOT="$CODEX_ROOT"
 tree="${CODEXZIG_TREE:-$HOME/showell_repos/codexzig-safari}"
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
+# Debug, matching build.py's stage 6: the candidate is compared against binaries
+# built that way, and an -O here would make the two incomparable.
+build_flags="${SAFARI_TRY_ZIGFLAGS:-}"
 mkdir -p build
 
 # The bundler is the transpiler's own, run from its own source/ directory, so
@@ -66,7 +69,15 @@ mkdir -p "$out/local"
 # this bundle" after the base codexzig has been rebuilt underneath it, which is
 # the one situation where a candidate is most likely to be wrong.
 codexzig="$("$root/harness/build_codexzig.sh")"
-want=$( { sha256sum "$subject"; sha256sum "$codexzig"; } | sha256sum | awk '{print $1}')
+# The key is every input the candidate is a function of, which is more than the
+# two obvious ones: the zig that compiles it and the flags it is compiled with
+# belong in it too. build.py:311 records why -- "a copy is how a stray -O flag
+# once made two builds that were not comparable" -- and this script had the
+# flags nowhere. run.sh:85 folds its own text into its module key; this now does
+# the same, so editing the build below invalidates what the build produced.
+zigver="$("$zig" version)"
+want=$( { sha256sum "$subject"; sha256sum "$codexzig"; sha256sum "${BASH_SOURCE[0]}";
+          echo "$zig $zigver $build_flags"; } | sha256sum | awk '{print $1}')
 if [ "${1:-}" != "--force" ] && [ -x "$out/local/codexzig" ] \
    && [ "$(cat "$out/local/codexzig.fp" 2>/dev/null)" = "$want" ]; then
     echo "the candidate already matches this bundle and this codexzig (${want:0:12})" >&2
@@ -78,7 +89,12 @@ if ! grep -q "^// THE PRELUDE" "$out/codexzig.qemu.zig"; then
     echo "codexzig emitted no program:" >&2; head -3 "$out/codexzig.qemu.zig" >&2; exit 1
 fi
 echo "building the candidate ($(wc -c < "$out/codexzig.qemu.zig") bytes of zig)..." >&2
-( cd "$out/local" && "$zig" build-exe ../codexzig.qemu.zig -femit-bin=codexzig )
+# REMOVE THE OLD BINARY FIRST. The source one level up has already been
+# overwritten with the candidate's, so a failed build would otherwise leave a
+# new source beside an old binary -- and run.sh stamps modules off the source.
+# build.py:291 does the same thing for the same reason.
+rm -f "$out/local/codexzig"
+( cd "$out/local" && "$zig" build-exe ../codexzig.qemu.zig $build_flags -femit-bin=codexzig )
 printf '%s' "$want" > "$out/local/codexzig.fp"
 echo "candidate: $(wc -c < "$out/local/codexzig") bytes" >&2
 printf '%s' "$root/$out/local/codexzig"

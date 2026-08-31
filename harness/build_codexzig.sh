@@ -25,6 +25,17 @@ tree="${CODEXZIG_TREE:-$HOME/showell_repos/codexzig-safari}"
 bin="$tree/generated/local/codexzig"
 src="$tree/generated/codexzig.qemu.zig"
 
+# SET BUT EMPTY IS A FAILURE, NOT AN ABSENCE. The documented way to test a
+# candidate is `CODEXZIG=$(./harness/build_codexzig_try.sh) ./harness/run.sh`,
+# and when that build fails the substitution leaves CODEXZIG empty -- which read
+# as "no override" and ran the whole sweep on the BASE transpiler, printing
+# GREEN about a candidate that was never built. Refusing here is the only place
+# that catches it for every arm at once.
+if [ "${CODEXZIG+set}" = set ] && [ -z "$CODEXZIG" ]; then
+    echo "CODEXZIG is set but EMPTY -- a candidate build failed; refusing to" >&2
+    echo "fall back to the base transpiler and report on the wrong binary." >&2
+    exit 1
+fi
 if [ -n "${CODEXZIG:-}" ]; then          # an explicit override answers for itself
     printf '%s' "$CODEXZIG"; exit 0
 fi

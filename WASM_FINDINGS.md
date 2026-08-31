@@ -36,7 +36,7 @@ pull request.
 | 3 | `show` of `INT64_MIN` emits garbage bytes | **silent wrong answer** | **fixed** |
 | 4 | `show` on a `Real` prints its bit pattern | **silent wrong answer** | open |
 | 5 | exports come from another app's hardcoded name list | surface | open |
-| 6 | nothing is ever reclaimed | **ergonomics / ceiling** | open — **push here** |
+| 6 | nothing is ever reclaimed; both emitters are superlinear | **ergonomics / ceiling** | open — **push here** |
 | 7 | the vector ops have finding 1's shape | wrong module | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
@@ -185,6 +185,8 @@ four-hundred-name allowlist that grows every time an app is written.
 
 ## 6. Nothing is ever reclaimed — OPEN, and this is the one to push on
 
+### In the emitted modules
+
 The emitted prelude bump-allocates and never frees. Memory grows with the number
 of allocations a run performs, not with what is live. Final linear memory for the
 safari checks, none of which holds more than a few thousand numbers at once:
@@ -200,52 +202,122 @@ safari checks, none of which holds more than a few thousand numbers at once:
 
 **A module that prints twenty lines touches 1.2 GB.**
 
-### The sharp version: codexwasm is not as robust as codexzig, and it should be
+### The sharp version: it is the EMITTERS, and the front end is not the story
 
-The same property puts a ceiling on the native transpiler.
-`./harness/build_codexwasm.sh` produces a binary that runs the front end and the
-emitter in one process on one heap, and three of this project's seventeen units
-exhaust the prelude's 4 GiB reserve: `Critter` (385 KB), `CatDraw` (696 KB) and
-`Safari` (1.17 MB).
+**The obvious reading — that the wasm emitter is an outlier — is wrong. So was
+the correction.** The 2026-08-30 revision said "a 696 KB unit costs 2.9 GB
+before either emitter is reached", inferred from codexzig's total peak. It is
+off by an order of magnitude, and the way to see that is to read the frontier
+between the phases rather than at the end.
 
-**The obvious reading — that the wasm emitter is an outlier — is wrong, and the
-measurement is what says so.** Peak RSS, the same input down both native
-transpilers:
+The bump heap never reclaims (`PORTING_NOTES` C6), so `__heap-save` IS the
+running total of everything allocated so far: the difference between two phase
+boundaries is what that phase cost, exactly, with no sampling.
+`./harness/mem_probe.py` writes those marks into both harnesses mechanically —
+they are the same program with one line different, so a hand-instrumented pair
+could differ somewhere else and nobody would see it — and reads a high-water
+cursor patched into the prelude for the part the marks cannot see.
 
-| unit | `codexzig` | `codexwasm` |
+`cat_draw-unit.codex`, 696,563 bytes, retained MB at each phase:
+
+| phase | `codexzig` | `codexwasm` |
 |---|---|---|
-| `pond-unit` (18 KB) | 16 MB | 17 MB |
-| `world-unit` (95 KB) | 115 MB | 149 MB |
-| `cat_draw-unit` (696 KB) | **2,902 MB** | **3,665 MB** |
+| tokenize | 24 | 24 |
+| scan | 13 | 13 |
+| parse | 43 | 43 |
+| resolve | 4 | 4 |
+| check | 9 | 9 |
+| lower + IR pipeline + lift | 3 | 3 |
+| emit IR text | 77 | 77 |
+| parse IR text back | 120 | 120 |
+| **the whole front end** | **294** | **294** |
+| **emit** | **2,549** | *dies* |
+| peak RSS | 2,904 | 3,666 |
 
-The wasm emitter costs about **1.26x** what the zig one costs. That is the whole
-gap, and it is not where the memory goes: **a 696 KB unit costs 2.9 GB before
-either emitter is reached.** `codexzig` survives the same units only because it
-sits just under the line that `codexwasm` crosses. It is not robust; it is
-lucky, and it will stop being lucky on a larger unit.
+**The front end is 10% of the bill and the two arms pay it byte for byte.** Of
+codexzig's 2,904 MB, 2,549 MB is `emit-zig-chapter` alone. There is no shared
+cost to attack; there are two emitters, and they fail in two different ways.
 
-**Raising the reserve is not the answer and was measured rather than assumed.**
-The reserve is a plain constant in the prelude and a native host has a 64-bit
-`usize`, so it can simply be larger — except that at 12 GiB the reservation is
-refused outright (`cannot reserve the region`), and at 6 GiB on this 8 GB box the
-process is OOM-killed. Raising it converts a clean panic into a worse failure.
-The memory has to not be allocated.
+### codexzig: the whole module is one `Text`
 
-**Splitting into `codexir | wasmemit` is available and is NOT what we want.**
-Two processes, each with a fresh heap, is what the guest road already does and it
-is why the guest road reaches all seventeen. It would work. It is a workaround
-for a property that should be fixed, and it would leave `codexwasm` permanently
-second-class beside `codexzig` for no reason anyone could defend.
+`emit-zig-chapter` returns the module as a single value and nothing is streamed,
+so every definition's working set is live at once and the concatenations pay the
+sum of their own suffixes — `PORTING_NOTES` C17's shape, one level up. Cost per
+byte of output, which is what says it is superlinear rather than merely large:
 
-**Steve's call, and the direction for the next session: push hard on the
-allocation itself.** `codexwasm` should be as robust as `codexzig` in principle,
-so the target is the shared cost — 2.9 GB for a 696 KB unit, before any emitter
-runs — and after that the emitter's own 26%. The module already exports
-`__heap_reset` and `__deck-set`/`__heap-advance` exist, so the machinery for an
-arena discipline is there and nothing in the ordinary path uses it.
-`PORTING_NOTES` C8 is the same problem seen from the browser, where the fix was
-a hand-written shim resetting the arena once a frame — which is evidence that
-resetting is safe at a phase boundary, and a transpiler has obvious ones.
+| unit | zig emitted | emit cost | bytes of heap per byte out |
+|---|---|---|---|
+| `pond` | 31,211 | 5 MB | 160 |
+| `world` | 197,505 | 74 MB | 375 |
+| `cat_draw` | 2,555,224 | 2,549 MB | 998 |
+
+### codexwasm: it already HAS the fix codexzig lacks, and dies anyway
+
+`emit-wasm-chapter-stream` brackets every definition in
+`__heap-save`/`__heap-restore` and prints it, so its cost is the max over
+definitions instead of the sum. That works: on `world` it RETAINS 11 MB where
+the zig emitter retains 74. **On the axis the finding accused it of, the wasm
+plug is seven times better than the zig plug.**
+
+What kills it is inside one definition. Measured on `world`, per-definition
+transient against the bytes that definition emits:
+
+| definition | WAT emitted | heap consumed |
+|---|---|---|
+| `$g_w_trees` | 171,884 | 97.3 MB |
+| `$g_w_cows` | 130,850 | 53.2 MB |
+| `$g_w_treecolor` | 49,250 | 9.5 MB |
+
+That is `len² / 300` to within 20% across all three — **quadratic in the size of
+one definition.** `emit-wat-expr` returns `Text` and a Codex list literal lowers
+to a right-nested chain as deep as it is long, so the text of every level
+contains the text of the level below it and gets rebuilt there. On `cat_draw` a
+single definition runs the frontier from 856 MB into the 4 GiB ceiling:
+
+    thread panic: cx heap: exhausted at 4294829549 + 973866 of 4294967296
+
+**So the two plugs do not sit either side of one line.** codexzig's cost grows
+with the module and codexwasm's with the biggest single definition; each will
+die on a unit the other survives, and `cat_draw` happens to be shaped to kill
+the wasm one first. The fix for the wasm side is the one C17 names: stop
+returning `Text` from a recursive walk. An emitter that pushes chunks onto an
+accumulator and concatenates once is linear, and `text-concat-list` — which the
+compiler's own `decode-escapes` already uses that way — is the primitive.
+
+### Two thirds of what the wasm emitter does is thrown away
+
+Found on the way, and independent of the above.
+
+`emit-wasm-chapter-stream` must decide whether to declare the `env` imports
+before it prints any definition, and it asks by EMITTING EVERY DEFINITION IN
+FULL and running `text-contains` on the result:
+
+    wasm-defs-mention (ctx) (defs) (i) (needle) =
+     ... let hit = text-contains (emit-wat-def ctx (list-at defs i)) needle
+
+It does this twice, for `$blit_framebuf` and `$on_key_import`, and throws both
+results away. Grouping the per-definition brackets by their restore base
+separates the passes; on `world`, 160 definitions:
+
+    320 brackets   510 MB   the two needle scans      discarded
+    160 brackets   256 MB   wasm-stream-defs          printed
+
+**`$on_key_import` is emitted by no arm of the emitter at all** — the only
+occurrence in the file is the import line the flag guards — so that scan can
+never answer True and always walks the whole chapter to say False.
+`$blit_framebuf` has exactly one producer, the `blit-framebuf` builtin arm at
+`WasmEmitter.codex:1453`, so both flags are decidable from the IR without
+emitting a byte. (A chapter DEFINING `blit-framebuf` would emit
+`(func $blit_framebuf` and hit the needle too — but that module already declares
+an import and a function under one name and `wat2wasm` refuses it, so the scan
+is not what is protecting anybody there.)
+
+This does not move the peak — the scans and the print run at the same frontier,
+so the ceiling is still the worst definition — but it is 2/3 of emission's time
+and churn for nothing. It also decides where a failure lands: on `cat_draw`
+codexwasm dies at definition 41 **of the first needle scan**, so it never
+reaches the definitions it was asked to print, and the panic names a phase that
+exists only to compute a boolean.
 
 ## 7. The vector ops have finding 1's shape — OPEN
 

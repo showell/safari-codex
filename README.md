@@ -8,11 +8,11 @@ parallel port, not a migration.
 
 Six documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
-— sixty-one numbered notes on the toolchain, the language, the tolerances and the
+— fifty-seven numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
-**`FINDINGS.md`** is the seven defects this port found in the toolchain and the
-game, written up to be sent. **`WASM_FINDINGS.md`** is the nine the fourth arm
-found in `codex/plugs/wasm` specifically, five of them fixed. **`PLUG_WORK.md`** records the emitter change the port
+**`FINDINGS.md`** is the nine defects this port found in the toolchain and the
+game, written up to be sent. **`WASM_FINDINGS.md`** is the eleven the fourth arm
+found in `codex/plugs/wasm` specifically, seven of them fixed. **`PLUG_WORK.md`** records the emitter change the port
 needed and why it was branched where it was. **`NOTES.txt`** is the research brief
 that opened the project; it is history now and several of its predictions were
 wrong in useful ways, which this file notes where it matters.
@@ -244,7 +244,9 @@ says of its rungs.
 
 ## The fourth arm: the same program as wasm, twice, by two different roads
 
-    ./harness/wasm_plug_build.py         # once per emitter change, 18s, one guest
+    ./harness/wasm_arm.py --native --all  # the day-to-day check: 17 units, NO guest
+    ./harness/plug_probe.py               # the plug's own differential probes
+    ./harness/wasm_plug_build.py          # once per emitter change, 18s, one guest
     ./harness/wasm_arm.py Pond World Num Camera
     ./harness/wasm_arm.py --entry SpikeProfileMain
 
@@ -254,17 +256,21 @@ question than the third arm and gets a sharper answer:
     Codex -> zig -> wasm      codexzig, then zig build-exe -target wasm32-wasi
     Codex -> IR  -> wasm      the seed, then plugs/wasm's own emitter
 
-Both roads end as a wasm32-wasi module run by node's WASI, and the two must
+Both roads end as a wasm32-wasi module run by **wasmtime**, and the two must
 print the same bytes. **They share no code below the IR.** The left road is the
 one this project has always used with a wasm back end bolted on the end; the
 right road never sees zig at all, and its emitter is a different program written
 by different hands. A difference between them is a defect in one of the two, and
 the source is the same source either way, so it is not in the port.
 
-`harness/wasm_arm.py` is the whole thing and it is about a hundred and seventy
+`harness/wasm_arm.py` is the whole thing and it is about two hundred and eighty
 lines. Two guests per module: one compiles the bundled unit to IR on the seed,
-one runs the wasm plug over that IR. `wat2wasm` is wabt's own JS build under
-`tools/` and the runner is node's `node:wasi`, so nothing is installed for this.
+one runs the wasm plug over that IR — or no guest at all under `--native`, which
+is what this arm runs day to day. `wat2wasm` is wabt's own JS build under
+`tools/`. **The runner is `wasmtime`, not `node:wasi`**, which this section
+recommended for as long as `WASM_FINDINGS.md` has recorded that `node:wasi`
+aborts with SIGSEGV on four of fourteen checks; `tools/README.md` has the
+install line.
 
 **The QEMU is cheap, and that was the open question.** 18 s and one guest for the
 plug; 4-13 s to compile a unit to IR; 2-9 s to transpile it. A check is under ten
@@ -281,11 +287,12 @@ i64s and its f64 result stored into an i64 slot. The four ordered comparisons
 emitted `i64.lt_s` on the bit patterns, which is not a near miss — it reads the
 sign bit as the top of a two's-complement integer, so every negative real sorts
 above every positive one and `-2.0 < -1.0` comes out False, and the foreword's
-own `real-min`, `real-max` and `real-abs` are three lines of `<` and `>`. Three
+own `real-min`, `real-max` and `real-abs` are three lines of `<` and `>`. Four
 builtins had no form at all. `PLUG_WORK.md` has the change; it is on
 `wasm-plug-real-conversions` for sending.
 
-**What agrees now.** `Pond`, `World`, `Num` and `Camera` — and `SpikeProfileMain`
+**What agrees now.** All seventeen units emit and agree — `Pond`, `World`, `Num`
+and `Camera` were the first four — and `SpikeProfileMain`
 on **20,002 IEEE-754 bit patterns, with no tolerance anywhere**: the ported
 physics over the whole route, by two emitters that share no code below the IR.
 
@@ -906,7 +913,7 @@ would need deciding is how much of the blitter's own shading maths moves across
 `harness/spike_svg.py` already approximates them and says where it is not faithful.
 Nothing in `port/` should have to change: the buffer is the API.
 
-**(b) Act on the findings.** `FINDINGS.md` has eight, and one is already moving —
+**(b) Act on the findings.** `FINDINGS.md` has nine, and four are already sent —
 see below. They are the outward-facing product of this project and they are ready
 to send.
 

@@ -92,7 +92,7 @@ findings 1 and 7 are cheap to trust and findings 2, 3 and 4 were not caught for
 free.
 
 **`real-to-int` is the one row that is not obvious.** Bare metal emits
-`cvttsd2si` (`X86_64Builtins.codex:1663-1679`) and answers INT64_MIN for a NaN,
+`cvttsd2si` (`X86_64Builtins.codex:1698-1705`, the instruction on `:1703`) and answers INT64_MIN for a NaN,
 an infinity, or an out-of-range truncation. wasm's `i64.trunc_sat_f64_s` agrees
 on all of those EXCEPT NaN, where it saturates to 0, and positive overflow,
 where it saturates to INT64_MAX. Emitting the bare instruction would be a
@@ -181,7 +181,7 @@ formatter**, because it converts a wrong answer into an error.
 ## 5. A module's exports come from another application's name list — OPEN
 
 `wat-emit-exports` decides what a module exports by testing each definition name
-against `wasm-export-list`: a single pipe-separated string of about four hundred
+against `wasm-export-list`: a single pipe-separated string of **484**
 names, hardcoded in the emitter, drawn from unrelated applications —
 `select-all`, `random-color`, `species-count`, `cad-set-units`, `kpt-mandelbrot`,
 `tank-xmin`.
@@ -197,7 +197,7 @@ is decided silently in both directions: a program that means to export
 `render-frame` gets it, a program that happens to define `select-all` leaks it,
 and a program that wants to export `my-entry` cannot say so. An `export`
 annotation, or a manifest, would be the shape; anything is better than a
-four-hundred-name allowlist that grows every time an app is written.
+484-name allowlist that grows every time an app is written.
 
 `probe/plug/exports.codex`.
 
@@ -396,7 +396,10 @@ the two-process guest road could do and this one could not — so the
 it runs both roads and compares what the two modules PRINT, not their bytes. The
 byte comparison is a separate `cmp` against the previous sweep's saved WAT, 14 of
 17 identical, and the 3 that differ are exactly the 3 that used to die mid-emit
-and write a truncated module.
+and write a truncated module. **That comparison is no longer reproducible from
+this repo** — `build/` holds only the current sweep's WAT, so the saved
+pre-fix modules it was made against are gone. Copy `build/*_native.wat` aside
+before a plug change if the next one is to be checkable.
 
 **And the comparison stopped meaning what it did.** The finding opened by
 saying the wasm emitter costs 1.26x the zig one, as if that ratio located a
@@ -406,11 +409,15 @@ binaries, after everything below:
 
 | unit | `codexzig` | `codexwasm` |
 |---|---|---|
-| `pond` | 13 MB | 17 MB |
+| `pond` | 13 MB | 16 MB |
 | `world` | 44 MB | 57 MB |
 | `critter` | 253 MB | 226 MB |
 | `cat_draw` | 418 MB | 394 MB |
-| `safari` | 674 MB | 680 MB |
+| `safari` | 673 MB | 679 MB |
+
+Re-measured 2026-08-31 with `/usr/bin/time` over both plain binaries on
+`build/<unit>-unit.codex`; three cells moved by 1 MB against the first version of
+this table, which is run-to-run noise and not a change.
 
 The wasm arm is ahead on the big units, behind on the small ones, and within one
 per cent on the largest. Both peaks are the front end plus the biggest
@@ -462,20 +469,35 @@ reached the definitions it was asked to print, and the panic named a phase that
 exists only to compute a boolean.
 
 **Fixed in `121b61fb`.** `wat-expr-calls-name` asks the IR instead, mirroring
-`collect-strings-expr` arm for arm — which is the argument for its coverage,
-since that shape already has to reach every text literal in the program or the
-string table comes out short. The three fixed pieces are still scanned as text
+`collect-strings-expr` arm for arm — which was offered as the argument for its
+coverage, since that shape "already has to reach every text literal in the
+program or the string table comes out short". **Read findings 8 and 11 before
+trusting that sentence**: the premise was false when it was written (finding 8),
+and the walker was not asking what this paragraph says it asks (finding 11, an
+occurrence test rather than a call test, fixed in `2a53929f`). Both are left
+standing here rather than quietly edited, because this section is the record of
+what was believed at the time. The three fixed pieces are still scanned as text
 because they are built already.
 
 Where the two criteria differ the old one was **wrong**: a chapter defining
 `blit-framebuf` emits `(func $blit_framebuf`, the needle hit, and the module
 declared an import and a function under one name — which `wat2wasm` refuses.
+(The new criterion produces that module too, through the call — finding 9.)
 
 **Output is unchanged and that is the check**: 16 of this project's 17 checks
-emitted byte-identical WAT, `cat_draw` got 120 definitions and 10.9 MB in before
-dying on `$g_kd_xy` — the definition the quadratic model names — and `world`
-went 0.63 s → 0.44 s at an unchanged 150 MB peak, exactly the shape predicted,
-since the wasted work was time and churn and never the ceiling.
+emitted byte-identical WAT, `cat_draw` died on `$g_kd_xy` — the definition the
+quadratic model names — and `world` went 0.63 s → 0.44 s at an unchanged 150 MB
+peak, exactly the shape predicted, since the wasted work was time and churn and
+never the ceiling.
+
+The size once quoted for that truncated module, 10.9 MB, **cannot be right and
+is withdrawn rather than corrected**: the finished module is 9,019,347 bytes and
+`(func $g_kd_xy` begins at byte 7,743,272 of it (index 123), so no prefix ending
+there is 10.9 MB. The print order has not changed since, so the truncated module
+should have been a prefix of this one. The 120 definitions is plausible — the
+120th function starts at 7,641,212 — and the pre-fix binary is gone, so the
+discrepancy is recorded and not explained. A number nobody can re-derive is
+worth less than the sentence saying so.
 
 **That 16 was worth less than it looked, and how it misled is the useful part.**
 THREE units were still exhausting the reserve here, not one: `critter` and

@@ -8,7 +8,7 @@ parallel port, not a migration.
 
 Six documents, and they do not overlap. **This file** is the orientation: what
 exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
-— fifty-seven numbered notes on the toolchain, the language, the tolerances and the
+— fifty-eight numbered notes on the toolchain, the language, the tolerances and the
 seams, and the first thing to read before writing a Codex chapter.
 **`FINDINGS.md`** is the nine defects this port found in the toolchain and the
 game, written up to be sent. **`WASM_FINDINGS.md`** is the eleven the fourth arm
@@ -16,6 +16,46 @@ found in `codex/plugs/wasm` specifically, seven of them fixed. **`PLUG_WORK.md`*
 needed and why it was branched where it was. **`NOTES.txt`** is the research brief
 that opened the project; it is history now and several of its predictions were
 wrong in useful ways, which this file notes where it matters.
+
+## The four arms, and what each one is worth
+
+Stated in one place because the chain is easy to overclaim, and the overclaim is
+flattering.
+
+1. **The oracle.** `probe/probe_<mod>.zig` imports the **real, unmodified** game
+   module and writes `gold/<Mod>Gold.codex`. Every number this project claims
+   about faithfulness comes from here and nowhere else.
+2. **The port, through the zig plug.** `./harness/run.sh` bundles a check,
+   transpiles it with `codexzig`, builds the zig, runs it, and grades the port's
+   values against that gold. **This is the only arm that compares the port to the
+   GAME.** GREEN means they agree within the tolerance each check states.
+3. **Bare metal.** `./harness/metal.py` runs the same checks through the Codex
+   compiler's own x86-64 emitter, as a kernel image under QEMU, and requires the
+   two arms to print the same bytes. Diverse double-compiling in Wheeler's sense,
+   applied to a program rather than to a compiler.
+4. **Wasm, by two roads.** `./harness/wasm_arm.py` compares `Codex -> zig -> wasm`
+   against `Codex -> IR -> plugs/wasm`, which share no code below the IR. With
+   `--native` the right road is `build/codexwasm` and no guest boots at all.
+
+**What the four together establish.** The port agrees with the game (1 and 2), and
+three independent compile paths reproduce that agreement — which is what rules out
+the port merely being bent the same way one emitter is. Arms 3 and 4 both call
+`run.sh` first and it exits non-zero on RED, so neither can compare two arms of a
+port that is failing its own checks: the verdict travels with them.
+
+**What it does not establish, in three parts.**
+
+- **Arms 3 and 4 compare emitters, not the game.** They ask whether the answer
+  depends on the toolchain, and the answer is no. Faithfulness is arm 2's word.
+- **Bare metal and the wasm roads are never compared directly.** Arm 3 ties bare
+  metal to the zig arm; arm 4 ties the two wasm roads to each other and to the zig
+  arm's own output. The link between bare metal and `codex -> wasm` is transitive
+  through arm 2, not measured.
+- **A check compares VERDICTS, not values** — `Grade` prints `name ok 2468`, so two
+  arms inside a tolerance agree whatever their last bits did. The exception is
+  `metal.py --entry`, which compares arms 2 and 3 on **523,414 IEEE-754 bit
+  patterns with no tolerance anywhere**, and `plug_probe.py`, which compares the
+  two plugs on values a few lines at a time.
 
 ## The trees this builds against
 
@@ -886,7 +926,40 @@ are in `price-b/`.
 
 ## Where to pick this up
 
-Parked 2026-08-30, second time, with everything green and pushed.
+**Parked 2026-08-31, third time.** The second parking's text is below and still
+describes the deliverable; this is what moved after it.
+
+The subject changed. The port was done at the second parking, so the work since
+has been **the plugs themselves** — `WASM_FINDINGS.md` is the record, eleven
+findings, seven of them fixed and sent as **Cobblestone PR 111**. Four of those
+were silent wrong answers: `a ^ b` emitting `a * b`, `show` of INT64_MIN, a text
+literal in a match-branch guard comparing against address zero, and a `when`
+inside a guard overwriting the scrutinee the branches below still needed. The
+other three are a 4 GiB emission ceiling that is gone in both plugs — `cat_draw`
+went 2,904 MB to 418 MB on the zig arm, and all seventeen units emit a module on
+the wasm one where three could not.
+
+**Two cold-agent reviews are why the last four of those exist**, and the pattern
+is the thing to carry forward rather than the findings: a review of the commits
+that fixed findings 1-7 found 8 and 9, and a review of the commits that fixed
+those found 10 and 11 — plus a fix prescription in `FINDINGS.md` item 9 that
+would have shipped a no-op upstream. The sweep was green through all of it. A
+correction is written in the same mode that produced the thing it corrects, so
+it earns the same cold read.
+
+**State at this parking:** working tree clean and pushed in all three trees;
+`./harness/run.sh` GREEN; `./harness/metal.py --all` agrees on all seventeen;
+`./harness/wasm_arm.py --native --all` GREEN on seventeen; ten differential plug
+probes, nine agreeing and `showreal` differing as finding 4 records. The
+transpiler was rebuilt through its own nine stages and three guests
+(`codexzig-safari` 432b80a) and the fixed point holds byte-identical.
+
+Two tools arrived that did not exist at the second parking:
+**`./harness/build_codexwasm.sh`** builds a NATIVE `codexwasm` — Codex straight to
+wasm with no guest anywhere, which is what makes the fourth arm a day-to-day
+check rather than a guest job — and **`./harness/metal_chapter.py`** grades any
+single chapter on all three arms, which is how a test going upstream gets bare
+metal's answer rather than ours.
 
 **THE DELIVERABLE IS DONE AND IT PASSES THE EYE TEST.** Every file in
 `games/driving/wasm` has a chapter, every drawer is ported, and the browser page
@@ -978,16 +1051,31 @@ because building it is the way to compare, and it has no reason to grow.
 
 ## Findings owed upstream
 
-**Eight, and they are written up now: `FINDINGS.md`.** Each is self-contained —
-observation, repro, evidence, and the shape of the fix. They are owed to two
-different projects, and **`FINDINGS.md` now opens with how each one should
+**Nine in `FINDINGS.md`, eleven more in `WASM_FINDINGS.md`.** Each is
+self-contained — observation, repro, evidence, and the shape of the fix. They are
+owed to two different projects, and **`FINDINGS.md` opens with how each one should
 travel** — which are PRs, which are issues, and which need a look first. Read that
 section before sending anything; the routing is the part that is easy to get wrong.
 
-**One is already moving.** `real-to-int` / `real-from-int` went as Cobblestone
-**PR 100**; `real-to-bits` / `bits-to-real` are built, tested and registered on
-`zig-plug-real-bitcast` in `~/showell_repos/cobblestone-realbits`, branched from
-that PR's head, and are the next one out. `PLUG_WORK.md` has the lineage.
+**Most of them have gone.** Sent, as of 2026-08-31:
+
+| what | where |
+|---|---|
+| the f64 conversions the port needed | Cobblestone PR 100 |
+| the f64 bitcasts beside them | Cobblestone PR 105 |
+| a `Real` arc tangent for DeviceMath | Cobblestone PR 107 |
+| Cordic's accuracy vs its docstring | Cobblestone PR 108 |
+| a wide `Real` literal is read wrong | Cobblestone issue 106 |
+| `OvError` becomes a wrapping multiply | Cobblestone issue 109 |
+| a one-caller definition is inlined away | Cobblestone issue 110 |
+| **the wasm and zig plug batch — seven findings, eleven commits, three tests** | **Cobblestone PR 111** |
+
+**What has NOT gone, which is the list to pick up from.** `FINDINGS.md` item 3
+(single-letter names `a`–`d` collide with `Tup4`'s comptime parameters, a one-line
+rename) and item 9 (a text literal opened at the end of a line lexes as an empty
+one, silently) are both owed to Cobblestone and neither is sent. Items 7 and 8 are
+owed to **angry-gopher** and are not filed there either. Four things owed, in two
+places, and none of them is blocked on anything.
 
 To **Cobblestone / the Zig plug**: `OvError` silently emitting a wrapping `*%`
 (`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); a `Real`

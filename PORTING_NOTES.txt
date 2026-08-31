@@ -478,6 +478,43 @@ B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
     Related to B12 -- both are the emitter treating a definition as a rewrite rule
     rather than a stored thing. B12's alias vanishes; this one duplicates.
 
+B14. A TEXT LITERAL IN EMITTED CODE IS CCE, NOT ASCII.
+
+    Read as ASCII, correct output looks like corruption. Measured through
+    codexzig 2026-08-31:
+
+        "a"      ->  \x0f                      15
+        "b"      ->  \x20                      32 -- not 16, so not alphabetical
+        "hello"  ->  \x14\x0d\x17\x17\x10      h e l l o
+        "a b"    ->  \x0f\x02\x20              space is 2
+        "A"      ->  \x29                      41
+        "7"      ->  \x0a                      10
+        "\""     ->  \x48                      72, and not 34
+
+    Low codes go to common characters -- space 2, 'e' 13, 'a' 15 -- which is what
+    an encoding meant to compress does, and there is a Brotli chapter in the
+    foreword beside it.
+
+    THIS COST AN HOUR ON 2026-08-31 and the trap is worth naming, because the
+    misreading is more interesting than the truth. A repro for FINDINGS 9 emitted
+
+        return cx_concat(cx_concat("\x0f", n_), "");
+
+    and the \x0f read as a SECOND and larger defect: text literals coming out
+    corrupted, in every program the plug emits. They are not corrupted. The empty
+    string on the right was the finding; the \x0f was the letter a. Two minutes
+    of emitting known literals settled it, and it should have come first.
+
+    The rule is upstream's own and it is tier 2 -- R-CCE, "CCE is the internal
+    encoding" (their CLAUDE.md), and docs/DevelopersRulebook.md:369: "All internal
+    text is CCE. Unicode conversion happens only at I/O boundaries." So a
+    char-code in Codex source is a CCE code point as well: Syntax/Lexer.codex:7 is
+    `cc-double-quote : Integer = char-code '"'`, and its value is 72.
+
+    Where it bites: reading an emitted .zig or .wat by eye, and any host-side
+    script that greps emitted output for a string it knows. Compare
+    emitted-to-emitted, or decode; do not compare emitted-to-ASCII.
+
 ================================================================================
 C. ENVIRONMENT
 ================================================================================

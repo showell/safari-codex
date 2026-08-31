@@ -1,5 +1,18 @@
 # Plug work: closing the real conversion and bitcast holes
 
+> **HISTORY as of 2026-08-31, and the trees table below is stale.** This file
+> records the first plug campaign — the real conversions (Cobblestone PR 100) and
+> the bitcasts beside them (PR 105) — and the worktrees it used. It is kept for
+> the lineage and the argument about branch bases, not as a guide to the current
+> layout.
+>
+> **The live pins are in `PROVENANCE.md`**, which names the two trees this builds
+> against and the commit each is at. The port now builds against
+> `cobblestone-safari` on branch `safari`, the integration branch, and not
+> against `cobblestone-realbits`. The plug work since is
+> **[Cobblestone PR 111](https://github.com/damiant3/Cobblestone/pull/111)** and
+> its record is `WASM_FINDINGS.md`.
+
 Where the emitter work lives, what was branched, and where things run. Started
 2026-08-29. Companion to `PORTING_NOTES.txt` item A1, which is the finding this
 closes.

@@ -205,6 +205,19 @@ function drawBackground(ctx, skyHex, horizonHex) {
   ctx.fillRect(W / 2 - BIG, H / 2 - 1, 2 * BIG, BIG + 1);
 }
 
+// Everything painted BEFORE the command buffer: the sky band, the grass, and the sun
+// if there is one. The buffer's own polygons -- mountains first -- paint over it, which
+// is how the sun sets behind the ranges.
+//
+// This exists so `draw` does not have to know that a backdrop is a sky and a sun. It is
+// the last domain decision left in the frame loop, and having it in one function is what
+// makes it a candidate to become a command in the buffer like everything else.
+function drawBackdrop(ctx, scene) {
+  drawBackground(ctx, hex(scene.skyTop()), hex(scene.skyHorizon()));
+  const sun = scene.sun();
+  if (sun) drawSun(ctx, sun.x, sun.y, sun.scale);
+}
+
 // The setting sun: a warm glow plus the disc, clipped to the sky so the ground occludes
 // the rest, at the centre and scale the guest computed. Painted before the buffer, so the
 // mountain polys -- first in the buffer -- occlude it: the sun sets BEHIND the ranges.
@@ -228,6 +241,42 @@ function drawSun(ctx, x, y, scale) {
   ctx.beginPath(); ctx.arc(x, y, SUN_RADIUS_PX * scale, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
+
+// ── 2b. THE GUEST BOUNDARY ─────────────────────────────────────────────────────
+// The ONE place the guest's own names are allowed.
+//
+// The guest names its exports for the game it is: `riderTilt`, `riderSeg`,
+// `sunVisible`. Those are good names there and bad ones here -- a renderer that
+// says `riderSeg` has learned that the thing being driven is a rider, and once a
+// name like that reaches `draw()` it has to be threaded through every function it
+// touches. Binding them once, here, means the rest of the file speaks about a
+// scene: how far it has stepped, which segment it is in, how the camera is rolled.
+//
+// It is also where a change to the guest gets caught. A renamed export breaks one
+// object literal instead of six call sites, and the destructure below fails loudly
+// if the export is gone.
+function bindScene(x) {
+  return {
+    memory: x.memory,
+    render: x.renderFrame,          // compute a frame; answers its byte length
+    forward: x.advance,             // one step along the route
+    backward: x.back,
+    step: x.clock,                  // how many steps in
+    segment: x.riderSeg,            // which segment of the route
+    roll: x.riderTilt,              // camera roll, in radians
+    skyTop: x.skyTop,
+    skyHorizon: x.skyHorizon,
+    // A sun or nothing, rather than a visibility flag and three loose numbers.
+    sun: () => (x.sunVisible() ? { x: x.sunX(), y: x.sunY(), scale: x.sunScale() } : null),
+    bufferAt: x.bufPtr,
+    bufferPeak: x.bufHighWater,
+    bufferCapacity: x.bufCap,
+  };
+}
+
+// The J key steps until the segment changes; this bounds the search so a guest that
+// never leaves a segment cannot hang the page.
+const STEP_GUARD = 200000;
 
 // ── 3. THE COMMAND STREAM ──────────────────────────────────────────────────────
 
@@ -308,6 +357,9 @@ function blit(ctx, mem, base, len) {
 // and where BOTH halves — wasm geometry compute and canvas blit — can be timed. We keep
 // a rolling window so the displayed max catches the worst recent frame, not just now.
 const BUDGET_MS = 1000 / 60;
+// How many segments the route has. The guest owns this fact and does not export it,
+// so the HUD holds a second copy -- the kind of duplication that goes stale quietly.
+const SEGMENT_COUNT = 19;
 const WINDOW = 90; // ~1.5s of frames
 const hud = { wasm: [], blit: [], total: [] };
 function hudPush(arr, v) { arr.push(v); if (arr.length > WINDOW) arr.shift(); }
@@ -331,7 +383,7 @@ function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, debug) {
   const frac = hud.total.length ? overCount / hud.total.length : 0;
   const fill = bufCap ? (bufBytes / bufCap) : 0;
   const lines = [
-    `t ${step}   seg ${seg}/19`,
+    `t ${step}   seg ${seg}/${SEGMENT_COUNT}`,
     `wasm ${hudAvg(hud.wasm).toFixed(2)}ms  blit ${hudAvg(hud.blit).toFixed(2)}ms`,
     `total ${hudAvg(hud.total).toFixed(2)}ms  max ${totMax.toFixed(2)}  over ${overCount}/${hud.total.length} (${BUDGET_MS.toFixed(2)})`,
     `${cmds} draw-calls   buf-peak ${(bufBytes / 1024).toFixed(1)}/${(bufCap / 1024).toFixed(0)} KiB (${(fill * 100).toFixed(0)}%)`,
@@ -381,53 +433,50 @@ async function main() {
   document.body.appendChild(spinner);
 
   const { instance } = await WebAssembly.instantiateStreaming(fetch('/driving/safari.wasm'), {});
-  const { renderFrame, bufPtr, memory, advance, back, riderTilt, bufHighWater, bufCap,
-          skyTop, skyHorizon, sunVisible, sunX, sunY, sunScale, clock, riderSeg } = instance.exports;
-  const capBytes = bufCap();
+  const scene = bindScene(instance.exports);
+  const capBytes = scene.bufferCapacity();
 
-  // The wasm owns the rider state; we drive it. The camera rolls with the bike's lean
-  // (riderTilt) — the whole world banks into a turn, like main.ts's ctx.rotate(-tilt).
   let auto = true;
   let debug = false; // the dev overlay (frame-budget HUD) — off by default (prod is clean); D toggles it.
 
   function draw() {
-    // time the two halves separately: wasm geometry compute, then canvas blit.
+    // time the two halves separately: guest geometry compute, then canvas blit.
     const t0 = performance.now();
-    const len = renderFrame();
+    const len = scene.render();
     const t1 = performance.now();
     ctx.save();
+    // the whole frame rolls with the camera, so the world banks into a turn
     ctx.translate(W / 2, H / 2);
-    ctx.rotate(-riderTilt());
+    ctx.rotate(-scene.roll());
     ctx.translate(-W / 2, -H / 2);
-    drawBackground(ctx, hex(skyTop()), hex(skyHorizon()));
-    if (sunVisible()) drawSun(ctx, sunX(), sunY(), sunScale());
-    const cmds = blit(ctx, memory, bufPtr(), len);
+    drawBackdrop(ctx, scene);
+    const cmds = blit(ctx, scene.memory, scene.bufferAt(), len);
     ctx.restore();
     const t2 = performance.now();
     hudPush(hud.wasm, t1 - t0);
     hudPush(hud.blit, t2 - t1);
     hudPush(hud.total, t2 - t0);
-    drawHud(ctx, bufHighWater(), capBytes, cmds, clock(), riderSeg() + 1, debug); // unrolled overlay, on top
+    drawHud(ctx, scene.bufferPeak(), capBytes, cmds, scene.step(), scene.segment() + 1, debug); // unrolled overlay, on top
   }
   function loop() {
-    if (auto) { advance(); draw(); }
+    if (auto) { scene.forward(); draw(); }
     requestAnimationFrame(loop);
   }
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { auto = !auto; e.preventDefault(); }
-    else if (e.code === 'ArrowUp') { auto = false; advance(); draw(); e.preventDefault(); }
-    else if (e.code === 'ArrowDown') { auto = false; back(); draw(); e.preventDefault(); }
+    else if (e.code === 'ArrowUp') { auto = false; scene.forward(); draw(); e.preventDefault(); }
+    else if (e.code === 'ArrowDown') { auto = false; scene.backward(); draw(); e.preventDefault(); }
     else if (e.code === 'KeyJ') {
-      // jump one intersection: run the REAL drive (advance steps) until the rider crosses into the next
-      // segment, landing at its start — velocity, acceleration, and the day→dusk dimming all faithful, as
-      // if actually ridden. Repeated presses walk the route a segment at a time; pause after so you can
-      // inspect (e.g. the truck close-up once it's night). Mirrors the J hotkey in main.ts.
+      // Step until the scene enters the next segment, landing at its start — every step
+      // is a real one, so velocity, acceleration and the day→dusk dimming stay faithful.
+      // Repeated presses walk the route a segment at a time; it pauses after so you can
+      // look. Mirrors the J hotkey in main.ts.
       if (!e.repeat) {
         auto = false;
-        const from = riderSeg();
+        const from = scene.segment();
         let guard = 0;
-        while (riderSeg() === from && guard++ < 200000) advance();
+        while (scene.segment() === from && guard++ < STEP_GUARD) scene.forward();
         draw();
       }
       e.preventDefault();

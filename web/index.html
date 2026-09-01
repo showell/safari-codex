@@ -5,10 +5,15 @@
 <title>safari-codex — one frame from Codex</title>
 </head>
 <body>
-<!-- The game's own blitter.js, unmodified and symlinked, not a copy. It builds
-     the canvas, fetches /driving/safari.wasm, and fills the polygons the module
-     wrote into linear memory. The only thing that changed is which module is
-     sitting at that path: this one was computed in Codex. -->
+<!-- THIS PROJECT'S FORK of the game's blitter.js. It was a symlink into
+     HISTORICAL_WASM_ROOT/ while nothing here touched it; it is a real file now,
+     because the boundary work happens in it. The original stays untouched and is
+     the oracle harness/blitter_diff.js measures this against.
+
+     It builds the canvas, fetches /driving/safari.wasm, and paints the commands
+     the module wrote into linear memory -- and only paints them: the shading
+     recipe and the visibility thresholds are port/Blit.codex's now, so what
+     arrives over the wire is already decided. -->
 <script src="/blitter.js"></script>
 </body>
 </html>

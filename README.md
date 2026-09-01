@@ -377,7 +377,7 @@ are the statement.
 | `poc/` | browser and spike ENTRY chapters, quire `Poc` — throwaway by design | hand |
 | `harness/` | the four steps, plus the spike and wasm builders | hand |
 | `build/` | bundled units, emitted zig, diagnostics — **tracked**; binaries are not | generated |
-| `web/` | the browser page: the game's own `blitter.js`, symlinked, plus the wasm | mixed |
+| `web/` | the browser page: this project's FORK of `blitter.js`, plus the wasm | mixed |
 | `price-b/` | the fixed-point measurements behind the dialect decision | one-off |
 | `spike/` | the original feasibility spike | historical |
 
@@ -421,12 +421,20 @@ rather than growing a judge per module.
 ## The browser proof of concept
 
     ./harness/build_wasm.sh          # Codex -> zig -> wasm32-freestanding
-    cd web && python3 -m http.server 9200
+    ./harness/serve.py               # web/ on :9200, no-store
 
-Serves the game's **own unmodified `blitter.js`** — symlinked, not copied — against
-a wasm module computed in Codex. `blitter.js` fetches an absolute
-`/driving/safari.wasm`, so `web/` is the document root and the module at that path
-is the only thing that differs from the real game.
+Serves **this project's fork of `blitter.js`** against a wasm module computed in
+Codex. `blitter.js` fetches an absolute `/driving/safari.wasm`, so `web/` is the
+document root, and `harness/serve.py` sends `no-store` on everything because a
+cached module is indistinguishable from a build that changed nothing.
+
+**The fork used to be a symlink into `HISTORICAL_WASM_ROOT/`,** back when the
+module at that path was the only thing here that differed from the real game. It
+is a real file now: the browser half held decisions -- a shading recipe and four
+visibility thresholds -- and those have moved into `port/Blit.codex`, where they
+can be run and graded. The original stays untouched and is the oracle;
+`harness/blitter_diff.js` runs both over a recording canvas every sweep and
+demands the same picture out of the two different wires.
 
 **`poc/Drive.codex` drives the real route.** Nothing in the frame is placed by
 hand: the road and its corners, the conifers, the intersection towers, the guard

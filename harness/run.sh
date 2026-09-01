@@ -150,6 +150,15 @@ for check in "${checks[@]}"; do
   [ -n "$out" ] || { echo "$base printed nothing" >&2; fail=1; }
 done
 
+# THE BROWSER HALF, which no judge/ chapter can reach. Everything above compares
+# Codex against zig; this compares web/blitter.js against the frozen original it
+# was forked from, by running both over a synthetic frame with a recording canvas.
+# It belongs in the sweep for the reason every other check does: a harness nobody
+# runs is a harness nobody has, and this one is the only thing standing behind the
+# claim that moving the shading recipe into Codex did not change the picture.
+echo "--- Blitter ---"
+if node harness/blitter_diff.js; then :; else fail=1; fi
+
 echo
 if [ "$fail" -ne 0 ]; then echo "RED"; exit 1; fi
 echo "GREEN"

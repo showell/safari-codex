@@ -120,21 +120,29 @@ the safety checks are on and nothing here is a benchmark. A stray `-O` on one
 side of a comparison is how this project once made two binaries that were not
 comparable.
 
-    checkout  432b80af08942a7d0a8ccb4ecea2470779d3da97
-              Rebuild on the guarded ceiling, with the guests this time
-    built     from cobblestone-safari 15ef1862, CLEAN -- no `+dirty`, which
+    checkout  316f9ce4  Rebuild on the fixed harness (2026-09-01)
+    built     from cobblestone-safari 9632bb87, CLEAN -- no `+dirty`, which
               means the record names a commit the build was actually made from.
               generated/PROVENANCE in that worktree records the seed, the
-              guests and what each one touched: 462s, fixed point HOLDS
-              byte-identical at 2,463,047 bytes, arith matches all nine lines.
-    still     current at 9632bb87. That record names the commit it was built
-    current   from and the checkout has moved past it, which normally means a
-              rebuild is owed -- so it was measured instead of assumed: the
-              subject re-bundles to the same 2,985,476 bytes at the new pin,
-              because nothing in those nine commits is a chapter codexzig
-              cites. `build_codexzig.sh` agrees, and its agreement is visible
-              rather than silent: it fingerprints the generated zig, and a
-              sweep that finds nothing to rebuild finishes in 6.8s warm.
+              guests and what each one touched: 437s, fixed point HOLDS
+              byte-identical, arith matches all nine lines.
+
+**Why it was rebuilt, and the sentence this block used to end with was wrong.**
+Earlier on 2026-08-31 this record read "still current at 9632bb87", on the
+argument that the subject re-bundles to the same bytes at the new pin because
+no chapter codexzig cites had moved. That was true of the PIN and it stopped
+being true of the HARNESS: `source/CodexZigHarness.codex` changed that night
+(the `-halted` literal, `b896ff5`), and the harness is bundled into the subject.
+
+The old sentence went on to say `build_codexzig.sh` "agrees, and its agreement
+is visible rather than silent". **It is silent, and that is finding 14.** The
+script hashes `generated/codexzig.qemu.zig` and compares it to the fingerprint
+of the binary built FROM that zig -- so it can tell whether the binary is
+current with the generated zig, and cannot tell whether the generated zig is
+current with the source. Measured: the source moved at 00:09 and the
+fingerprint still matched a zig generated at 14:47. A warm 6.8s sweep is
+therefore evidence that nothing needed rebuilding only if somebody already
+knows the source did not move.
 
 ## The game: `HISTORICAL_WASM_ROOT/`
 

@@ -107,6 +107,7 @@ moving the pin under a harness and watching what it said.
 | 11 | `needs-blit` asked whether the name OCCURS, not whether it is called | wrong module | **fixed** |
 | 12 | the fourth arm's guest road accepted a plug built from ANY emitter | **our harness** | **fixed** |
 | 13 | `--both`'s two roads run DIFFERENT IR pipelines, so it cannot attribute a difference | **our harness** | open |
+| 14 | `build_codexzig.sh` cannot see a SOURCE change; it fingerprints the generated zig against itself | **our harness** | open |
 
 And one bed problem that is not the plug's fault but bites anyone using it:
 `node:wasi` aborts on modules with a large linear memory. It is at the bottom.
@@ -852,6 +853,44 @@ and also blind the only instrument that has ever measured this pass on real code
 
 Until then `--native --all` is the arm; `--both` reports a difference it cannot
 attribute to an emitter.
+
+## 14. The transpiler's freshness check cannot see a source change — OPEN (ours)
+
+**Finding 12 one level up, and found the same way: by changing something and
+watching what failed to notice.**
+
+`harness/build_codexzig.sh` decides whether `codexzig` needs rebuilding with
+
+    want=$(sha256sum "$tree/generated/codexzig.qemu.zig")
+    [ "$(cat "$tree/generated/local/codexzig.fp")" != "$want" ] && rebuild
+
+That asks whether the BINARY is current with respect to the GENERATED ZIG. It
+never asks whether the generated zig is current with respect to the SOURCE the
+transpiler is built from. Measured 2026-09-01, after editing
+`codexzig-safari/source/CodexZigHarness.codex`:
+
+    source/CodexZigHarness.codex   modified 00:09:57
+    generated/codexzig.qemu.zig    still from 14:47:52
+    fingerprint matches            YES  -- so no arm would rebuild
+
+Every arm in this project takes its compiler through that script, so all of them
+would have gone on running a binary built from a harness that no longer exists,
+and nothing would have said so. The comment above the check is accurate about
+what it does -- "content-addressed" -- and the content it addresses is the wrong
+end of the pipeline.
+
+**Why it is not simply a bug.** The script deliberately does NOT run `build.py`
+on the happy path, because that is nine stages and three guests and does not
+belong in a sweep. Hashing the source inputs instead would be nearly free, but
+the source set is the whole bundle -- every chapter `bundle_codexzig.ps1`
+resolves -- and that is exactly what `build.py` stage 3 computes. So the honest
+fix is either to key on the bundle (a 50 ms pwsh run, the shape
+`wasm_plug_build.stale()` already uses for finding 12) or to say plainly that
+this script trusts a human to have rebuilt, and make the arms print which
+transpiler they used.
+
+`PROVENANCE.md` records the pin the binary was built from, and that record is
+what caught it here -- it named `15ef1862` while the checkout had moved.
 
 ## Not the plug: `node:wasi` aborts on a large linear memory
 

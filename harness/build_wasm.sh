@@ -37,16 +37,34 @@ case "$entry" in
   *)         shim=shim.zig ;;
 esac
 
-python3 harness/bundle.py "poc/$entry.codex" build/scene-unit.codex
-"$codexzig" < build/scene-unit.codex 2> build/scene.zig > build/scene.diag
+# NAMED AFTER THE ENTRY, and it used to be `scene` whatever the entry was. That
+# left build/scene-unit.codex holding DriveMain's bundle beside a build/scene
+# binary compiled from SceneMain three days earlier -- a pair that looks like a
+# matched pair and is not, which is exactly what a differential arm reads. The
+# rule everywhere else here is harness/names.py, so it is the rule here too.
+mod="$(python3 harness/names.py "$entry")"
+python3 harness/bundle.py "poc/$entry.codex" "build/$mod-unit.codex"
+"$codexzig" < "build/$mod-unit.codex" 2> "build/$mod.zig" > "build/$mod.diag"
 # codexzig writes the zig to STDERR and diagnostics to stdout. On a halt it writes
 # the REASON to stderr too, so the output file is short and non-empty rather than
 # empty -- a plain -s test calls that success and hands wasmify a one-line file.
-if ! grep -q "^// THE PRELUDE" build/scene.zig; then
+if ! grep -q "^// THE PRELUDE" "build/$mod.zig"; then
   echo "codexzig emitted no program:" >&2
-  head -3 build/scene.zig >&2
+  head -3 "build/$mod.zig" >&2
   exit 1
 fi
+
+# THE NATIVE LEG, which is the smoke test poc/DriveMain's own prose promises: run
+# it on the host and it says how many commands each point of the sweep holds, which
+# is the fastest way to see whether a frame is empty before opening a browser. The
+# transpiled program is hosted zig, so this is one build-exe off the same file the
+# wasm leg starts from -- and it leaves build/<mod> beside build/<mod>-unit.codex,
+# a pair built from one source, which is what rust-codex-compiler's ./safari.sh
+# reads as its fourth arm.
+( cd build && "$zig" build-exe "$mod.zig" )
+echo "--- $entry, native ---"
+( cd build && "./$mod" ) 2>&1
+echo "---"
 
 # HEAP. 32 MB was ample while the animals drew nothing; with their stills in the
 # frame it dies at frame 202. The arena is rewound every frame, so this is not a
@@ -54,8 +72,8 @@ fi
 # through Codex's persistent lists costs far more transient memory than the 166 KB
 # of wire it produces. .bss costs nothing until touched (wasmify), so reserving
 # generously is close to free; wasm32 caps the whole address space at 4 GiB.
-python3 harness/wasmify.py build/scene.zig build/scene_wasm.zig "${HEAP_MB:-256}" "$shim"
-( cd build && "$zig" build-exe scene_wasm.zig \
+python3 harness/wasmify.py "build/$mod.zig" "build/${mod}_wasm.zig" "${HEAP_MB:-256}" "$shim"
+( cd build && "$zig" build-exe "${mod}_wasm.zig" \
     -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseSmall \
     -femit-bin=safari_codex.wasm )
 cp build/safari_codex.wasm web/driving/safari.wasm

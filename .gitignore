@@ -67,3 +67,7 @@ tools/node_modules/
 # binary, not something this project builds, and the version is pinned in
 # PROVENANCE.md.
 tools/bin/
+
+# Editor swap files. One got committed on 2026-09-01 by a `git add -A` run while
+# blitter.js was open in vim during an eye test.
+*.swp

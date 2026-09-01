@@ -185,6 +185,13 @@ def svg(name, top, hor, cmds):
            f'<stop offset="1" stop-color="{rgb(hor)}"/></linearGradient>']
     # tag 1 is a horizontal round gradient across the polygon's own x-extent:
     # dark edge, bright centre, dark edge, with a per-polygon strength.
+    #
+    # AND IT IS STILL TAG 1 HERE, which is worth saying because the BROWSER never
+    # sees one any more. The spike entries print the Codex `List DrawCmd` that
+    # Render produced; the browser gets that list after `blit-expand` has rewritten
+    # every tag 1 into a tag 0 or a tag 2 with its colours already computed. This
+    # file is looking at the earlier list, so it applies the recipe itself -- which
+    # is why `shade()` below is a copy of the blitter's and not a leftover.
     grads = []
     for i, (tag, color, st, pts, raw, color2, geom) in enumerate(cmds):
         if tag != 1 or not pts:

@@ -159,6 +159,16 @@ done
 echo "--- Blitter ---"
 if node harness/blitter_diff.js; then :; else fail=1; fi
 
+# AND THE BOUNDARY ITSELF, which is a claim rather than a number: everything
+# outside blitter.js's SHOW block is about rendering frames and not about safari.
+# harness/second_show.js builds a night walk on the same renderer and executes it.
+# It is here because it ROTTED once already -- it asked for a tag that had left the
+# vocabulary, got `undefined`, wrote a solid header where a longer one belonged and
+# ran node out of heap tracing a polygon with two billion sides. Nothing noticed,
+# because nothing ran it.
+echo "--- Second show ---"
+if node harness/second_show.js; then :; else fail=1; fi
+
 echo
 if [ "$fail" -ne 0 ]; then echo "RED"; exit 1; fi
 echo "GREEN"

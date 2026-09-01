@@ -1592,6 +1592,18 @@ Chapter: Paint
    tag 5   [5][rgba0][rgba1][off0][off1][ax][ay][bx][by][nPoints][x][y]...
    tag 6   [6][rgba0][rgba1][off0][off1][cx][cy][ux][uy][vx][vy][nPoints][x][y]...
 
+ TAG 2 IS NOT HERE AND IS ON THE WIRE. This chapter emits what `wasm/paint.zig`
+ emits and nothing else, because that is what nine checks in judge/ grade. The
+ shim runs `Safari chapter Blit`'s `blit-expand` over the finished list before
+ writing it, and that pass turns every tag 1 into a tag 0 or a
+
+   tag 2   [2][edgeColor][middleColor][x0 f32][x1 f32][nPoints][x f32][y f32]...
+
+ -- a polygon under a symmetric three-stop gradient across [x0, x1], colours
+ already computed. So tag 1 is what this chapter produces and tag 2 is what the
+ browser receives, and no reader of this file should go looking for a tag 1 in
+ `web/blitter.js`.
+
  tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
  centre, dark edge across the polygon's x-extent -- with a per-polygon strength
  that lets crown shading fade to flat with distance instead of popping. strength

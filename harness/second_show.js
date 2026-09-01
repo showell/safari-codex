@@ -68,14 +68,32 @@ const NIGHT_WALK = {
 // A stub guest: enough of the scene vocabulary to paint one frame.
 const scene = { skyTop: () => 0x0b0d1a, skyHorizon: () => 0x1b2340, sun: () => null };
 
+// A TAG BY NAME, and it throws rather than answering undefined. `undefined >>> 0`
+// is 0, so a renamed or retired tag writes a SOLID header where a longer one
+// belongs, the wire desyncs, and the blitter reads a coordinate as a point count
+// and traces a polygon with two billion sides. That is not a hypothetical: this
+// file asked for TAG.WIDTH_SHADE after tag 1 left the vocabulary and took node's
+// heap with it.
+function tag(name) {
+  if (!(name in M.TAG)) throw new Error(`web/blitter.js has no TAG.${name}`);
+  return M.TAG[name];
+}
+
 // The same geometry, rendered by the same blitter, under both shows.
+//
+// THE SPAN SHADE'S TWO COLOURS ARE JUST NUMBERS HERE, picked by this stub guest
+// out of nothing. That is the shape of the boundary after the recipes moved: the
+// renderer is handed an edge colour, a middle colour and a span, and has no
+// opinion about where they came from. Safari's come from `port/Blit.codex`'s
+// darken-the-edges recipe; a night walk's could come from anywhere.
 function frameBuffer() {
   const words = [];
   const u = (v) => words.push({ u: v >>> 0 }), f = (v) => words.push({ f: v });
   const poly = (pts) => { u(pts.length); for (const [x, y] of pts) { f(x); f(y); } };
-  u(M.TAG.SOLID); u(0x333a4a); poly([[0, 300], [200, 120], [260, 300]]);
-  u(M.TAG.WIDTH_SHADE); u(0x6f7ea0); f(0.8); poly([[300, 300], [420, 90], [470, 300]]);
-  u(M.TAG.DISC); u(0xffe9a8); f(120); f(140); f(7); f(0.8);
+  u(tag('SOLID')); u(0x333a4a); poly([[0, 300], [200, 120], [260, 300]]);
+  u(tag('SPAN_SHADE')); u(0x49536b); u(0x8b9bc4); f(300); f(470);
+  poly([[300, 300], [420, 90], [470, 300]]);
+  u(tag('DISC')); u(0xffe9a8); f(120); f(140); f(7); f(0.8);
   const buf = new ArrayBuffer(words.length * 4);
   const u32 = new Uint32Array(buf), f32 = new Float32Array(buf);
   words.forEach((w, i) => { if ('u' in w) u32[i] = w.u; else f32[i] = w.f; });

@@ -151,6 +151,11 @@ It is the ORACLE — every number this project claims is a number one of those
 files produced — so it gets its own provenance beside it:
 `HISTORICAL_WASM_ROOT/PROVENANCE.md`, and `./harness/refresh_game.sh` to move it.
 
+**Its `blitter.js` is an oracle too, and not only a zig one.** `port/Blit.codex`
+is graded against numbers read out of it, and `web/blitter.js` — a fork of it
+since the recipes moved — is graded against it by running both. A refresh
+therefore moves the Blit gold as well as the zig golds.
+
 ## The chapter walk: `harness/cite_resolve.py`
 
 The bundler's transitive `cites` walk, from the ladder. **One local change,

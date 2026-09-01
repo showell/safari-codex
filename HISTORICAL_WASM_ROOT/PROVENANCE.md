@@ -31,6 +31,17 @@ rather than silent. Refreshing is the moment to re-run the whole sweep: the gold
 is regenerated from these files on every run, so a changed game changes the gold
 and any port that no longer matches it will say so.
 
-`blitter.js` is here for the same reason and is the game's own canvas renderer;
-`web/blitter.js` links to this copy so the browser page draws the port's frames
-with the renderer the real game draws its own with.
+`blitter.js` is here for the same reason and is the game's own canvas renderer.
+`web/blitter.js` USED TO BE A SYMLINK TO IT and is a fork now: the browser half
+turned out to be holding decisions rather than only paint -- a shading recipe and
+four visibility thresholds -- and moving those into `port/Blit.codex` meant
+changing the file that reads them. A symlink would have made that an edit to the
+oracle, which is the one thing this directory exists to prevent.
+
+So this copy is an oracle in TWO ways now. `harness/gen_blit_gold.js` reads the
+recipe and the thresholds out of it, through `harness/blitter_oracle.js`, and
+`judge/BlitCheck.codex` grades the Codex port against them. And
+`harness/blitter_diff.js` RUNS it, beside the fork, over a recording canvas, and
+demands the same picture. A refresh therefore moves the Blit gold as well as the
+zig golds -- which is one more reason the sweep is the right thing to run after
+one.

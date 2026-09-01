@@ -146,6 +146,13 @@ module it:
 3. bundles the check with `harness/bundle.py`;
 4. transpiles it with `codexzig`, builds the Zig, runs it, and grades.
 
+**One check's oracle is not a zig probe.** `Blit`'s decisions have always lived in
+the browser, so a check that owns a `harness/gen_<mod>_gold.js` gets its gold from
+node reading `HISTORICAL_WASM_ROOT/blitter.js` instead of from step 1. The sweep
+then finishes with `--- Blitter ---`: `harness/blitter_diff.js`, which runs the
+forked `web/blitter.js` and the frozen original side by side over a recording
+canvas. That leg is the only thing in the repository that can see the browser half.
+
 **A minute and a half cold, six and a half seconds when nothing has changed.** It
 was nine minutes. Two things fixed that, and both are worth knowing:
 
@@ -375,11 +382,21 @@ are the statement.
 | `gold/` | gold chapters, quire `Gold` | **generated, then tracked** |
 | `probe/` | Zig probes that import the real game | hand |
 | `poc/` | browser and spike ENTRY chapters, quire `Poc` — throwaway by design | hand |
-| `harness/` | the four steps, plus the spike and wasm builders | hand |
+| `harness/` | the four steps, plus the spike and wasm builders, the browser oracle and the dev server | hand |
 | `build/` | bundled units, emitted zig, diagnostics — **tracked**; binaries are not | generated |
 | `web/` | the browser page: this project's FORK of `blitter.js`, plus the wasm | mixed |
 | `price-b/` | the fixed-point measurements behind the dialect decision | one-off |
 | `spike/` | the original feasibility spike | historical |
+
+**Four files in `harness/` answer to the browser rather than to zig.**
+`blitter_oracle.js` reads the shading recipe and the thresholds out of the frozen
+original; `gen_blit_gold.js` writes `gold/BlitGold.codex` from it; `blitter_diff.js`
+runs the fork and the original side by side over a recording canvas;
+`paint_probe.js` hands the real module's own buffer to the real blitter for 300
+frames and checks the canvas calls add up. The first three are in the sweep;
+`paint_probe.js` runs at the end of `harness/build_wasm.sh`, where the wasm is.
+`serve.py` serves `web/` with `no-store`, which is the whole reason it is not one
+line of `python3 -m http.server`.
 
 Two files in `probe/` are not probes in the usual sense and say so in their own
 headers: `probe_num.zig` imports no game module at all, because `Num` is not a port
@@ -572,6 +589,7 @@ what does not work: two `opening`s in one bundle collide on the flat namespace.
 | `port/CatDraw.codex` | `wasm/cat.zig`'s `draw` | 9,993 values |
 | `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
 | `port/Safari.codex` | `wasm/safari.zig` **minus the ABI** | 9,341 values, **a whole frame** |
+| `port/Blit.codex` | `HISTORICAL_WASM_ROOT/blitter.js`'s recipes | 740 values, **exact**; the oracle is JavaScript |
 
 
 **`Render` is the first module whose CHECK was shaped by the zig's `pub`
@@ -1003,11 +1021,15 @@ had thirty commits sitting behind a stale sentence saying it did not.
 the game's own `blitter.js`, which paints with Canvas 2D. That seam is exactly
 where a GPU backend attaches: the buffer is already a flat, typed, per-frame list
 of tagged commands with colours and coordinates, and `NOTES` §5 chose it as the
-contract for reasons that hold just as well for a shader as for a 2D context. What
-would need deciding is how much of the blitter's own shading maths moves across
-(the round gradients, the two bull gradient tags, the headlight radial), because
-`harness/spike_svg.py` already approximates them and says where it is not faithful.
-Nothing in `port/` should have to change: the buffer is the API.
+contract for reasons that hold just as well for a shader as for a 2D context. How much of the blitter's own
+shading maths moves across was the open question, and one answer is in: the
+across-the-width shading and the four visibility thresholds moved, so the wire now
+carries finished colours on a **tag 2** instead of a colour and a strength on a tag
+1. The two bull gradient tags and the headlight radial did not move and did not
+need to — they are paints, not decisions. `harness/spike_svg.py` approximates them
+and says where it is not faithful. Nothing in `port/Paint.codex` changed for any of
+it: the expansion is a second pass over the finished command list, which is what
+kept the nine graded seams looking at the same thing.
 
 **(b) Act on the findings.** `FINDINGS.md` has nine, and four are already sent —
 see below. They are the outward-facing product of this project and they are ready
@@ -1069,8 +1091,13 @@ the code already cited.
 **`poc/Scene.codex` is the original throwaway** and still builds; it is kept
 because building it is the way to compare, and it has no reason to grow.
 
-**The blitter and the rasterizer are the far side of the seam**, deliberately —
-`NOTES` §5, unchallenged since. That is the seam item (a) above would attach to.
+**The blitter and the rasterizer were the far side of the seam**, deliberately —
+`NOTES` §5. That held for the rasterizer and no longer holds whole for the blitter:
+the browser half turned out to be keeping DECISIONS as well as paint — a shading
+recipe and four visibility thresholds, numbers chosen by eye in the one file
+nothing here could run. Those are `port/Blit.codex`'s now and the wire carries
+their answers. What is left in `web/blitter.js` really is display, and that is the
+seam item (a) above attaches to.
 
 ## Findings owed upstream
 

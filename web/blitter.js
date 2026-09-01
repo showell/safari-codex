@@ -262,7 +262,7 @@ const SAFARI = {
   wasm: '/driving/safari.wasm',
   segments: 19,                     // the guest owns the route; it does not export its length
   hint: 'SPACE pause/resume · ↑/↓ step · J next intersection · D debug overlay',
-  loading: 'Warming up the drive…',
+  loading: 'Prepare for your journey! Watch out for animals crossing the road.',
   backdrop: drawSafariBackdrop,
 };
 

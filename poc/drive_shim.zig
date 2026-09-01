@@ -86,7 +86,12 @@ pub export fn renderFrame() u32 {
     cx_hp = cx_hp_base;
     var w: usize = 0;
     var r = cxRide();
-    const cmds = ride_frame(cx_world.?, &r);
+    // THE EXPANSION, which is where the browser's recipes went. `ride-frame`
+    // still answers exactly what nine checks in judge/ grade against paint.zig;
+    // `blit-expand` then rewrites that list into what a canvas can paint without
+    // deciding anything -- shaded polygons resolved to a flat fill or a tag-2
+    // span shade, discs and radial fills under a threshold dropped outright.
+    const cmds = blit_expand(ride_frame(cx_world.?, &r), 0);
     for (cmds.items.items) |cmd| {
         const pts = cmd.pts.items.items;
         const n = pts.len / 2;
@@ -108,11 +113,13 @@ pub export fn renderFrame() u32 {
             w += 6;
             continue;
         }
-        // THE GRADIENT FILLS: tag 4 is a radial fill (headlight beams), 5 and 6
-        // are 2-stop gradients (the bull's shading). All carry a second colour and
-        // their geometry ahead of the point count, and all use 0xAARRGGBB because
-        // they composite.
-        if (cmd.tag >= 4 and cmd.tag <= 6) {
+        // THE GRADIENT FILLS, and tag 2 joins them without a line of new wire
+        // because it has their exact shape: a second colour, then the command's
+        // own geometry, then the point count. Tag 2 is a span shade -- two
+        // colours and two x's; 4 is a radial fill (headlight beams); 5 and 6 are
+        // 2-stop gradients (the bull's shading). Tags 4, 5 and 6 use 0xAARRGGBB
+        // because they composite; tag 2 is opaque, like the solid path.
+        if (cmd.tag >= 2 and cmd.tag <= 6) {
             const head: usize = 4 + g.len;
             if (w + head + pts.len > CAP_WORDS) break;
             cx_paint[w] = @intCast(cmd.tag);
@@ -127,16 +134,17 @@ pub export fn renderFrame() u32 {
             }
             continue;
         }
-        const head: usize = if (cmd.tag == 1) 4 else 3;
+        // WHAT IS LEFT IS TAG 0, and after `blit-expand` that is the only thing
+        // that can reach here. Tag 1 -- the strength-carrying round gradient --
+        // is rewritten upstream into a tag 0 or a tag 2 whose colours are already
+        // computed, so the strength word this used to write has no reader left.
+        // A stray tag 1 would be written with a solid header and desync the wire,
+        // which harness/build_wasm.sh's decoder rejects by name.
+        const head: usize = 3;
         if (w + head + pts.len > CAP_WORDS) break;
         cx_paint[w] = @intCast(cmd.tag);
         cx_paint[w + 1] = @intCast(cmd.color);
-        if (cmd.tag == 1) {
-            cx_paint[w + 2] = @bitCast(@as(f32, @floatCast(cmd.strength)));
-            cx_paint[w + 3] = @intCast(n);
-        } else {
-            cx_paint[w + 2] = @intCast(n);
-        }
+        cx_paint[w + 2] = @intCast(n);
         w += head;
         // THE f64 -> f32 NARROWING HAPPENS HERE AND ONLY HERE, the seam the
         // hand-written zig already narrows at.

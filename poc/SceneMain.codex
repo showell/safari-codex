@@ -1,5 +1,6 @@
 Chapter: SceneMain
   cites Foreword chapter Console
+  cites Safari chapter Blit
   cites Poc chapter Scene
 
  The entry point. The wasm build never calls it -- the shim exports renderFrame
@@ -30,7 +31,7 @@ Section: Entry
   report : Real -> Text
   report (u) =
     let sun = if (scene-sun-at u).visible then "sun on " else "sun off"
-    in "sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " y " & show (real-to-int (scene-sun-at u).y) & " cmds " & show (list-length (frame-at u))
+    in "sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " y " & show (real-to-int (scene-sun-at u).y) & " cmds " & show (list-length (frame-at u)) & " drawn " & show (list-length (blit-expand (frame-at u) 0))
 
 
   opening : [Console] Nothing = act

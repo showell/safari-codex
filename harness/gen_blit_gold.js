@@ -58,23 +58,10 @@ for (const r of RADII) for (const a of ALPHAS) { discR.push(r); discA.push(a); d
 const POLYS = [[10, 90, 50], [10, 10.5, 10.2], [5, 5, 5]];
 const EXP_COLORS = [0x000000, 0x4a8f43, 0xc0ffee, 0xffffff];
 
-function expandShade(color, strength, xs) {
-  const flat = { tag: 0, c0: color, c1: 0, lo: 0, hi: 0 };
-  if (!(strength > 0)) return flat;
-  const lo = Math.min(...xs), hi = Math.max(...xs);
-  if (F.tooNarrowToShade(lo, hi)) return flat;
-  const st = F.widthShadeStops(color, strength);
-  // The tag carries TWO colours because the recipe's outer stops are the same one.
-  // If that ever stops being true the tag is the wrong shape, so it is checked here
-  // rather than assumed in the wire.
-  if (st[0][1] !== st[2][1]) throw new Error('the recipe\'s edge stops differ; tag 2 carries only two colours');
-  return { tag: 2, c0: st[0][1], c1: st[1][1], lo, hi };
-}
-
 const expC = [], expS = [], expX0 = [], expX1 = [], expX2 = [], expInts = [], expSpan = [];
 for (const c of EXP_COLORS) for (const s of STRENGTHS) for (const xs of POLYS) {
   expC.push(c); expS.push(s); expX0.push(xs[0]); expX1.push(xs[1]); expX2.push(xs[2]);
-  const e = expandShade(c, s, xs);
+  const e = F.expandShade(c, s, xs);
   expInts.push(e.tag, e.c0, e.c1);
   expSpan.push(e.lo, e.hi);
 }

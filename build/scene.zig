@@ -2945,6 +2945,90 @@ fn ride_sun(w: *CxList(Segment), r_: Ride) SunPos {
     return b0: { const cf: f64 = ride_focal(w, r_.rider); break :b0 sun_pos(heading_for(r_.rider), r_.clock, cf, camera_w()); };
 }
 
+fn pack_rgb(r_: i64, g: i64, b_: i64) i64 {
+    return ((cx_shl(r_, 16) | cx_shl(g, 8)) | b_);
+}
+
+fn shade_chan(v_: i64, f: f64) i64 {
+    return b0: { const scaled: i64 = cx_real_to_int(round_real((cx_real_from_int(v_) * f))); break :b0 @as(i64, (if ((scaled > 255)) 255 else scaled)); };
+}
+
+fn shade_color(c_: i64, f: f64) i64 {
+    return pack_rgb(shade_chan((cx_shr(c_, 16) & 255), f), shade_chan((cx_shr(c_, 8) & 255), f), shade_chan((c_ & 255), f));
+}
+
+fn shade_edge_darken() f64 {
+    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
+}
+
+fn shade_middle_lift() f64 {
+    return @as(f64, @bitCast(@as(i64, 4598175219545276416)));
+}
+
+fn width_shade_edge(color: i64, strength: f64) i64 {
+    return shade_color(color, (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (shade_edge_darken() * strength)));
+}
+
+fn width_shade_middle(color: i64, strength: f64) i64 {
+    return shade_color(color, (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (shade_middle_lift() * strength)));
+}
+
+fn min_disc_radius() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn min_disc_alpha() f64 {
+    return @as(f64, @bitCast(@as(i64, 4581421828931458171)));
+}
+
+fn min_gradient_radius() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
+}
+
+fn min_shade_width() f64 {
+    return @as(f64, @bitCast(@as(i64, 4607182418800017408)));
+}
+
+fn disc_visible(r_: f64, alpha: f64) bool {
+    return ((r_ >= min_disc_radius()) and (alpha >= min_disc_alpha()));
+}
+
+fn radial_visible(r_: f64) bool {
+    return (r_ >= min_gradient_radius());
+}
+
+fn span_lo(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
+    var _tl_i = i_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) < _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+    }
+}
+
+fn span_hi(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
+    var _tl_i = i_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) > _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+    }
+}
+
+fn as_solid(c_: DrawCmd) DrawCmd {
+    return cx_new(DrawCmdS{ .tag = 0, .color = c_.color, .color2 = 0, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_empty(f64), .pts = c_.pts });
+}
+
+fn expand_shade(c_: DrawCmd) DrawCmd {
+    return (if ((c_.strength <= @as(f64, @bitCast(@as(i64, 0))))) as_solid(c_) else (if ((cx_list_len(c_.pts) < 2)) as_solid(c_) else b2: { const lo: f64 = span_lo(c_.pts, 0, cx_list_at(c_.pts, 0)); break :b2 b3: { const hi: f64 = span_hi(c_.pts, 0, cx_list_at(c_.pts, 0)); break :b3 (if (((hi - lo) < min_shade_width())) as_solid(c_) else cx_new(DrawCmdS{ .tag = 2, .color = width_shade_edge(c_.color, c_.strength), .color2 = width_shade_middle(c_.color, c_.strength), .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ lo, hi }), .pts = c_.pts })); }; }));
+}
+
+fn expand_cmd(c_: DrawCmd) *CxList(DrawCmd) {
+    return (if ((c_.tag == 1)) cx_ll_of(DrawCmd, &[_]DrawCmd{ expand_shade(c_) }) else (if ((c_.tag == 3)) (if (disc_visible(cx_list_at(c_.geom, 2), c_.strength)) cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }) else cx_ll_empty(DrawCmd)) else (if ((c_.tag == 4)) (if (radial_visible(cx_list_at(c_.geom, 2))) cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }) else cx_ll_empty(DrawCmd)) else cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }))));
+}
+
+fn blit_expand(cs: *CxList(DrawCmd), i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(DrawCmd) else cx_ll_concat(expand_cmd(cx_list_at(cs, i_)), blit_expand(cs, (i_ +% 1))));
+}
+
 fn route_frames() f64 {
     return @as(f64, @bitCast(@as(i64, 4663758889118859264)));
 }
@@ -3014,7 +3098,7 @@ fn frame() *CxList(DrawCmd) {
 }
 
 fn report(u_: f64) []const u8 {
-    return b0: { const sun = (if (scene_sun_at(u_).visible) "\x13\x19\x12\x02\x10\x12\x02" else "\x13\x19\x12\x02\x10\x1c\x1c"); break :b0 cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x13\x0d\x1d\x02", cx_show_int(drive_pos_at(build_world(), u_).seg)), "\x02\x13\x22\x1e\x02"), cx_show_int(sky_color(scene_step_at(u_)))), "\x02\x14\x10\x15\x11\x26\x10\x12\x02"), cx_show_int(horizon_color(scene_step_at(u_)))), "\x02"), sun), "\x02\x24\x02"), cx_show_int(cx_real_to_int(scene_sun_at(u_).x))), "\x02\x18\x1a\x16\x13\x02"), cx_show_int(cx_list_len(frame_at(u_)))); };
+    return b0: { const sun = (if (scene_sun_at(u_).visible) "\x13\x19\x12\x02\x10\x12\x02" else "\x13\x19\x12\x02\x10\x1c\x1c"); break :b0 cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat(cx_concat("\x13\x0d\x1d\x02", cx_show_int(drive_pos_at(build_world(), u_).seg)), "\x02\x13\x22\x1e\x02"), cx_show_int(sky_color(scene_step_at(u_)))), "\x02\x14\x10\x15\x11\x26\x10\x12\x02"), cx_show_int(horizon_color(scene_step_at(u_)))), "\x02"), sun), "\x02\x24\x02"), cx_show_int(cx_real_to_int(scene_sun_at(u_).x))), "\x02\x18\x1a\x16\x13\x02"), cx_show_int(cx_list_len(frame_at(u_)))), "\x02\x16\x15\x0f\x1b\x12\x02"), cx_show_int(cx_list_len(blit_expand(frame_at(u_), 0)))); };
 }
 
 fn opening() void {

@@ -77,9 +77,30 @@ const discIsVisible = (r, alpha) => r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_AL
 const radialIsVisible = (r) => r >= MIN_GRADIENT_RADIUS;
 const tooNarrowToShade = (minX, maxX) => maxX - minX < MIN_SHADE_WIDTH;
 
+// ── THE REFERENCE EXPANSION ───────────────────────────────────────────────────
+// What `blit-expand` does to one shaded command, stated in JavaScript out of the
+// oracle's own functions. It is NOT lifted from the original -- the original does
+// this work inside `blit()` and keeps none of it -- so it is a second, independent
+// statement of the reshape, which is exactly what makes comparing it to the Codex
+// one worth doing. gen_blit_gold.js grades Codex against it; blitter_diff.js uses
+// it to build the wire the slimmed blitter is fed.
+function expandShade(color, strength, xs) {
+  const flat = { tag: 0, c0: color, c1: 0, lo: 0, hi: 0 };
+  if (!(strength > 0)) return flat;
+  const lo = Math.min(...xs), hi = Math.max(...xs);
+  if (tooNarrowToShade(lo, hi)) return flat;
+  const st = widthShadeStops(color, strength);
+  // The tag carries TWO colours because the recipe's outer stops are the same one.
+  // If that ever stops being true the tag is the wrong shape, so it is checked here
+  // rather than assumed in the wire.
+  if (st[0][1] !== st[2][1]) throw new Error("the recipe's edge stops differ; tag 2 carries only two colours");
+  return { tag: 2, c0: st[0][1], c1: st[1][1], lo, hi };
+}
+
 module.exports = {
   FILE, SRC,
   SHADE_EDGE_DARKEN, SHADE_MIDDLE_LIFT,
   MIN_DISC_RADIUS, MIN_DISC_ALPHA, MIN_GRADIENT_RADIUS, MIN_SHADE_WIDTH,
   shadeColor, widthShadeStops, discIsVisible, radialIsVisible, tooNarrowToShade,
+  expandShade,
 };

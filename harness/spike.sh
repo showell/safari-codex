@@ -16,7 +16,7 @@ zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 # default into the SHARED transpiler checkout, which meant the compiler under
 # every number here was whatever that tree happened to hold this afternoon.
 # PROVENANCE.md names the pin; CODEXZIG still overrides.
-codexzig="$("$root/harness/build_codexzig.sh")"
+codexzig="$("$here/build_codexzig.sh")"
 # ONE BINARY PER PAIR OF VIEWPOINTS, and the reason is the bump heap rather than
 # taste: the prelude never reclaims (PORTING_NOTES C6) and neither arm rewinds an
 # arena, so every frame a run prints is still held when it prints the next. Six

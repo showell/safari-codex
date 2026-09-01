@@ -7,6 +7,7 @@ Chapter: DriveMain
   cites Safari chapter World
   cites Safari chapter Truck
   cites Safari chapter Safari
+  cites Safari chapter Blit
   cites Poc chapter Drive
 
  The entry point. The wasm build never calls it -- the shim exports renderFrame
@@ -28,6 +29,12 @@ Chapter: DriveMain
  commands each point of the sweep holds, which is the fastest way to see whether a
  frame is empty before ever opening a browser.
 
+ TWO COUNTS NOW, `cmds` and `drawn`. The first is what Render produced and nine
+ checks in judge/ grade; the second is what survives `blit-expand`, which drops a
+ disc or a radial fill the browser would have declined to paint anyway. The gap
+ between them is the buffer the wire no longer carries. Touching `blit-expand`
+ here is also what keeps it in the module for the shim to call -- B6 again.
+
  We say:
 
 Section: Entry
@@ -35,7 +42,7 @@ Section: Entry
   report : Real -> Text
   report (u) =
     let sun = if (scene-sun-at u).visible then "sun on " else "sun off"
-    in "seg " & show (drive-pos-at build-world u).seg & " sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " cmds " & show (list-length (frame-at u))
+    in "seg " & show (drive-pos-at build-world u).seg & " sky " & show (sky-color (scene-step-at u)) & " horizon " & show (horizon-color (scene-step-at u)) & " " & sun & " x " & show (real-to-int (scene-sun-at u).x) & " cmds " & show (list-length (frame-at u)) & " drawn " & show (list-length (blit-expand (frame-at u) 0))
 
   opening : [Console] Nothing = act
     print-line-uni ("cmds  " & show (list-length frame))

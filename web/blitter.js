@@ -16,67 +16,25 @@
 //      points, or with a radial one, or with a radial mapped onto an ellipse.
 //      There are no trucks in this section, and there should never be.
 //
-//   2. SCENE RECIPES. Decisions: which colour, which gradient stop, which radius,
-//      below which size to skip a thing entirely. These are the game's, not the
-//      canvas's, and they are gathered in one block so it is obvious how many
-//      there are. Every one of them is a candidate to move into Codex, where it
-//      can be run and checked; here it can only be looked at.
-//
-//   3. BROWSER FACTS. Things that are true of canvas and of nothing else -- a
+//   2. BROWSER FACTS. Things that are true of canvas and of nothing else -- a
 //      one-pixel overlap that beats a rasterisation seam, a degenerate-matrix
 //      guard, the frame budget, the spinner, the key handling. These stay.
+//
+// THERE USED TO BE A THIRD KIND AND THERE IS NOT ANY MORE. A block of SCENE
+// RECIPES sat between those two: which colour to shade a polygon's edges, how far
+// to lift its middle, below which radius or alpha to skip a thing entirely. They
+// were decisions, they were the game's rather than the canvas's, and they lived in
+// the one file in this project that nothing could run. `port/Blit.codex` holds them
+// now and `judge/BlitCheck.codex` grades them; what arrives over the wire is
+// already decided, so this file paints and does not choose. The guest sends a
+// tag-2 span shade with its colours computed, or a tag-0 flat fill, and never
+// sends a disc it has decided is too faint to see.
 //
 // Plain hand-written JS (no TS, no bundler).
 
 const W = 960, H = 600;
 
-// ── 1a. PORT CANDIDATES ────────────────────────────────────────────────────────
-// Pure arithmetic over numbers. Nothing here touches the canvas, reads the DOM or
-// depends on anything but its arguments -- which is exactly the test for whether a
-// thing could be computed by the guest instead and sent over as data.
-//
-// The pattern each one follows: a NUMERIC CORE that could move, and a FORMATTING
-// SHELL that cannot, because `ctx.fillStyle` wants a CSS string and the guest has
-// no business knowing that. Splitting them is most of the work of moving one.
-
-// Scale each channel of a 0xRRGGBB by a brightness factor, saturating at 255.
-// CORE -- moveable.
-function shadeColor(c, f) {
-  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
-  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
-  const b = Math.min(255, Math.round((c & 255) * f));
-  return (r << 16) | (g << 8) | b;
-}
-
-// The three stops of the across-the-width shading recipe: darken both edges, lift
-// the middle, the whole effect scaled by a strength the guest passes so it can fade
-// with distance. It is a shading MODEL, not a paint, and it is about polygons rather
-// than about trees -- a building face takes it as readily as a crown.
-// CORE -- moveable.
-function widthShadeStops(color, strength) {
-  return [
-    [0, shadeColor(color, 1 - SHADE_EDGE_DARKEN * strength)],
-    [0.5, shadeColor(color, 1 + SHADE_MIDDLE_LIFT * strength)],
-    [1, shadeColor(color, 1 - SHADE_EDGE_DARKEN * strength)],
-  ];
-}
-
-// Is this thing worth drawing at all? Three predicates over the numbers the guest
-// already computed -- so the guest could as easily not emit the command.
-// CORE -- moveable, and moving them would shrink the buffer as well as the file.
-function discIsVisible(r, alpha) { return r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_ALPHA; }
-function radialIsVisible(r) { return r >= MIN_GRADIENT_RADIUS; }
-function tooNarrowToShade(minX, maxX) { return maxX - minX < MIN_SHADE_WIDTH; }
-
-// The x extent of an n-point polygon, read WITHOUT consuming it.
-// CORE -- moveable; the guest knows the extent before it writes the points.
-function polyExtentX(f32, w, n) {
-  let minX = Infinity, maxX = -Infinity;
-  for (let i = 0; i < n; i++) { const x = f32[w + i * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
-  return [minX, maxX];
-}
-
-// ── 1b. CANVAS BACKEND ─────────────────────────────────────────────────────────
+// ── 1. CANVAS BACKEND ─────────────────────────────────────────────────────────
 // Paths, paints and CSS colour strings. This is the half that cannot move: it is
 // the shape of the canvas API and nothing else. There are no trucks here.
 
@@ -164,33 +122,32 @@ function fillDisc(ctx, x, y, r, color, alpha) {
 // each with a paint. Nothing here is about safari -- a different show emitting the
 // same tags renders with this file untouched.
 //
-// The thresholds are the exception worth naming: they are numbers chosen by eye,
-// and they are the ones `port/Blit.codex` now also holds so they can be run.
+// Nothing in it decides anything: every number a command carries was computed by
+// the guest, and this file's whole job is to turn tags into paths and paints.
 
 // What the guest's tags mean, so the dispatch below can be read without a legend.
 // A tag names a SHAPE AND A PAINT, never a subject: the backend paints a
 // radial-gradient polygon; it does not paint a headlight.
+//
+// TAG 1 IS GONE FROM THIS LIST. It was a polygon plus a `strength`, and a strength
+// is only meaningful to something that knows the shading recipe -- so this file
+// held a darkening factor, a lifting factor and a width floor in order to read it.
+// Tag 2 replaces it: two colours and two x's, already decided by the guest. Tag 2
+// was free because the critters it once meant are baked to polygons now.
 const TAG = {
   SOLID: 0,          // a flat polygon
-  WIDTH_SHADE: 1,    // a polygon shaded across its width (safari uses it for tree crowns)
+  SPAN_SHADE: 2,     // a polygon under a symmetric 3-stop gradient across an x-span
   DISC: 3,           // an alpha disc (the tower beacon's blink)
   RADIAL_POLY: 4,    // radial-gradient fill (the truck's headlight beams, brake glow)
   LINEAR_POLY: 5,    // 2-stop linear fill (flat shading panels)
   ELLIPSE_POLY: 6,   // 2-stop radial fill through an ellipse (rounded muscle shading)
 };
 
-// Below these, a thing is not worth drawing. Chosen by eye; none is a canvas limit.
-const MIN_DISC_RADIUS = 0.5;
-const MIN_DISC_ALPHA = 0.02;
-const MIN_GRADIENT_RADIUS = 0.5;
-const MIN_SHADE_WIDTH = 1;      // narrower than a pixel: fill flat instead
-// The one threshold that IS a canvas fact: a singular matrix cannot be inverted.
+// The one threshold left, and it is a canvas fact rather than a scene one: a
+// singular matrix cannot be inverted. The four that were chosen by eye -- the disc
+// radius and alpha floors, the radial radius floor, the flat-fill width -- are
+// `port/Blit.codex`'s now, and a command that fails one never reaches this file.
 const DEGENERATE_DET = 1e-4;
-
-// The crown recipe: brighten the middle of the polygon and darken both edges, the
-// whole effect scaled by a strength the guest passes so it can fade with distance.
-const SHADE_EDGE_DARKEN = 0.4;
-const SHADE_MIDDLE_LIFT = 0.25;
 
 // ── 2a. THE SHOW ───────────────────────────────────────────────────────────────
 // Everything that is about THIS screensaver and not about rendering one.
@@ -309,8 +266,9 @@ const STEP_GUARD = 200000;
 // emoji glyphs the browser font rasterised; they are now baked to tag-0 polygons
 // (emoji_frames.zig), so this draws no glyphs -- polygons, gradients and one disc.
 //
-// This function DECODES and PAINTS. Every number it compares against comes from
-// the recipe block above, so the shape of a decision is visible in one place.
+// This function DECODES and PAINTS, and that is now all it does: there is not one
+// comparison against a threshold left in it, because the guest already made every
+// call this file used to make about what is worth drawing.
 function blit(ctx, mem, base, len) {
   const u32 = new Uint32Array(mem.buffer, base, len / 4);
   const f32 = new Float32Array(mem.buffer, base, len / 4);
@@ -323,7 +281,18 @@ function blit(ctx, mem, base, len) {
     if (tag === TAG.DISC) {
       const color = u32[w++];
       const x = f32[w++], y = f32[w++], r = f32[w++], alpha = f32[w++];
-      if (discIsVisible(r, alpha)) fillDisc(ctx, x, y, r, color, alpha);
+      fillDisc(ctx, x, y, r, color, alpha);
+      continue;
+    }
+
+    // A symmetric 3-stop gradient across [x0, x1]: edge, middle, edge. The offsets
+    // are the canvas's -- addColorStop wants them -- and the colours are not.
+    if (tag === TAG.SPAN_SHADE) {
+      const edge = u32[w++], middle = u32[w++];
+      const x0 = f32[w++], x1 = f32[w++], n = u32[w++];
+      ctx.fillStyle = stopsPaint(ctx, x0, x1, [[0, edge], [0.5, middle], [1, edge]]);
+      w = polyPath(ctx, f32, w, n);
+      ctx.fill();
       continue;
     }
 
@@ -331,10 +300,8 @@ function blit(ctx, mem, base, len) {
       const cCol = u32[w++], eCol = u32[w++];
       const cx = f32[w++], cy = f32[w++], r = f32[w++], n = u32[w++];
       w = polyPath(ctx, f32, w, n);
-      if (radialIsVisible(r)) {
-        ctx.fillStyle = radialPaint(ctx, cx, cy, r, cCol, eCol);
-        ctx.fill();
-      }
+      ctx.fillStyle = radialPaint(ctx, cx, cy, r, cCol, eCol);
+      ctx.fill();
       continue;
     }
 
@@ -358,18 +325,10 @@ function blit(ctx, mem, base, len) {
       continue;
     }
 
-    // TAG.SOLID and TAG.WIDTH_SHADE share a header; only the shaded one carries a strength.
+    // TAG.SOLID, and after the guest's expansion it is the only thing left.
     const color = u32[w++];
-    const strength = tag === TAG.WIDTH_SHADE ? f32[w++] : 0;
     const n = u32[w++];
-    if (tag === TAG.WIDTH_SHADE && strength > 0) {
-      const [minX, maxX] = polyExtentX(f32, w, n);
-      ctx.fillStyle = tooNarrowToShade(minX, maxX)
-        ? hex(color)
-        : stopsPaint(ctx, minX, maxX, widthShadeStops(color, strength));
-    } else {
-      ctx.fillStyle = hex(color);
-    }
+    ctx.fillStyle = hex(color);
     w = polyPath(ctx, f32, w, n);
     ctx.fill();
   }

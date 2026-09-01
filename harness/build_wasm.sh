@@ -93,9 +93,16 @@ while(w*4<len){
   // colour word and then its own geometry -- 3, 6 and 8 floats -- ahead of the
   // point count. Walking one as a plain polygon reads its second colour as a
   // count, which desyncs the wire rather than reporting anything useful.
-  const GRAD={4:3,5:6,6:8};
-  if(GRAD[tag]!==undefined){ w++; for(let k=0;k<GRAD[tag];k++){const v=f32[w++]; if(!isFinite(v))bad++;} grad++; }
-  else if(tag===1){w++; round++;} else solid++;  // tag 1 carries a strength word
+  // Tag 2 is a SPAN SHADE and has that same shape: a second colour, then two x
+  // bounds, then the count. It is what tag 1 becomes once blit-expand has run.
+  const GRAD={2:2,4:3,5:6,6:8};
+  if(GRAD[tag]!==undefined){ w++; for(let k=0;k<GRAD[tag];k++){const v=f32[w++]; if(!isFinite(v))bad++;} if(tag===2)round++; else grad++; }
+  // TAG 1 CANNOT REACH THE WIRE ANY MORE. blit-expand rewrites every one of them
+  // into a tag 0 or a tag 2, and web/blitter.js no longer paints it -- so one
+  // arriving here means the expansion did not run, and that must stop the build
+  // rather than reach a canvas that would silently skip it.
+  else if(tag===1){console.error(`tag 1 reached the wire at command ${n}: blit-expand did not run`);process.exit(1);}
+  else solid++;
   const np=u32[w++];
   // 2048 is the pts[] bound in mountains.zig itself: a silhouette is 683 points,
   // one per column across the widest view plus two to close it to the horizon.
@@ -106,7 +113,7 @@ while(w*4<len){
   for(let k=0;k<np*2;k++){const v=f32[w++]; if(!isFinite(v))bad++;} n++;}
 if(w*4!==len){console.error(`wire desync: walked ${w*4} of ${len} bytes`);process.exit(1);}
 if(!n||bad){console.error(`bad frame: ${n} commands, ${bad} non-finite coords`);process.exit(1);}
-console.log(`frame: ${n} commands (${solid} solid, ${round} round, ${disc} disc, ${grad} gradient), ${len} bytes, wire walks exactly`);
+console.log(`frame: ${n} commands (${solid} solid, ${round} span-shade, ${disc} disc, ${grad} gradient), ${len} bytes, wire walks exactly`);
 // Now the endurance leg: advance and re-render the way the page does. 1200 frames
 // is twenty seconds at 60fps, and comfortably past the 42 that used to be fatal.
 const FRAMES=1200;
@@ -115,6 +122,6 @@ try{ for(;k<FRAMES;k++){ if(i.exports.advance) i.exports.advance(); const l=rend
 catch(err){ console.error(`DIED at frame ${k} of ${FRAMES}: ${String(err).split(String.fromCharCode(10))[0]}`); console.error(`the heap is not being reclaimed between frames -- see PORTING_NOTES C8`); process.exit(1); }
 // and the wire must still be walkable after all that churn
 const l2=renderFrame(), v32=new Uint32Array(memory.buffer,bufPtr(),l2/4);
-const G2={4:4,5:7,6:9}; let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===3){z+=4;m++;continue;}if(G2[t]!==undefined)z+=G2[t];else if(t===1)z++;const np=v32[z++];z+=np*2;m++;}
+const G2={2:3,4:4,5:7,6:9}; let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===3){z+=4;m++;continue;}if(G2[t]!==undefined)z+=G2[t];const np=v32[z++];z+=np*2;m++;}
 if(z*4!==l2){console.error(`wire desync after ${FRAMES} frames`);process.exit(1);}
 console.log(`endurance: ${FRAMES} frames advanced and rendered, then ${m} commands still walk exactly`);'

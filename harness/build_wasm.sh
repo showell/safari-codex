@@ -125,3 +125,9 @@ const l2=renderFrame(), v32=new Uint32Array(memory.buffer,bufPtr(),l2/4);
 const G2={2:3,4:4,5:7,6:9}; let z=0,m=0; while(z*4<l2){const t=v32[z++];z++;if(t===3){z+=4;m++;continue;}if(G2[t]!==undefined)z+=G2[t];const np=v32[z++];z+=np*2;m++;}
 if(z*4!==l2){console.error(`wire desync after ${FRAMES} frames`);process.exit(1);}
 console.log(`endurance: ${FRAMES} frames advanced and rendered, then ${m} commands still walk exactly`);'
+
+# AND THEN PAINT THEM WITH THE REAL BLITTER. Everything above decodes the wire in
+# its own words; a tag web/blitter.js does not know would pass all of it and leave
+# a hole in the browser. harness/paint_probe.js hands the module's own buffer to
+# the fork and checks the canvas calls add up.
+node harness/paint_probe.js

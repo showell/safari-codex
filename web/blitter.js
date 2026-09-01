@@ -1,1 +1,420 @@
-../HISTORICAL_WASM_ROOT/blitter.js
+// blitter — the browser half of the Safari camera. It loads safari.wasm, calls
+// renderFrame(camera pose), and paints what the guest wrote into linear memory.
+//
+// THIS IS SAFARI-CODEX'S FORK, and it is a real file rather than the symlink it
+// used to be. `HISTORICAL_WASM_ROOT/` is a COPY of the angry-gopher game and this
+// project never edits it -- it is the ORACLE every gold here is measured against,
+// and a blitter edited through a symlink would have been an oracle edited to
+// agree with us. The angry-gopher original stays exactly as it is; this fork is
+// where the boundary work happens.
+//
+// THE LINE THIS FILE IS ORGANISED AROUND. Three kinds of thing live here and they
+// are not the same kind:
+//
+//   1. CANVAS BACKEND. A vocabulary of paths and paints with no idea what it is
+//      drawing: fill this polygon solid, or with a linear gradient between two
+//      points, or with a radial one, or with a radial mapped onto an ellipse.
+//      There are no trucks in this section, and there should never be.
+//
+//   2. SCENE RECIPES. Decisions: which colour, which gradient stop, which radius,
+//      below which size to skip a thing entirely. These are the game's, not the
+//      canvas's, and they are gathered in one block so it is obvious how many
+//      there are. Every one of them is a candidate to move into Codex, where it
+//      can be run and checked; here it can only be looked at.
+//
+//   3. BROWSER FACTS. Things that are true of canvas and of nothing else -- a
+//      one-pixel overlap that beats a rasterisation seam, a degenerate-matrix
+//      guard, the frame budget, the spinner, the key handling. These stay.
+//
+// Plain hand-written JS (no TS, no bundler).
+
+const W = 960, H = 600;
+
+// ── 1. CANVAS BACKEND ──────────────────────────────────────────────────────────
+// Colour conversion and the paints. Nothing below here knows what a truck is.
+
+// 0xRRGGBB -> "#rrggbb"
+function hex(c) {
+  return '#' + (c & 0xffffff).toString(16).padStart(6, '0');
+}
+
+// 0xAARRGGBB -> "rgba(r,g,b,a)"
+function rgba(c) {
+  return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${((c >>> 24) & 255) / 255})`;
+}
+
+// clamp a gradient stop offset to [0,1], and to >= a lower bound so a 2-stop pair stays ascending.
+function stopAt(o, lo = 0) { return Math.max(lo, Math.min(1, o)); }
+
+// shade a 0xRRGGBB by a brightness factor (clamped) -> "rgb(r,g,b)".
+function shade(c, f) {
+  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((c & 255) * f));
+  return `rgb(${r},${g},${b})`;
+}
+
+// Trace an n-point polygon starting at word `w`. Returns the word after it.
+function polyPath(ctx, f32, w, n) {
+  ctx.beginPath();
+  ctx.moveTo(f32[w], f32[w + 1]); w += 2;
+  for (let i = 1; i < n; i++) { ctx.lineTo(f32[w], f32[w + 1]); w += 2; }
+  ctx.closePath();
+  return w;
+}
+
+// A two-stop linear gradient between two points, in 0xAARRGGBB.
+function linearPaint(ctx, ax, ay, bx, by, c0, o0, c1, o1) {
+  const g = ctx.createLinearGradient(ax, ay, bx, by);
+  g.addColorStop(stopAt(o0), rgba(c0));
+  g.addColorStop(stopAt(o1, o0), rgba(c1));
+  return g;
+}
+
+// A two-stop radial gradient from a centre out to a radius, in 0xAARRGGBB.
+function radialPaint(ctx, cx, cy, r, cCol, eCol) {
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, rgba(cCol));
+  g.addColorStop(1, rgba(eCol));
+  return g;
+}
+
+// Fill the CURRENT path with a unit radial gradient mapped onto the ellipse that
+// (u, v) spans at (cx, cy). Answers false when the matrix is degenerate and the
+// caller should fall back to a flat fill -- a canvas fact, not a scene one.
+function fillEllipseRadial(ctx, cx, cy, ux, uy, vx, vy, c0, o0, c1, o1) {
+  if (Math.abs(ux * vy - uy * vx) < DEGENERATE_DET) return false;
+  ctx.save();
+  ctx.clip();
+  ctx.transform(ux, uy, vx, vy, cx, cy); // unit space -> screen ellipse
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(stopAt(o0), rgba(c0));
+  g.addColorStop(stopAt(o1, o0), rgba(c1));
+  ctx.fillStyle = g;
+  ctx.fillRect(-1e4, -1e4, 2e4, 2e4); // clipped to the path; beyond r=1 the gradient clamps to stop 1
+  ctx.restore();
+  return true;
+}
+
+// A filled disc at a composited alpha.
+function fillDisc(ctx, x, y, r, color, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = hex(color);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+// ── 2. SCENE RECIPES ───────────────────────────────────────────────────────────
+// Every decision this file still makes about how the world should LOOK. Each one
+// is a number chosen by eye, and each one is invisible to every check we have,
+// because it lives where nothing but a browser can run it.
+
+// What the guest's tags mean, so the dispatch below can be read without a legend.
+// The game's own use for each is a comment HERE and not down there: the backend
+// paints a radial-gradient polygon; it does not paint a headlight.
+const TAG = {
+  SOLID: 0,          // a flat polygon
+  CROWN: 1,          // a polygon with the across-the-width shading recipe (tree crowns)
+  DISC: 3,           // an alpha disc (the tower beacon's blink)
+  RADIAL_POLY: 4,    // radial-gradient fill (the truck's headlight beams, brake glow)
+  LINEAR_POLY: 5,    // 2-stop linear fill (flat shading panels)
+  ELLIPSE_POLY: 6,   // 2-stop radial fill through an ellipse (rounded muscle shading)
+};
+
+// Below these, a thing is not worth drawing. Chosen by eye; none is a canvas limit.
+const MIN_DISC_RADIUS = 0.5;
+const MIN_DISC_ALPHA = 0.02;
+const MIN_GRADIENT_RADIUS = 0.5;
+const MIN_CROWN_WIDTH = 1;      // narrower than a pixel: shade flat instead
+// The one threshold that IS a canvas fact: a singular matrix cannot be inverted.
+const DEGENERATE_DET = 1e-4;
+
+// The crown recipe: brighten the middle of the polygon and darken both edges, the
+// whole effect scaled by a strength the guest passes so it can fade with distance.
+const CROWN_EDGE_DARKEN = 0.4;
+const CROWN_MIDDLE_LIFT = 0.25;
+function crownPaint(ctx, color, strength, minX, maxX) {
+  const g = ctx.createLinearGradient(minX, 0, maxX, 0);
+  g.addColorStop(0, shade(color, 1 - CROWN_EDGE_DARKEN * strength));
+  g.addColorStop(0.5, shade(color, 1 + CROWN_MIDDLE_LIFT * strength));
+  g.addColorStop(1, shade(color, 1 - CROWN_EDGE_DARKEN * strength));
+  return g;
+}
+
+// The sky band and the grass under it, drawn OVERSIZED so the rolled (banked) frame's
+// corners stay filled. The guest owns the two colours; the stop positions are ours.
+const GRASS_HEX = '#4a8f43';
+const SKY_STOP_FLAT = 0.2;  // the upper band holds skyHex to here, then fades to the horizon
+function drawBackground(ctx, skyHex, horizonHex) {
+  const BIG = W + H;
+  const g = ctx.createLinearGradient(0, 0, 0, H / 2);
+  g.addColorStop(0, skyHex);
+  g.addColorStop(SKY_STOP_FLAT, skyHex);
+  g.addColorStop(1, horizonHex);
+  ctx.fillStyle = g;
+  ctx.fillRect(W / 2 - BIG, H / 2 - BIG, 2 * BIG, BIG);
+  ctx.fillStyle = GRASS_HEX;
+  // BROWSER FACT: overlap 1px up over the horizon. Under the camera roll the two rects'
+  // shared edge can rasterize a sky sliver into the grass -- grass last + overlapping wins.
+  ctx.fillRect(W / 2 - BIG, H / 2 - 1, 2 * BIG, BIG + 1);
+}
+
+// The setting sun: a warm glow plus the disc, clipped to the sky so the ground occludes
+// the rest, at the centre and scale the guest computed. Painted before the buffer, so the
+// mountain polys -- first in the buffer -- occlude it: the sun sets BEHIND the ranges.
+const SUN_RADIUS_PX = 46;   // matches sky.zig SUN_RADIUS_PX; the gradient recipe lives here
+const SUN_GLOW_INNER = 8, SUN_GLOW_OUTER = 340, SUN_DISC_INNER = 4;
+const SUN_GLOW_STOPS = [
+  [0, 'rgba(255,201,128,0.85)'],
+  [0.4, 'rgba(255,150,92,0.32)'],
+  [1, 'rgba(255,150,92,0)'],
+];
+const SUN_DISC_STOPS = [[0, '#ffe6a3'], [1, '#ff9d5c']];
+function drawSun(ctx, x, y, scale) {
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, W, H / 2); ctx.clip(); // sky only
+  const glow = ctx.createRadialGradient(x, y, SUN_GLOW_INNER * scale, x, y, SUN_GLOW_OUTER * scale);
+  for (const [at, col] of SUN_GLOW_STOPS) glow.addColorStop(at, col);
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H / 2);
+  const disc = ctx.createRadialGradient(x, y, SUN_DISC_INNER * scale, x, y, SUN_RADIUS_PX * scale);
+  for (const [at, col] of SUN_DISC_STOPS) disc.addColorStop(at, col);
+  ctx.fillStyle = disc;
+  ctx.beginPath(); ctx.arc(x, y, SUN_RADIUS_PX * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// ── 3. THE COMMAND STREAM ──────────────────────────────────────────────────────
+
+// Walk the draw buffer [base, base+len). Views over the SAME words: u32 for
+// tag/color/count, f32 for coordinate bit patterns. The critters used to be tag-2
+// emoji glyphs the browser font rasterised; they are now baked to tag-0 polygons
+// (emoji_frames.zig), so this draws no glyphs -- polygons, gradients and one disc.
+//
+// This function DECODES and PAINTS. Every number it compares against comes from
+// the recipe block above, so the shape of a decision is visible in one place.
+function blit(ctx, mem, base, len) {
+  const u32 = new Uint32Array(mem.buffer, base, len / 4);
+  const f32 = new Float32Array(mem.buffer, base, len / 4);
+  let w = 0;
+  let cmds = 0;
+  while (w * 4 < len) {
+    cmds++;
+    const tag = u32[w++];
+
+    if (tag === TAG.DISC) {
+      const color = u32[w++];
+      const x = f32[w++], y = f32[w++], r = f32[w++], alpha = f32[w++];
+      if (r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_ALPHA) fillDisc(ctx, x, y, r, color, alpha);
+      continue;
+    }
+
+    if (tag === TAG.RADIAL_POLY) {
+      const cCol = u32[w++], eCol = u32[w++];
+      const cx = f32[w++], cy = f32[w++], r = f32[w++], n = u32[w++];
+      w = polyPath(ctx, f32, w, n);
+      if (r >= MIN_GRADIENT_RADIUS) {
+        ctx.fillStyle = radialPaint(ctx, cx, cy, r, cCol, eCol);
+        ctx.fill();
+      }
+      continue;
+    }
+
+    if (tag === TAG.LINEAR_POLY) {
+      const c0 = u32[w++], c1 = u32[w++], o0 = f32[w++], o1 = f32[w++];
+      const ax = f32[w++], ay = f32[w++], bx = f32[w++], by = f32[w++], n = u32[w++];
+      w = polyPath(ctx, f32, w, n);
+      ctx.fillStyle = linearPaint(ctx, ax, ay, bx, by, c0, o0, c1, o1);
+      ctx.fill();
+      continue;
+    }
+
+    if (tag === TAG.ELLIPSE_POLY) {
+      const c0 = u32[w++], c1 = u32[w++], o0 = f32[w++], o1 = f32[w++];
+      const cx = f32[w++], cy = f32[w++], ux = f32[w++], uy = f32[w++], vx = f32[w++], vy = f32[w++], n = u32[w++];
+      w = polyPath(ctx, f32, w, n);
+      if (!fillEllipseRadial(ctx, cx, cy, ux, uy, vx, vy, c0, o0, c1, o1)) {
+        ctx.fillStyle = rgba(c0);
+        ctx.fill();
+      }
+      continue;
+    }
+
+    // TAG.SOLID and TAG.CROWN share a header; only the crown carries a strength.
+    const color = u32[w++];
+    const strength = tag === TAG.CROWN ? f32[w++] : 0;
+    const n = u32[w++];
+    if (tag === TAG.CROWN && strength > 0) {
+      // The x extent is read AHEAD of the path walk, without consuming it.
+      let minX = Infinity, maxX = -Infinity;
+      for (let i = 0; i < n; i++) { const x = f32[w + i * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
+      ctx.fillStyle = (maxX - minX < MIN_CROWN_WIDTH)
+        ? hex(color)
+        : crownPaint(ctx, color, strength, minX, maxX);
+    } else {
+      ctx.fillStyle = hex(color);
+    }
+    w = polyPath(ctx, f32, w, n);
+    ctx.fill();
+  }
+  return cmds;
+}
+
+// The frame-budget HUD: zig can't time itself (no clock in wasm-freestanding), so the
+// only place to measure the 16.7ms/60fps budget is here, where performance.now() lives
+// and where BOTH halves — wasm geometry compute and canvas blit — can be timed. We keep
+// a rolling window so the displayed max catches the worst recent frame, not just now.
+const BUDGET_MS = 1000 / 60;
+const WINDOW = 90; // ~1.5s of frames
+const hud = { wasm: [], blit: [], total: [] };
+function hudPush(arr, v) { arr.push(v); if (arr.length > WINDOW) arr.shift(); }
+function hudMax(arr) { let m = 0; for (const v of arr) if (v > m) m = v; return m; }
+function hudAvg(arr) { if (!arr.length) return 0; let s = 0; for (const v of arr) s += v; return s / arr.length; }
+
+function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, debug) {
+  // Off by default — prod is completely clean (nothing drawn). D toggles the dev
+  // overlay on; the bottom-of-page hint is where it stays discoverable.
+  if (!debug) return;
+  ctx.save();
+  ctx.font = '12px ui-monospace,Menlo,monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  // Color the total line by the RATE of missed frames, not the single worst one: a lone
+  // GC/jank spike shouldn't pin it red for the whole window. green = no misses; amber =
+  // occasional (≤20%, likely jank); red = consistently over budget (a real problem).
+  const totMax = hudMax(hud.total);
+  let overCount = 0;
+  for (const v of hud.total) if (v > BUDGET_MS) overCount++;
+  const frac = hud.total.length ? overCount / hud.total.length : 0;
+  const fill = bufCap ? (bufBytes / bufCap) : 0;
+  const lines = [
+    `t ${step}   seg ${seg}/19`,
+    `wasm ${hudAvg(hud.wasm).toFixed(2)}ms  blit ${hudAvg(hud.blit).toFixed(2)}ms`,
+    `total ${hudAvg(hud.total).toFixed(2)}ms  max ${totMax.toFixed(2)}  over ${overCount}/${hud.total.length} (${BUDGET_MS.toFixed(2)})`,
+    `${cmds} draw-calls   buf-peak ${(bufBytes / 1024).toFixed(1)}/${(bufCap / 1024).toFixed(0)} KiB (${(fill * 100).toFixed(0)}%)`,
+    `D · hide debug`,
+  ];
+  const totColor = frac === 0 ? '#9be29b' : frac <= 0.2 ? '#ffd166' : '#ff6b6b';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(8, 8, 290, 8 + lines.length * 16 + 4);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillStyle = (i === 0) ? '#ffe14d'      // the step `t`, highlighted — it's what Steve reports
+      : (i === 2) ? totColor                   // the total-frame-time line, coloured by miss rate
+      : (i === 3 && fill > 0.9) ? '#ffd166'     // the buffer line, amber when nearly full
+      : (i === 4) ? '#8a93a0'                   // the dim D-toggle hint
+      : '#cfe0f0';
+    ctx.fillText(lines[i], 14, 14 + i * 16);
+  }
+  ctx.restore();
+}
+
+async function main() {
+  document.body.style.cssText =
+    'margin:0;background:#0b0b0d;height:100vh;display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;color:#cfd2d6';
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  canvas.style.cssText = 'display:block;background:#000;box-shadow:0 10px 40px rgba(0,0,0,0.6)';
+  document.body.appendChild(canvas);
+  const hint = document.createElement('div');
+  hint.textContent = 'SPACE pause/resume · ↑/↓ step · J next intersection · D debug overlay';
+  hint.style.cssText = 'margin-top:10px;font-size:12px;color:#9aa0a6;letter-spacing:0.4px';
+  document.body.appendChild(hint);
+  const ctx = canvas.getContext('2d');
+
+  // a loading spinner over the canvas while the wasm loads + the first frames warm up (see the warmup
+  // before the loop). The cold first frames blow the 16.7ms budget, which read as a stutter at startup.
+  const spinStyle = document.createElement('style');
+  spinStyle.textContent = '@keyframes sg-spin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(spinStyle);
+  const spinner = document.createElement('div');
+  spinner.style.cssText = 'position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;gap:16px;' +
+    'align-items:center;justify-content:center;background:#0b0b0d;color:#9aa0a6;' +
+    'font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:0.5px';
+  spinner.innerHTML = '<div style="width:42px;height:42px;border:4px solid #2a2c30;' +
+    'border-top-color:#cfd2d6;border-radius:50%;animation:sg-spin 0.8s linear infinite"></div>' +
+    '<div>Warming up the drive…</div>';
+  document.body.appendChild(spinner);
+
+  const { instance } = await WebAssembly.instantiateStreaming(fetch('/driving/safari.wasm'), {});
+  const { renderFrame, bufPtr, memory, advance, back, riderTilt, bufHighWater, bufCap,
+          skyTop, skyHorizon, sunVisible, sunX, sunY, sunScale, clock, riderSeg } = instance.exports;
+  const capBytes = bufCap();
+
+  // The wasm owns the rider state; we drive it. The camera rolls with the bike's lean
+  // (riderTilt) — the whole world banks into a turn, like main.ts's ctx.rotate(-tilt).
+  let auto = true;
+  let debug = false; // the dev overlay (frame-budget HUD) — off by default (prod is clean); D toggles it.
+
+  function draw() {
+    // time the two halves separately: wasm geometry compute, then canvas blit.
+    const t0 = performance.now();
+    const len = renderFrame();
+    const t1 = performance.now();
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(-riderTilt());
+    ctx.translate(-W / 2, -H / 2);
+    drawBackground(ctx, hex(skyTop()), hex(skyHorizon()));
+    if (sunVisible()) drawSun(ctx, sunX(), sunY(), sunScale());
+    const cmds = blit(ctx, memory, bufPtr(), len);
+    ctx.restore();
+    const t2 = performance.now();
+    hudPush(hud.wasm, t1 - t0);
+    hudPush(hud.blit, t2 - t1);
+    hudPush(hud.total, t2 - t0);
+    drawHud(ctx, bufHighWater(), capBytes, cmds, clock(), riderSeg() + 1, debug); // unrolled overlay, on top
+  }
+  function loop() {
+    if (auto) { advance(); draw(); }
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { auto = !auto; e.preventDefault(); }
+    else if (e.code === 'ArrowUp') { auto = false; advance(); draw(); e.preventDefault(); }
+    else if (e.code === 'ArrowDown') { auto = false; back(); draw(); e.preventDefault(); }
+    else if (e.code === 'KeyJ') {
+      // jump one intersection: run the REAL drive (advance steps) until the rider crosses into the next
+      // segment, landing at its start — velocity, acceleration, and the day→dusk dimming all faithful, as
+      // if actually ridden. Repeated presses walk the route a segment at a time; pause after so you can
+      // inspect (e.g. the truck close-up once it's night). Mirrors the J hotkey in main.ts.
+      if (!e.repeat) {
+        auto = false;
+        const from = riderSeg();
+        let guard = 0;
+        while (riderSeg() === from && guard++ < 200000) advance();
+        draw();
+      }
+      e.preventDefault();
+    } else if (e.code === 'KeyD') {
+      // toggle the dev overlay (frame-budget HUD). Off by default; redraw now so it
+      // responds even while paused.
+      if (!e.repeat) { debug = !debug; draw(); }
+      e.preventDefault();
+    }
+  });
+
+  // Warm the JIT + canvas BEFORE the live loop and behind the spinner: the first few frames are cold
+  // (gradient objects, first paints) and overshoot the 16.7ms budget, which looked like a startup stutter.
+  // Render the opening frame across a few rAF ticks (so the spinner keeps spinning) until one comes in
+  // under budget — then reveal and start. draw() doesn't advance, so no animation is skipped.
+  await new Promise((resolve) => {
+    let i = 0;
+    (function warm() {
+      const t = performance.now();
+      draw();
+      const dt = performance.now() - t;
+      if (++i >= 30 || (i >= 4 && dt < 12)) resolve();
+      else requestAnimationFrame(warm);
+    })();
+  });
+  spinner.remove();
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+main();

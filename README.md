@@ -1021,15 +1021,18 @@ had thirty commits sitting behind a stale sentence saying it did not.
 the game's own `blitter.js`, which paints with Canvas 2D. That seam is exactly
 where a GPU backend attaches: the buffer is already a flat, typed, per-frame list
 of tagged commands with colours and coordinates, and `NOTES` §5 chose it as the
-contract for reasons that hold just as well for a shader as for a 2D context. How much of the blitter's own
-shading maths moves across was the open question, and one answer is in: the
-across-the-width shading and the four visibility thresholds moved, so the wire now
-carries finished colours on a **tag 2** instead of a colour and a strength on a tag
-1. The two bull gradient tags and the headlight radial did not move and did not
-need to — they are paints, not decisions. `harness/spike_svg.py` approximates them
-and says where it is not faithful. Nothing in `port/Paint.codex` changed for any of
-it: the expansion is a second pass over the finished command list, which is what
-kept the nine graded seams looking at the same thing.
+contract for reasons that hold just as well for a shader as for a 2D context.
+
+How much of the blitter's own shading maths moves across was the open question,
+and one answer is in. The across-the-width shading and the four visibility
+thresholds moved: the wire now carries finished colours on a **tag 2** instead of
+a colour and a strength on a tag 1, and a command the guest has decided is too
+small or too faint is not sent at all. The two bull gradient tags and the
+headlight radial did not move and did not need to — they are paints, not
+decisions, and `harness/spike_svg.py` approximates them and says where it is not
+faithful. Nothing in `port/Paint.codex` changed for any of it: the expansion is a
+second pass over the finished command list, which is what kept the nine graded
+seams looking at exactly what they looked at before.
 
 **(b) Act on the findings.** `FINDINGS.md` has nine, and four are already sent —
 see below. They are the outward-facing product of this project and they are ready
@@ -1037,13 +1040,16 @@ to send.
 
 ### Still open, in rough order of value
 
-**The driven PAGE is off every arm.** `metal.py` runs the checks and the frames;
-what it cannot reach is `poc/DriveMain`, because that program's output is a wasm
-module rather than a line of text and its shim is zig by construction. The spike
-entries are stills at fixed route positions, so `DriveMain`'s frame loop and
-`drive_shim.zig` have no witness at all. Giving `DriveMain` a text dump of the
-draw-command buffer closes it, and it is the `SpikeMain` shape rather than a new
-idea. This is the largest uncovered surface left.
+**The driven PAGE has a witness now, but not a graded one.** `metal.py` runs the
+checks and the frames; what it cannot reach is `poc/DriveMain`, because that
+program's output is a wasm module rather than a line of text and its shim is zig
+by construction. `harness/build_wasm.sh` closed part of it — it walks the wire,
+renders 1,200 frames, and `harness/paint_probe.js` hands 300 of them to the real
+`web/blitter.js` and checks an identity over the canvas calls. That catches a
+desync, a heap death and a tag the blitter cannot paint. **It does not check a
+single VALUE.** Giving `DriveMain` a text dump of the draw-command buffer is still
+what closes that, and it is the `SpikeMain` shape rather than a new idea. This is
+the largest uncovered surface left.
 
 **The whole-frame check grades two states.** Chosen as branches — a hard lean, and
 a long straight with the truck close. A second check is cheaper than more states in

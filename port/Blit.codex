@@ -1,6 +1,7 @@
 Chapter: Blit
   cites Foreword chapter ListUtils
   cites Safari chapter Num
+  cites Safari chapter Paint
 
  The blitter's own arithmetic, in Codex.
 
@@ -16,11 +17,16 @@ Chapter: Blit
  packed integer and the string stays in the browser. The split is not a
  compromise -- it is the actual boundary, and the JS half is about six lines.
 
- THE JS STILL COMPUTES THESE TOO, for now. Deleting its copy means changing what
- the guest writes into the draw buffer, and that buffer's shape is fixed by
- paint.zig, which is the ORACLE this whole project is graded against and must not
- move. So this chapter is the recipe made runnable and checkable first; the wire
- follows separately.
+ THE JS NO LONGER COMPUTES THESE. `blit-expand` below runs the whole recipe over
+ a finished frame and rewrites the commands, so what crosses the wire is already
+ decided and `web/blitter.js` only paints.
+
+ IT DOES THAT WITHOUT MOVING THE GRADED SEAM, which is the reason it is a second
+ pass rather than a change to Render. `port/Paint.codex`'s returned `List DrawCmd`
+ is what nine checks in judge/ compare against paint.zig, and paint.zig is the
+ ORACLE this project exists to agree with. An expansion that runs AFTER that list
+ is complete leaves every one of those comparisons looking at the same thing it
+ looked at yesterday.
 
  We say:
 
@@ -108,5 +114,82 @@ Section: Worth Drawing
 
   too-narrow-to-shade : Real, Real -> Boolean
   too-narrow-to-shade (min-x) (max-x) = max-x - min-x < min-shade-width
+
+Section: The Expansion
+
+ Run the recipe over a finished frame. Every command the renderer produced goes in;
+ what comes out is what the canvas can paint without deciding anything.
+
+ THREE KINDS OF REWRITE, and they are the three kinds of decision the browser used
+ to make. A command below a threshold is DROPPED, so the buffer shrinks as well as
+ the renderer. A shaded polygon becomes either a flat fill or a span-shaded one,
+ with its three colours and its span computed here. Everything else passes through
+ untouched.
+
+ THE NEW TAG IS 2, and 2 was free: it used to be an emoji glyph the browser font
+ rasterised, and the critters have been baked to polygons since. It says a polygon
+ is filled with a symmetric three-stop gradient across a span -- edge colour, middle
+ colour, edge colour, at 0, 0.5 and 1 -- and it says nothing about why. The tag it
+ replaces carried a `strength` and left the renderer holding a darkening factor, a
+ lifting factor and a width floor; this one carries two colours and two x's.
+
+  span-lo : List Real, Integer, Real -> Real
+  span-lo (xs) (i) (acc) =
+    if i >= list-length xs then acc
+    else span-lo xs (i + 2) (if list-at xs i < acc then list-at xs i else acc)
+
+  span-hi : List Real, Integer, Real -> Real
+  span-hi (xs) (i) (acc) =
+    if i >= list-length xs then acc
+    else span-hi xs (i + 2) (if list-at xs i > acc then list-at xs i else acc)
+
+ A shaded polygon with nothing to shade is a flat one, and it keeps its points.
+
+  as-solid : DrawCmd -> DrawCmd
+  as-solid (c) =
+    DrawCmd { tag = 0, color = c.color, color2 = 0, strength = 0.0, geom = [], pts = c.pts }
+
+  as-span-shade : DrawCmd, Real, Real -> DrawCmd
+  as-span-shade (c) (lo) (hi) =
+    DrawCmd {
+      tag = 2,
+      color = width-shade-edge c.color c.strength,
+      color2 = width-shade-middle c.color c.strength,
+      strength = 0.0,
+      geom = [lo, hi],
+      pts = c.pts
+    }
+
+ A polygon with fewer than two points has no extent to read, so it cannot be
+ shaded. push-round-poly already refuses to emit one, and this says so rather than
+ indexing an empty list to find out.
+
+  expand-shade : DrawCmd -> DrawCmd
+  expand-shade (c) =
+    if c.strength <= 0.0 then as-solid c
+    else if list-length c.pts < 2 then as-solid c
+    else let lo = span-lo c.pts 0 (list-at c.pts 0)
+      in let hi = span-hi c.pts 0 (list-at c.pts 0)
+      in if too-narrow-to-shade lo hi then as-solid c else as-span-shade c lo hi
+
+ A disc carries its radius in `geom` and its alpha in `strength`; a radial fill
+ carries its radius third in `geom`, after the centre.
+
+  expand-cmd : DrawCmd -> List DrawCmd
+  expand-cmd (c) =
+    if c.tag == 1 then [expand-shade c]
+    else if c.tag == 3 then (if disc-visible (list-at c.geom 2) c.strength then [c] else [])
+    else if c.tag == 4 then (if radial-visible (list-at c.geom 2) then [c] else [])
+    else [c]
+
+ THE INDEX IS A PARAMETER AND NOT A WRAPPER'S SECRET. A Codex definition whose body
+ is a single application is inlined and never emitted, so a one-argument
+ `blit-expand cs = expand-from cs 0` would not exist for the shim to call
+ (PORTING_NOTES B12). The shim passes the 0.
+
+  blit-expand : List DrawCmd, Integer -> List DrawCmd
+  blit-expand (cs) (i) =
+    if i >= list-length cs then []
+    else expand-cmd (list-at cs i) & blit-expand cs (i + 1)
 
 Page 1

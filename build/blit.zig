@@ -22,6 +22,41 @@ fn Tup5(comptime a_: type, comptime b_: type, comptime c_: type, comptime d_: ty
     };
 }
 
+const RiderPtS = struct {
+    right: f64,
+    forward: f64,
+};
+const RiderPt = *RiderPtS;
+
+const Vec3S = struct {
+    right: f64,
+    forward: f64,
+    height: f64,
+};
+const Vec3 = *Vec3S;
+
+const AXS = struct {
+    a_: f64,
+    x: f64,
+};
+const AX = *AXS;
+
+const ScreenPtS = struct {
+    x: f64,
+    y: f64,
+};
+const ScreenPt = *ScreenPtS;
+
+const DrawCmdS = struct {
+    tag: i64,
+    color: i64,
+    color2: i64,
+    strength: f64,
+    geom: *CxList(f64),
+    pts: *CxList(f64),
+};
+const DrawCmd = *DrawCmdS;
+
 fn map_list(comptime T23: type, comptime T24: type, f: CxFn1(T23, T24), xs: *CxList(T23)) *CxList(T24) {
     return map_list_loop(T23, T24, f, xs, 0, cx_list_len(xs), cx_ll_empty(T24));
 }
@@ -62,8 +97,12 @@ fn width_shade_edge(color: i64, strength: f64) i64 {
     return shade_color(color, (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (shade_edge_darken() * strength)));
 }
 
+fn width_shade_middle(color: i64, strength: f64) i64 {
+    return shade_color(color, (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (shade_middle_lift() * strength)));
+}
+
 fn width_shade_stops(color: i64, strength: f64) *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ width_shade_edge(color, strength), shade_color(color, (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (shade_middle_lift() * strength))), width_shade_edge(color, strength) });
+    return cx_ll_of(i64, &[_]i64{ width_shade_edge(color, strength), width_shade_middle(color, strength), width_shade_edge(color, strength) });
 }
 
 fn min_disc_radius() f64 {
@@ -92,6 +131,57 @@ fn radial_visible(r_: f64) bool {
 
 fn too_narrow_to_shade(min_x: f64, max_x: f64) bool {
     return ((max_x - min_x) < min_shade_width());
+}
+
+fn span_lo(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
+    var _tl_i = i_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) < _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+    }
+}
+
+fn span_hi(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
+    var _tl_i = i_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) > _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+    }
+}
+
+fn as_solid(c_: DrawCmd) DrawCmd {
+    return cx_new(DrawCmdS{ .tag = 0, .color = c_.color, .color2 = 0, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_empty(f64), .pts = c_.pts });
+}
+
+fn expand_shade(c_: DrawCmd) DrawCmd {
+    return (if ((c_.strength <= @as(f64, @bitCast(@as(i64, 0))))) as_solid(c_) else (if ((cx_list_len(c_.pts) < 2)) as_solid(c_) else b2: { const lo: f64 = span_lo(c_.pts, 0, cx_list_at(c_.pts, 0)); break :b2 b3: { const hi: f64 = span_hi(c_.pts, 0, cx_list_at(c_.pts, 0)); break :b3 (if (too_narrow_to_shade(lo, hi)) as_solid(c_) else cx_new(DrawCmdS{ .tag = 2, .color = width_shade_edge(c_.color, c_.strength), .color2 = width_shade_middle(c_.color, c_.strength), .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ lo, hi }), .pts = c_.pts })); }; }));
+}
+
+fn expand_cmd(c_: DrawCmd) *CxList(DrawCmd) {
+    return (if ((c_.tag == 1)) cx_ll_of(DrawCmd, &[_]DrawCmd{ expand_shade(c_) }) else (if ((c_.tag == 3)) (if (disc_visible(cx_list_at(c_.geom, 2), c_.strength)) cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }) else cx_ll_empty(DrawCmd)) else (if ((c_.tag == 4)) (if (radial_visible(cx_list_at(c_.geom, 2))) cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }) else cx_ll_empty(DrawCmd)) else cx_ll_of(DrawCmd, &[_]DrawCmd{ c_ }))));
+}
+
+fn blit_expand(cs: *CxList(DrawCmd), i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(DrawCmd) else cx_ll_concat(expand_cmd(cx_list_at(cs, i_)), blit_expand(cs, (i_ +% 1))));
+}
+
+fn g_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
+fn g_finite(x: f64) bool {
+    return ((cx_real_to_bits(x) & 9223372036854775807) < 9218868437227405312);
+}
+
+fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
+    var _tl_i = i_;
+    while (true) {
+        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+    }
+}
+
+fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64) []const u8 {
+    return (if ((cx_list_len(got) != cx_list_len(want))) cx_concat(cx_concat(cx_concat(cx_concat(name, "\x02\x3a\x29\x30\x02\x17\x0d\x12\x1d\x0e\x14\x02"), cx_show_int(cx_list_len(got))), "\x02\x1b\x0f\x12\x0e\x02"), cx_show_int(cx_list_len(want))) else b1: { const i_: i64 = first_real_diff(got, want, tol, 0); break :b1 (if ((i_ < 0)) cx_concat(cx_concat(name, "\x02\x10\x22\x02"), cx_show_int(cx_list_len(got))) else cx_concat(cx_concat(name, "\x02\x3a\x29\x30\x02\x0f\x0e\x02"), cx_show_int(i_))); });
 }
 
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
@@ -185,6 +275,45 @@ fn g_blit_flat() *CxList(bool) {
     return cx_ll_of(bool, &[_]bool{ true, true, true, false, false, true, false });
 }
 
+fn g_blit_exp_c() *CxList(i64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(i64, &[_]i64{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215 });
+}
+
+fn g_blit_exp_s() *CxList(f64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4576918229304087675))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4598175219545276416))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4604930618986332160))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))), @as(f64, @bitCast(@as(i64, 4607182418800017408))) });
+}
+
+fn g_blit_exp_x0() *CxList(f64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4617315517961601024))) });
+}
+
+fn g_blit_exp_x1() *CxList(f64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4622100592565682176))), @as(f64, @bitCast(@as(i64, 4617315517961601024))) });
+}
+
+fn g_blit_exp_x2() *CxList(f64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4621931707579655782))), @as(f64, @bitCast(@as(i64, 4617315517961601024))) });
+}
+
+fn g_blit_exp() *CxList(i64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(i64, &[_]i64{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4886339, 0, 0, 4886339, 0, 0, 4886339, 0, 2, 4886083, 4886339, 0, 4886339, 0, 0, 4886339, 0, 2, 4423996, 5216327, 0, 4886339, 0, 0, 4886339, 0, 2, 3895862, 5480779, 0, 4886339, 0, 0, 4886339, 0, 2, 3433519, 5810768, 0, 4886339, 0, 0, 4886339, 0, 2, 2905640, 6140756, 0, 4886339, 0, 0, 4886339, 0, 0, 12648430, 0, 0, 12648430, 0, 0, 12648430, 0, 2, 12582637, 12648431, 0, 12648430, 0, 0, 12648430, 0, 2, 11396822, 13434877, 0, 12648430, 0, 0, 12648430, 0, 2, 10144958, 14221311, 0, 12648430, 0, 0, 12648430, 0, 2, 8827815, 15007743, 0, 12648430, 0, 0, 12648430, 0, 2, 7575951, 15794175, 0, 12648430, 0, 0, 12648430, 0, 0, 16777215, 0, 0, 16777215, 0, 0, 16777215, 0, 2, 16711422, 16777215, 0, 16777215, 0, 0, 16777215, 0, 2, 15132390, 16777215, 0, 16777215, 0, 0, 16777215, 0, 2, 13421772, 16777215, 0, 16777215, 0, 0, 16777215, 0, 2, 11776947, 16777215, 0, 16777215, 0, 0, 16777215, 0, 2, 10066329, 16777215, 0, 16777215, 0, 0, 16777215, 0 });
+}
+
+fn g_blit_exp_span() *CxList(f64) {
+    @setEvalBranchQuota(1000000);
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))) });
+}
+
+fn g_blit_mix() *CxList(i64) {
+    return cx_ll_of(i64, &[_]i64{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4 });
+}
+
 fn shade_pairs(cs: *CxList(i64), fs: *CxList(f64), i_: i64) *CxList(i64) {
     return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ shade_color(cx_list_at(cs, i_), cx_list_at(fs, i_)) }), shade_pairs(cs, fs, (i_ +% 1))));
 }
@@ -201,8 +330,36 @@ fn flat_pairs(los: *CxList(f64), his: *CxList(f64), i_: i64) *CxList(bool) {
     return (if ((i_ >= cx_list_len(los))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ too_narrow_to_shade(cx_list_at(los, i_), cx_list_at(his, i_)) }), flat_pairs(los, his, (i_ +% 1))));
 }
 
+fn exp_case(color: i64, strength: f64, x0: f64, x1: f64, x2: f64) DrawCmd {
+    return b0: { const cmd = cx_new(DrawCmdS{ .tag = 1, .color = color, .color2 = 0, .strength = strength, .geom = cx_ll_empty(f64), .pts = cx_ll_of(f64, &[_]f64{ x0, @as(f64, @bitCast(@as(i64, 4621819117588971520))), x1, @as(f64, @bitCast(@as(i64, 4626322717216342016))), x2, @as(f64, @bitCast(@as(i64, 4635329916471083008))) }) }); break :b0 expand_shade(cmd); };
+}
+
+fn exp_ints(cs: *CxList(i64), ss: *CxList(f64), xs0: *CxList(f64), xs1: *CxList(f64), xs2: *CxList(f64), i_: i64) *CxList(i64) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else b1: { const d_ = exp_case(cx_list_at(cs, i_), cx_list_at(ss, i_), cx_list_at(xs0, i_), cx_list_at(xs1, i_), cx_list_at(xs2, i_)); break :b1 cx_ll_concat(cx_ll_of(i64, &[_]i64{ d_.tag, d_.color, d_.color2 }), exp_ints(cs, ss, xs0, xs1, xs2, (i_ +% 1))); });
+}
+
+fn exp_span(cs: *CxList(i64), ss: *CxList(f64), xs0: *CxList(f64), xs1: *CxList(f64), xs2: *CxList(f64), i_: i64) *CxList(f64) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else b1: { const d_ = exp_case(cx_list_at(cs, i_), cx_list_at(ss, i_), cx_list_at(xs0, i_), cx_list_at(xs1, i_), cx_list_at(xs2, i_)); break :b1 cx_ll_concat((if ((cx_list_len(d_.geom) == 2)) cx_ll_of(f64, &[_]f64{ cx_list_at(d_.geom, 0), cx_list_at(d_.geom, 1) }) else cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))) })), exp_span(cs, ss, xs0, xs1, xs2, (i_ +% 1))); });
+}
+
+fn mix_discs(rs: *CxList(f64), alphas: *CxList(f64), i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(DrawCmd) else b1: { const d_ = cx_new(DrawCmdS{ .tag = 3, .color = 16711680, .color2 = 0, .strength = cx_list_at(alphas, i_), .geom = cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4630826316843712512))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), cx_list_at(rs, i_) }), .pts = cx_ll_empty(f64) }); break :b1 cx_ll_concat(cx_ll_of(DrawCmd, &[_]DrawCmd{ d_ }), mix_discs(rs, alphas, (i_ +% 1))); });
+}
+
+fn mix_radials(rs: *CxList(f64), i_: i64) *CxList(DrawCmd) {
+    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(DrawCmd) else b1: { const d_ = cx_new(DrawCmdS{ .tag = 4, .color = 1, .color2 = 2, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), cx_list_at(rs, i_) }), .pts = cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4636033603912859648))), @as(f64, @bitCast(@as(i64, 4626322717216342016))), @as(f64, @bitCast(@as(i64, 4632233691727265792))), @as(f64, @bitCast(@as(i64, 4635329916471083008))) }) }); break :b1 cx_ll_concat(cx_ll_of(DrawCmd, &[_]DrawCmd{ d_ }), mix_radials(rs, (i_ +% 1))); });
+}
+
+fn tags_of(cs: *CxList(DrawCmd), i_: i64) *CxList(i64) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).tag }), tags_of(cs, (i_ +% 1))));
+}
+
+fn mix_tags() *CxList(i64) {
+    return b0: { const frame = cx_ll_concat(mix_discs(g_blit_disc_r(), g_blit_disc_a(), 0), mix_radials(g_blit_radial_r(), 0)); break :b0 tags_of(blit_expand(frame, 0), 0); };
+}
+
 fn opening() void {
-    return b0: { _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x13\x14\x0f\x16\x0d\x02", shade_pairs(g_blit_shade_c(), g_blit_shade_f(), 0), g_blit_shade())); _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x18\x15\x10\x1b\x12\x02", shade_triples(g_blit_crown_c(), g_blit_crown_s(), 0), g_blit_crown())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x16\x11\x13\x18\x02\x02", disc_pairs(g_blit_disc_r(), g_blit_disc_a(), 0), g_blit_disc())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x15\x0f\x16\x11\x0f\x17", map_list(f64, bool, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) bool { _ = _ctx4; return radial_visible(p0); } }; break :b4 CxFn1(f64, bool){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_blit_radial_r()), g_blit_radial())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x1c\x17\x0f\x0e\x02\x02", flat_pairs(g_blit_width_lo(), g_blit_width_hi(), 0), g_blit_flat())); break :b0; };
+    return b0: { _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x13\x14\x0f\x16\x0d\x02", shade_pairs(g_blit_shade_c(), g_blit_shade_f(), 0), g_blit_shade())); _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x18\x15\x10\x1b\x12\x02", shade_triples(g_blit_crown_c(), g_blit_crown_s(), 0), g_blit_crown())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x16\x11\x13\x18\x02\x02", disc_pairs(g_blit_disc_r(), g_blit_disc_a(), 0), g_blit_disc())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x15\x0f\x16\x11\x0f\x17", map_list(f64, bool, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) bool { _ = _ctx4; return radial_visible(p0); } }; break :b4 CxFn1(f64, bool){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, g_blit_radial_r()), g_blit_radial())); _ = cx_print_line(grade_bools("\x20\x17\x11\x0e\x49\x1c\x17\x0f\x0e\x02\x02", flat_pairs(g_blit_width_lo(), g_blit_width_hi(), 0), g_blit_flat())); _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x0d\x24\x1f\x0f\x12\x16", exp_ints(g_blit_exp_c(), g_blit_exp_s(), g_blit_exp_x0(), g_blit_exp_x1(), g_blit_exp_x2(), 0), g_blit_exp())); _ = cx_print_line(grade_reals("\x20\x17\x11\x0e\x49\x13\x1f\x0f\x12\x02\x02", exp_span(g_blit_exp_c(), g_blit_exp_s(), g_blit_exp_x0(), g_blit_exp_x1(), g_blit_exp_x2(), 0), g_blit_exp_span(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_ints("\x20\x17\x11\x0e\x49\x16\x15\x10\x1f\x02\x02", mix_tags(), g_blit_mix())); break :b0; };
 }
 
 fn cx_entry() void {
@@ -294,6 +451,16 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
+}
+// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
+// bare metal holds a Real f64 as its own bits in a general register, so the
+// value and its bit pattern are the same sixty-four bits and the conversion
+// is a register move. Zig separates the two types, so the same identity is
+// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
+// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

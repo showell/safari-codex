@@ -48,14 +48,16 @@ function shadeColor(c, f) {
   return (r << 16) | (g << 8) | b;
 }
 
-// The three stops of the crown recipe: darken both edges, lift the middle, the whole
-// effect scaled by a strength the guest passes so it can fade with distance.
-// CORE -- moveable, and the most interesting one: it is a shading MODEL, not a paint.
-function crownStops(color, strength) {
+// The three stops of the across-the-width shading recipe: darken both edges, lift
+// the middle, the whole effect scaled by a strength the guest passes so it can fade
+// with distance. It is a shading MODEL, not a paint, and it is about polygons rather
+// than about trees -- a building face takes it as readily as a crown.
+// CORE -- moveable.
+function widthShadeStops(color, strength) {
   return [
-    [0, shadeColor(color, 1 - CROWN_EDGE_DARKEN * strength)],
-    [0.5, shadeColor(color, 1 + CROWN_MIDDLE_LIFT * strength)],
-    [1, shadeColor(color, 1 - CROWN_EDGE_DARKEN * strength)],
+    [0, shadeColor(color, 1 - SHADE_EDGE_DARKEN * strength)],
+    [0.5, shadeColor(color, 1 + SHADE_MIDDLE_LIFT * strength)],
+    [1, shadeColor(color, 1 - SHADE_EDGE_DARKEN * strength)],
   ];
 }
 
@@ -64,7 +66,7 @@ function crownStops(color, strength) {
 // CORE -- moveable, and moving them would shrink the buffer as well as the file.
 function discIsVisible(r, alpha) { return r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_ALPHA; }
 function radialIsVisible(r) { return r >= MIN_GRADIENT_RADIUS; }
-function crownIsFlat(minX, maxX) { return maxX - minX < MIN_CROWN_WIDTH; }
+function tooNarrowToShade(minX, maxX) { return maxX - minX < MIN_SHADE_WIDTH; }
 
 // The x extent of an n-point polygon, read WITHOUT consuming it.
 // CORE -- moveable; the guest knows the extent before it writes the points.
@@ -157,17 +159,20 @@ function fillDisc(ctx, x, y, r, color, alpha) {
   ctx.globalAlpha = 1;
 }
 
-// ── 2. SCENE RECIPES ───────────────────────────────────────────────────────────
-// Every decision this file still makes about how the world should LOOK. Each one
-// is a number chosen by eye, and each one is invisible to every check we have,
-// because it lives where nothing but a browser can run it.
+// ── 2. THE FRAME VOCABULARY ────────────────────────────────────────────────────
+// What a frame IS: an ordered list of geometric objects, each a polygon or a disc,
+// each with a paint. Nothing here is about safari -- a different show emitting the
+// same tags renders with this file untouched.
+//
+// The thresholds are the exception worth naming: they are numbers chosen by eye,
+// and they are the ones `port/Blit.codex` now also holds so they can be run.
 
 // What the guest's tags mean, so the dispatch below can be read without a legend.
-// The game's own use for each is a comment HERE and not down there: the backend
-// paints a radial-gradient polygon; it does not paint a headlight.
+// A tag names a SHAPE AND A PAINT, never a subject: the backend paints a
+// radial-gradient polygon; it does not paint a headlight.
 const TAG = {
   SOLID: 0,          // a flat polygon
-  CROWN: 1,          // a polygon with the across-the-width shading recipe (tree crowns)
+  WIDTH_SHADE: 1,    // a polygon shaded across its width (safari uses it for tree crowns)
   DISC: 3,           // an alpha disc (the tower beacon's blink)
   RADIAL_POLY: 4,    // radial-gradient fill (the truck's headlight beams, brake glow)
   LINEAR_POLY: 5,    // 2-stop linear fill (flat shading panels)
@@ -178,17 +183,29 @@ const TAG = {
 const MIN_DISC_RADIUS = 0.5;
 const MIN_DISC_ALPHA = 0.02;
 const MIN_GRADIENT_RADIUS = 0.5;
-const MIN_CROWN_WIDTH = 1;      // narrower than a pixel: shade flat instead
+const MIN_SHADE_WIDTH = 1;      // narrower than a pixel: fill flat instead
 // The one threshold that IS a canvas fact: a singular matrix cannot be inverted.
 const DEGENERATE_DET = 1e-4;
 
 // The crown recipe: brighten the middle of the polygon and darken both edges, the
 // whole effect scaled by a strength the guest passes so it can fade with distance.
-const CROWN_EDGE_DARKEN = 0.4;
-const CROWN_MIDDLE_LIFT = 0.25;
+const SHADE_EDGE_DARKEN = 0.4;
+const SHADE_MIDDLE_LIFT = 0.25;
 
-// The sky band and the grass under it, drawn OVERSIZED so the rolled (banked) frame's
-// corners stay filled. The guest owns the two colours; the stop positions are ours.
+// ── 2a. THE SHOW ───────────────────────────────────────────────────────────────
+// Everything that is about THIS screensaver and not about rendering one.
+//
+// The test this section exists to pass: a night walk through a city should reuse
+// every line above and below it and replace only what is in here -- a different
+// wasm, a different backdrop, different copy, a different route length. If that
+// stops being true, something domain-shaped has leaked out of this block.
+//
+// What is deliberately NOT here: the tag vocabulary, the paints, the frame loop,
+// the clock, the segments, the HUD. A show is a backdrop and some strings; a frame
+// is geometry either way.
+
+// The sky band and the grass under it, drawn OVERSIZED so the rolled frame's corners
+// stay filled. The guest owns the two colours; the stop positions are ours.
 const GRASS_HEX = '#4a8f43';
 const SKY_STOP_FLAT = 0.2;  // the upper band holds skyHex to here, then fades to the horizon
 function drawBackground(ctx, skyHex, horizonHex) {
@@ -203,19 +220,6 @@ function drawBackground(ctx, skyHex, horizonHex) {
   // BROWSER FACT: overlap 1px up over the horizon. Under the camera roll the two rects'
   // shared edge can rasterize a sky sliver into the grass -- grass last + overlapping wins.
   ctx.fillRect(W / 2 - BIG, H / 2 - 1, 2 * BIG, BIG + 1);
-}
-
-// Everything painted BEFORE the command buffer: the sky band, the grass, and the sun
-// if there is one. The buffer's own polygons -- mountains first -- paint over it, which
-// is how the sun sets behind the ranges.
-//
-// This exists so `draw` does not have to know that a backdrop is a sky and a sun. It is
-// the last domain decision left in the frame loop, and having it in one function is what
-// makes it a candidate to become a command in the buffer like everything else.
-function drawBackdrop(ctx, scene) {
-  drawBackground(ctx, hex(scene.skyTop()), hex(scene.skyHorizon()));
-  const sun = scene.sun();
-  if (sun) drawSun(ctx, sun.x, sun.y, sun.scale);
 }
 
 // The setting sun: a warm glow plus the disc, clipped to the sky so the ground occludes
@@ -241,6 +245,26 @@ function drawSun(ctx, x, y, scale) {
   ctx.beginPath(); ctx.arc(x, y, SUN_RADIUS_PX * scale, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
+
+// Everything painted BEFORE the command buffer. The buffer's own polygons --
+// mountains first -- paint over it, which is how the sun sets behind the ranges.
+function drawSafariBackdrop(ctx, scene) {
+  drawBackground(ctx, hex(scene.skyTop()), hex(scene.skyHorizon()));
+  const sun = scene.sun();
+  if (sun) drawSun(ctx, sun.x, sun.y, sun.scale);
+}
+
+// THE DESCRIPTOR. This object is the whole of what makes this a drive through the
+// country rather than a walk through a city at night. A second show is a second
+// literal like this one -- a different wasm, a `drawCityBackdrop` that paints a dark
+// sky and no sun, its own copy, its own route length -- and nothing else changes.
+const SAFARI = {
+  wasm: '/driving/safari.wasm',
+  segments: 19,                     // the guest owns the route; it does not export its length
+  hint: 'SPACE pause/resume · ↑/↓ step · J next intersection · D debug overlay',
+  loading: 'Warming up the drive…',
+  backdrop: drawSafariBackdrop,
+};
 
 // ── 2b. THE GUEST BOUNDARY ─────────────────────────────────────────────────────
 // The ONE place the guest's own names are allowed.
@@ -334,15 +358,15 @@ function blit(ctx, mem, base, len) {
       continue;
     }
 
-    // TAG.SOLID and TAG.CROWN share a header; only the crown carries a strength.
+    // TAG.SOLID and TAG.WIDTH_SHADE share a header; only the shaded one carries a strength.
     const color = u32[w++];
-    const strength = tag === TAG.CROWN ? f32[w++] : 0;
+    const strength = tag === TAG.WIDTH_SHADE ? f32[w++] : 0;
     const n = u32[w++];
-    if (tag === TAG.CROWN && strength > 0) {
+    if (tag === TAG.WIDTH_SHADE && strength > 0) {
       const [minX, maxX] = polyExtentX(f32, w, n);
-      ctx.fillStyle = crownIsFlat(minX, maxX)
+      ctx.fillStyle = tooNarrowToShade(minX, maxX)
         ? hex(color)
-        : stopsPaint(ctx, minX, maxX, crownStops(color, strength));
+        : stopsPaint(ctx, minX, maxX, widthShadeStops(color, strength));
     } else {
       ctx.fillStyle = hex(color);
     }
@@ -357,16 +381,13 @@ function blit(ctx, mem, base, len) {
 // and where BOTH halves — wasm geometry compute and canvas blit — can be timed. We keep
 // a rolling window so the displayed max catches the worst recent frame, not just now.
 const BUDGET_MS = 1000 / 60;
-// How many segments the route has. The guest owns this fact and does not export it,
-// so the HUD holds a second copy -- the kind of duplication that goes stale quietly.
-const SEGMENT_COUNT = 19;
 const WINDOW = 90; // ~1.5s of frames
 const hud = { wasm: [], blit: [], total: [] };
 function hudPush(arr, v) { arr.push(v); if (arr.length > WINDOW) arr.shift(); }
 function hudMax(arr) { let m = 0; for (const v of arr) if (v > m) m = v; return m; }
 function hudAvg(arr) { if (!arr.length) return 0; let s = 0; for (const v of arr) s += v; return s / arr.length; }
 
-function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, debug) {
+function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, segments, debug) {
   // Off by default — prod is completely clean (nothing drawn). D toggles the dev
   // overlay on; the bottom-of-page hint is where it stays discoverable.
   if (!debug) return;
@@ -383,7 +404,7 @@ function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, debug) {
   const frac = hud.total.length ? overCount / hud.total.length : 0;
   const fill = bufCap ? (bufBytes / bufCap) : 0;
   const lines = [
-    `t ${step}   seg ${seg}/${SEGMENT_COUNT}`,
+    `t ${step}   seg ${seg}/${segments}`,
     `wasm ${hudAvg(hud.wasm).toFixed(2)}ms  blit ${hudAvg(hud.blit).toFixed(2)}ms`,
     `total ${hudAvg(hud.total).toFixed(2)}ms  max ${totMax.toFixed(2)}  over ${overCount}/${hud.total.length} (${BUDGET_MS.toFixed(2)})`,
     `${cmds} draw-calls   buf-peak ${(bufBytes / 1024).toFixed(1)}/${(bufCap / 1024).toFixed(0)} KiB (${(fill * 100).toFixed(0)}%)`,
@@ -403,7 +424,7 @@ function drawHud(ctx, bufBytes, bufCap, cmds, step, seg, debug) {
   ctx.restore();
 }
 
-async function main() {
+async function main(show) {
   document.body.style.cssText =
     'margin:0;background:#0b0b0d;height:100vh;display:flex;flex-direction:column;' +
     'align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;color:#cfd2d6';
@@ -413,7 +434,7 @@ async function main() {
   canvas.style.cssText = 'display:block;background:#000;box-shadow:0 10px 40px rgba(0,0,0,0.6)';
   document.body.appendChild(canvas);
   const hint = document.createElement('div');
-  hint.textContent = 'SPACE pause/resume · ↑/↓ step · J next intersection · D debug overlay';
+  hint.textContent = show.hint;
   hint.style.cssText = 'margin-top:10px;font-size:12px;color:#9aa0a6;letter-spacing:0.4px';
   document.body.appendChild(hint);
   const ctx = canvas.getContext('2d');
@@ -429,10 +450,10 @@ async function main() {
     'font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:0.5px';
   spinner.innerHTML = '<div style="width:42px;height:42px;border:4px solid #2a2c30;' +
     'border-top-color:#cfd2d6;border-radius:50%;animation:sg-spin 0.8s linear infinite"></div>' +
-    '<div>Warming up the drive…</div>';
+    `<div>${show.loading}</div>`;
   document.body.appendChild(spinner);
 
-  const { instance } = await WebAssembly.instantiateStreaming(fetch('/driving/safari.wasm'), {});
+  const { instance } = await WebAssembly.instantiateStreaming(fetch(show.wasm), {});
   const scene = bindScene(instance.exports);
   const capBytes = scene.bufferCapacity();
 
@@ -449,14 +470,14 @@ async function main() {
     ctx.translate(W / 2, H / 2);
     ctx.rotate(-scene.roll());
     ctx.translate(-W / 2, -H / 2);
-    drawBackdrop(ctx, scene);
+    show.backdrop(ctx, scene);
     const cmds = blit(ctx, scene.memory, scene.bufferAt(), len);
     ctx.restore();
     const t2 = performance.now();
     hudPush(hud.wasm, t1 - t0);
     hudPush(hud.blit, t2 - t1);
     hudPush(hud.total, t2 - t0);
-    drawHud(ctx, scene.bufferPeak(), capBytes, cmds, scene.step(), scene.segment() + 1, debug); // unrolled overlay, on top
+    drawHud(ctx, scene.bufferPeak(), capBytes, cmds, scene.step(), scene.segment() + 1, show.segments, debug); // unrolled overlay, on top
   }
   function loop() {
     if (auto) { scene.forward(); draw(); }
@@ -508,4 +529,4 @@ async function main() {
   requestAnimationFrame(loop);
 }
 
-main();
+main(SAFARI);

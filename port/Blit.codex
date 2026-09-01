@@ -55,30 +55,35 @@ Section: Colour
   shade-color (c) (f) =
     pack-rgb (shade-chan (chan-r c) f) (shade-chan (chan-g c) f) (shade-chan (chan-b c) f)
 
-Section: The Crown Recipe
+Section: Shading Across the Width
 
  Darken both edges of a polygon and lift its middle, the whole effect scaled by a
  strength the caller passes so the shading can fade with distance. This is a
- shading MODEL and it belongs beside the geometry that decides how far away a tree
+ shading MODEL and it belongs beside the geometry that decides how far away a thing
  is, not in a renderer.
+
+ IT IS ABOUT POLYGONS AND NOT ABOUT TREES. Safari uses it for tree crowns and the
+ blitter's tag was called CROWN for that reason, which is exactly the kind of name
+ that stops a renderer being reusable: a building face in a night city takes the
+ same recipe. The mechanism is named here and the subject is not.
 
  The three stop offsets are 0, 0.5 and 1 and are the canvas's business; only the
  colours are computed here.
 
-  crown-edge-darken : Real = 0.4
-  crown-middle-lift : Real = 0.25
+  shade-edge-darken : Real = 0.4
+  shade-middle-lift : Real = 0.25
 
-  crown-edge-color : Integer, Real -> Integer
-  crown-edge-color (color) (strength) = shade-color color (1.0 - crown-edge-darken * strength)
+  width-shade-edge : Integer, Real -> Integer
+  width-shade-edge (color) (strength) = shade-color color (1.0 - shade-edge-darken * strength)
 
-  crown-middle-color : Integer, Real -> Integer
-  crown-middle-color (color) (strength) = shade-color color (1.0 + crown-middle-lift * strength)
+  width-shade-middle : Integer, Real -> Integer
+  width-shade-middle (color) (strength) = shade-color color (1.0 + shade-middle-lift * strength)
 
  The three colours in stop order, which is the shape the blitter wants.
 
-  crown-stops : Integer, Real -> List Integer
-  crown-stops (color) (strength) =
-    [crown-edge-color color strength, crown-middle-color color strength, crown-edge-color color strength]
+  width-shade-stops : Integer, Real -> List Integer
+  width-shade-stops (color) (strength) =
+    [width-shade-edge color strength, width-shade-middle color strength, width-shade-edge color strength]
 
 Section: Worth Drawing
 
@@ -90,7 +95,7 @@ Section: Worth Drawing
   min-disc-radius : Real = 0.5
   min-disc-alpha : Real = 0.02
   min-gradient-radius : Real = 0.5
-  min-crown-width : Real = 1.0
+  min-shade-width : Real = 1.0
 
   disc-visible : Real, Real -> Boolean
   disc-visible (r) (alpha) = r >= min-disc-radius and alpha >= min-disc-alpha
@@ -100,7 +105,7 @@ Section: Worth Drawing
 
  A polygon narrower than a pixel gets a flat fill: the gradient has nowhere to go.
 
-  crown-flat : Real, Real -> Boolean
-  crown-flat (min-x) (max-x) = max-x - min-x < min-crown-width
+  too-narrow-to-shade : Real, Real -> Boolean
+  too-narrow-to-shade (min-x) (max-x) = max-x - min-x < min-shade-width
 
 Page 1

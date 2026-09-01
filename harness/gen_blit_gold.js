@@ -16,9 +16,9 @@ const src = require('fs').readFileSync(__dirname + '/../web/blitter.js', 'utf8')
 // Lift the port candidates out of the blitter without loading it: it is a browser
 // module and touches `document` at the bottom. Taking the functions by name means
 // a rename here fails loudly rather than silently grading a stale copy.
-const WANTED = ['shadeColor', 'crownStops', 'discIsVisible', 'radialIsVisible', 'crownIsFlat'];
-const CONSTS = ['CROWN_EDGE_DARKEN', 'CROWN_MIDDLE_LIFT', 'MIN_DISC_RADIUS', 'MIN_DISC_ALPHA',
-                'MIN_GRADIENT_RADIUS', 'MIN_CROWN_WIDTH'];
+const WANTED = ['shadeColor', 'widthShadeStops', 'discIsVisible', 'radialIsVisible', 'tooNarrowToShade'];
+const CONSTS = ['SHADE_EDGE_DARKEN', 'SHADE_MIDDLE_LIFT', 'MIN_DISC_RADIUS', 'MIN_DISC_ALPHA',
+                'MIN_GRADIENT_RADIUS', 'MIN_SHADE_WIDTH'];
 let lifted = '';
 for (const name of CONSTS) {
   const m = src.match(new RegExp(`^const ${name} = [^;]+;`, 'm'));
@@ -54,7 +54,7 @@ for (const c of COLORS) for (const f of FACTORS) { shadeIn.push(c); shadeF.push(
 const crownC = [], crownS = [], crownOut = [];
 for (const c of COLORS) for (const s of STRENGTHS) {
   crownC.push(c); crownS.push(s);
-  for (const [, col] of F.crownStops(c, s)) crownOut.push(col);
+  for (const [, col] of F.widthShadeStops(c, s)) crownOut.push(col);
 }
 
 const discR = [], discA = [], discOut = [];
@@ -79,6 +79,6 @@ out.push(`  g-blit-radial-r : List Real`, `  g-blit-radial-r = ${reals(RADII)}`,
 out.push(`  g-blit-radial : List Boolean`, `  g-blit-radial = ${bools(RADII.map(F.radialIsVisible))}`, '');
 out.push(`  g-blit-width-lo : List Real`, `  g-blit-width-lo = ${reals(WIDTHS.map((w) => w[0]))}`, '');
 out.push(`  g-blit-width-hi : List Real`, `  g-blit-width-hi = ${reals(WIDTHS.map((w) => w[1]))}`, '');
-out.push(`  g-blit-flat : List Boolean`, `  g-blit-flat = ${bools(WIDTHS.map(([a, b]) => F.crownIsFlat(a, b)))}`, '');
+out.push(`  g-blit-flat : List Boolean`, `  g-blit-flat = ${bools(WIDTHS.map(([a, b]) => F.tooNarrowToShade(a, b)))}`, '');
 out.push('Page 1', '');
 process.stdout.write(out.join('\n'));

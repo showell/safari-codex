@@ -35,13 +35,13 @@ Section: Fan Out
     if i >= list-length cs then []
     else [shade-color (list-at cs i) (list-at fs i)] & shade-pairs cs fs (i + 1)
 
- Each crown case contributes THREE colours -- edge, middle, edge -- so the answer
+ Each shading case contributes THREE colours -- edge, middle, edge -- so the answer
  is three times as long as the input, flattened in stop order.
 
-  crown-triples : List Integer, List Real, Integer -> List Integer
-  crown-triples (cs) (ss) (i) =
+  shade-triples : List Integer, List Real, Integer -> List Integer
+  shade-triples (cs) (ss) (i) =
     if i >= list-length cs then []
-    else (crown-stops (list-at cs i) (list-at ss i)) & crown-triples cs ss (i + 1)
+    else (width-shade-stops (list-at cs i) (list-at ss i)) & shade-triples cs ss (i + 1)
 
   disc-pairs : List Real, List Real, Integer -> List Boolean
   disc-pairs (rs) (as) (i) =
@@ -51,13 +51,13 @@ Section: Fan Out
   flat-pairs : List Real, List Real, Integer -> List Boolean
   flat-pairs (los) (his) (i) =
     if i >= list-length los then []
-    else [crown-flat (list-at los i) (list-at his i)] & flat-pairs los his (i + 1)
+    else [too-narrow-to-shade (list-at los i) (list-at his i)] & flat-pairs los his (i + 1)
 
 Section: Entry
 
   opening : [Console] Nothing = act
     print-line-uni (grade-ints  "blit-shade " (shade-pairs g-blit-shade-c g-blit-shade-f 0) g-blit-shade)
-    print-line-uni (grade-ints  "blit-crown " (crown-triples g-blit-crown-c g-blit-crown-s 0) g-blit-crown)
+    print-line-uni (grade-ints  "blit-crown " (shade-triples g-blit-crown-c g-blit-crown-s 0) g-blit-crown)
     print-line-uni (grade-bools "blit-disc  " (disc-pairs g-blit-disc-r g-blit-disc-a 0) g-blit-disc)
     print-line-uni (grade-bools "blit-radial" (list-map radial-visible g-blit-radial-r) g-blit-radial)
     print-line-uni (grade-bools "blit-flat  " (flat-pairs g-blit-width-lo g-blit-width-hi 0) g-blit-flat)

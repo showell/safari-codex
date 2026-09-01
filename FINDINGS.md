@@ -16,7 +16,7 @@ angry-gopher, and the two halves are independent.
 | 6 | a wide `Real` literal is read wrong | **SENT** — [issue 106](https://github.com/damiant3/Cobblestone/issues/106) |
 | 7 | `pushGradPoly` under-counts its header | **not sent** — angry-gopher |
 | 8 | `truck.zig`'s stale comments | **not sent** — angry-gopher |
-| 9 | a text literal opened at end of line is silently empty | **not sent** — found 2026-08-31 |
+| 9 | a text literal opened at end of line is silently empty | **SENT** — [PR 114](https://github.com/damiant3/Cobblestone/pull/114), with COMPILER-35 |
 
 Two more things left this file and went upstream from the same porting work,
 though neither is numbered here: the f64 **conversions**
@@ -675,6 +675,19 @@ past the source. And a real empty literal must keep working: `""` gives
 contained. **It is not only end-of-line**: a quote that is the last byte of the
 file takes the same path through `scan-string-end`'s `if offset >= len` and is
 silently empty too.
+
+**CONFIRMED BY THE FIX, 2026-09-01.** The first real program the patched lexer
+rejected was ours: the codexzig subject -- 2,985,446 bytes, the whole compiler
+plus the zig emitter plus the harness -- refused with exactly two CDX7s, and
+both were `czg-halted` in `CodexZigHarness.codex`. Correcting that one literal,
+the patched compiler emits the whole 2,463,065-byte program, so **no Cobblestone
+chapter carries this**. Patched and unpatched compilers emit byte-identical
+output on that bundle, which is the inertness claim PR 114 rests on.
+
+**The generator is still emitting it.** `codex-zig-ladder/ast/emit_harness.py`
+writes the literal newline, so every `<prefix>-halted` it produces has this bug
+and none of our harnesses will build against a fixed compiler until that is
+changed. That is OURS to fix and is not upstream's problem.
 
 **It is already in shipped code**, which is how it was found — and the instances
 are GENERATED rather than typed. `codex-zig-ladder/ast/emit_harness.py:240-241`

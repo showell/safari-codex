@@ -30,29 +30,73 @@
 
 const W = 960, H = 600;
 
-// ── 1. CANVAS BACKEND ──────────────────────────────────────────────────────────
-// Colour conversion and the paints. Nothing below here knows what a truck is.
+// ── 1a. PORT CANDIDATES ────────────────────────────────────────────────────────
+// Pure arithmetic over numbers. Nothing here touches the canvas, reads the DOM or
+// depends on anything but its arguments -- which is exactly the test for whether a
+// thing could be computed by the guest instead and sent over as data.
+//
+// The pattern each one follows: a NUMERIC CORE that could move, and a FORMATTING
+// SHELL that cannot, because `ctx.fillStyle` wants a CSS string and the guest has
+// no business knowing that. Splitting them is most of the work of moving one.
 
-// 0xRRGGBB -> "#rrggbb"
+// Scale each channel of a 0xRRGGBB by a brightness factor, saturating at 255.
+// CORE -- moveable.
+function shadeColor(c, f) {
+  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((c & 255) * f));
+  return (r << 16) | (g << 8) | b;
+}
+
+// The three stops of the crown recipe: darken both edges, lift the middle, the whole
+// effect scaled by a strength the guest passes so it can fade with distance.
+// CORE -- moveable, and the most interesting one: it is a shading MODEL, not a paint.
+function crownStops(color, strength) {
+  return [
+    [0, shadeColor(color, 1 - CROWN_EDGE_DARKEN * strength)],
+    [0.5, shadeColor(color, 1 + CROWN_MIDDLE_LIFT * strength)],
+    [1, shadeColor(color, 1 - CROWN_EDGE_DARKEN * strength)],
+  ];
+}
+
+// Is this thing worth drawing at all? Three predicates over the numbers the guest
+// already computed -- so the guest could as easily not emit the command.
+// CORE -- moveable, and moving them would shrink the buffer as well as the file.
+function discIsVisible(r, alpha) { return r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_ALPHA; }
+function radialIsVisible(r) { return r >= MIN_GRADIENT_RADIUS; }
+function crownIsFlat(minX, maxX) { return maxX - minX < MIN_CROWN_WIDTH; }
+
+// The x extent of an n-point polygon, read WITHOUT consuming it.
+// CORE -- moveable; the guest knows the extent before it writes the points.
+function polyExtentX(f32, w, n) {
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < n; i++) { const x = f32[w + i * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
+  return [minX, maxX];
+}
+
+// ── 1b. CANVAS BACKEND ─────────────────────────────────────────────────────────
+// Paths, paints and CSS colour strings. This is the half that cannot move: it is
+// the shape of the canvas API and nothing else. There are no trucks here.
+
+// 0xRRGGBB -> "#rrggbb". SHELL.
 function hex(c) {
   return '#' + (c & 0xffffff).toString(16).padStart(6, '0');
 }
 
-// 0xAARRGGBB -> "rgba(r,g,b,a)"
+// 0xRRGGBB -> "rgb(r,g,b)". SHELL.
+function rgbCss(c) {
+  return `rgb(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255})`;
+}
+
+// 0xAARRGGBB -> "rgba(r,g,b,a)". SHELL.
 function rgba(c) {
   return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${((c >>> 24) & 255) / 255})`;
 }
 
-// clamp a gradient stop offset to [0,1], and to >= a lower bound so a 2-stop pair stays ascending.
+// clamp a gradient stop offset to [0,1], and to >= a lower bound so a 2-stop pair
+// stays ascending. A canvas rule: `addColorStop` throws outside [0,1] and ignores
+// order. SHELL.
 function stopAt(o, lo = 0) { return Math.max(lo, Math.min(1, o)); }
-
-// shade a 0xRRGGBB by a brightness factor (clamped) -> "rgb(r,g,b)".
-function shade(c, f) {
-  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
-  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
-  const b = Math.min(255, Math.round((c & 255) * f));
-  return `rgb(${r},${g},${b})`;
-}
 
 // Trace an n-point polygon starting at word `w`. Returns the word after it.
 function polyPath(ctx, f32, w, n) {
@@ -76,6 +120,13 @@ function radialPaint(ctx, cx, cy, r, cCol, eCol) {
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
   g.addColorStop(0, rgba(cCol));
   g.addColorStop(1, rgba(eCol));
+  return g;
+}
+
+// A gradient across a span, from stops given as [offset, 0xRRGGBB] pairs.
+function stopsPaint(ctx, x0, x1, stops) {
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  for (const [at, col] of stops) g.addColorStop(at, rgbCss(col));
   return g;
 }
 
@@ -135,13 +186,6 @@ const DEGENERATE_DET = 1e-4;
 // whole effect scaled by a strength the guest passes so it can fade with distance.
 const CROWN_EDGE_DARKEN = 0.4;
 const CROWN_MIDDLE_LIFT = 0.25;
-function crownPaint(ctx, color, strength, minX, maxX) {
-  const g = ctx.createLinearGradient(minX, 0, maxX, 0);
-  g.addColorStop(0, shade(color, 1 - CROWN_EDGE_DARKEN * strength));
-  g.addColorStop(0.5, shade(color, 1 + CROWN_MIDDLE_LIFT * strength));
-  g.addColorStop(1, shade(color, 1 - CROWN_EDGE_DARKEN * strength));
-  return g;
-}
 
 // The sky band and the grass under it, drawn OVERSIZED so the rolled (banked) frame's
 // corners stay filled. The guest owns the two colours; the stop positions are ours.
@@ -206,7 +250,7 @@ function blit(ctx, mem, base, len) {
     if (tag === TAG.DISC) {
       const color = u32[w++];
       const x = f32[w++], y = f32[w++], r = f32[w++], alpha = f32[w++];
-      if (r >= MIN_DISC_RADIUS && alpha >= MIN_DISC_ALPHA) fillDisc(ctx, x, y, r, color, alpha);
+      if (discIsVisible(r, alpha)) fillDisc(ctx, x, y, r, color, alpha);
       continue;
     }
 
@@ -214,7 +258,7 @@ function blit(ctx, mem, base, len) {
       const cCol = u32[w++], eCol = u32[w++];
       const cx = f32[w++], cy = f32[w++], r = f32[w++], n = u32[w++];
       w = polyPath(ctx, f32, w, n);
-      if (r >= MIN_GRADIENT_RADIUS) {
+      if (radialIsVisible(r)) {
         ctx.fillStyle = radialPaint(ctx, cx, cy, r, cCol, eCol);
         ctx.fill();
       }
@@ -246,12 +290,10 @@ function blit(ctx, mem, base, len) {
     const strength = tag === TAG.CROWN ? f32[w++] : 0;
     const n = u32[w++];
     if (tag === TAG.CROWN && strength > 0) {
-      // The x extent is read AHEAD of the path walk, without consuming it.
-      let minX = Infinity, maxX = -Infinity;
-      for (let i = 0; i < n; i++) { const x = f32[w + i * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
-      ctx.fillStyle = (maxX - minX < MIN_CROWN_WIDTH)
+      const [minX, maxX] = polyExtentX(f32, w, n);
+      ctx.fillStyle = crownIsFlat(minX, maxX)
         ? hex(color)
-        : crownPaint(ctx, color, strength, minX, maxX);
+        : stopsPaint(ctx, minX, maxX, crownStops(color, strength));
     } else {
       ctx.fillStyle = hex(color);
     }

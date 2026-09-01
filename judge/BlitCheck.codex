@@ -1,0 +1,66 @@
+Chapter: BlitCheck
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Blit
+  cites Judge chapter Grade
+  cites Gold chapter BlitGold
+
+ Grade Safari chapter Blit -- the shading recipe and the visibility thresholds --
+ against `web/blitter.js`.
+
+ THE SECOND CHECK WHOSE ORACLE IS NOT A GAME MODULE. NumCheck grades Codex's Real
+ primitives against zig's builtins because zig is what the game calls. This one
+ grades against JAVASCRIPT, because JavaScript is where these particular decisions
+ have always lived: a shading model and four thresholds, in the one file this
+ project cannot run.
+
+ THERE IS NO f32 GAP TO ABSORB, so everything here is graded exactly. Colours are
+ integers and the predicates are booleans; the only Reals are inputs. That makes
+ this a stricter check than most of judge/, and it should be -- there is nothing
+ to be approximate about.
+
+ THE INPUTS COME FROM THE GOLD, as in NumCheck: the generator prints its tables as
+ `g-blit-*-in` lines and this chapter maps over them, so an input exists once
+ rather than twice in two languages.
+
+ We say:
+
+Section: Fan Out
+
+ The shade table is a colour list and a factor list of the same length, walked
+ together -- the pairing the generator wrote them in.
+
+  shade-pairs : List Integer, List Real, Integer -> List Integer
+  shade-pairs (cs) (fs) (i) =
+    if i >= list-length cs then []
+    else [shade-color (list-at cs i) (list-at fs i)] & shade-pairs cs fs (i + 1)
+
+ Each crown case contributes THREE colours -- edge, middle, edge -- so the answer
+ is three times as long as the input, flattened in stop order.
+
+  crown-triples : List Integer, List Real, Integer -> List Integer
+  crown-triples (cs) (ss) (i) =
+    if i >= list-length cs then []
+    else (crown-stops (list-at cs i) (list-at ss i)) & crown-triples cs ss (i + 1)
+
+  disc-pairs : List Real, List Real, Integer -> List Boolean
+  disc-pairs (rs) (as) (i) =
+    if i >= list-length rs then []
+    else [disc-visible (list-at rs i) (list-at as i)] & disc-pairs rs as (i + 1)
+
+  flat-pairs : List Real, List Real, Integer -> List Boolean
+  flat-pairs (los) (his) (i) =
+    if i >= list-length los then []
+    else [crown-flat (list-at los i) (list-at his i)] & flat-pairs los his (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "blit-shade " (shade-pairs g-blit-shade-c g-blit-shade-f 0) g-blit-shade)
+    print-line-uni (grade-ints  "blit-crown " (crown-triples g-blit-crown-c g-blit-crown-s 0) g-blit-crown)
+    print-line-uni (grade-bools "blit-disc  " (disc-pairs g-blit-disc-r g-blit-disc-a 0) g-blit-disc)
+    print-line-uni (grade-bools "blit-radial" (list-map radial-visible g-blit-radial-r) g-blit-radial)
+    print-line-uni (grade-bools "blit-flat  " (flat-pairs g-blit-width-lo g-blit-width-hi 0) g-blit-flat)
+  end
+
+Page 1

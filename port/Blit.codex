@@ -1,0 +1,106 @@
+Chapter: Blit
+  cites Foreword chapter ListUtils
+  cites Safari chapter Num
+
+ The blitter's own arithmetic, in Codex.
+
+ THE ORACLE HERE IS JAVASCRIPT, not a game module, which makes this the second
+ chapter in judge/ whose answer does not come from zig. `web/blitter.js` owns a
+ shading recipe and three visibility thresholds -- numbers chosen by eye, in the
+ one file nothing in this project can run. Every other decision the game makes is
+ inside a scene checksum; these were inside nothing at all.
+
+ WHAT IS HERE AND WHAT IS NOT. Only the arithmetic. `ctx.fillStyle` wants a CSS
+ string and the guest has no business knowing that, so the colour crosses as a
+ packed integer and the string stays in the browser. The split is not a
+ compromise -- it is the actual boundary, and the JS half is about six lines.
+
+ THE JS STILL COMPUTES THESE TOO, for now. Deleting its copy means changing what
+ the guest writes into the draw buffer, and that buffer's shape is fixed by
+ paint.zig, which is the ORACLE this whole project is graded against and must not
+ move. So this chapter is the recipe made runnable and checkable first; the wire
+ follows separately.
+
+ We say:
+
+Section: Colour
+
+ A colour is 0xRRGGBB packed into an Integer, one byte per channel, exactly as it
+ crosses the draw buffer.
+
+  chan-r : Integer -> Integer
+  chan-r (c) = bit-and (bit-shr c 16) 255
+
+  chan-g : Integer -> Integer
+  chan-g (c) = bit-and (bit-shr c 8) 255
+
+  chan-b : Integer -> Integer
+  chan-b (c) = bit-and c 255
+
+  pack-rgb : Integer, Integer, Integer -> Integer
+  pack-rgb (r) (g) (b) = bit-or (bit-or (bit-shl r 16) (bit-shl g 8)) b
+
+ Scale one channel and saturate at 255. Rounding is the game's `round-real`, which
+ ties AWAY FROM ZERO where JavaScript's `Math.round` ties toward +Infinity. The two
+ agree on every value this can be given -- a channel is 0..255 and a brightness
+ factor is never negative -- and they disagree at -0.5, which is why the agreement
+ is written down rather than assumed.
+
+  shade-chan : Integer, Real -> Integer
+  shade-chan (v) (f) =
+    let scaled = real-to-int (round-real (real-from-int v * f))
+    in if scaled > 255 then 255 else scaled
+
+  shade-color : Integer, Real -> Integer
+  shade-color (c) (f) =
+    pack-rgb (shade-chan (chan-r c) f) (shade-chan (chan-g c) f) (shade-chan (chan-b c) f)
+
+Section: The Crown Recipe
+
+ Darken both edges of a polygon and lift its middle, the whole effect scaled by a
+ strength the caller passes so the shading can fade with distance. This is a
+ shading MODEL and it belongs beside the geometry that decides how far away a tree
+ is, not in a renderer.
+
+ The three stop offsets are 0, 0.5 and 1 and are the canvas's business; only the
+ colours are computed here.
+
+  crown-edge-darken : Real = 0.4
+  crown-middle-lift : Real = 0.25
+
+  crown-edge-color : Integer, Real -> Integer
+  crown-edge-color (color) (strength) = shade-color color (1.0 - crown-edge-darken * strength)
+
+  crown-middle-color : Integer, Real -> Integer
+  crown-middle-color (color) (strength) = shade-color color (1.0 + crown-middle-lift * strength)
+
+ The three colours in stop order, which is the shape the blitter wants.
+
+  crown-stops : Integer, Real -> List Integer
+  crown-stops (color) (strength) =
+    [crown-edge-color color strength, crown-middle-color color strength, crown-edge-color color strength]
+
+Section: Worth Drawing
+
+ Below these a command is not worth emitting, let alone painting. They are the
+ guest's decisions and always were: it computes the radius and the alpha, so it
+ can as easily not write the command -- which would shrink the buffer as well as
+ the renderer.
+
+  min-disc-radius : Real = 0.5
+  min-disc-alpha : Real = 0.02
+  min-gradient-radius : Real = 0.5
+  min-crown-width : Real = 1.0
+
+  disc-visible : Real, Real -> Boolean
+  disc-visible (r) (alpha) = r >= min-disc-radius and alpha >= min-disc-alpha
+
+  radial-visible : Real -> Boolean
+  radial-visible (r) = r >= min-gradient-radius
+
+ A polygon narrower than a pixel gets a flat fill: the gradient has nowhere to go.
+
+  crown-flat : Real, Real -> Boolean
+  crown-flat (min-x) (max-x) = max-x - min-x < min-crown-width
+
+Page 1

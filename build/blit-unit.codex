@@ -1,0 +1,685 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Num
+
+ The Real primitives Codex's foreword does not have.
+
+ `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
+ surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
+ no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
+ GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
+ question. Everything here is a gap upstream rather than a hole in the zig plug,
+ and unlike `Safari chapter Trig` none of it is a stand-in for something that
+ already exists.
+
+ EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
+ before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
+ the honest reason this chapter did not exist earlier: the port had no way to
+ reach the integers at all.
+
+ We say:
+
+Section: Rounding
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
+ give. TRUNCATE FIRST AND THEN LOOK AT WHAT IS LEFT: real-to-int already truncates
+ toward zero, `x - t` is exact for every x this converter accepts, and a leftover
+ of half or more in either direction is precisely the away-from-zero tie. One rule
+ covers both signs, which is why there is no sign branch here any more.
+
+ ADDING THE HALF FIRST IS THE VERSION THAT WAS WRONG, and NumCheck is what found
+ it. `real-to-int (x + 0.5)` answers 1 for x = 0.49999999999999994 -- the largest
+ double below a half -- because x + 0.5 is not representable and rounds UP to
+ exactly 1.0, and the mirrored form answered -1 at -0.49999999999999994 where zig
+ answers -0. Every caller in the game rounds a 0..255 colour channel, a stride
+ count, a step count or a whole number of degrees, so not one of them could see
+ it; a round that is wrong on a value none of today's callers produces is a trap
+ for the next caller, and that is the whole reason this chapter is graded on a
+ domain wider than its callers'.
+
+  round-real : Real -> Real
+  round-real (x) =
+    let t = real-from-int (real-to-int x)
+    in let f = x - t
+    in if f >= 0.5 then t + 1.0 else if f <= 0.0 - 0.5 then t - 1.0 else t
+
+ real-to-int truncates toward zero, so for a negative non-integral value it lands
+ ABOVE its argument and floor is one less. An exact integer is its own floor in
+ both arms, which is why the test is `>` and not `>=`.
+
+  floor-real : Real -> Real
+  floor-real (x) =
+    let t = real-from-int (real-to-int x)
+    in if t > x then t - 1.0 else t
+
+Section: Modulo
+
+ Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
+ and that is not the truncated remainder. Floored is x - m * floor (x / m), and
+ this is the faithful reading of what tower.zig asks for.
+
+ BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
+ than implying coverage this does not have. tower.zig writes
+
+     @mod(@mod(phase, P) + P, P)
+
+ which looks like belt and braces over an operator that is already non-negative,
+ and is in fact exactly what makes the two semantics AGREE. Floored gives m in
+ [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
+ adding P lands in (0, 2P); the second pass takes P off again when it overflowed
+ and leaves it alone when it did not -- and r + P is precisely floored's answer
+ whenever r was negative. So the double form is semantics-agnostic by
+ construction.
+
+ MEASURED, not reasoned about after the fact: replacing this with the truncated
+ remainder leaves TowerCheck entirely green, including its negative-phase case.
+ An earlier draft of this note claimed tower.zig "relies on" the floored form and
+ that the two "disagree there". Both were wrong, and the red test said so.
+
+ Floored stays because it is what @mod means and the next caller may not wrap its
+ argument twice. But nothing in this port grades the choice today.
+
+  mod-real : Real, Real -> Real
+  mod-real (x) (m) = x - m * floor-real (x / m)
+
+Section: The Exponential
+
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
+ argument reaches -100 and a bare Taylor series is useless there. The standard
+ reduction: take k as the nearest integer to x / ln 2, so the remainder r is
+ within half a ln 2 of zero, sum the series there, and scale by 2^k.
+
+ THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
+ -- so like everything else here it could not have been written before the
+ conversion emitters landed.
+
+  ln2 : Real
+  ln2 = 0.6931471805599453
+
+ TWELVE TERMS OVER |r| <= 0.347 LEAVE A REMAINDER OF 1.7e-16, NOT THE 1e-17 THIS
+ NOTE CLAIMED BEFORE IT WAS MEASURED. r^13/13! at r = ln2/2 is 1.671e-16, which is
+ an arithmetic fact nobody had worked out. NumCheck now measures the whole chapter
+ end to end against zig's @exp over eighteen arguments: the worst RELATIVE error is
+ 8.5e-16, at x = 20, and the gate is 1e-15 because the stream reddens at 8e-16.
+
+ AND IT IS THE REDUCTION, NOT THE SERIES, THAT SETS THAT NUMBER. The three
+ arguments small enough to need no reduction at all -- -0.05, 0 and 0.05 -- come
+ out EXACT; every nonzero error in the table belongs to a reduced case. Taking
+ k * ln2 off x cancels, and `ln2` here is one f64 where a library keeps a hi/lo
+ pair for exactly this reason. Splitting it is the fix if it ever matters:
+ rider.zig consumes the answer in f32, where 8.5e-16 is nine orders below the last
+ bit it can hold, so today it does not.
+
+ WRITING A BOUND NOBODY CHECKED IS THE DEFECT THIS PORT IS SENDING UPSTREAM.
+ FINDINGS.md item 2 is `Math chapter Cordic` claiming ~0.1% and delivering 0.45%,
+ with a test that never calls a Cordic function. The claim above was 17x out for
+ the same reason -- it was reasoned about rather than run -- and it is corrected
+ here rather than left standing while we mail someone else's.
+
+  exp-poly : Real -> Real
+  exp-poly (r) =
+    let t1 = r
+    in let t2 = t1 * r / 2.0
+    in let t3 = t2 * r / 3.0
+    in let t4 = t3 * r / 4.0
+    in let t5 = t4 * r / 5.0
+    in let t6 = t5 * r / 6.0
+    in let t7 = t6 * r / 7.0
+    in let t8 = t7 * r / 8.0
+    in let t9 = t8 * r / 9.0
+    in let t10 = t9 * r / 10.0
+    in let t11 = t10 * r / 11.0
+    in let t12 = t11 * r / 12.0
+    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+
+ 2^k by repeated multiplication rather than by assembling an exponent field: the
+ bit-level route would need real-to-bits, which this arm still has no emitter for,
+ and k is small enough here that the loop is exact anyway -- every step multiplies
+ by a power of two, which is exact in binary until it underflows.
+
+  pow2-up : Integer, Real -> Real
+  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
+
+  pow2-down : Integer, Real -> Real
+  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
+
+  pow2-int : Integer -> Real
+  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
+
+  exp-real : Real -> Real
+  exp-real (x) =
+    let k = real-to-int (round-real (x / ln2))
+    in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+Chapter: Blit
+  cites Foreword chapter ListUtils
+  cites Safari chapter Num
+
+ The blitter's own arithmetic, in Codex.
+
+ THE ORACLE HERE IS JAVASCRIPT, not a game module, which makes this the second
+ chapter in judge/ whose answer does not come from zig. `web/blitter.js` owns a
+ shading recipe and three visibility thresholds -- numbers chosen by eye, in the
+ one file nothing in this project can run. Every other decision the game makes is
+ inside a scene checksum; these were inside nothing at all.
+
+ WHAT IS HERE AND WHAT IS NOT. Only the arithmetic. `ctx.fillStyle` wants a CSS
+ string and the guest has no business knowing that, so the colour crosses as a
+ packed integer and the string stays in the browser. The split is not a
+ compromise -- it is the actual boundary, and the JS half is about six lines.
+
+ THE JS STILL COMPUTES THESE TOO, for now. Deleting its copy means changing what
+ the guest writes into the draw buffer, and that buffer's shape is fixed by
+ paint.zig, which is the ORACLE this whole project is graded against and must not
+ move. So this chapter is the recipe made runnable and checkable first; the wire
+ follows separately.
+
+ We say:
+
+Section: Colour
+
+ A colour is 0xRRGGBB packed into an Integer, one byte per channel, exactly as it
+ crosses the draw buffer.
+
+  chan-r : Integer -> Integer
+  chan-r (c) = bit-and (bit-shr c 16) 255
+
+  chan-g : Integer -> Integer
+  chan-g (c) = bit-and (bit-shr c 8) 255
+
+  chan-b : Integer -> Integer
+  chan-b (c) = bit-and c 255
+
+  pack-rgb : Integer, Integer, Integer -> Integer
+  pack-rgb (r) (g) (b) = bit-or (bit-or (bit-shl r 16) (bit-shl g 8)) b
+
+ Scale one channel and saturate at 255. Rounding is the game's `round-real`, which
+ ties AWAY FROM ZERO where JavaScript's `Math.round` ties toward +Infinity. The two
+ agree on every value this can be given -- a channel is 0..255 and a brightness
+ factor is never negative -- and they disagree at -0.5, which is why the agreement
+ is written down rather than assumed.
+
+  shade-chan : Integer, Real -> Integer
+  shade-chan (v) (f) =
+    let scaled = real-to-int (round-real (real-from-int v * f))
+    in if scaled > 255 then 255 else scaled
+
+  shade-color : Integer, Real -> Integer
+  shade-color (c) (f) =
+    pack-rgb (shade-chan (chan-r c) f) (shade-chan (chan-g c) f) (shade-chan (chan-b c) f)
+
+Section: The Crown Recipe
+
+ Darken both edges of a polygon and lift its middle, the whole effect scaled by a
+ strength the caller passes so the shading can fade with distance. This is a
+ shading MODEL and it belongs beside the geometry that decides how far away a tree
+ is, not in a renderer.
+
+ The three stop offsets are 0, 0.5 and 1 and are the canvas's business; only the
+ colours are computed here.
+
+  crown-edge-darken : Real = 0.4
+  crown-middle-lift : Real = 0.25
+
+  crown-edge-color : Integer, Real -> Integer
+  crown-edge-color (color) (strength) = shade-color color (1.0 - crown-edge-darken * strength)
+
+  crown-middle-color : Integer, Real -> Integer
+  crown-middle-color (color) (strength) = shade-color color (1.0 + crown-middle-lift * strength)
+
+ The three colours in stop order, which is the shape the blitter wants.
+
+  crown-stops : Integer, Real -> List Integer
+  crown-stops (color) (strength) =
+    [crown-edge-color color strength, crown-middle-color color strength, crown-edge-color color strength]
+
+Section: Worth Drawing
+
+ Below these a command is not worth emitting, let alone painting. They are the
+ guest's decisions and always were: it computes the radius and the alpha, so it
+ can as easily not write the command -- which would shrink the buffer as well as
+ the renderer.
+
+  min-disc-radius : Real = 0.5
+  min-disc-alpha : Real = 0.02
+  min-gradient-radius : Real = 0.5
+  min-crown-width : Real = 1.0
+
+  disc-visible : Real, Real -> Boolean
+  disc-visible (r) (alpha) = r >= min-disc-radius and alpha >= min-disc-alpha
+
+  radial-visible : Real -> Boolean
+  radial-visible (r) = r >= min-gradient-radius
+
+ A polygon narrower than a pixel gets a flat fill: the gradient has nowhere to go.
+
+  crown-flat : Real, Real -> Boolean
+  crown-flat (min-x) (max-x) = max-x - min-x < min-crown-width
+
+Page 1
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: BlitGold
+
+ GENERATED by harness/gen_blit_gold.js from web/blitter.js.
+ Every value here came from the browser half of the renderer, unmodified.
+ Do not edit: the next harness run overwrites this file.
+
+ We say:
+
+Section: Gold
+
+  g-blit-shade-c : List Integer
+  g-blit-shade-c = [0, 0, 0, 0, 0, 0, 0, 0, 0, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 8355711, 8355711, 8355711, 8355711, 8355711, 8355711, 8355711, 8355711, 8355711, 8421504, 8421504, 8421504, 8421504, 8421504, 8421504, 8421504, 8421504, 8421504, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 16711680, 16711680, 16711680, 16711680, 16711680, 16711680, 16711680, 16711680, 16711680, 65280, 65280, 65280, 65280, 65280, 65280, 65280, 65280, 65280, 255, 255, 255, 255, 255, 255, 255, 255, 255, 16702650, 16702650, 16702650, 16702650, 16702650, 16702650, 16702650, 16702650, 16702650, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215]
+
+  g-blit-shade-f : List Real
+  g-blit-shade-f = [0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0, 0.0, 0.25, 0.6, 0.75, 1.0, 1.25, 1.6, 2.0, 4.0]
+
+  g-blit-shade : List Integer
+  g-blit-shade = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 257, 65794, 66050, 66051, 66308, 131845, 132102, 264204, 0, 1254417, 2905640, 3697458, 4886339, 6140756, 7791979, 9764742, 16777215, 0, 2105376, 5000268, 6250335, 8355711, 10461087, 13355979, 16711422, 16777215, 0, 2105376, 5066061, 6316128, 8421504, 10526880, 13487565, 16777215, 16777215, 0, 3162172, 7575951, 9486259, 12648430, 15794175, 16777215, 16777215, 16777215, 0, 4194304, 10027008, 12517376, 16711680, 16711680, 16711680, 16711680, 16711680, 0, 16384, 39168, 48896, 65280, 65280, 65280, 65280, 65280, 0, 64, 153, 191, 255, 255, 255, 255, 255, 0, 4208431, 9995376, 12559756, 16702650, 16777193, 16777215, 16777215, 16777215, 0, 4210752, 10066329, 12566463, 16777215, 16777215, 16777215, 16777215, 16777215]
+
+  g-blit-crown-c : List Integer
+  g-blit-crown-c = [0, 0, 0, 0, 0, 0, 66051, 66051, 66051, 66051, 66051, 66051, 4886339, 4886339, 4886339, 4886339, 4886339, 4886339, 8355711, 8355711, 8355711, 8355711, 8355711, 8355711, 8421504, 8421504, 8421504, 8421504, 8421504, 8421504, 12648430, 12648430, 12648430, 12648430, 12648430, 12648430, 16711680, 16711680, 16711680, 16711680, 16711680, 16711680, 65280, 65280, 65280, 65280, 65280, 65280, 255, 255, 255, 255, 255, 255, 16702650, 16702650, 16702650, 16702650, 16702650, 16702650, 16777215, 16777215, 16777215, 16777215, 16777215, 16777215]
+
+  g-blit-crown-s : List Real
+  g-blit-crown-s = [0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0, 0.0, 0.01, 0.25, 0.5, 0.75, 1.0]
+
+  g-blit-crown : List Integer
+  g-blit-crown = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 66051, 66050, 66051, 66050, 65794, 66052, 65794, 65794, 66308, 65794, 4886339, 4886339, 4886339, 4886083, 4886339, 4886083, 4423996, 5216327, 4423996, 3895862, 5480779, 3895862, 3433519, 5810768, 3433519, 2905640, 6140756, 2905640, 8355711, 8355711, 8355711, 8289918, 8355711, 8289918, 7500402, 8882055, 7500402, 6710886, 9408399, 6710886, 5855577, 9934743, 5855577, 5000268, 10461087, 5000268, 8421504, 8421504, 8421504, 8355711, 8421504, 8355711, 7566195, 8947848, 7566195, 6710886, 9474192, 6710886, 5921370, 10000536, 5921370, 5066061, 10526880, 5066061, 12648430, 12648430, 12648430, 12582637, 12648431, 12582637, 11396822, 13434877, 11396822, 10144958, 14221311, 10144958, 8827815, 15007743, 8827815, 7575951, 15794175, 7575951, 16711680, 16711680, 16711680, 16646144, 16711680, 16646144, 15073280, 16711680, 15073280, 13369344, 16711680, 13369344, 11730944, 16711680, 11730944, 10027008, 16711680, 10027008, 65280, 65280, 65280, 65024, 65280, 65024, 58880, 65280, 58880, 52224, 65280, 52224, 45824, 65280, 45824, 39168, 65280, 39168, 255, 255, 255, 254, 255, 254, 230, 255, 230, 204, 255, 204, 179, 255, 179, 153, 255, 153, 16702650, 16702650, 16702650, 16636857, 16768442, 16636857, 15058599, 16771782, 15058599, 13349013, 16775377, 13349013, 11704962, 16777181, 11704962, 9995376, 16777193, 9995376, 16777215, 16777215, 16777215, 16711422, 16777215, 16711422, 15132390, 16777215, 15132390, 13421772, 16777215, 13421772, 11776947, 16777215, 11776947, 10066329, 16777215, 10066329]
+
+  g-blit-disc-r : List Real
+  g-blit-disc-r = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.49, 0.49, 0.49, 0.49, 0.49, 0.49, 0.49, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.51, 0.51, 0.51, 0.51, 0.51, 0.51, 0.51, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0]
+
+  g-blit-disc-a : List Real
+  g-blit-disc-a = [0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0, 0.0, 0.01, 0.019, 0.02, 0.021, 0.5, 1.0]
+
+  g-blit-disc : List Boolean
+  g-blit-disc = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True, True, True, True, False, False, False, True, True, True, True, False, False, False, True, True, True, True, False, False, False, True, True, True, True]
+
+  g-blit-radial-r : List Real
+  g-blit-radial-r = [0.0, 0.1, 0.49, 0.5, 0.51, 1.0, 40.0]
+
+  g-blit-radial : List Boolean
+  g-blit-radial = [False, False, False, True, True, True, True]
+
+  g-blit-width-lo : List Real
+  g-blit-width-lo = [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 10.0]
+
+  g-blit-width-hi : List Real
+  g-blit-width-hi = [0.0, 0.5, 0.999, 1.0, 1.5, 10.5, 40.0]
+
+  g-blit-flat : List Boolean
+  g-blit-flat = [True, True, True, False, False, True, False]
+
+Page 1
+
+Chapter: BlitCheck
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Blit
+  cites Judge chapter Grade
+  cites Gold chapter BlitGold
+
+ Grade Safari chapter Blit -- the shading recipe and the visibility thresholds --
+ against `web/blitter.js`.
+
+ THE SECOND CHECK WHOSE ORACLE IS NOT A GAME MODULE. NumCheck grades Codex's Real
+ primitives against zig's builtins because zig is what the game calls. This one
+ grades against JAVASCRIPT, because JavaScript is where these particular decisions
+ have always lived: a shading model and four thresholds, in the one file this
+ project cannot run.
+
+ THERE IS NO f32 GAP TO ABSORB, so everything here is graded exactly. Colours are
+ integers and the predicates are booleans; the only Reals are inputs. That makes
+ this a stricter check than most of judge/, and it should be -- there is nothing
+ to be approximate about.
+
+ THE INPUTS COME FROM THE GOLD, as in NumCheck: the generator prints its tables as
+ `g-blit-*-in` lines and this chapter maps over them, so an input exists once
+ rather than twice in two languages.
+
+ We say:
+
+Section: Fan Out
+
+ The shade table is a colour list and a factor list of the same length, walked
+ together -- the pairing the generator wrote them in.
+
+  shade-pairs : List Integer, List Real, Integer -> List Integer
+  shade-pairs (cs) (fs) (i) =
+    if i >= list-length cs then []
+    else [shade-color (list-at cs i) (list-at fs i)] & shade-pairs cs fs (i + 1)
+
+ Each crown case contributes THREE colours -- edge, middle, edge -- so the answer
+ is three times as long as the input, flattened in stop order.
+
+  crown-triples : List Integer, List Real, Integer -> List Integer
+  crown-triples (cs) (ss) (i) =
+    if i >= list-length cs then []
+    else (crown-stops (list-at cs i) (list-at ss i)) & crown-triples cs ss (i + 1)
+
+  disc-pairs : List Real, List Real, Integer -> List Boolean
+  disc-pairs (rs) (as) (i) =
+    if i >= list-length rs then []
+    else [disc-visible (list-at rs i) (list-at as i)] & disc-pairs rs as (i + 1)
+
+  flat-pairs : List Real, List Real, Integer -> List Boolean
+  flat-pairs (los) (his) (i) =
+    if i >= list-length los then []
+    else [crown-flat (list-at los i) (list-at his i)] & flat-pairs los his (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "blit-shade " (shade-pairs g-blit-shade-c g-blit-shade-f 0) g-blit-shade)
+    print-line-uni (grade-ints  "blit-crown " (crown-triples g-blit-crown-c g-blit-crown-s 0) g-blit-crown)
+    print-line-uni (grade-bools "blit-disc  " (disc-pairs g-blit-disc-r g-blit-disc-a 0) g-blit-disc)
+    print-line-uni (grade-bools "blit-radial" (list-map radial-visible g-blit-radial-r) g-blit-radial)
+    print-line-uni (grade-bools "blit-flat  " (flat-pairs g-blit-width-lo g-blit-width-hi 0) g-blit-flat)
+  end
+
+Page 1

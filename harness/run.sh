@@ -56,7 +56,8 @@ for check in "${checks[@]}"; do
   # is byte-stable and so is each probe's output -- so a content hash is a sound
   # key. Two stamps, because the two halves have different inputs.
   #
-  # The gold's inputs are its probe and the game sources it imports. Rather than
+  # The gold's inputs are its oracle -- a probe and the game sources it imports, or
+  # the frozen blitter and the node that reads it. For a probe, rather than
   # work out the transitive import set, over-approximate with the whole wasm
   # directory; it is under a megabyte and hashes in milliseconds.
   #
@@ -69,10 +70,28 @@ for check in "${checks[@]}"; do
   # it, and set -e killed the whole sweep with no message at all. Adding a module
   # must not be able to do that -- a missing gold simply means the key cannot
   # match, which is exactly the "regenerate it" answer we want.
-  gold_key="$( { cat "probe/probe_$mod.zig" probe/wasm/*.zig "gold/${base}Gold.codex" 2>/dev/null || true; } | sha256sum )"
+  #
+  # THE ORACLE IS NOT ALWAYS A ZIG PROBE. Blit's is JavaScript: the shading recipe
+  # and the visibility thresholds live in the browser half, so its gold comes from
+  # node reading HISTORICAL_WASM_ROOT/blitter.js -- the frozen original -- rather
+  # than from building probe/probe_blit.zig, which does not exist and never will.
+  # A check declares that by owning a harness/gen_<mod>_gold.js.
+  #
+  # WITHOUT THIS BRANCH THE WHOLE SWEEP DIED ON ITS FIRST CHECK, silently as far
+  # as a reader was concerned: judge/*Check.codex globs alphabetically, BlitCheck
+  # sorts first, and `no probe/probe_blit.zig` on stderr under `set -e` ended the
+  # run before a single `--- Chapter ---` line was printed.
+  if [ -f "harness/gen_${mod}_gold.js" ]; then
+    gen=(node "harness/gen_${mod}_gold.js")
+    oracle=("harness/gen_${mod}_gold.js" harness/blitter_oracle.js HISTORICAL_WASM_ROOT/blitter.js)
+  else
+    gen=(python3 harness/gen_gold.py "$base")
+    oracle=("probe/probe_$mod.zig" probe/wasm/*.zig)
+  fi
+  gold_key="$( { cat "${oracle[@]}" "gold/${base}Gold.codex" 2>/dev/null || true; } | sha256sum )"
   if [ "$gold_key" != "$(cat "build/$mod.goldstamp" 2>/dev/null)" ]; then
-    python3 harness/gen_gold.py "$base" >/dev/null
-    cat "probe/probe_$mod.zig" probe/wasm/*.zig "gold/${base}Gold.codex" | sha256sum > "build/$mod.goldstamp"
+    "${gen[@]}" >/dev/null
+    cat "${oracle[@]}" "gold/${base}Gold.codex" | sha256sum > "build/$mod.goldstamp"
   fi
 
   # Bundling is 50 ms and its output IS the transitive closure of every `cites`

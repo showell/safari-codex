@@ -5,9 +5,10 @@ Chapter: Blit
  The blitter's own arithmetic, in Codex.
 
  THE ORACLE HERE IS JAVASCRIPT, not a game module, which makes this the second
- chapter in judge/ whose answer does not come from zig. `web/blitter.js` owns a
- shading recipe and three visibility thresholds -- numbers chosen by eye, in the
- one file nothing in this project can run. Every other decision the game makes is
+ chapter in judge/ whose answer does not come from zig. `HISTORICAL_WASM_ROOT/
+ blitter.js` -- the frozen original, which this project never edits -- owns a
+ shading recipe and four visibility thresholds, numbers chosen by eye in the one
+ file nothing in this project can run. Every other decision the game makes is
  inside a scene checksum; these were inside nothing at all.
 
  WHAT IS HERE AND WHAT IS NOT. Only the arithmetic. `ctx.fillStyle` wants a CSS

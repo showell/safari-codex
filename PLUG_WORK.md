@@ -14,8 +14,8 @@
 > its record is `WASM_FINDINGS.md`.
 
 Where the emitter work lives, what was branched, and where things run. Started
-2026-08-29. Companion to `PORTING_NOTES.txt` item A1, which is the finding this
-closes.
+2026-08-29. The finding it closes is the real-to-int hole; the emitter that
+closed it is plugs-backlog row 2.03.
 
 **Why this file exists:** this project now touches four trees, three of them
 outside `safari-codex`, and one of them (`NewRepository`) is shared with 11 live

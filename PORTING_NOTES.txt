@@ -31,10 +31,6 @@ A2. `show` on a Real is refused — deliberately, and the refusal is right, but
     does not have"). std.fmt would agree with bare metal on some values and not
     others, so it refuses rather than guess. Correct.
 
-    But with A1 also missing there is NO WAY OUT for a Real: it cannot be
-    printed, and it cannot be converted to something that can. A failing test can
-    say WHERE it failed and not WHAT it computed.
-
     (The narration that followed is in git.)
 
 
@@ -154,8 +150,8 @@ B3. CDX2085 — `==` between Reals is refused, and CODEX IS RIGHT.
     Best single argument in this file for Codex over zig.
 
 B4. CDX2001 — no implicit Integer to Real widening.
-    `0.0 + i` is a type error, not a widening. With A1 missing there is no
-    conversion either, so carry a Real accumulator beside the Integer counter.
+    `0.0 + i` is a type error, not a widening. Convert explicitly, or carry a
+    Real accumulator beside the Integer counter.
 
 B5. CDX3001 — chapters share ONE FLAT NAMESPACE inside a bundle.
     Citing Math chapter Geometry for its convex-hull collided with the port's own
@@ -191,8 +187,8 @@ B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
     never diagnosed.
 
     This is how the port got a real square root. Gpu chapter DeviceMath was
-    written off wholesale (see the correction under A1) on the strength of
-    dm-reduce needing real-from-int. But real-sqrt is independent of it:
+    written off wholesale on the strength of dm-reduce needing real-from-int.
+    But real-sqrt is independent of it:
 
     (Derivation and measurements: git.)
 
@@ -494,11 +490,11 @@ D9. TWO DEPTHS CLOSER THAN AN f32 ULP HAVE NO ORDER, AND THE SORT MUST SAY SO.
 D10. RETIRING THE TRIG STAND-IN MOVED NO NUMBER AT ALL, AND THAT IS A
     MEASUREMENT RATHER THAN LUCK.
 
-    A1 recorded port/Trig.codex as retirable once real-to-int and real-from-int
-    landed, and warned: "Trig's wrap subtracts in a bounded loop where dm-reduce
-    divides and converts back through the integers, so the two disagree in the
-    last bits, and four graded chapters cite Trig today. It is its own change with
-    its own regrade."
+    port/Trig.codex was retirable once real-to-int and real-from-int landed, and
+    the warning against doing it casually was: "Trig's wrap subtracts in a
+    bounded loop where dm-reduce divides and converts back through the integers,
+    so the two disagree in the last bits, and four graded chapters cite Trig
+    today. It is its own change with its own regrade."
 
     (The narration that followed is in git.)
 

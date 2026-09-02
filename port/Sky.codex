@@ -18,8 +18,8 @@ Chapter: Sky
  THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
  round a lerped colour channel and to pack three of them into one integer. Until
  2026-08-29 the zig plug could emit neither conversion and this module was simply
- unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
- that closed it. Nothing here works around anything any more.
+ unportable -- see plugs-backlog row 2.03 for the emitter that closed it.
+ Nothing here works around anything any more.
 
  We say:
 

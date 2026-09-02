@@ -210,10 +210,15 @@ value:**
 | `SpikeTruckMain` — the truck in daylight and at dusk | 89,902 |
 | | **523,414** |
 
-Concatenated that is **4,532,052 bytes, and the two arms produce them byte for
-byte** — the sky, the ground, the trees, the towers, the rails, the animals, the
-cat's leap and the whole truck. That is the statement worth making; verdict
-agreement is the cheap sweep. Eight guests, about six minutes.
+**The two arms produce every one of those bytes identically** — the sky, the
+ground, the trees, the towers, the rails, the animals, the cat's leap and the
+whole truck. That is the statement worth making; verdict agreement is the
+cheap sweep. Eight guests, about six minutes.
+
+No byte total is written here, and that is deliberate. The one that used to be
+was measured before `real-to-bits` landed three paragraphs below, so it read
+half the true size and sat wrong through two rewrites that re-checked the field
+counts beside it. `ls -l build/spike_*.metal` answers it in the present tense.
 
 **The comparison is only as fine as the last digit printed**, and that scale was
 inherited rather than chosen. These entries were written to feed `spike_svg.py`,
@@ -432,8 +437,9 @@ demands the same picture out of the two different wires.
 **`poc/Drive.codex` drives the real route.** Nothing in the frame is placed by
 hand: the road and its corners, the conifers, the intersection towers, the guard
 rails and the pond all come out of `Safari chapter World` — the same nineteen
-segments graded at 3,822 values — mapped by `Render`'s chain, ordered by `Render`'s
-depth sort, and floored by `Render`'s ground pass. 2,430 draw commands in the
+segments, graded seam by seam against `gold/WorldGold.codex` — mapped by
+`Render`'s chain, ordered by `Render`'s depth sort, and floored by `Render`'s
+ground pass. 2,430 draw commands in the
 opening frame, sixteen of them the truck. `u` runs 0..1 and walks the whole course by arc length; Space
 auto-plays, the arrows step, J jumps a segment.
 

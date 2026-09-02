@@ -16,7 +16,7 @@ Chapter: SkyCheck
  wrong colour, not a rounding difference, and it is also the first thing in this
  port that could not be expressed at all before the plug learned real-to-int and
  real-from-int. skyColor rounds a lerped channel and packs three of them; neither
- half was reachable. See PORTING_NOTES A1 and plugs-backlog 2.03.
+ half was reachable. See plugs-backlog 2.03.
 
  An exact gate over a ROUNDED quantity is a real bet, and it is worth saying what
  is being bet. The port computes the channel in f64 and the game in f32, so a

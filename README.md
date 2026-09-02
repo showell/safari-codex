@@ -132,7 +132,7 @@ below — and the ladder's compute rules apply to it and to nothing else here.
 ## The third arm: the same check on bare metal
 
     ./harness/metal.py Pond          # one check, both ways
-    ./harness/metal.py --all         # all seventeen, smallest first (3m26s)
+    ./harness/metal.py --all         # all eighteen, smallest first (3m26s)
 
 The sweep above verifies the **port** against the game, and it does that through
 the zig plug: Codex source in, zig out, a native binary that prints a verdict.
@@ -144,7 +144,7 @@ same bytes. That is a Diverse Double-Compiling check in Wheeler's sense, applied
 to a program instead of to a compiler. `codex-zig-ladder` next door does it for
 the compiler; this does it for this port.
 
-**All seventeen checks agree, byte for byte**, including the whole-frame check's
+**All eighteen checks agree, byte for byte**, including the whole-frame check's
 3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
 printed verdicts, and verdicts are text.
 
@@ -205,7 +205,7 @@ pixel two emitters could disagree by four orders of magnitude and this would cal
 them equal.
 
 **There is no scale now.** `real-to-bits` landed in the zig plug on 2026-08-30
-(`PLUG_WORK.md`), so a coordinate goes out as its exact IEEE-754 pattern and the
+(PR 100), so a coordinate goes out as its exact IEEE-754 pattern and the
 diff is bit-for-bit. That is what lets the third arm finally see the emitter faults
 it was blind to under any decimal scale — FMA contraction, x87 excess precision, a
 reassociated sum, all of which live at 1e-16 (`PORTING_NOTES` D11 is where that
@@ -249,7 +249,7 @@ says of its rungs.
 
 ## The fourth arm: the same program as wasm, twice, by two different roads
 
-    ./harness/wasm_arm.py --native --all  # the day-to-day check: 17 units, NO guest
+    ./harness/wasm_arm.py --native --all  # the day-to-day check: 18 units, NO guest
     ./harness/plug_probe.py               # the plug's own differential probes
     ./harness/wasm_plug_build.py          # once per emitter change, 18s, one guest
     ./harness/wasm_arm.py Pond World Num Camera
@@ -293,10 +293,10 @@ emitted `i64.lt_s` on the bit patterns, which is not a near miss — it reads th
 sign bit as the top of a two's-complement integer, so every negative real sorts
 above every positive one and `-2.0 < -1.0` comes out False, and the foreword's
 own `real-min`, `real-max` and `real-abs` are three lines of `<` and `>`. Four
-builtins had no form at all. `PLUG_WORK.md` has the change; it is on
+builtins had no form at all. `WASM_FINDINGS.md` finding 1 has the change; it is on
 `wasm-plug-real-conversions` for sending.
 
-**What agrees now.** All seventeen units emit and agree — `Pond`, `World`, `Num`
+**What agrees now.** All eighteen units emit and agree — `Pond`, `World`, `Num`
 and `Camera` were the first four — and `SpikeProfileMain`
 on **20,002 IEEE-754 bit patterns, with no tolerance anywhere**: the ported
 physics over the whole route, by two emitters that share no code below the IR.
@@ -359,7 +359,7 @@ of one (its oracle is zig's own `@round`, `@floor`, `@mod` and `@exp`), and
 `probe_sens.zig` is a sensitivity EXPERIMENT that `run.sh` never builds — it is the
 evidence behind `PORTING_NOTES` D11 and nothing grades it.
 
-`probe/wasm` is a symlink to `angry-gopher/games/driving/wasm`, so the probes can
+`probe/wasm` is a symlink to `HISTORICAL_WASM_ROOT/`, so the probes can
 `@import` the game with a relative path. That settles NOTES open decision 1: the
 port lives here, and the symlink pays for it.
 

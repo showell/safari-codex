@@ -1,0 +1,210 @@
+SAFARI-CODEX: THE SEAMS, THE SCOPE, AND THE f32/f64 ANSWER
+
+What survives of the research brief that opened this project. The brief itself
+is in git; most of it was status, three walls that have all since been
+demolished, and a task breakdown for work that is finished.
+
+These three sections are not history. Section 4 is the SEAM TAXONOMY, and it is
+the vocabulary this repository speaks -- `judge/RideCheck.codex` opens by naming
+one of these seams, and `probe/probe_camera.zig`, `judge/RiderCheck.codex`,
+`port/World.codex` and a dozen other files cite them by number. Section 5 is why
+some of the game is deliberately not ported. Section 6 is the measured answer to
+"why Real and not fixed point", which `PLUG_WORK.md` still rests a live scope
+decision on.
+
+Read `PORTING_NOTES.txt` for the lessons; this file is the design argument
+underneath the checks.
+
+4. THE SEAMS (four oracles, all already cut by the game's architecture)
+--------------------------------------------------------------------------------
+
+SEAM 1 -- the leaf math. geom.zig and camera.zig are pure functions of scalars.
+  A probe walks a table of inputs and prints outputs. This is the one that ran.
+
+SEAM 2 -- the static data. pond.zig is NOTHING BUT data (an outline, a bank, six
+  ducks, three colours); so is most of world.zig's route table and the
+  tree/tower dimension tables. Dump and compare exactly. This is the right FIRST
+  port because it has no arithmetic -- it tests the harness, not the math.
+
+SEAM 3 -- the draw-command buffer. THE MONEY SEAM, and already serialisable:
+  paint.zig writes [tag][color][nPoints][x f32][y f32]... and
+  paint.frameWords() hands the whole frame over as []const u32. A Zig probe
+  decodes one frame to text; the Codex port -- which will RETURN a list of
+  commands rather than write a buffer, being pure -- prints the same list. Tags
+  and colours compare exactly, coordinates with tolerance. When this matches for
+  a frame, THE SCENE CORE IS PORTED.
+
+SEAM 4 -- the fold over time. safari.zig is the only module with mutable state;
+  everything upstream is pure. The whole ride is state -> state.
+
+  *** THE HAZARD IN SEAM 4 ***
+  rider.decide() picks the lean by BINARY SEARCH over a simulated path -- twelve
+  probes, each a float comparison. A 1e-7 f64-vs-f32 difference will eventually
+  flip one, and from there the two rides are on different trajectories. A long
+  trace comparison WILL go red and it will NOT mean the port is wrong.
+  So do not compare trajectories. Compare ONE STEP AT A TIME FROM A SHARED
+  STATE: the Zig probe dumps state N and state N+1; the Codex side is fed state
+  N and must produce N+1. Drift cannot accumulate and a failure points at one
+  step and one module instead of at frame 4000. Same for the truck. For a
+  whole-ride check, check INVARIANTS (on the road, no loop, sunset monotone) --
+  which is what games/driving/test/test_model.ts already does for the TS.
+
+--------------------------------------------------------------------------------
+
+5. SCOPE: WHAT NOT TO PORT
+--------------------------------------------------------------------------------
+
+- The blitter and the rasterizer. wasm/blitter.js and native/raster.zig are the
+  display; the architecture already declares them the far side of the seam. The
+  draw-command buffer is the contract. (Same call the project made for
+  Delivery: zig solver, TS display.)
+- cat_frames.zig and emoji_frames.zig BY HAND -- 615 KB of baked polygons, and
+  they are GENERATED (ops/bake_cat runs the real TS drawing code through a
+  recorder). Teach the baker a Codex emitter and the data ports itself. Late;
+  nothing needs it until the cat crosses.
+- A browser build through zig. The transpiled zig is a hosted program (std,
+  ArrayListUnmanaged, a 4 GB bump region from page_allocator); wasm32-freestanding
+  is not close. BUT SEE SECTION 7 -- there is a WASM PLUG in the Codex tree and
+  that may be the real door.
+
+THE BUMP HEAP, before it bites you: the emitted prelude reserves ~4 GB and
+bump-allocates; NOTHING IS EVER RECLAIMED. Every list, every record, every
+frame. A pure port that rebuilds the scene per frame will exhaust that in a few
+thousand frames and @panic("oom"). Not a blocker -- it means ONE PROBE PROCESS
+PER SHORT HORIZON, not one process driving the whole route. Design for it now.
+
+--------------------------------------------------------------------------------
+
+6. THE f32 / f64 INVESTIGATION (Steve asked; this is the whole answer)
+--------------------------------------------------------------------------------
+
+6.1 Where the game's f32 comes from: ONE PLACE.
+  paint.zig packs each coordinate into a single u32 word --
+      buf[cursor] = @bitCast(p.x);
+  -- and blitter.js reads them back through
+      new Float32Array(mem.buffer, base, len / 4)
+  THE DRAW-COMMAND BUFFER IS THE f32. Everything upstream (ScreenPt, geom.Vec3,
+  RiderPt, every camera constant) is f32 SO THAT that bitcast is free. That is
+  the whole causal chain. Nothing in the physics or the look asks for it.
+
+  Two consequences worth saying out loud:
+   - The TypeScript original computed all of this in f64, because JS has no
+     other number. The zig port NARROWED it. A Codex port in Real (f64) is
+     arguably closer to the original than the zig is.
+   - THE WIDTH DOES NOT CHANGE THE PICTURE. Measured this session, same probe,
+     camera.zig+geom.zig copied and s/\bf32\b/f64/g:
+
+         quantity            f32 (the game)     f64
+         FOCAL               685.510900         685.511043
+         projected x         582.826660         582.826656
+         projected y         341.130650         341.130663
+         camFocal(0.5,0.2)   574.115360         574.115499
+
+     Worst gap 1.4e-4 on a 685-pixel value = 2e-7 relative = f32 epsilon to the
+     digit. A ten-thousandth of a pixel on a 960x600 canvas. The width is
+     invisible to the product and visible only to the oracle. If the wire is
+     ever wanted back, round to f32 AT PUSH TIME -- the narrowing belongs at the
+     seam, which is where the zig already puts it.
+
+  So: the game is not constrained to f32. Its BUFFER is.
+
+6.2 What the plugs do -- and this is NOT a zig-plug quirk.
+  ZigEmitter.codex drops the width at both type sites:
+      zig-let-annot   is RealTy (w) (m) -> ": f64"     (line 297)
+      emit-zig-type   is RealTy (w) (m) -> "f64"       (line 328)
+  (w) and (m) are bound and never read, with no comment either place. And the
+  binary-operator table collapses five opcodes onto one symbol (1270-1273):
+      is IrAddNum | IrAddVec | IrAddRealApprox | IrAddRealTrapping
+         | IrAddRealSaturating -> "+"
+  Three semantic collapses in one line: f32 computed as f64, TRAPPING silently
+  not trapping, SATURATING silently not saturating.
+
+  The neighbours do the same. The C# plug -- the best crib, and the one their
+  own release gate runs -- is character-for-character identical
+  (codex/plugs/csharp/CSharpEmitterExpressions.codex:1021-1024). The WASM plug
+  states it as policy (codex/plugs/wasm/WasmEmitter.codex:682-684):
+      "Every real on this target is carried as f64 bits in an i64 slot,
+       IrNumLit included, so there is one width to reinterpret and no f32 case
+       to separate."
+  So: REAL IS A DOUBLE, HOUSE-WIDE. With ~50 plugs that is a convention, not an
+  oversight, and a PR quietly making zig the exception would be a bad citizen.
+
+6.3 EXCEPT THAT BARE METAL IS NOT A DOUBLE.
+  The reference compiler picks the opcode by type
+  (codex/compiler/IR/LoweringTypes.codex:182-185):
+      is OpAdd -> ... else if is-real-approx-type ty then IrAddRealApprox ...
+  and codex/compiler/Emit/X86_64.codex:2774 emits ADDSS for it -- single-
+  precision add in an XMM low lane. The reference computes f32 in f32; every
+  plug computes it in f64. A Codex program written in `Real approximate` gets
+  DIFFERENT NUMBERS from the reference compiler than from any plug.
+
+  Upstream is not casual about the width. codex/test/ops/real-approx-modes.codex
+  opens: "THE WIDTH IS THE WHOLE RISK HERE. [...] Run the f32 values through the
+  f64 constants and the exponent read is nonsense, the guard never fires, and
+  saturating quietly stops saturating." Its gold pins a saturating clamp to one
+  bit: 2139095039 (largest finite single), not 2139095040 (+inf).
+
+6.4 Why nobody has tripped over it: THE f32 TESTS CANNOT BUILD THROUGH THE PLUG.
+  Both of upstream's f32 ops tests were transpiled this session; neither
+  compiles:
+      real-approx.zig:       no emitter for to-real-approx
+                             no emitter for from-real-approx
+      real-approx-modes.zig: no emitter for real-approx-from-int
+                             no emitter for real-approx-to-bits
+                             no emitter for to-real-approx-saturating
+  There is no way to get an f32 value INTO or OUT OF a transpiled program, so
+  the arithmetic collapse has never been observable from the zig arm. THE
+  MISSING HOLE HIDES THE WRONG ANSWER. Fixing the conversions without touching
+  the arithmetic makes the divergence visible -- an argument for doing them in
+  that order, on purpose, and saying so.
+
+6.5 Would a ZigEmitter32 be crazy? The framing is off, and usefully so.
+  A separate plug is right when the difference is a property of the TARGET.
+  Width is not: it is a property of the TYPE IN THE SOURCE PROGRAM. `Real` and
+  `Real approximate` can appear in the same chapter, in the same function.
+  ZigEmitter32 would be a 4,000-line fork to change two arms and would still be
+  wrong for any program using both widths -- which is most programs that use f32
+  at all, since you narrow at a seam and compute in the middle.
+
+  There is also nothing to configure: the information is already at every site
+  and is thrown away twice --
+    - the declared CodexType carries RwF32 (the (w) those two arms ignore);
+    - the IR opcode carries it independently (IrAddRealApprox vs IrAddNum).
+  Two independent channels, both already threaded to the emitter. The opposite
+  of a plug-level flag.
+
+  What honouring the width would cost, from outside:
+    - emit-zig-type + zig-let-annot: RealTy RwF32 -> "f32". Two lines.
+    - LITERALS ARE THE REAL WORK. IrNumLit emits @as(f64, @bitCast(@as(i64,n))),
+      an f64 bit pattern; zig rejects that where an f32 is wanted, so the
+      num-lit sites need the context type. The emitter already carries
+      peer-type patch-ups for exactly this shape (ZigEmitter.codex:1567, 1657,
+      2185) -- hardcoded to f64. That is where the difficulty lives; do not
+      price it without trying it.
+    - cx_bits_to_real_approx in the prelude deliberately widens f32->f64 with a
+      comment saying "Real is f64 here". That comment becomes false; the helper
+      becomes identity.
+    - The conversion builtins are missing regardless -- same PR as real-to-int.
+    - MODES ARE A BIGGER, SEPARATE JOB; do not take them on. The exponent guards
+      differ per width (their own comment says so). But there is a cheap and
+      strictly-better move: make trapping and saturating REFUSE instead of
+      silently degrading. Silent wrong answer -> compile error, about an hour,
+      cannot make anything worse, and it is the plug's own idiom (refusing
+      `show` on a Real is the same move).
+
+6.6 Recommended order, if any of this is taken up:
+    1. Add the f64 conversions (real-to-int, real-from-int). Unblocks the port
+       AND unblocks Gpu chapter DeviceMath, which is dark to zig today.
+    2. Make trapping and saturating refuse. Cheapest correctness win on the board.
+    3. ASK about the width; do not PR it. It is a convention across ~50 plugs and
+       their own gate follows it, so the first artifact is a question with a
+       repro, not a patch. The repro is free: their own real-approx.codex, which
+       the zig arm cannot build, plus the addss at X86_64.codex:2774 that says
+       what the answer should have been.
+
+  AND FOR THE PORT ITSELF: none of this is on the critical path. Port in Real
+  (f64) and grade against the zig f32 with a stated tolerance. 1e-4 of a pixel
+  is a fine gate, and it is exactly the width gap -- so the oracle stays honest
+  about what it is and is not measuring.
+
+--------------------------------------------------------------------------------

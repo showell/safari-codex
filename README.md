@@ -87,6 +87,21 @@ about fidelity:
   (`PORTING_NOTES` E4).
 - **Take the better name where nothing pins it.**
 
+## Before the loop will run
+
+Four things must exist, and `harness/pins.py` exits rather than guess at any of
+them. It is the authority; this list only tells you they exist.
+
+    SAFARI_COBBLESTONE   the Codex checkout the port compiles against
+    CODEXZIG_TREE        the transpiler's worktree
+    ZIG                  the zig binary, and the version is pinned
+    SAFARI_LADDER        for ring_compile and codex_vm
+
+`PROVENANCE.md` says what each is pinned to and why. **`./harness/run.sh` calls
+`build_codexzig.sh` on a cold checkout**, which is a multi-minute build through
+QEMU guests -- the "no guest" promise below is about the sweep, not the first
+one.
+
 ## The loop
 
     ./harness/run.sh
@@ -106,7 +121,10 @@ the browser, so a check that owns a `harness/gen_<mod>_gold.js` gets its gold fr
 node reading `HISTORICAL_WASM_ROOT/blitter.js` instead of from step 1. The sweep
 then finishes with `--- Blitter ---`: `harness/blitter_diff.js`, which runs the
 forked `web/blitter.js` and the frozen original side by side over a recording
-canvas. That leg is the only thing in the repository that can see the browser half.
+canvas. That leg is what stands behind the claim that moving the shading recipe into
+Codex did not change the picture. `harness/second_show.js` runs after it and
+is in the sweep for the same reason: it rotted once and nothing noticed,
+because nothing ran it.
 
 **A minute and a half cold, six and a half seconds when nothing has changed.** It
 was nine minutes. Two things fixed that, and both are worth knowing:
@@ -328,6 +346,9 @@ every value as its exact IEEE-754 pattern, and all three faults are caught there
 evidence that the physics genuinely runs. Verdicts are the cheap sweep; values
 are the statement.
 
+`./harness/metal_chapter.py` grades a single chapter on all three arms, which
+is how a test going upstream gets bare metal's answer rather than ours.
+
 ## Layout
 
 | directory | holds | written by |
@@ -421,7 +442,7 @@ because it still builds and is the way to compare:
 
     ./harness/build_wasm.sh SceneMain
 
-**The truck is on the page now, and it was the last thing missing.** It needed
+**The truck is on the page.** It needed
 three separate wirings, and the reason it had sat unfinished is that none of them
 alone changes anything visible:
 
@@ -444,7 +465,7 @@ Measured over one drive: the lead runs 500 m at the line down to 68 m by frame
 drops behind the crest. `truckLead`, `truckV` and `truckBraking` are exported for
 a probe, as `safari.zig` exports them for its HUD.
 
-**Nothing on the page is a stand-in any more.** The route, the rider's own physics
+**Nothing on the page is a stand-in.** The route, the rider's own physics
 and lean, the animals, the cat, the sky clock, the chase, the bull's gradient
 shading and the camera's own pull-in are all the real thing, and `poc/Drive.codex`
 is a *scrub* page again — the driven half is `port/Safari.codex`, a port of the
@@ -452,7 +473,7 @@ game's own `safari.zig`, and `poc/drive_shim.zig` is an ABI with no logic left i
 it. What the shim still owns is what a pure program cannot hold: a value, a
 history ring, and the exported readouts.
 
-**The lens moves now, and it had been ported and idle since Camera landed.**
+**The lens moves.**
 `cam-focal`, `focal-for-lean` and `focal-for-gaze` were all in the port with
 nothing above them to compute the two fractions they take; `safari.zig` is that
 thing. Measured over a drive: the focal runs 204..685 px and is pulled in on
@@ -473,6 +494,10 @@ script refuses, so a drifting prelude fails loudly.
 f32 narrowing happens there and only there** — the seam the hand-written zig
 already narrows at. It also rewinds the bump heap once per frame, which is what
 lets a page that allocates and never reclaims run indefinitely; `PORTING_NOTES` C8.
+
+**The driven page catches a desync, a heap death and a tag the blitter cannot
+paint. It does not check a single VALUE.** That is the largest uncovered
+surface left in this project.
 
 ## Looking at one thing: the spike loop
 
@@ -552,6 +577,13 @@ so mirroring flips the axis without translating it. Map an axis as a point and y
 still get a polygon of exactly the right shape with its shading anchored somewhere
 else — which is why the gradient's own numbers get a stream of their own rather
 than riding with the polygon's.
+
+## Do not finish the real family
+
+Thirteen real-family plug rows are declined on purpose. They are blocked on one
+fact -- `ZigEmitter.codex` maps `RealTy (w) (m)` to `f64`, discarding both the
+width and the mode -- so filling them would replace an honest refusal with a
+plausible wrong number. **Do not finish the family without an answer to that.**
 
 ## Decisions
 

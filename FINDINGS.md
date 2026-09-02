@@ -1,10 +1,12 @@
 # Findings owed upstream
 
-Nine, each self-contained: what was observed, how to reproduce it, and what the
-fix looks like. Seven are owed to Cobblestone and the zig plug, two to
+Each self-contained: what was observed, how to reproduce it, and what the fix
+looks like. Some are owed to Cobblestone and the zig plug, some to
 angry-gopher, and the two halves are independent.
 
-**Status, 2026-08-31.** Four are sent and five are not:
+**The table below is the status.** Do not count the findings in prose -- the
+counts here disagreed with each other three ways before this was written,
+because a total is an answer and answers rot where nobody re-checks them.
 
 | | what | where it went |
 |---|---|---|
@@ -52,7 +54,7 @@ were stale, which is the whole reason for the pass.
 
 ## How these should travel
 
-Not all eight are the same kind of thing, and sending them the same way would waste
+These are not all the same kind of thing, and sending them the same way would waste
 the small ones and overreach on the large ones. The standing rule applies: we are
 not responsible for non-zig plugs, nor for fully testing core-compiler changes.
 

@@ -1,21 +1,26 @@
 # safari-codex
 
-A port of the Safari driving screensaver from Zig to **Codex**, verified against
-the Zig it came from.
+**A driving screensaver, written in Codex, that we own outright.** It began as a
+port of a Zig original and that port is finished and eye-tested; what it is now
+is a real application in the language, and the most demanding customer the Codex
+toolchain has.
 
-The Zig version stays intact and keeps running on lynrummy.com/driving. This is a
-parallel port, not a migration.
+It is also a four-arm oracle. Running one program four ways -- through the zig
+plug, through the compiler's own x86-64 emitter under QEMU, and through two
+independent roads to wasm -- has found more defects in the toolchain than any
+other thing in this ecosystem. `WASM_FINDINGS.md` is the record.
 
-Six documents, and they do not overlap. **This file** is the orientation: what
-exists, how to run it, and the method. **`PORTING_NOTES.txt`** is the lessons file
-— fifty-eight numbered notes on the toolchain, the language, the tolerances and the
-seams, and the first thing to read before writing a Codex chapter.
-**`FINDINGS.md`** is the nine defects this port found in the toolchain and the
-game, written up to be sent. **`WASM_FINDINGS.md`** is the eleven the fourth arm
-found in `codex/plugs/wasm` specifically, seven of them fixed. **`PLUG_WORK.md`** records the emitter change the port
-needed and why it was branched where it was. **`NOTES.txt`** is the research brief
-that opened the project; it is history now and several of its predictions were
-wrong in useful ways, which this file notes where it matters.
+**Fidelity to the Zig original is no longer a constraint.** It was, for as long
+as it took to establish that the port was faithful without anyone having to
+remember which giraffes stood at which intersections; that job is done. The
+checks below still grade against the game because a free, exact oracle is worth
+keeping -- not because the port is forbidden to diverge. It may diverge, and in
+features too.
+
+`PROVENANCE.md` pins the trees this builds against. `FINDINGS.md` and
+`WASM_FINDINGS.md` are the defects this project found, written to be sent.
+`PORTING_NOTES.txt` is the lessons file -- the first thing to read before
+writing a Codex chapter.
 
 ## The four arms, and what each one is worth
 
@@ -60,77 +65,27 @@ port that is failing its own checks: the verdict travels with them.
   patterns with no tolerance anywhere**, and `plug_probe.py`, which compares the
   two plugs on values a few lines at a time.
 
-## The trees this builds against
+## What the checks still buy, now that the port is done
 
-**Every tree this builds against is pinned, and `PROVENANCE.md` is the record.**
-Until 2026-08-30 each of them was a path into a checkout somebody else was
-working in, which made a green sweep a statement about whatever those trees held
-that afternoon. Two rules now: a tree we COMPILE is a worktree on our own branch,
-and a tree we merely READ is copied in with the commit it came from written down.
+**Structure compares exactly; numbers carry a measured tolerance.** Codex `Real`
+is f64 in every plug and the game computes in f32, so every computed number
+differs somewhere in the last bits. Point counts, colours, tags and indices
+never get slack -- a wrong count is a wrong shape and no coordinate tolerance
+should be able to hide one. Section D of `PORTING_NOTES` records what each
+tolerance had to admit and why.
 
-| tree | branch | what it is |
-|---|---|---|
-| `~/showell_repos/safari-codex` | `master` | **this repo.** The port, the checks, the harness. Pushed to `showell/safari-codex` on every commit. |
-| `~/showell_repos/cobblestone-safari` | `safari` | **Cobblestone**, the Codex language: the foreword every chapter cites, the seed the guest arms boot, and the plugs. A worktree of `NewRepository` on our own branch, carrying Update 53 plus the plug rows the port needs. `CODEX_ROOT` and `COBBLESTONE_ROOT` point here. |
-| `~/showell_repos/codexzig-safari` | `safari` | **builds `codexzig`**, the Codex→Zig transpiler this whole loop runs on. A worktree of `codex-zig-transpiler`; `./harness/build_codexzig.sh` is the only door to it. |
-| `HISTORICAL_WASM_ROOT/` | — | **the game being ported**, copied in from `angry-gopher/games/driving/wasm`. It is the ORACLE and this project never edits it. `./harness/refresh_game.sh` moves the pin; the provenance sits beside the files. |
-| `~/showell_repos/codex-zig-ladder` | `master` | borrowed, and deliberately NOT pinned: `ring_compile` + `codex_vm` are how the third and fourth arms boot a guest, and `codex_vm.launch` takes the host-wide lock that keeps this box to one guest at a time. A second tree would take a second lock. `PROVENANCE.md` has the argument. |
+Where the port deliberately differs, it says so at the definition and the check
+gates it at a measured bound. There is one such place: the cat's airborne arc
+uses `b^0.75` where the game uses `pow(b, 0.7)`, bounded at 0.109m and zero at
+both ends.
 
-The single-purpose branches the plug work is SENT on -- `zig-plug-real-bitcast`,
-`wasm-plug-real-conversions`, and their worktrees -- are not in this table
-because nothing builds against them. `PLUG_WORK.md` is their record.
+Two rules from the port that still hold, because they are about Codex and not
+about fidelity:
 
-**`codexzig` is why this project moves at all.** It is one program -- Codex source
-in, Zig out -- and `./harness/build_codexzig.sh` prints the path to ours, building
-it in its worktree first if the fingerprint says it is stale. Building it costs
-three QEMU guests, because the seed compiler emits x86 rather than Zig and the
-emitter has to be booted before there is any Zig to compile; the build ends by
-checking the fixed point, which is why the door is that project's own `build.py`
-and not a `zig build-exe` here. **Once it exists, the sweep boots no guest.** That
-is why a sweep is seconds instead of a ladder-scale job.
-
-Four environment variables, all of them overrides with working defaults:
-
-    CODEX_ROOT     ~/showell_repos/cobblestone-safari   the foreword and the seed
-    CODEXZIG_TREE  ~/showell_repos/codexzig-safari      the transpiler's worktree
-    CODEXZIG       (unset)                              a specific binary instead
-    SAFARI_LADDER  ~/showell_repos/codex-zig-ladder     ring_compile, codex_vm
-    ZIG            ~/zig-0.16.0/zig                     0.16.0
-
-## Porting philosophy: pragmatic best effort
-
-**Find the seams in the game, cross-check both sides at them, and be explicit
-about every place the two are allowed to differ.** That is the whole method, and
-the second half matters as much as the first.
-
-A seam is a place where the game computes something a probe can read: a returned
-value, a collected store, the draw-command buffer. At each one, a Zig probe
-imports the **real, unmodified** game module and prints what it computed; the
-Codex port computes the same thing; a grader compares them. Where a function is
-`pub`, the probe calls it and the comparison is exact in kind. Where it is not,
-the check says so and grades what it can — `PORTING_NOTES` E1 works through what
-`render.zig`'s four public names did to its check.
-
-**This is not a bit-exact port and does not try to be.** Codex `Real` is f64 in
-every plug while the game computes in f32, so every computed number differs
-somewhere in the last bits, and the tolerances that absorb that are measured
-rather than chosen — section D of `PORTING_NOTES` is the record of what each one
-had to admit and why. Structure never gets a tolerance: point counts, colours,
-tags and indices compare exactly, because a wrong count is a wrong shape and no
-coordinate slack should be able to hide one.
-
-Where the port deliberately differs from the game, it says so at the definition
-and the check gates it at a measured bound rather than waving it through. There is
-exactly one such place today — the cat's airborne arc, which uses `b^0.75` where
-the game uses `pow(b, 0.7)`, bounded at 0.109m and zero at both ends.
-
-Three rules that fell out of doing it:
-
-- **The game is never edited to suit the port.** It is the oracle and it ships.
-- **Port the answer, not the cost model.** An in-place algorithm carried literally
-  onto persistent lists can gain a whole complexity class (`PORTING_NOTES` E4).
-- **Where a name is not pinned by a check, take the better name.** Where it is
-  pinned, fidelity wins.
+- **Port the answer, not the cost model.** An in-place algorithm carried
+  literally onto persistent lists can gain a whole complexity class
+  (`PORTING_NOTES` E4).
+- **Take the better name where nothing pins it.**
 
 ## The loop
 
@@ -559,313 +514,6 @@ share — `SpikeProfileMain` prints profile points, which are not draw commands,
 it does not cite it — and `harness/spike.sh` names the list once. Sharing by citing the *first entry* is
 what does not work: two `opening`s in one bundle collide on the flat namespace.
 
-## Ported so far
-
-| chapter | ports | graded |
-|---|---|---|
-| `port/Pond.codex` | `wasm/pond.zig` | 48 values, exact |
-| `port/Camera.codex` | `wasm/camera.zig` | with Geom below |
-| `port/Geom.codex` | `wasm/geom.zig` | 375 values, 1e-6 relative |
-| `port/Trig.codex` | arc tangent + angle wrap; sine and cosine are `DeviceMath`'s | via the above |
-| `port/Paint.codex` | `wasm/paint.zig`'s wire | with Tree below |
-| `port/Tree.codex` | `wasm/tree.zig` | 45 commands + 628 coords |
-| `port/GuardRail.codex` | `wasm/guard_rail.zig` | 670 values, both seams |
-| `port/Sky.codex` | `wasm/sky.zig` | 148 values; **colours exact** |
-| `port/Mountains.codex` | `wasm/mountains.zig` | 2,204 values, both seams |
-| `port/Tower.codex` | `wasm/tower.zig` | 1,485 values; the beacon disc |
-| `port/Num.codex` | — | 111 values, **exact**; round, floor, mod, exp are foreword gaps |
-| the whole ride | `wasm/safari.zig`'s fold | **SEAM 4**: 8 invariants over 6,960 frames |
-| `port/World.codex` | `wasm/world.zig` | 3,822 values, the whole route |
-| `port/Cat.codex` | `wasm/cat.zig` **minus `draw`** | 484 values, clock + attention |
-| `port/Pose.codex` | `RiderState`, split out to cut a cycle | with Rider |
-| `port/Gaze.codex` | `wasm/gaze.zig` | with Rider |
-| `port/Rider.codex` | `wasm/rider.zig` | 199 values, **one step from a shared state** |
-| `port/Truck.codex` | `wasm/truck.zig` **motion only** | 29 values, one step |
-| `port/TruckBody.codex` | `wasm/truck.zig`'s `drawBody` | 2,962 values, **113 commands in order** |
-| `port/SafariCritter.codex` | `wasm/safari_critter.zig` | 92 values, **complete** |
-| `port/EmojiStills.codex` | `wasm/emoji_frames.zig` | **generated**, 5,267 points |
-| `port/Critter.codex` | `wasm/critter.zig` | 9,924 values, **all 8 species** |
-| `port/CatStills.codex` | `wasm/cat_frames.zig` | **generated**, 7 poses |
-| `port/CatDraw.codex` | `wasm/cat.zig`'s `draw` | 9,993 values |
-| `port/Render.codex` | `wasm/render.zig` **minus the baked-frame drawers** | 8,389 values |
-| `port/Safari.codex` | `wasm/safari.zig` **minus the ABI** | 9,341 values, **a whole frame** |
-| `port/Blit.codex` | `HISTORICAL_WASM_ROOT/blitter.js`'s recipes | 740 values, **exact**; the oracle is JavaScript |
-
-
-**`Render` is the first module whose CHECK was shaped by the zig's `pub`
-markers rather than by its own structure.** render.zig's entire public surface is
-four names — `Chain`, `Pose`, `at`, `frame` — and `buildChain`, `Mapper`, `mapPt`
-and all four ground and rail emitters are private to the file. Every module before
-this one had a pub function per seam, so "the probe calls the real thing" was free;
-here it is not, and RenderCheck grades three different strengths and says which is
-which. `at` is a real oracle. The behind-joint mapper is graded by its definition —
-`geom.curToNext` then `geom.toRider`, both pub — so every arithmetic step is
-oracled and only the order is not. The chain is the weak one: `at` never consults
-the caps, so the chain's *extent* is not observable from outside render.zig at all,
-and `LOOK_AHEAD` and `MAX_CHAIN` are the only values in this port transcribed from
-source rather than measured. **The way out is already in the file** — `cull_seg` is
-pub and sums the herds over chain indices 3 and up, so the collection pass turns
-the chain's extent into a number WorldCheck's graded counts predict. See
-`PORTING_NOTES` E1.
-
-**The collection pass is in: the chain walk, both culls, and the unified depth
-sort.** What `frame` gathers — trees, towers, the cow and pig herds, the corner
-safari pairs, the pond ducks, the guard rails and the chased truck — and the one
-back-to-front order over the lot. What is *not* here is the ground: the road
-strips, corner pavement and the pond's water and bank are painted inside the same
-walk, but they are quads on the floor that never enter the sort, so they belong to
-the paint pass.
-
-**`cull_seg` and `cull_size` turned out to be a much stronger check than two
-integers sound like**, and they are what closed E1's transcribed caps. A size tally
-is wrong unless every farm animal, corner creature and duck was placed in the right
-frame, mapped, projected and measured against the right focal — and the critters
-cull on the *stable* base focal while the trees cull on the live one, so a port that
-used the same focal for both fails. A seg tally is wrong unless the chain stopped in
-exactly the right place: the state on segment 16 has a three-long chain that never
-reaches the farm cull's third index, so its tally is zero, and that is the chain's
-extent made observable from outside render.zig.
-
-**All seven collected kinds are in, including the cat.** What unblocked it was not
-writing the logarithm its `pow(b, 0.7)` seemed to need: **0.75 is dyadic where 0.7
-is not**, so `sqrt(b * sqrt(b))` *is* b^0.75 exactly, using a square root both
-languages already have. That is the port's **one deliberate approximation**, and it
-is bounded rather than hand-waved — `|b^0.7 - b^0.75|` peaks at 0.0254, the leap
-spans 4.306m, so nothing can be more than 0.109m out, and it is zero at both ends
-so the cat launches and lands in exactly the right places.
-
-`CatCheck` grades that honestly by splitting the stream: 235 non-airborne samples
-at the ordinary width tolerance, 7 airborne ones at a gate sized to the bound, and
-the **pose index exactly on all 242** — an approximation to the arc must never flip
-which still is drawn. The game is not changed to suit the port.
-
-**The sort is the one place the port departs from the zig on purpose.** render.zig
-insertion-sorts, which is right for a mutable array. Carried literally onto Codex
-lists it exhausted the whole 4 GiB bump heap: there is nothing to shift, so
-rebuilding the tail past each insertion allocates a list per element and the sort
-goes cubic in allocations. A *stable* merge sort gives the identical order — same
-comparison, same tie rule — at roughly a hundred megabytes. Porting an algorithm
-faithfully means porting its answer, not its cost model; `PORTING_NOTES` E4.
-
-**The ground pass is in too**, so `frame` is now ported end to end apart from three
-calls: the road strips sliced every 25m so a bend reads smooth, each corner's
-approach road and pavement quad out to the apex, and the pond's water and bank. It
-graded green at the standard screen gate on the first run — no recalibration, which
-is what you would hope for by the tenth module.
-
-Every drawer `render.zig` dispatches to is ported now. `truck.drawBody` was the
-last one, and `port/TruckBody.codex` has it; the critter and cat drawers that used
-to sit beside it in this sentence went first.
-
-**`RideCheck` closes SEAM 4, the last of the four `NOTES` named.** Every other
-check in `judge/` grades ONE STEP FROM A SHARED STATE, and that is not modesty:
-`rider.decide` picks the lean by binary search over twelve float comparisons, so a
-1e-7 difference eventually flips one and the two rides part company. `NOTES`
-section 4 ruled out comparing trajectories and prescribed the alternative —
-"check INVARIANTS (on the road, no loop, sunset monotone)". `RideCheck` runs the
-port's own ride from the start line to the finish and asserts
-`test_model.ts`'s list on every frame; `probe_ride.zig` does the same to the game.
-Neither looks at the other's trajectory. What is compared is where each invariant
-FIRST failed — `-1` against `-1`, eight times — plus the ORDER of segments
-visited, which is drift-immune because a route is a route.
-
-**The two rides finish 40 frames apart, and that number turned out to be about
-the GAME rather than about the port.** `probe/probe_sens.zig` measures it on the
-game's own f32 code with the port nowhere in it: a one-ulp nudge to the initial
-state is absorbed *completely* — same 7,000 frames, never a centimetre apart — so
-the ride is contracting, not chaotic. But a **persistent** bias of 1e-7, which is
-f32's own resolution, swings the total to 7,061 or 6,971 and moves segment 13 from
-305 frames to 267. Below 1e-7 nothing moves at all. So the ride's length is not a
-property of the model; it is a property of evaluating the model in f32, and the
-port's per-segment durations sit inside the family the game produces for itself.
-`PORTING_NOTES` D11 has the table and what closing it would actually cost.
-
-**`NumCheck` is the odd one out and it is worth saying why it exists.** `Num` is
-not a port of a wasm/ file: it is the Real primitives Codex's foreword does not
-have — rounding, flooring, modulo and an exponential — written to zig's semantics
-because zig is what the game calls. So `probe/probe_num.zig` imports no game
-module at all and the oracle is `@round`, `@floor`, `@mod`, `@exp` and `@exp2`
-themselves. That makes it the one check in this port with **no f32/f64 gap to
-absorb**: both sides are f64 running the same operations, so four of its five
-streams are graded at tolerance 0.0 and only the exponential gets a tolerance.
-
-Ten chapters already used `Num` and all ten were green, which is exactly the
-argument for checking it directly: they only ever call it on their own domains.
-Every `@round` in the game rounds a 0..255 colour channel, a stride count, a step
-count or a whole number of degrees, so **a rounding wrong on a value none of them
-produces is invisible to every other check in `judge/`**. It was. `round-real`
-added the half before truncating, which answers 1 for the largest double below a
-half; the new form truncates first and looks at what is left, and needs no sign
-branch. The same check caught `exp-real`'s docstring claiming a truncation
-remainder of 1e-17 where `r^13/13!` is 1.7e-16 and the measured end-to-end error
-is 8.5e-16 — the same defect this port is sending upstream about `Math chapter
-Cordic`, in our own chapter, corrected rather than left standing.
-
-And its third failure was not in the port at all: see `FINDINGS.md` item 6, where
-the **gold** was wrong.
-
-**`Render` also needed the mixed gate in METRES**, which no world-coordinate seam
-here had before. `at` composes a point down a kilometre of chain and hands back one
-a metre or two off the rider's nose — 815x amplification, measured — so the error
-tracks the largest coordinate the composition passes through rather than the size
-of the answer. That makes the floor a representation granularity, and it is set as
-one: one f32 ulp at the range each seam reaches, 2.5e-4 m for the chain and 6e-5 m
-for the behind joint. Both are load-bearing; each reddens within about 2x below its
-setting. `PORTING_NOTES` D6 has the numbers.
-
-**`TruckBody` grades a command SEQUENCE, and that is a stronger assertion than a
-picture.** `truck.drawBody` is `pub` — render.zig's own comment says so and names
-the truck as the reason — so the probe calls the game's function and reads the
-words it wrote on paint's wire. The order of the 113 commands across six cases
-carries the depth sort, the sixteen faces, and the three-phase sequence (beams,
-body, lights) all at once: a face sorted one place wrong shows up as two swapped
-colours before any coordinate moves, and a beam pushed after the body instead of
-before it moves a tag 4 past sixteen tag 0s.
-
-Two things about it are worth carrying forward. **The zig's comments say the
-headlight wedges and the brake glow are still deferred, and they are stale** — the
-code calls both and pushes tag 4 for each. A port written from the comments would
-have emitted sixteen faces where the game emits twenty-four commands; read a
-comment for intent and the code for behaviour (`PORTING_NOTES` E5). And **the
-clipping case sets the loosest screen gate in the port**, 1.5e-5 against everyone
-else's 1e-6, on one tire vertex in the case where the truck is two metres ahead and
-the trailer rear is behind the eye. A clipped vertex sits at `forward = near = 0.4`
-by construction, so the projection amplifies an error in metres by 1,713x; one f32
-ulp at the rider's own 100 m `along` is 0.013 px at an x of −1300, which is the
-1e-5 measured. It is the near plane's looseness, not the truck's — the same seam
-holds at 1e-6 wherever nothing is clipped (`PORTING_NOTES` D8).
-
-**`Safari` grades a WHOLE FRAME, and that is the strongest oracle in the project.**
-`render.frame` is pub and it *is* the picture — backdrop, ground, and every kind
-dispatched to its drawer in one depth order — so the probe calls it and reads the
-words it wrote. Every check before this graded a drawer or a collection in
-isolation; the dispatch itself had lived in the browser poc and was graded by
-nothing at all. 3,091 commands over two states, tags, colours and point counts
-exact.
-
-It paid for itself twice on the first run. It found **the bull's flattened
-gradients** as a tag mismatch (tag 0 where the game writes 5), and once those were
-fixed it found **a single adjacent transposition** in 3,091 commands: a rail post
-and a rail bar swapped. That one is `PORTING_NOTES` D9 and it is the one place the
-port's comparison is deliberately not the zig's — the game sorts f32 depths and
-the port sorts f64 ones, so two depths closer than an f32 ulp are *the same
-number* over there and the port must not order them. The slack is half an ulp,
-which is the largest that cannot tie a pair the game holds apart, and it is
-measured: the pair still swaps at 2e-8 and stops at 6e-8.
-
-**The fold is graded as a definition, not against `advance`.** `safari.zig`'s state
-step is an export over private statics with no setter, so it cannot be seeded, and
-NOTES §4 rules out comparing trajectories anyway. What `advance` *is* is four pub
-calls in a fixed order, so the probe composes those four and the check grades one
-step from a shared state — including the finish line, where the whole ride
-restarts. The order is the content: the truck steps against the **new** rider
-distance, and nothing but this check can see that.
-
-**`SafariCritter` is a whole file, and it is worth noting why** when its neighbours
-arrive in halves: it is placement only, so nothing in it reaches the baked frames.
-`cornerCritters` is pub, so it gets a real oracle, and it is graded inside
-RenderCheck rather than growing a fourth build for sixty lines.
-
-**`Sky` is the first module that needed a plug change.** `skyColor` rounds a
-lerped channel and packs three of them into one integer, so it needed
-`real-to-int` and `real-from-int` — which the zig plug could not emit until
-2026-08-29. The emitter that closed that is `plugs-backlog` row 2.03, on branch
-`zig-plug-real-int-conversions`; `PLUG_WORK.md` is the provenance record. Both
-colour streams are graded **exactly**, as integers, because a colour one off is a
-wrong colour and no tolerance should be able to hide one.
-
-`Trig` exists because DeviceMath's `dm-reduce` calls `real-from-int`, which had
-no emitter when it was written, so `real-sin` and `real-cos` could not be
-transpiled. **That reason is gone as of row 2.03, and it was checked rather than
-assumed** — citing DeviceMath and calling `real-sin 100.0` transpiles, builds and
-answers −0.506, which means `dm-reduce`'s reduction over sixteen turns is running.
-Nothing in DeviceMath is dark to this arm any more.
-
-**`Trig`'s sine and cosine are retired**, and the interesting part is what the
-regrade found. The hold on it was that the swap was expected not to be a no-op:
-Trig's `wrap` subtracts in a bounded loop where `dm-reduce` divides by two-pi and
-converts back through the integers, so the two ought to disagree in the last bits
-— and nine chapters call these names, directly or through `Geom`.
-
-**They do not disagree at all.** Sampled at every thousandth of a radian across
-|x| ≤ 40 rad — 80,001 points — the two reductions return the *same double*, every
-time, and so do the sines of their outputs. Below π both are the identity; above
-it, repeated subtraction of a double `2π` and one divide-truncate-multiply land on
-the same value. The polynomial and the quadrant fold were already
-character-identical, so the reduction was the only place a difference could come
-from. Every check is green and not one tolerance moved.
-
-That measurement is the point, not the green sweep: a passing sweep says the gates
-still hold, which is a different question from whether the values changed.
-`PORTING_NOTES` D10.
-
-What did **not** retire is `wrap` itself, and it was never part of the stand-in:
-`mountains.zig` and `sky.zig` each carry their own bounded-loop wrap to normalise
-a bearing, and both are ported through Trig's. Deleting it with the sine broke two
-chapters — a helper written for one caller acquires others, and grep is how you
-find them before rather than after.
-
-It owed upstream **sine and cosine, and nothing else**. Emission is per-function,
-not per-chapter, so a chapter can cite DeviceMath for the parts that do not reach
-the hole: `real-sqrt` is a scaled Heron iteration that touches no conversion, and
-`GuardRail` cites the real chapter for it and grades green. Before writing a
-stand-in for any foreword chapter, check which of *its functions* actually reach
-the hole — "this chapter is dark" is almost never true.
-
-**`Rider` is seam 4, and it is graded the only way that works.** The lean comes
-from a binary search — twelve iterations, each deciding on one float comparison
-after simulating up to two thousand physics steps — so a 1e-7 f32/f64 difference
-will eventually flip one and put the two rides on different trajectories. A trace
-comparison would go red and mean nothing. Both sides are handed **the same state
-N** and only **state N+1** is compared, so drift cannot accumulate and a failure
-points at one step. That is NOTES' prescription for this seam.
-
-`Pose` exists to cut a cycle: the zig has `rider.zig` and `gaze.zig` importing
-each other, which Codex cites cannot do, so the record they share gets its own
-chapter. No logic moves.
-
-**`Mountains` is where the arc tangent is graded.** `Trig` grew an `r-atan`,
-because `Gpu chapter DeviceMath` has none — its whole surface is min, max, abs,
-sqrt, sin and cos, and the foreword's other arc tangents are integer milli-unit
-routines. So that one is a gap in Codex's foreword rather than a hole in the
-plug, and it does **not** go away when the rest of `Trig` is retired. It matches
-zig's `atan` to 1e-9 over eighteen values including the reciprocal branch; the
-mountains check catches a 1e-5 relative error in it, so there are four decades of
-margin.
-
-Its coordinates are graded at **every eighth point**, and that is a toolchain
-ceiling rather than a choice: four frames at full density are 16,868 coordinates,
-and `codexzig` exhausts its own 4 GiB bump heap on a Real literal that size. Point
-counts stay exact, so a silhouette that gained or lost a column still fails hard.
-See `PORTING_NOTES` C7.
-
-`GuardRail` is graded on **both of its halves**, because `guard_rail.zig` is
-deliberately two. `emit` collects `RailPoly`s rather than drawing them, so the
-judge reads the store directly — poly counts, colours, every corner, and **the
-mean forward depth each poly sorts by**. That depth is the module's whole
-contribution to render's one back-to-front pass over rails, trees and critters; a
-rail sorted wrong is a rail a far tree paints over, which is the bug the
-collect-then-sort design exists to prevent, and it is invisible to a check that
-only looks at pixels. `drawPoly` is then graded on the wire as usual.
-
-`Camera` makes one adaptation: the zig's `pub var view_w` is a mutable global,
-so the port threads it as a parameter. It is the camera's only mutable state.
-
-**Screen coordinates take a mixed gate, `atol + rtol*|want|`, and both halves
-are load-bearing.** A purely relative gate fails at the horizon: a screen `y` is
-`300` minus a term of about the same size, so `y = 20.6` is a small difference of
-two large numbers and cancellation amplifies f32's relative error about fifteen
-fold. A purely absolute gate fails at the near plane: a point 37 m to the side at
-0.4 m forward projects to `x = -62929`, where one f32 ulp is already 0.0075 px.
-Both cases are in the tables. The floor governs the canvas, the relative term
-governs what the near plane flings off it.
-
-**The 1e-6 relative tolerance is calibrated, not slack.** Tightened to 1e-7, six
-of the nine seams go red — the true error straddles f32 epsilon (1.19e-7),
-which is exactly the width gap and nothing else. Perturbing `eye-h` by 1e-4
-reddens `project` at index 1 and not index 0, because *x* does not read
-`eye-h` and *y* does.
-
 ## Stills, not frames
 
 `emoji_frames.zig` and `cat_frames.zig` are the game's names and they read like
@@ -909,8 +557,7 @@ than riding with the polygon's.
 
 **Dialect: `Real` (f64), not fixed point.** Codex `Real` is f64 in every plug
 while the game is f32, so comparisons carry a tolerance. The alternative — a
-fixed-point port in integer milli-units — was priced and rejected; see
-`price-b/` and the measurements below.
+fixed-point port in integer milli-units — was priced and rejected.
 
 **A failure names an index, not a value.** `show` on a Real is refused by the zig
 plug, so `Grade` reports *where* a list first disagrees. When `real-to-int` lands
@@ -928,227 +575,3 @@ cannot tell you at the console.
 
 The rule that still holds is **never edit `gold/` by hand.** Every file there says
 so in its own header, and the next run will overwrite it regardless.
-
-## What the pricing measured
-
-Each of these came from a program that actually ran through the loop; the probes
-are in `price-b/`.
-
-- **`Math chapter Cordic` is unusable for a camera.** Its docstring claims ~0.1%;
-  measured worst error is **0.45%** (`cordic-sin 300` = 291 vs 295.52). Upstream
-  never caught it because `codex/test/forewords/math-cordic.expected` is the
-  single line `Math/Cordic OK` — the test never calls a Cordic function. At that
-  error a yaw swings distant scenery metres, frame to frame.
-- **A hand-written scale-1e6 fixed-point sine reaches 3.6e-6** — 1241x better
-  than Cordic, in ~40 lines. The math library was never the problem.
-- **The scale ladder is.** Angles need 1e6; at that scale `groundDrop`'s
-  `right² + forward²` already reaches 17.6% of i64 at 900 m.
-- **Integer overflow wraps silently.** Codex declares `IntegerTy i64-min i64-max
-  OvError`; the zig plug emits `*%`. `4000000000 * 4000000000` returns
-  `-2446744073709551616`, exit 0, no diagnostic. Fixed point would fail as a
-  wrong pixel with no signal.
-- **The blocking plug hole is two table rows.** `real-to-int` and `real-from-int`
-  are each one `ZigBuiltinEmitter` entry plus one prelude helper, exactly the
-  shape of `bits-to-real-approx` at `ZigEmitter.codex:1036` / `:3784`.
-  `real-from-int` alone is why `Gpu chapter DeviceMath` cannot be transpiled, so
-  those rows also unlock `real-sqrt`, `real-sin` and `real-cos`.
-
-## Where to pick this up
-
-**Parked 2026-08-31, third time.** The second parking's text is below and still
-describes the deliverable; this is what moved after it.
-
-The subject changed. The port was done at the second parking, so the work since
-has been **the plugs themselves** — `WASM_FINDINGS.md` is the record, eleven
-findings, seven of them fixed and sent as **Cobblestone PR 111**. Four of those
-were silent wrong answers: `a ^ b` emitting `a * b`, `show` of INT64_MIN, a text
-literal in a match-branch guard comparing against address zero, and a `when`
-inside a guard overwriting the scrutinee the branches below still needed. The
-other three are a 4 GiB emission ceiling that is gone in both plugs — `cat_draw`
-went 2,904 MB to 418 MB on the zig arm, and all seventeen units emit a module on
-the wasm one where three could not.
-
-**Two cold-agent reviews are why the last four of those exist**, and the pattern
-is the thing to carry forward rather than the findings: a review of the commits
-that fixed findings 1-7 found 8 and 9, and a review of the commits that fixed
-those found 10 and 11 — plus a fix prescription in `FINDINGS.md` item 9 that
-would have shipped a no-op upstream. The sweep was green through all of it. A
-correction is written in the same mode that produced the thing it corrects, so
-it earns the same cold read.
-
-**State at this parking:** working tree clean and pushed in all three trees;
-`./harness/run.sh` GREEN; `./harness/metal.py --all` agrees on all seventeen;
-`./harness/wasm_arm.py --native --all` GREEN on seventeen; ten differential plug
-probes, nine agreeing and `showreal` differing as finding 4 records. The
-transpiler was rebuilt through its own nine stages and three guests
-(`codexzig-safari` 432b80a) and the fixed point holds byte-identical.
-
-**Re-verified 2026-08-31 on a moved pin**, which is the more interesting form of
-the same sentence. `cobblestone-safari` went from `15ef1862` to `9632bb87` --
-nine wasm-plug commits written next door in `codex-wasm-transpiler`, open
-upstream as PR 112 -- and all four arms were run against them: `run.sh` GREEN in
-6.8 s warm, `metal.py --all` METAL GREEN 17/17, `wasm_arm.py --native --all`
-GREEN 17/17, probes 9 of 10 with `showreal` differing as before. **Nothing
-moved**, which is the result this port exists to be able to state. Only arm 4
-CAN move on a wasm-plug diff, and that is checked rather than assumed: the
-codexzig subject re-bundles to the same 2,985,476 bytes at the new pin.
-`PROVENANCE.md` carries the pin block; `WASM_FINDINGS.md` finding 12 carries the
-one thing the exercise broke, which was in our own harness.
-
-Two tools arrived that did not exist at the second parking:
-**`./harness/build_codexwasm.sh`** builds a NATIVE `codexwasm` — Codex straight to
-wasm with no guest anywhere, which is what makes the fourth arm a day-to-day
-check rather than a guest job — and **`./harness/metal_chapter.py`** grades any
-single chapter on all three arms, which is how a test going upstream gets bare
-metal's answer rather than ours.
-
-**THE DELIVERABLE IS DONE AND IT PASSES THE EYE TEST.** Every file in
-`games/driving/wasm` has a chapter, every drawer is ported, and the browser page
-built from Codex is on par with the Zig game it was ported from — same route, same
-scenery, same truck, same cat, same shading. `./harness/build_wasm.sh` and a static
-server is the whole demonstration.
-
-**State of the checks:** 17 in `judge/`, sweep GREEN in 6.5 s warm and 1m30 s cold;
-all 17 agree on bare metal (`./harness/metal.py --all`, 3m26 s); and the five spike
-entries agree with the second compiler **bit for bit** on 523,414 IEEE-754 patterns
-(`./harness/metal.py --entry ...`). Working tree clean, `master` pushed to
-`showell/safari-codex`. **Push after every commit** — this repo has a remote and
-had thirty commits sitting behind a stale sentence saying it did not.
-
-### The two things worth doing next, and they parallelise
-
-**(a) Put it on WebGPU.** The port computes a draw-command buffer and hands it to
-the game's own `blitter.js`, which paints with Canvas 2D. That seam is exactly
-where a GPU backend attaches: the buffer is already a flat, typed, per-frame list
-of tagged commands with colours and coordinates, and `NOTES` §5 chose it as the
-contract for reasons that hold just as well for a shader as for a 2D context.
-
-How much of the blitter's own shading maths moves across was the open question,
-and one answer is in. The across-the-width shading and the four visibility
-thresholds moved: the wire now carries finished colours on a **tag 2** instead of
-a colour and a strength on a tag 1, and a command the guest has decided is too
-small or too faint is not sent at all. The two bull gradient tags and the
-headlight radial did not move and did not need to — they are paints, not
-decisions, and `harness/spike_svg.py` approximates them and says where it is not
-faithful. Nothing in `port/Paint.codex` changed for any of it: the expansion is a
-second pass over the finished command list, which is what kept the nine graded
-seams looking at exactly what they looked at before.
-
-**(b) Act on the findings.** `FINDINGS.md` has nine, and four are already sent —
-see below. They are the outward-facing product of this project and they are ready
-to send.
-
-### Still open, in rough order of value
-
-**The driven PAGE has a witness now, but not a graded one.** `metal.py` runs the
-checks and the frames; what it cannot reach is `poc/DriveMain`, because that
-program's output is a wasm module rather than a line of text and its shim is zig
-by construction. `harness/build_wasm.sh` closed part of it — it walks the wire,
-renders 1,200 frames, and `harness/paint_probe.js` hands 300 of them to the real
-`web/blitter.js` and checks an identity over the canvas calls. That catches a
-desync, a heap death and a tag the blitter cannot paint. **It does not check a
-single VALUE.** Giving `DriveMain` a text dump of the draw-command buffer is still
-what closes that, and it is the `SpikeMain` shape rather than a new idea. This is
-the largest uncovered surface left.
-
-**The whole-frame check grades two states.** Chosen as branches — a hard lean, and
-a long straight with the truck close. A second check is cheaper than more states in
-one, and `CatDrawCheck` is the pattern.
-
-**Thirteen real-family plug rows are declined on purpose**, not forgotten:
-`plugs-backlog 2.07` lists them and puts the question to the maintainer. They are
-blocked on one fact — `ZigEmitter.codex:342` and `:373` map `RealTy (w) (m)` to
-`f64`, discarding both the width and the mode — so filling them would replace an
-honest refusal with a plausible wrong number. Do not "finish the family" without
-an answer to that.
-
-**`Trig`'s arc tangent is a gap in Codex's foreword, not in the plug**, and
-`r-atan` matches zig's to 1e-9 over eighteen values including the reciprocal
-branch. It is a candidate to OFFER upstream rather than a debt.
-
-### Traps a fresh reader should know about
-
-**Absence is carried in the TYPE at the two places the game used `+inf`.**
-`Truck`'s next turn is `Maybe Turn` and `World`'s tree search threads `Maybe Real`;
-both used to pair a `found` Boolean with a payload, which is a Maybe with the tag
-unhooked from the thing it guards. Codex has `when m is Just (x) -> ... is None ->
-...` and the compiler's own code uses it throughout.
-
-**`core/Sort` must NOT be substituted into `port/Render`.** Its `sort-by` is an
-in-place quicksort claiming no stability, and the depth sort's ties are real —
-`PORTING_NOTES` D9 has a rail post and a rail bar swapping in a 3,091-command
-stream. `port/Render` says so at the sort.
-
-**A byte-identical result proves a change is safe, never that the code is live.**
-Only breaking it on purpose does that. It is how `judge/RideCheck`'s eight `-1`s
-were shown to be earned, and how 108 lines of dead SVG code were found after being
-carefully de-duplicated (`PORTING_NOTES` C18).
-
-**Before splitting a job because it does not fit, measure what it allocates.**
-`%M` is one flag. The spikes were split twice on `C6`'s authority when the real
-problem was quadratic concatenation; the same entries now peak at 133 MB
-(`PORTING_NOTES` C17).
-
-**Every "the foreword does not have X" in this repo is a claim, and claims are
-checkable.** The foreword is 13 directories and several hundred chapters.
-`text-concat-list`, `list-map` and `DeviceMath`'s pi were all sitting in chapters
-the code already cited.
-
-**`poc/Scene.codex` is the original throwaway** and still builds; it is kept
-because building it is the way to compare, and it has no reason to grow.
-
-**The blitter and the rasterizer were the far side of the seam**, deliberately —
-`NOTES` §5. That held for the rasterizer and no longer holds whole for the blitter:
-the browser half turned out to be keeping DECISIONS as well as paint — a shading
-recipe and four visibility thresholds, numbers chosen by eye in the one file
-nothing here could run. Those are `port/Blit.codex`'s now and the wire carries
-their answers. What is left in `web/blitter.js` really is display, and that is the
-seam item (a) above attaches to.
-
-## Findings owed upstream
-
-**Nine in `FINDINGS.md`, eleven more in `WASM_FINDINGS.md`.** Each is
-self-contained — observation, repro, evidence, and the shape of the fix. They are
-owed to two different projects, and **`FINDINGS.md` opens with how each one should
-travel** — which are PRs, which are issues, and which need a look first. Read that
-section before sending anything; the routing is the part that is easy to get wrong.
-
-**Most of them have gone.** Sent, as of 2026-08-31:
-
-| what | where |
-|---|---|
-| the f64 conversions the port needed | Cobblestone PR 100 |
-| the f64 bitcasts beside them | Cobblestone PR 105 |
-| a `Real` arc tangent for DeviceMath | Cobblestone PR 107 |
-| Cordic's accuracy vs its docstring | Cobblestone PR 108 |
-| a wide `Real` literal is read wrong | Cobblestone issue 106 |
-| `OvError` becomes a wrapping multiply | Cobblestone issue 109 |
-| a one-caller definition is inlined away | Cobblestone issue 110 |
-| **the wasm and zig plug batch — seven findings, eleven commits, three tests** | **Cobblestone PR 111** |
-
-**What has NOT gone, which is the list to pick up from.** `FINDINGS.md` item 3
-(single-letter names `a`–`d` collide with `Tup4`'s comptime parameters, a one-line
-rename) and item 9 (a text literal opened at the end of a line lexes as an empty
-one, silently) are both owed to Cobblestone and neither is sent. Items 7 and 8 are
-owed to **angry-gopher** and are not filed there either. Four things owed, in two
-places, and none of them is blocked on anything.
-
-To **Cobblestone / the Zig plug**: `OvError` silently emitting a wrapping `*%`
-(`4000000000 * 4000000000` returns `-2446744073709551616`, exit 0); a `Real`
-literal wider than an i64 being read as a different number, so that `1e18` written
-out longhand arrives as `-8.4467e17` with no diagnostic; `Math chapter Cordic`
-being 4.5× less accurate than its docstring, with a test that never calls a Cordic
-function; single-letter names `a`–`d` colliding with `Tup4`'s comptime parameters;
-the zig arm reporting no diagnostics where the seed reports real ones; and a
-one-expression function over a record parameter being silently inlined rather than
-emitted, which only breaks at the shim boundary.
-
-**The literal one is the first defect this port found in the FRONT END rather
-than in a plug**, and it is the first it found in the harness's own oracle: a
-nineteen-digit gold literal made `NumCheck` red at a value the port had computed
-correctly. Both arms print the same wrong constant, which is how it was placed.
-
-To **angry-gopher**: `pushGradPoly` reserving six header words where it writes
-seven — latent until this port, because the truck's headlight beams are its only
-caller and they now draw every dusk frame; and `truck.zig`'s comments describing
-headlights and a brake glow as deferred when the code draws both.

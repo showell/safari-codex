@@ -1,32 +1,21 @@
 ================================================================================
 PORTING NOTES — Codex and the zig plug, as met while porting the Safari
-Started 2026-08-28. Append; do not prune. Companion to README.md and NOTES.txt.
 ================================================================================
 
-Everything here was hit by writing the port, not by reading the compiler, and
-every claim is reproducible through the loop in README.md (bundle, codexzig, zig,
-run — about five seconds, no guest). Probes for the numeric items are in price-b/.
+Live guidance for writing Codex in this repository. Everything here was hit by
+writing the port, not by reading the compiler, and every claim is reproducible
+through the loop in README.md.
 
-Three sections, and the middle one matters most for day-to-day work:
+  A. DEFECTS AND HOLES — wrong or missing. `FINDINGS.md` owns what has been
+     SENT and what is still owed; this section is what to do about them here.
+  B. CORRECT BUT SURPRISING — cost a build until understood. Several are Codex
+     being RIGHT where zig is silent. **Read B before writing a Codex chapter.**
+  C. ENVIRONMENT — how the pieces behave. No defect implied.
+  D. TOLERANCES AND GATES — why each gate in `judge/` is where it is.
+  E. CHOOSING A SEAM — what makes one oracle stronger than another.
 
-  A. DEFECTS AND HOLES — things that are wrong, or missing. Upstream candidates.
-  B. CORRECT BUT SURPRISING — things that cost a build until understood. Mostly
-     a documentation gap, and several of them are Codex being RIGHT where zig is
-     silent. Read this section before writing Codex.
-  C. ENVIRONMENT — how the pieces actually behave. No defect implied.
-
-Nothing here has been sent upstream. The ladder's protocol is that a finding
-reaches Damian only via a PR carrying a compiler-backlog.md / plugs-backlog.md
-row — see NewRepository/contrib/README.md.
-
-================================================================================
-HOW TO READ THIS
-================================================================================
-
-    Notes are grouped by letter and numbered in the order they were found, so a
-    low number is an early lesson and not a more important one. They were being
-    appended in discovery order regardless of section, which made the file hard
-    to use; this is the same content, sorted.
+Numbered in discovery order, so a low number is an early lesson and not a more
+important one.
 
 ================================================================================
 A. DEFECTS AND HOLES
@@ -34,65 +23,6 @@ A. DEFECTS AND HOLES
 
     Things that are wrong, or missing, in the toolchain.
 
-A1. real-to-int and real-from-int have no zig emitter.        [HOLE - FIXED]
-
-    "error: zig plug: no emitter for real-to-int" (and real-from-int). Both
-    confirmed missing independently.
-
-    Consequences, in order of how much they cost:
-      - Gpu chapter DeviceMath is PARTLY dark: real-sin and real-cos are, because
-        dm-reduce calls real-from-int. The port carries port/Trig.codex as a
-        stand-in for exactly that.
-        CORRECTED 2026-08-29, and the correction is worth having. This bullet
-        used to read "DeviceMath CANNOT BE TRANSPILED AT ALL", which is wrong,
-        because emission is per-function and not per-chapter (B6). real-sqrt
-        does NOT call dm-reduce -- it is a scaled Heron iteration and touches no
-        conversion at all -- so a chapter that cites DeviceMath and reaches only
-        real-sqrt transpiles, builds and runs TODAY. Measured by doing it:
-        port/GuardRail.codex cites Gpu chapter DeviceMath for its post-direction
-        square root and is graded green against the zig. The stand-in's footprint
-        is therefore smaller than this file claimed: Trig owes upstream sine and
-        cosine, and nothing else.
-      - No counted loop can widen its index. Every `i / n * two-pi` becomes a
-        Real accumulator threaded alongside the Integer counter. Three sites in
-        the port so far (Tree's cone ring, Scene's ridge, Scene's canopy).
-      - Combined with A2 below, a transpiled program CANNOT REPORT A COMPUTED
-        REAL AT ALL. That is the expensive one — see the note under A2.
-
-    The fix looks small: each is one ZigBuiltinEmitter table row plus one prelude
-    helper, the shape of bits-to-real-approx at ZigEmitter.codex:1036 and :3784.
-    Bare metal is cvttsd2si / cvtsi2sd (X86_64Builtins.codex:1663-1679) —
-    truncate toward zero, INT64_MIN on NaN or overflow. Zig's @intFromFloat
-    truncates the same way but is UB out of range, so the honest emission is a
-    guarded prelude helper, not a bare cast.
-
-    CLOSED 2026-08-29. It was that small, and the estimate above was accurate.
-    cobblestone-realconv a2a2f6f4, "zig plug: emit real-to-int and real-from-int".
-    Two table rows, two prelude parts, two reserved names. The guards match the
-    hardware over 31 values checked by inline asm — zero disagreements — and the
-    transpiler's fixed point holds byte-identically across the change. Full
-    account in PLUG_WORK.md; upstream row is plugs-backlog 2.03. NOT YET SENT.
-
-    The two counted-loop consequences are retired with it: a Real accumulator no
-    longer has to be threaded beside an Integer counter, and Tree's cone ring,
-    Scene's ridge and Scene's canopy could each drop theirs. They have NOT been
-    rewritten — the ports are graded green as they stand and there is no reason
-    to churn them, but a new module need not pay that any more.
-
-    AND DEVICEMATH IS NOW FULLY CLEAR. The correction above said only real-sin
-    and real-cos were dark, via dm-reduce. dm-reduce is exactly what real-to-int
-    and real-from-int unblock, so nothing in that chapter is dark any more --
-    checked, not assumed: citing it and calling real-sin 100.0 transpiles, builds
-    and answers -0.506, which means the reduction over sixteen turns is running.
-    port/Trig.codex is therefore RETIRABLE. It has not been retired, and that is
-    a hold rather than an oversight: Trig's wrap subtracts in a bounded loop
-    where dm-reduce divides and converts back through the integers, so the two
-    disagree in the last bits, and four graded chapters cite Trig today. It is
-    its own change with its own regrade.
-
-    STILL DARK, and unchanged by this: real-approx-* (the f32 family). Filling
-    those would make the house-wide f32-computed-as-f64 collapse observable for
-    the first time, which is section 6's conversation and not this one.
 
 A2. `show` on a Real is refused — deliberately, and the refusal is right, but
     the CONSEQUENCE is worth stating.               [BY DESIGN - COST RETIRED]
@@ -105,27 +35,8 @@ A2. `show` on a Real is refused — deliberately, and the refusal is right, but
     printed, and it cannot be converted to something that can. A failing test can
     say WHERE it failed and not WHAT it computed.
 
-    Measured cost, twice this session:
-      - Calibrating the camera tolerance meant BINARY-SEARCHING it (tighten,
-        rebuild, see which seams go red) instead of reading an error.
-      - A red coordinate in the tree port had to be diagnosed by re-simulating
-        the whole cone in f64 in a separate zig program, to prove that
-        20.606868 vs the gold's 20.606842 was width and not a bug.
-    Landing A1 retires both: real-to-int (x * 1000.0) gives scaled-integer dumps
-    and plain diffs.
+    (The narration that followed is in git.)
 
-    AND IT DID, 2026-08-29. The refusal on `show` still stands and is still
-    right — nothing here argues with it — but a Real is no longer trapped:
-
-        scaled : Real -> Integer
-        scaled (x) = real-to-int (x * 1000.0)
-
-        scaled 3.14159    ->  3141
-        scaled -2.71828   -> -2718
-
-    Grade can grow the scaled-integer dump its own prose anticipated, and the
-    tolerance arguments can start reporting what they actually saw. Neither has
-    been done yet; the grader is unchanged and every seam still reports an index.
 
 A3. OvError silently becomes a WRAPPING multiply.                    [DEFECT]
 
@@ -160,21 +71,8 @@ A5. A multi-line application inside a `let` emits @panic AS A CALLEE, with no
     This one is worth a careful look, because the same shape is DIAGNOSED
     elsewhere (CDX1070, item B1) and here it is not.
 
-        let pts =
-          [ ScreenPt { ... }, ... ]
-        in ...
+    (Derivation and measurements: git.)
 
-    emitted, for the value of pts:
-
-        b4: { const _f4 = @panic("\x01"); break :b4 _f4.call(_f4.ctx, <the list>); }
-
-    The list was parsed as an ARGUMENT to something the emitter had no value for,
-    so it emitted a panic where the callee goes and then called it. Codegen
-    reported no error; zig then rejected it as unreachable code, which is the
-    only reason it was noticed. Putting the literal on one line fixes it.
-
-    A program that failed this way in an expression zig happened to accept would
-    be a runtime panic with no source-level explanation.
 
 A6. Single-letter function names a, b, c, d are unusable.            [DEFECT]
 
@@ -207,22 +105,8 @@ A8. A Real LITERAL wider than an i64 is read as a different number.  [DEFECT]
     rounded to f64, IS the number printed -- so this is A3 in the front end
     rather than a second mechanism, whether or not it is literally A3's operator.
 
-    IT IS THE FRONT END AND BOTH ARMS PROVE IT. The emitted zig carries no digits
-    at all; the literal arrives as `@as(f64, @bitCast(@as(i64, ...)))`, folded
-    before emission. `./harness/metal.py --entry LiteralMain` runs the same source
-    through the x86-64 emitter under QEMU and the two arms print the same three
-    lines byte for byte. Two back ends agreeing on a wrong constant is a constant
-    that was wrong before either saw it -- which is also why the bare-metal oracle
-    cannot catch this class, exactly as with the ladder's finding 42.
+    (Derivation and measurements: git.)
 
-    IT REACHED THE ORACLE BEFORE IT REACHED A PROGRAM, and that is the part worth
-    remembering. probe_num.zig graded pow2-int at 2^60; NumCheck went red at that
-    index; the PORT was right and the GOLD was wrong, because gen_gold.py had
-    written a nineteen-digit literal. A wrong gold looks exactly like a wrong
-    port. gen_gold.py now refuses to write a value it cannot carry -- fail loud is
-    the floor -- and the repro is kept as poc/LiteralMain.codex. The same session
-    also reported an exp-real error with the wrong SIGN, because a diagnostic had
-    written its 1e18 scale factor out longhand.
 
 A9. A TEXT LITERAL OPENED AT THE END OF A LINE IS SILENTLY EMPTY.   [DEFECT]
 
@@ -237,53 +121,8 @@ A9. A TEXT LITERAL OPENED AT THE END OF A LINE IS SILENTLY EMPTY.   [DEFECT]
     emits `cx_concat(cx_concat("a", n), "")`. The newline the author wrote is
     gone and nothing says so.
 
-    A literal with any content before the newline is diagnosed properly, CDX7
-    "Unterminated text literal: hit end of line before closing '\"'", so this is
-    a hole in a rule that otherwise holds. Syntax/Lexer.codex:263 is the cause:
-    scan-string-body returns early on `if stop == st.offset then st` -- the case
-    where the scan advanced nothing -- and that early return is BEFORE the
-    `terminated` test three lines below, so the one input that produces an empty
-    scan is the one input that skips the check.
+    (The narration that followed is in git.)
 
-    NEITHER OBVIOUS FIX WORKS ALONE, and the first two versions of this note
-    each proposed one of them. Removing the early return, or hoisting the
-    terminated test above it, changes nothing: scan-string-body is entered AFTER
-    the opening quote (:421 calls it as `scan-string-body (advance-char s)`), so
-    when stop == st.offset the test's `stop - 1` indexes the OPENING quote and
-    `terminated` comes out True. But `stop > entry` alone changes nothing
-    either -- while the early return at :263 stands, the clause is dead code on
-    the only input this is about, because that input is exactly stop ==
-    st.offset. The fix is BOTH: remove the early return and require the scan to
-    have advanced, against an entry offset captured before the `__seq` mutation.
-    Keep `stop <= len` -- an escape skip is `offset + 2`, so a trailing backslash
-    at EOF returns len + 1 -- and note that a real `""` gives stop == entry + 1
-    and still passes.
-
-    MEASURED 2026-08-31 with three candidate compilers from
-    safari-codex/harness/build_codexzig_try.sh (host-only, no guest): early
-    return removed alone, exit 0 and no diagnostic; `stop > entry` alone, exit 0
-    and no diagnostic; both, halts with CDX7. With both, ./harness/run.sh is
-    GREEN and a terminated control literal emits byte-identical zig.
-
-    A quote that is the last byte of the FILE takes the same path and is silently
-    empty too, so this is not only an end-of-line rule.
-
-    IT IS ALREADY IN SHIPPED CODE. `czg-halted` in the ladder's CodexZigHarness
-    and `cwm-halted` in ours are both written this way and neither emits the
-    trailing newline it appears to; the halt message runs into whatever follows
-    it. That is cosmetic where it landed, and the reason to report it is the
-    class rather than the instance -- a Text is data, and a lexer that silently
-    drops content is capable of dropping a delimiter, a separator or a path.
-
-    Found by writing a `\n` into a generated harness the same way the file
-    already did, and noticing the emitted zig had no newline in it. Repro:
-    poc/EmptyLiteral.codex.
-
-================================================================================
-B. CORRECT BUT SURPRISING -- read before writing Codex
-================================================================================
-
-    The language and the emitter behaving as designed, in ways that cost time.
 
 B1. CDX1070 -- AN APPLICATION MAY NOT SPAN A NEWLINE, AND NEITHER MAY A LIST.
     "Application ended at newline; '[' on line N is not parsed as an argument."
@@ -355,16 +194,8 @@ B9. B6's reachability rule CUTS BOTH WAYS, and the useful direction is the one
     written off wholesale (see the correction under A1) on the strength of
     dm-reduce needing real-from-int. But real-sqrt is independent of it:
 
-        real-sqrt (x) = if x <= 0.0 then 0.0 else dm-sqrt-scaled x 1.0 700
+    (Derivation and measurements: git.)
 
-    -- a scale by fours into [0.25, 4) and five Newton steps, all in Real. Citing
-    DeviceMath and touching only real-sqrt transpiles clean and prints the right
-    answers. Took four minutes to test and retired a stand-in that would otherwise
-    have grown a third function.
-
-    THE RULE TO CARRY: before writing a stand-in for a foreword chapter, check
-    which of ITS functions actually reach the hole. "This chapter is dark" is
-    almost never true; "these functions are dark" usually is.
 
 B10. B3's ~0 comes up again, and the second instance is more dangerous than the
     first. guard_rail.zig guards a division by a run length:
@@ -384,19 +215,8 @@ B11. A CODEX KEYWORD USED AS A LET BINDING IS DIAGNOSED AS A MISSING `in`.
     mountains.zig normalises a fraction it calls `above`. Porting that name
     verbatim halts codegen with
 
-        CDX1023 Expected 'in' after let bindings
+    (Derivation and measurements: git.)
 
-    over a `let` that has its `in`, on the line above the real problem. `above` is
-    a KEYWORD -- Lexer.codex:333, `else if w == "above" then AboveKeyword`, sitting
-    with the proof-language set beside `cites`, `claim`, `proof`, `qed` and
-    `induction`. The refusal is right; the message names the wrong construct and
-    does not mention the keyword or its position.
-
-    Cost a bisect: no error line is reported anywhere, codexzig writes only the
-    HALT summary, so the chapter had to be truncated repeatedly to find which
-    definition carried it. Watch for it whenever a zig identifier is copied
-    across -- `above` is an ordinary word in graphics code and not an obvious
-    keyword. Renaming to `above-frac` is the whole fix.
 
 B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
 
@@ -409,117 +229,23 @@ B12. AN ALIAS-SHAPED DEFINITION IS INLINED AND IS NOT THERE TO CALL.
     `scene_sun_at(u_).x` inlined into it, and the wasm build failed on six
     undeclared identifiers.
 
-    This only bites at the boundary, and that is the thing to remember: inside
-    Codex an inlined alias is invisible and harmless, but the SHIM IS OUTSIDE THE
-    PROGRAM and can call only what survives. Write the shim against the real
-    functions -- `sky-color`, `sun-pos` -- rather than against wrappers, and drop
-    wrappers that exist purely to be called from zig.
+    (The narration that followed is in git.)
 
-    Note the family resemblance to B6: both are the emitter declining to emit
-    something, silently, and both surface as a missing name downstream rather than
-    as a diagnostic.
-
-    IT HAPPENED AGAIN WIRING THE REAL RIDER INTO THE BROWSER, which is worth
-    recording because the shape was identical and the note did not prevent it.
-    Drive grew
-
-        sun-for (w) (s) = sun-pos (heading-for s) (step-for w s) focal camera-w
-
-    -- one application, so inlined, so absent -- and the shim failed on four
-    undeclared identifiers. Its neighbours `heading-for` and `step-for` DID emit,
-    because both are arithmetic rather than a single call, which is exactly what
-    makes the rule easy to trip: two definitions written together in the same
-    style, one survives and one does not, and nothing says which.
-
-    The fix is B12's own advice taken literally: the shim calls sun-pos, and the
-    wrapper stays for the Codex side to read. Check every name the shim uses with
-    `grep -n "^fn <mangled>(" build/scene.zig` BEFORE building the wasm; the error
-    otherwise arrives from the zig compiler, three steps downstream.
-
-    A THIRD TIME, AND IT IS NOT ONLY ALIASES: A CONDITIONAL BODY INLINES TOO.
-    Porting safari.zig's roll deadband as
-
-        rider-roll (s) = if real-abs s.tilt < roll-deadband then 0.0 else s.tilt
-
-    emitted nothing, and the shim failed on an undeclared `rider_roll`. That is
-    not an alias by any reading -- it is a branch.
-
-    MEASURED over four variants written side by side, because guessing the rule
-    twice was enough. The same `if` over a SCALAR parameter emits; the same `if`
-    over a RECORD parameter does not, whether its arms are a bare field, a field
-    times one, or a nested conditional. And the arithmetic-bodied `view-yaw-for`
-    beside it, which also takes a record, emits fine. So the trigger is narrower
-    than "one expression" and wider than "one application", and the useful
-    formulation is: A ONE-EXPRESSION BODY MAY VANISH; BIND SOMETHING WITH A `let`
-    AND IT WILL NOT. `let t = s.tilt in if ...` emits, and that is the whole fix.
-
-    The rule to carry is still B12's: grep for the mangled name before building.
 
 B13. A NULLARY BINDING EMITS AS A FUNCTION, NOT A MEMOISED CONSTANT.
 
     `segs : List Segment` / `segs = build-world` reads like a constant. It emits:
 
-        fn segs() *CxList(Segment) { return build_world(); }
+    (Derivation and measurements: git.)
 
-    so every mention REBUILDS all nineteen segments with their trees, herds and
-    cat placements. The browser scene's `pos-from` mentions it twice per loop
-    iteration, so one frame rebuilt the world hundreds of times.
-
-    Measured: 270 ms a frame, about four per second. Threading the world down as
-    a parameter -- which every graded chapter in the port already does, because a
-    check has to hand it in anyway -- took the same frame to 25 ms. SIX TIMES,
-    for a change that moved no arithmetic and produced byte-identical output.
-
-    The tell is that it is invisible in the Codex. `segs` looks free at every use
-    site and the cost is entirely in the emitter's choice. Worth a look at the
-    generated zig whenever a nullary binding wraps real work: the fix is always to
-    pass it, and passing it is what the port does everywhere else anyway.
-
-    Related to B12 -- both are the emitter treating a definition as a rewrite rule
-    rather than a stored thing. B12's alias vanishes; this one duplicates.
 
 B14. A TEXT LITERAL IN EMITTED CODE IS CCE, NOT ASCII.
 
     Read as ASCII, correct output looks like corruption. Measured through
     codexzig 2026-08-31:
 
-        "a"      ->  \x0f                      15
-        "b"      ->  \x20                      32 -- not 16, so not alphabetical
-        "hello"  ->  \x14\x0d\x17\x17\x10      h e l l o
-        "a b"    ->  \x0f\x02\x20              space is 2
-        "A"      ->  \x29                      41
-        "7"      ->  \x0a                      10
-        "\""     ->  \x48                      72, and not 34
+    (Derivation and measurements: git.)
 
-    Low codes go to common characters -- space 2, 'e' 13, 'a' 15 -- which is what
-    an encoding meant to compress does, and there is a Brotli chapter in the
-    foreword beside it.
-
-    THIS COST AN HOUR ON 2026-08-31 and the trap is worth naming, because the
-    misreading is more interesting than the truth. A repro for FINDINGS 9 emitted
-
-        return cx_concat(cx_concat("\x0f", n_), "");
-
-    and the \x0f read as a SECOND and larger defect: text literals coming out
-    corrupted, in every program the plug emits. They are not corrupted. The empty
-    string on the right was the finding; the \x0f was the letter a. Two minutes
-    of emitting known literals settled it, and it should have come first.
-
-    The rule is upstream's own and it is tier 2 -- R-CCE, "CCE is the internal
-    encoding" (their CLAUDE.md), and docs/DevelopersRulebook.md:369: "All internal
-    text is CCE. Unicode conversion happens only at I/O boundaries." So a
-    char-code in Codex source is a CCE code point as well: Syntax/Lexer.codex:7 is
-    `cc-double-quote : Integer = char-code '"'`, and its value is 72.
-
-    Where it bites: reading an emitted .zig or .wat by eye, and any host-side
-    script that greps emitted output for a string it knows. Compare
-    emitted-to-emitted, or decode; do not compare emitted-to-ASCII.
-
-================================================================================
-C. ENVIRONMENT
-================================================================================
-
-    The transpiler, the heap, the harness, and the browser.
 
 C1. codexzig writes the ZIG TO STDERR and diagnostics to stdout.
     ON A HALT IT WRITES THE REASON TO STDERR TOO — so the output file is short
@@ -562,12 +288,8 @@ C6. The bump heap never reclaims. Reserved once, bumped forever. Fine for one
     so a run accumulates every frame it has printed. Six came to within 1.8 KB of
     the reserve; a seventh aborted with
 
-        cx heap: exhausted at 4294965457 + 7000 of 4294967296
+    (Derivation and measurements: git.)
 
-    at about 700 MB a frame. The fix is a second process, not a bigger reserve: a
-    second entry chapter and one more line in the script, where raising the
-    reserve would turn address space into resident memory on a two-core box. "One
-    process per short horizon" now has a number attached to it.
 
 C7. THE TRANSPILER'S BUMP HEAP IS A CEILING ON HOW MUCH ONE UNIT CAN CARRY.
 
@@ -575,23 +297,8 @@ C7. THE TRANSPILER'S BUMP HEAP IS A CEILING ON HOW MUCH ONE UNIT CAN CARRY.
     16,868 coordinates. As a Codex list literal that is a 139 KB gold and a 187 KB
     unit, and codexzig dies transpiling it:
 
-        thread panic: cx heap: exhausted at 4294926367 + 614587 of 4294967296
+    (Derivation and measurements: git.)
 
-    Not a slow build -- an abort, from the same never-reclaiming bump region C6
-    describes, hit by the TRANSPILER on its own input rather than by a transpiled
-    program. Tree's 628 coordinates and a 43 KB unit are nowhere near it; the
-    ceiling sits somewhere between.
-
-    THIS IS NOT THE ONLY WAY A BIG UNIT DIES -- see C14, where codexzig aborts
-    with plenty of deck left, on a different mechanism. Watching the CX-DECK lines
-    predicts this failure and not that one.
-
-    The fix that keeps the grading honest is to stride the COORDINATES and keep
-    everything else: point counts stay exact, so a silhouette that gained or lost
-    a column is still a hard failure, and what thins is only the sampling density
-    of a curve that is smooth by construction. Every eighth point took the unit
-    from 187 KB to 34 KB. Prefer that over dropping a frame -- the frames are the
-    BRANCHES, and branch coverage is worth more than coordinate density.
 
 C8. A PER-FRAME PURE PROGRAM NEEDS AN ARENA RESET, AND THE SHIM IS THE PLACE.
 
@@ -600,37 +307,8 @@ C8. A PER-FRAME PURE PROGRAM NEEDS AN ARENA RESET, AND THE SHIM IS THE PLACE.
     the heap is gone in under a second. Measured across the history, every build
     of the proof of concept:
 
-        the rail-era build (7008fce)      42 frames    0.7s at 60fps
-        the sky-era build  (9b6d6a5)      42 frames    0.7s
-        with the real mountain ranges      1 frame     immediately
-        with the arena reset          200,001 frames   55 minutes, still exact
+    (Derivation and measurements: git.)
 
-    THE PAGE HAD NEVER WORKED FOR MORE THAN A SECOND, and nobody knew, because
-    blitter.js renders up to thirty warm-up frames behind a spinner before it
-    reveals the canvas -- so the failure looked like a spinner and then a dead
-    canvas, which reads as a build problem rather than a heap one. It cost real
-    eye-testing time and was found only by accident, while adding a scrub control.
-
-    THE GATE COULD NOT SEE IT: harness/build_wasm.sh decoded exactly ONE frame and
-    passed every one of those builds. That is the lesson worth more than the fix --
-    a gate must exercise the shape the PRODUCT uses, not the smallest shape that
-    proves the wire is connected. It now advances and renders 1200 frames.
-
-    A bigger reserve buys frames and does not fix the shape. The fix is that the
-    frame is PURE: nothing computed in it outlives the call, because the shim
-    copies every coordinate into its own buffer before returning and the Codex
-    side has no mutable state to carry over. So the region can be rewound to where
-    it started and handed to the next frame:
-
-        var cx_hp_base: i64 = 0;
-        if (cx_hp_base == 0) cx_hp_base = cx_hp else cx_hp = cx_hp_base;
-
-    Capture the base rather than writing 6291456, which is bare metal's own boot
-    value for the heap pointer and mirrored by the plug -- see the deck note.
-
-    THE SHIM IS THE ONLY PLACE THAT KNOWS A FRAME HAS ENDED. Nothing inside the
-    transpiled program can know it; that is exactly the knowledge an arena needs,
-    and it is why this belongs at the boundary rather than upstream.
 
 C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
 
@@ -642,72 +320,8 @@ C9. RELEASEFAST WAS THE ENTIRE COST OF THE SWEEP AND BOUGHT NOTHING
         transpile                          2 s
         the graded program itself running  0.5 s
 
-    So an eleven-module sweep was nine minutes, of which about eight and a half
-    were ReleaseFast. README's "about five seconds per module" was never right.
+    (The narration that followed is in git.)
 
-    I FIRST BLAMED THE CODEX RUNTIME PRELUDE. Wrong, and the disproof was sitting
-    in the sentence above: a cost that is the same for 495 lines and for 1,714 is
-    a FIXED cost, which is not what a prelude-proportional one looks like. A
-    two-line program whose entire body is one std.debug.print costs the same 23 s:
-
-        hello, 2 lines, one std.debug.print   Debug 0.94 s   ReleaseFast 23.5 s
-        build/pond.zig, 495 lines             Debug 0.85 s   ReleaseFast 23.8 s
-
-    It is LLVM compiling ZIG'S OWN formatting machinery, on a two-core box. Our
-    code is nearly free by comparison -- 1,200 extra lines of generated Codex cost
-    about 0.05 s. (An empty `pub fn main() void {}` builds in 0.24 s and proves
-    nothing: with no std reachable there is nothing to optimise.)
-
-    THAT MATTERS BECAUSE IT KILLS THE TEMPTING FIX. The generated files really do
-    share a byte-identical prelude, so precompiling it once as a module and
-    linking looks like the obvious win. It would save under half a second across
-    the whole sweep, and it would cost the transpiler a module boundary it does
-    not currently emit. The fixed floor is zig's std, and no amount of prelude
-    surgery touches it.
-
-    AND `zig build-exe` NEVER CACHES. Rebuilding an UNCHANGED probe a second time
-    took 28 s against the cold build's 22 s -- slower, not cached. It writes no
-    .zig-cache in the cwd, an explicit --cache-dir is written to and never read
-    back, and it does not skip when the output binary is newer than the source.
-    So this was not a one-time cost being amortised; it was 25 s per module on
-    every single sweep, forever.
-
-    `zig build` -- the build SYSTEM, with a build.zig -- caches completely: 24.5 s
-    cold, then 0.04 s unchanged, and 0.04 s after a touch that does not change
-    content. That is the escape hatch if ReleaseFast is ever wanted back here.
-    `-fno-llvm` also takes ReleaseFast to under a second, but it is a different
-    codegen, so by this note's own argument it is no more "the shipping
-    arithmetic" than Debug is.
-
-    THE FIRST ATTEMPT AT THIS NOTE CLAIMED THE LEVEL CHANGES NO ANSWER. That was
-    wrong, and how it was wrong is the interesting part. It moves exactly one
-    value in the whole port:
-
-        sky's sun_x    ReleaseFast -6.9129944     Debug -6.913025
-
-    about 36 ulps, or 4.4e-6 relative -- thirty times the f32 width gap. One value
-    out of 13,637, and it is in the seam D5 built its floor for: a sun height that
-    is 244 minus a term of nearly the same size, carrying 38,180x cancellation.
-    The optimiser reassociates, and the only place that survives to a visible
-    difference is the one place designed to amplify it. Everything else in the
-    port is bitwise identical between the two levels.
-
-    THE FIX IS NOT TO CHASE THE "RIGHT" LEVEL, BECAUSE THERE ISN'T ONE. The game
-    ships TWICE, at two levels on two targets -- the browser wasm at -O
-    ReleaseSmall (ops/build_safari_wasm), the native screensaver at ReleaseFast
-    (games/driving/build.zig:15). A native ReleaseFast probe is not "the shipping
-    arithmetic"; it matches neither shipped binary authoritatively. The gold is a
-    REFERENCE computation of the game's algorithm, and what makes the port
-    trustworthy is the calibrated tolerance, not the last bit of one build.
-
-    So: Debug for both, and the sweep went 9m06s -> 38s cold, still GREEN on all
-    107 seams. angry-gopher splits it the same way -- shipping builds optimised,
-    every check a bare `zig test`.
-
-    AND THE 36-ULP SPREAD IS A RESULT, NOT A NUISANCE. It measures how far the
-    oracle itself is allowed to wobble between honest builds of the same source,
-    and D5's gate already admits it with room to spare. A port graded tightly
-    enough to fail on a build-mode change would be a port measuring the compiler.
 
 C10. THE SWEEP SKIPS WHAT HAS NOT CHANGED, AND THE KEY IS THE BUNDLED UNIT
 
@@ -715,31 +329,8 @@ C10. THE SWEEP SKIPS WHAT HAS NOT CHANGED, AND THE KEY IS THE BUNDLED UNIT
     on runs where nothing had changed. Two stamp files per module in build/ take
     an unchanged sweep to 2.9 s, with byte-identical output.
 
-    THE CHECK'S KEY IS THE BUNDLED UNIT, and that is the whole trick. The unit IS
-    the transitive closure of every `cites` edge -- the port chapters, Grade, the
-    gold just written, and the foreword chapters that live outside this repo -- so
-    hashing it covers all of them with no dependency list to keep in step.
-    Verified: perturbing Pond's duck-height rebuilt Pond AND Render, because
-    Render cites Pond, and nothing else. Bundling is 50 ms, so it runs every time
-    and only the two slow steps are skipped.
+    (Derivation and measurements: git.)
 
-    THE GOLD'S OWN HASH IS PART OF ITS KEY. That is what keeps README's promise
-    that a stale or hand-edited gold cannot survive one run. Verified by injecting
-    a bogus 999.0 into gold/PondGold.codex: the next sweep regenerated it from the
-    zig and went green. Leave the gold out of its own key and this optimisation
-    would quietly turn a generated file into an editable one -- which is exactly
-    the "second copy of the oracle" failure the whole harness exists to prevent.
-
-    The graded programs still RUN every time, all eleven of them, for 1.9 s total.
-    Skipping those would save little and would make "a check that printed nothing
-    is a check that did not run" a lie.
-
-    Measured: 28.9 s cold, 2.9 s unchanged, 7.2 s after a one-chapter edit.
-
-    NOT DONE, MEASURED AND REJECTED: running the modules in parallel. `xargs -P2`
-    gave 20.9 s against 30.5 s serial and `-P4` gave nothing more -- the box has
-    two cores -- for interleaved output and a harder failure check. The stamp skip
-    subsumes it on the common case.
 
 C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
 
@@ -749,23 +340,8 @@ C11. AN SVG WITH AN XML ERROR IS NOT A BROKEN IMAGE, IT IS NO IMAGE
     on-canvas, and the index referenced it. Steve hard-reloaded and still saw
     nothing, which is what ruled out the cache and left the file itself.
 
-    ONE EM DASH. The graph's caption used `&mdash;`, which is an HTML entity. SVG
-    is XML, and XML predefines only &amp; &lt; &gt; &quot; and &apos; -- everything
-    else is an UNDEFINED ENTITY, which is a fatal parse error. A browser handed an
-    SVG that does not parse renders nothing at all: no console error visible from
-    outside, no broken-image icon, just empty space where the picture should be.
-    The scene stills were unaffected because they are pure polygons and carry no
-    text.
+    (Derivation and measurements: git.)
 
-    Use numeric references (&#8212;) or plain ASCII in generated SVG.
-
-    THE REAL LESSON IS THE GATE, NOT THE ENTITY. Every check available from
-    outside the file passed, so the loop that was built to shorten feedback
-    silently produced nothing twice. harness/spike_svg.py now parses each SVG with
-    ElementTree BEFORE writing it and refuses to write one that is not well-formed
-    -- free to check here, expensive to diagnose from a browser. Same shape as the
-    build_wasm gate that renders a thousand frames rather than one: a gate has to
-    exercise the thing the consumer actually does with the artifact.
 
 C13. THE WASM HEAP IS SIZED BY ONE FRAME'S HIGH-WATER, NOT BY A LEAK.
 
@@ -787,22 +363,8 @@ C14. C7 SHAPES STRUCTURE, NOT JUST TOLERANCES
     eighth point. It also decides how CHECKS ARE DIVIDED, which is a bigger
     consequence and took two failures to see.
 
-    The two generated still tables are 216 KB (EmojiStills) and 534 KB
-    (CatStills). Bundled into RenderCheck on top of what it already cites,
-    codexzig ABORTS -- a core dump, not a diagnostic. Bundled together into one
-    StillsCheck it still aborts. Each alone transpiles comfortably.
+    (Derivation and measurements: git.)
 
-    AND IT IS NOT THE DECK. It died with 68 MB used of 512 MB reserved, so the
-    reported arena had ample headroom; the abort is somewhere else in the
-    transpiler. Watching CX-DECK is therefore not enough to predict this.
-
-    So: ONE CHECK PER GENERATED TABLE. judge/CritterCheck grades the animals,
-    judge/CatDrawCheck grades the cat, and RenderCheck went back to grading the
-    collection. That is three checks where the module structure would have
-    suggested one, and the reason is entirely the toolchain.
-
-    The practical rule: a generated data chapter is a bundle-sized thing, and the
-    check that cites it should cite almost nothing else.
 
 C15. A NEW MODULE MUST NOT BE ABLE TO KILL THE SWEEP SILENTLY.
 
@@ -812,13 +374,8 @@ C15. A NEW MODULE MUST NOT BE ABLE TO KILL THE SWEEP SILENTLY.
     the stderr was already redirected to /dev/null to hide the missing-file
     message.
 
-    Adding a module is the most ordinary thing this repo does, and the failure
-    looked like the harness silently doing nothing. `|| true` inside the group is
-    the fix: a missing gold simply means the key cannot match, which is exactly
-    the "regenerate it" answer wanted.
+    (Derivation and measurements: git.)
 
-    The general shape is worth keeping: an optimisation that assumes steady state
-    has to be checked against the FIRST run, not just the second.
 
 C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
 
@@ -831,126 +388,8 @@ C16. THE THIRD ARM: THE SAME CHECK ON BARE METAL, AND WHAT IT COST TO GET.
     -- and requires the two to print the same bytes. Diverse Double-Compiling in
     Wheeler's sense, on a program rather than on the compiler.
 
-    IT WAS ABOUT FORTY LINES OF HARNESS, and that is worth recording because it
-    had been imagined as a project. The machinery is the ladder's and is borrowed
-    rather than restated: `ring_compile.compile_ring` streams a cite-resolved unit
-    into the seed under QEMU and hands back a .cdx; `codex_vm.run_cdx` boots that
-    and captures the serial. Both take the compute lock and both refuse off the
-    venue, so this cannot start a guest without asking. The blob framing is
-    `b"CDX map\n" + unit + b"\x04"`, which bare_expected.py in the ladder is the
-    model for.
+    (The narration that followed is in git.)
 
-    IT IS FASTER THAN EXPECTED: 3m26s for all seventeen checks, two guests each.
-    Pond (17 KB unit) is 8 seconds; Safari (1.16 MB, over the ring window, so it
-    exercises the refill path) is 40. The units are far bigger than anything the
-    ladder's own corpus compiles and nothing complained.
-
-    ALL FIFTEEN AGREED, FIRST RUN, BYTE FOR BYTE -- including the whole-frame
-    check's 3,091 commands and 7,518 coordinates. No tolerance is involved: this
-    compares the two arms' PRINTED OUTPUT, and the verdicts are text.
-
-    WHAT IT FOUND WAS IN THE DIAGNOSTICS, NOT THE OUTPUT. The seed emitted 1,268
-    CDX4010 (bounds proven, info), 15 CDX4030 (pipeline, info) and TEN CDX3006
-    warnings -- three real name collisions in a port that had been green for its
-    whole life: `bar-quad` in both Tower and GuardRail, `tower-beyond` and
-    `tower-right` in both Render and RenderCheck. codexzig's diagnostic stream
-    carried none of them. All three are renamed; the missing diagnostics are
-    FINDINGS.md item 5.
-
-    A CHECK COMPARES VERDICTS, NOT VALUES, and the second mode is the answer.
-    `Grade` prints "name ok 2468", so two arms that both sit inside a tolerance
-    agree whatever their last bits did. `metal.py --entry <PocMain>` runs an
-    ENTRY chapter instead, and the spike entries print every coordinate as a
-    scaled integer, and all EIGHT viewpoints now run: SpikeMain 143,976 fields,
-    SpikePondMain 128,402, SpikeCatMain 161,134, SpikeTruckMain 89,902 -- 523,414
-    in all, 4,532,052 bytes, and the two arms produce them BYTE FOR BYTE. Sky,
-    ground, trees, towers, rails, animals, the cat's leap and the whole truck.
-    That is the statement worth making. Verdict agreement is the cheap sweep.
-    Eight guests, about six minutes.
-
-    AND THE SCALE OF THE PRINT IS THE RESOLUTION OF THE COMPARISON, which nobody
-    decided. `scaled` multiplied by 100 because spike_svg.py draws at 960 by 600
-    and a hundredth of a pixel is already invisible there -- a scale chosen for a
-    DRAWING, inherited unexamined by a comparison against a second compiler, where
-    two emitters could have disagreed by four orders of magnitude and this would
-    have reported agreement. It is a millionth now: 4,532,052 bytes rather than
-    2,892,765, still inside the guest's heap, four more orders of agreement.
-
-    AND THEN IT REACHED THE ULP, the same day, by closing the plug hole instead of
-    picking a bigger scale. `real-to-bits` was the row (PLUG_WORK.md, plugs-backlog
-    2.07); `scaled` is now `show (real-to-bits v)` and there is no last digit to be
-    generous with. ALL FIVE ENTRIES AGREE BIT FOR BIT: 523,414 IEEE-754 patterns,
-    the 4,000-frame speed profile included.
-
-    WHAT THAT NEWLY RULES OUT, and it is exactly what D11 said this arm was blind
-    to: FMA contraction, x87 excess precision, a reassociated sum. Every one of
-    them perturbs a result at 1e-16, which no decimal scale here could ever have
-    resolved and which a bit pattern resolves by construction. The scope is the
-    ENTRY path only -- a `judge/` check still prints a verdict, so the sixteen
-    checks remain a verdict comparison and D11's limit stands for them.
-
-    THE GENERAL FORM IS WORTH MORE THAN THIS INSTANCE: when a value is printed for
-    one purpose and later COMPARED for another, the resolution of the comparison is
-    whatever the first purpose happened to need. Nothing warns you. Go and look.
-
-    THE GUEST'S HEAP IS THE CEILING ON WHICH ENTRIES FIT, and it is lower than
-    the host's 4 GiB. Measured: six viewpoints in one entry die after ONE frame at
-    run_cdx's default 1 GB, and after FIVE at the venue's 3072 MB, printing
-    `OUT OF MEMORY` with HEAP at 2.94 GB -- the guest saying so cleanly rather
-    than corrupting. C6 again, with a smaller budget.
-
-    SO THE ENTRY SIZE IS THE GUEST'S NUMBER, NOT THE HOST'S: every spike entry is
-    two viewpoints, and duck-pond/zebras and the cat's two stills left SpikeMain
-    for SpikePondMain and SpikeCatMain. The split moved no values -- the four
-    binaries concatenated print the same bytes as the two they replaced (2,892,765
-    of them at the scale in force that day)
-    -- which is the check worth running on a split, because a regrouping that
-    changes an answer has changed something it had no business touching.
-
-    AN ENTRY THE THIRD ARM CANNOT RUN IS AN ENTRY COMPARED ON NOTHING, and that is
-    the general form. Sizing a program to the arm you develop against leaves the
-    other arm with nothing to say; the ceiling belongs to the tightest arm that
-    has to run it.
-
-    A failed --entry costs a full idle timeout (five minutes of silence) because
-    the guest goes quiet rather than closing the port. Six minutes to be told
-    OUT OF MEMORY is not a hang.
-
-    THE LONGEST THING THIS ARM HAS RUN IS RideCheck: 6,960 frames of FOLD, where
-    every other check is a pure function or a single frame. It fits the guest's
-    3072 MB, takes 9 s inside it against 1.0 s native, and the arms agree on its
-    derived NUMBERS as well as its verdicts -- 6,960 against 7,000, segment 13 at
-    265, 68,700 mm at the last shared sample.
-
-    AND THE FIRST READING OF THAT WAS WRONG, WHICH IS WHY IT IS WRITTEN DOWN. The
-    claim drafted here was that the ride's knife edge makes it a sharp detector of
-    a difference between the emitters -- "one differing bit would have moved the
-    count". D11's own table refutes it. A ONE-TIME perturbation of 1e-7 is absorbed
-    completely, and a PERSISTENT bias does nothing at 1e-8 or 1e-9. Two IEEE f64
-    emitters differ at about 1e-16 an operation, eight orders below that floor, and
-    83,520 lean comparisons at that separation give a flip probability around 1e-10.
-    So the ride is BLIND to FMA contraction, to x87 excess precision and to a
-    reassociated sum -- the three things a DDC check most wants to catch.
-
-    THE KNIFE EDGE IS CALIBRATED TO f32 EPSILON, which is the PORT-against-GAME
-    gap, not the ARM-against-ARM one. What the agreement rules out is gross
-    divergence: a persistent difference of 1e-7 or more. That is worth having and
-    it is not what the first draft said.
-
-    THE RUNTIME CARRIES ITS OWN CHECK, and it is the one that would have been
-    missed. `ride-result` depends on NO input -- build-world, initial-rider-state
-    and ride-start are all constants -- so an eager fold-constants pass could
-    legally evaluate all 6,960 frames at compile time and leave the guest printing
-    numbers the emitted x86 never computed. The seed's pipeline line says
-    fold-constants is ON. Nine seconds of guest time and a second of native time
-    are what say it did not fire, and a check whose agreement is instant would
-    deserve exactly this suspicion.
-
-    THE LESSON IS ABOUT ARMS, NOT ABOUT THIS PORT: an arm you develop against is
-    an arm whose silence you have learned to trust. B5 records the flat-namespace
-    hazard as something to watch for by hand, and by hand is how it was watched
-    for, and three instances still got in. A second compiler is a second opinion
-    about your own source, and it is cheap.
 
 C17. THE SPIKES WERE NOT SHORT OF HEAP; THEY WERE ALLOCATING A QUADRATIC AMOUNT
      OF IT, AND C6 TOOK THE BLAME FOR A WEEK.
@@ -961,56 +400,8 @@ C17. THE SPIKES WERE NOT SHORT OF HEAP; THEY WERE ALLOCATING A QUADRATIC AMOUNT
     spike path was written that way: `all-cmds` over 2,705 commands, `coords` over
     each command's points, `prof-all` over 4,000 profile points.
 
-    A 2,705-command frame at about four hundred characters a command is roughly
-    1.5 GB of intermediate text to produce one megabyte of answer.
+    (Derivation and measurements: git.)
 
-    MEASURED with /usr/bin/time -f %M, before and after, on byte-identical output:
-
-        spike_main         3,491 MB  ->    133 MB     26x
-        spike_cat_main     3,922 MB  ->    168 MB     23x
-        spike_profile_main   957 MB  ->    681 MB    1.4x
-
-    The fix is four lines per printer: split the range in half, build each half,
-    concatenate once. Each byte is then copied once per LEVEL rather than once per
-    remaining element, so the total is n log n. The profile moves least because
-    most of its memory is the 4,000 ProfilePt records the rider fold produced, not
-    the text -- which is the useful control: the entries whose cost was TEXT fell
-    by a factor of twenty-five, and the one whose cost was DATA did not.
-
-    WHAT THIS SAYS ABOUT C6 IS NOT THAT C6 IS WRONG. The bump heap really never
-    reclaims, so a run's peak really is its total. But that made the peak worth
-    LOOKING at, and nobody did -- the entries were split into pairs, twice, each
-    time with a careful note about the allocator, when the allocator was faithfully
-    holding on to a quadratic quantity that did not need to exist. An allocator
-    that never frees turns an algorithmic mistake into an out-of-memory, which
-    makes it very good at hiding one behind itself.
-
-    THE SPLITS ARE KEPT AND THEIR PROSE IS CORRECTED. At 133-168 MB an entry, all
-    eight viewpoints would now fit in one binary with room to spare, so the split
-    is no longer load-bearing; it is retained because it already exists and because
-    a guest running one entry at a time is easier to read when one of them fails.
-    What is NOT acceptable is five chapter headers explaining a constraint that has
-    been lifted, so each says what is now true.
-
-    AND THE HALVING IS NOT EVEN THE IDIOMATIC FIX -- THE PRIMITIVE ALREADY EXISTS.
-    `text-concat-list : List Text -> Text` is declared at Types/Builtins.codex:213,
-    the zig plug HAS emitted it all along, and the wasm, C#, python, cobol and
-    riscv emitters upstream all use it. Nothing was missing; three throwaway
-    printers here reinvented concatenation and got it wrong. That is worth stating
-    plainly because the first instinct on finding a quadratic was to look for a
-    plug hole, and there was none: this was ours end to end, and no part of it is
-    upstream-shaped.
-
-    WHAT THE PRIMITIVE WOULD BUY OVER THE HALVING is one more order and it is not
-    needed at this size. Halving copies each byte once per LEVEL -- n log n, about
-    13 MB a frame. `text-concat-list` over a list built the same way copies each
-    byte ONCE, and the halving then moves only pointers: call it n log n POINTERS
-    plus n bytes, a megabyte or so. At 133 MB an entry the difference does not pay
-    for the churn today; it is written down so the next printer starts there.
-
-    THE GENERAL FORM: before splitting a job because it does not fit, measure what
-    it is actually allocating. `%M` is one flag. And before writing a fold that
-    builds text, check whether the foreword already has the join -- ours did.
 
 C18. THE REINVENTION HUNT, AND THE ONE THING THAT MADE IT WORTH RUNNING.
 
@@ -1024,62 +415,8 @@ C18. THE REINVENTION HUNT, AND THE ONE THING THAT MADE IT WORTH RUNNING.
     is a claim, and claims are checkable. The foreword is 13 directories and several
     hundred chapters; no chapter's prose knows what the others hold.
 
-    WHAT THE SWEEP FOUND, all in code that already cited the library it ignored:
+    (The narration that followed is in git.)
 
-      Trig defined pi, two-pi and half-pi digit for digit while dm-pi, dm-two-pi
-      and dm-half-pi sat in Gpu chapter DeviceMath -- cited on line 2, identical to
-      the last place. The chapter's own prose already celebrated retiring its
-      duplicate sine and cosine; the constants survived that cleanup.
-
-      RideCheck defined ck-abs, three lines identical to g-abs in Judge chapter
-      Grade, which it cites on line 8. Grade duplicates DeviceMath's real-abs ON
-      PURPOSE -- a judge must not be built out of what it judges -- and that
-      argument does not extend to a second copy inside the judge.
-
-      Ten hand-rolled 1:1 mappers were `list-map` from core/ListUtils, which eight
-      checks already cited. The library version is also better: map-list-loop pushes
-      onto an accumulator where `[x] & rest` allocates the sum of its suffixes.
-
-      FOUR COPIES OF THE CHAPTER-NAME RULE, and two of them were wrong. gen_gold.py
-      and metal.py each had a `snake()`; run.sh and spike.sh each had a `sed`. The
-      sed consumes two characters per match and matches non-overlapping, so it
-      separates every OTHER capital in a run: IOBuffer is i_o_buffer to the python
-      and i_obuffer to the shell. No chapter here has two capitals in a row, so it
-      never fired. harness/names.py is the one home now.
-
-    WHAT THE SWEEP CLEARED, which matters as much:
-
-      port/Num is NOT a reinvention. DeviceMath's whole public surface really is
-      min, max, abs, sqrt, sin and cos -- the dm-* names are its internals -- so the
-      rounding, floor, modulo and exponential there fill real gaps.
-
-      core/Sort MUST NOT be substituted in port/Render. Its sort-by is an in-place
-      QUICKSORT with median-of-three and claims no stability, while ties in the
-      depth sort are real and load-bearing: D9 records a rail post and a rail bar
-      swapping in a 3,091-command stream, invisible to every per-module check. This
-      is the case where de-duplicating would introduce the bug.
-
-      core/Maybe was the last one, and it was CHANGED rather than merely recorded.
-      Truck's `NextTurn { found, dist, v-turn }` and World's `(found, best)` pair
-      were both hand-rolled Maybes -- a tag unhooked from the thing it guards, so
-      nothing stopped a caller reading the payload without testing the flag. Both
-      are `Maybe` now, every graded stream byte-identical, both mutation-tested.
-      What made it worth doing rather than merely tidy: Codex has `when m is
-      Just (x) -> ... is None -> ...`, so both arms are forced and there is no
-      unguarded field. Had the only accessors been is-just and from-maybe, the
-      change would have needed a dummy default and been WORSE than the Boolean --
-      which is why the accessors were checked before the work started.
-
-    THE ASYMMETRY WORTH KEEPING: reusing the foreword is right far more often than
-    it is wrong, and when it is wrong it is wrong SILENTLY -- sort-by would have
-    compiled, run, and produced a frame with two commands transposed. So the rule is
-    to check what the library promises, not just what it is named.
-
-================================================================================
-D. NUMERIC CALIBRATION -- what the tolerances are actually measuring
-================================================================================
-
-    Every gate in judge/ traces to one of these.
 
 D1. The f32/f64 gap is about 1.2e-7 relative, and that is the floor. The port
     computes in Real (f64); the game computes in f32; the gold reaches Codex as
@@ -1113,23 +450,8 @@ D5. A TOLERANCE FLOOR IS CALIBRATED PER SEAM, not copied from another one.
     gate, for the same cancellation reason -- but copying the 1e-3 floor with it
     would have been slack, and measurably so.
 
-    The cancellation here is the worst yet seen. A sun height is 244 minus a term
-    of nearly the same size, so with the disc's centre on the horizon it is
-    244 - 243.993609 = 0.006391, and the f32/f64 gap there is:
+    (Derivation and measurements: git.)
 
-        absolute   2.6e-6 px           nothing
-        relative   4.1e-4              four hundred times a 1e-6 relative gate
-        amplified  244/0.0064 = 38180x  (the tree's horizon case was 15x)
-
-    So the floor has to admit 2.6e-6 and nothing else on that seam comes near
-    zero. 1e-4 admits it with forty times to spare; 1e-3 sits four hundred times
-    above the gap it exists for, and that is not free -- MEASURED: at 1e-3 a
-    perturbation of sun-start-px by 2e-4 left sky-height GREEN while two other
-    seams reddened. At 1e-4 the same perturbation reddens it.
-
-    The rule: take the SHAPE of the gate from the failure mode, take the NUMBER
-    from what that seam actually has to admit. A floor inherited from a seam with
-    different magnitudes is a floor nobody calibrated.
 
 D6. THE CHAIN IS THE THIRD DISTINCT CANCELLATION, and the first in METRES.
 
@@ -1138,37 +460,8 @@ D6. THE CHAIN IS THE THIRD DISTINCT CANCELLATION, and the first in METRES.
     reason -- not because the answer is near zero, but because the COMPOSITION
     passes through coordinates a thousand times larger than the answer.
 
-    Measured, at the rider's second chain segment, 160 m past its end:
+    (Derivation and measurements: git.)
 
-        composed bottom-left frame   a = 1235.67 m, x = 56.91 m
-        rider frame                  right = -1.5169 m
-        right is                     -1115.7*sin(yaw) + 54.3*cos(yaw)
-                                     two ~55 m terms that nearly cancel
-        amplification                1235.7 / 1.52 = 815x
-        absolute error               2.9e-5 m   (29 microns, a km away)
-        relative error               1.9e-5     (20x every other metre seam)
-
-    SO THE ERROR TRACKS THE LARGEST COORDINATE THE COMPOSITION TOUCHES, not the
-    size of the answer -- that is what f32 has to hold on the way through. Which
-    makes the floor a representation granularity and not a fudge factor, and it
-    is set as one: one f32 ulp at the range the seam reaches.
-
-        r-at    reaches 2015 m; one ulp there is 1.22e-4. Floor 2.5e-4 (two ulp).
-                Reddens at 1e-4, passes at 1.2e-4.
-        r-prev  composes ONE join, reaches 660 m; one ulp there is 6.1e-5.
-                Floor 6e-5 (one ulp). Reddens at 1e-5, passes at 2e-5.
-
-    The two differ because the two reaches differ, which is D5 applied rather
-    than restated. Giving the behind joint the chain's floor would have been four
-    times slacker than anything it needs.
-
-    AND THE PORT'S OWN MATH IS NOT THE CAUSE. Recomputing `at` in f64 with the
-    language's own @sin/@cos and comparing to the real f32 render.at gives the
-    same picture -- 3.9e-7 at d = 0, 1.9e-5 at d = 2 -- so this is the f32/f64
-    width gap amplified by the composition, and Trig is innocent. Note also that
-    the error does NOT grow with depth: it peaks at d = 1 and d = 2 and falls
-    away by d = 6. It is cancellation at particular geometry, not accumulation,
-    so a deeper chain is not a worse chain.
 
 D7. THE CAT'S LEAP IS THE PORT'S ONE DELIBERATE APPROXIMATION, AND IT IS BOUNDED.
 
@@ -1177,26 +470,8 @@ D7. THE CAT'S LEAP IS THE PORT'S ONE DELIBERATE APPROXIMATION, AND IT IS BOUNDED
     rider.zig's `@exp`, which Num ports as exp-real -- so what was missing was a
     LOGARITHM, since pow is exp of a log, and the foreword has none.
 
-    The port does not write one. 0.75 is DYADIC where 0.7 is not, so b^0.75 is
-    `sqrt(b * sqrt(b))` -- verified exact to 1.1e-16 -- using a square root both
-    languages already have.
+    (Derivation and measurements: git.)
 
-    THE COST IS MEASURED, NOT WAVED AT. |b^0.7 - b^0.75| peaks at 0.02537 near
-    b = 0.252 and is ZERO at both ends, so the cat launches and lands in exactly
-    the right places and only the arc between them bows. The leap spans
-    mid-across 0.816 to end-across -3.490, which is 4.306 m, so nothing can be
-    more than 0.1093 m out. CatDrawCheck splits the stream to gate it honestly:
-    235 non-airborne samples at the ordinary width tolerance, 7 airborne ones at
-    0.12, and the POSE INDEX exactly on all 242 -- an approximation to the arc
-    must never be allowed to flip which still is drawn.
-
-    THE GAME IS NOT EDITED FOR THE PORT'S CONVENIENCE (Steve). Changing cat.zig to
-    b^0.75 would make this exact, and cat.zig is the oracle and the deployed
-    screensaver, so it stays as it is and the PORT carries the difference.
-
-    ln-real remains a reasonable thing to write one day -- a logarithm is a
-    foreword gap like r-atan, and Num already has its other half. It would need
-    its own accuracy calibration. One call site is not much reason on its own.
 
 D8. A NEAR-PLANE CLIPPED VERTEX IS THE LOOSEST SCREEN GATE IN THE PORT, AND THE
     RATIO IS ARITHMETIC RATHER THAN A MYSTERY.
@@ -1206,54 +481,15 @@ D8. A NEAR-PLANE CLIPPED VERTEX IS THE LOOSEST SCREEN GATE IN THE PORT, AND THE
     two metres ahead of the rider, so the trailer rear is BEHIND the eye and the
     face is clipped.
 
-    A clipped vertex sits at forward = near = 0.4 m EXACTLY, by construction — the
-    clip puts it there. So the projection divides by 0.4 and multiplies by the 685
-    px focal: a 1,713x amplification of any error in metres, and the error in
-    metres is one f32 ulp at the largest coordinate the rider transform passed
-    through. In that case it is his own `along` of 100 m, where an ulp is 7.6e-6 m.
-    7.6e-6 x 1713 = 0.013 px against an x of about -1300, which is 1e-5 relative.
-    Measured: the stream reddens at 7.5e-6 and passes above it.
+    (Derivation and measurements: git.)
 
-    THIS IS D6 IN A THIRD UNIT. D3 amplified by a small screen y, D6 by a long
-    chain in metres; this one amplifies by the near plane. The common shape is
-    that the gate must track the LARGEST coordinate a composition passes through,
-    never the size of the answer. The floor is what changes; here it is not even
-    load-bearing, because every coordinate in the case is hundreds of pixels.
-
-    And it is the near plane's looseness, not the truck's: the same seam holds at
-    1e-6 in every case where nothing is clipped. The cost of the tighter gate
-    would be dropping the clipping case, which is the only structural assertion in
-    the check about what happens when the chase closes.
 
 D9. TWO DEPTHS CLOSER THAN AN f32 ULP HAVE NO ORDER, AND THE SORT MUST SAY SO.
 
     The one place in this port where a comparison is deliberately not the zig's.
 
-    render.zig sorts its scenery by an f32 depth. The port sorts by a Real, which
-    is f64 in every plug (A7). Two depths that differ by less than the f32 grid
-    are THE SAME NUMBER in the game -- its sort sees a tie and keeps merge order,
-    which is what stability means -- while the port can see a difference and will
-    order them by it. That is not fidelity; it is the port inventing an order out
-    of precision the oracle does not have.
+    (Derivation and measurements: git.)
 
-    FOUND BY THE WHOLE-FRAME CHECK AND BY NOTHING ELSE. A rail post and a rail
-    bar swapped places in a 3,091-command stream: one adjacent transposition,
-    every other command identical, and no per-module check could see it because
-    both modules were right. Measured by bisecting the slack: they still swap at
-    2e-8 relative and stop swapping at 6e-8, so the gap is between a sixth and a
-    half of an f32 ulp (1.19e-7).
-
-    THE THRESHOLD IS HALF AN ULP and the bound is the argument for it: two
-    DISTINCT f32s differ by a whole ulp, so half an ulp is the largest slack that
-    cannot tie a pair the game holds apart. Bigger would start inventing ties;
-    smaller does not close this one.
-
-    AND A PROPERTY CHECK HAS TO USE THE SAME RULE. RenderCheck asserts the sort is
-    non-increasing in depth by counting inversions with a strict `<`. Against a
-    sort with slack, that counts every pair the rule deliberately left in merge
-    order and reports them as defects -- which it promptly did, at index 0 of the
-    first state. A property asserted at a finer resolution than the thing it is
-    asserted about is not a stronger check, it is a wrong one.
 
 D10. RETIRING THE TRIG STAND-IN MOVED NO NUMBER AT ALL, AND THAT IS A
     MEASUREMENT RATHER THAN LUCK.
@@ -1264,29 +500,8 @@ D10. RETIRING THE TRIG STAND-IN MOVED NO NUMBER AT ALL, AND THAT IS A
     last bits, and four graded chapters cite Trig today. It is its own change with
     its own regrade."
 
-    The regrade was clean -- every check green, not one tolerance touched -- and
-    the reason is worth having, because "it passed" is not a reason.
+    (The narration that followed is in git.)
 
-    THE TWO REDUCTIONS ARE BIT-IDENTICAL OVER THE GAME'S RANGE. Sampled at every
-    thousandth of a radian across |x| <= 40 rad, 80,001 points: ZERO differ, and
-    the sines of their outputs are equal to the bit. For |x| <= pi both are the
-    identity; beyond it, repeated subtraction of a double 2pi and one
-    divide-truncate-multiply land on the same double, and Sterbenz is why. The
-    polynomial and the quadrant fold were already character-identical, so the
-    reduction was the only place a difference could have come from.
-
-    So the caution in A1 was right to be cautious and the answer is that the two
-    agree exactly here. The general shape: when a note says "expect the numbers to
-    move", the change is not finished until you have MEASURED whether they did --
-    a green sweep answers whether the gates still pass, not whether the values
-    changed, and those are different questions.
-
-    WHAT DID NOT RETIRE IS `wrap`, and it was never part of the stand-in. Both
-    mountains.zig and sky.zig carry their own bounded-loop wrap to normalise a
-    bearing, and both are ported through Trig's. Deleting it with the sine broke
-    two chapters with "CDX3002 Undefined name: wrap" -- a useful reminder that a
-    helper written for one caller acquires others, and the way to find them is to
-    grep before deleting rather than after.
 
 D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
      DO THE TWO RIDES FINISH FORTY FRAMES APART".
@@ -1296,68 +511,8 @@ D11. THE RIDE'S LENGTH IS NOT DETERMINED AT f32, AND THAT IS THE ANSWER TO "WHY
     close it. It cannot, and the reason is not the port. probe/probe_sens.zig
     measures it on the GAME'S OWN CODE, in f32, with the port nowhere in it.
 
-    A ONE-ULP NUDGE IS ABSORBED COMPLETELY. v, across or yaw perturbed by one f32
-    ulp at frame 0: still 7,000 frames, and the two rides never reach a centimetre
-    apart over seven kilometres. So the ride is CONTRACTING, not chaotic, and the
-    lazy answer -- "floating point, chaos, nothing to be done" -- is wrong about
-    the mechanism even where it is right about the conclusion.
+    (Derivation and measurements: git.)
 
-    THE THRESHOLD IS f32 EPSILON EXACTLY. A PERSISTENT relative bias on v, applied
-    every frame as a proxy for a difference the port carries on every operation:
-    1e-9 and 1e-8 change nothing at all -- 7,000 frames, segment 13 still 305. At
-    1e-7, which is f32's own resolution, the total goes to 7,061 or 6,971 and
-    segment 13 to 267 or 266. The ride is stable to everything BELOW the
-    arithmetic's resolution and unstable AT it. 7,000 is therefore not a property
-    of the model; it is a property of evaluating the model in f32.
-
-    THE VOLATILITY IS LOCALISED AND THE PORT IS INSIDE THE FAMILY. Under +-1e-7
-    per frame the game moves segments 10, 12 and 13 by tens of frames every time
-    and never moves 0, 3, 7 or 11. Per-segment durations, the last row being the
-    only one the port computed:
-
-        base           317 341 751 289 259 325 686 309 246 506 597 258 250 305
-        +1e-7/frame    317 339 754 288 271 324 680 310 252 505 668 258 266 267
-        -1e-7/frame    317 337 760 288 260 330 680 309 253 502 639 257 199 266
-        the port       317 339 752 289 265 324 686 309 233 503 628 258 238 265
-
-    Segment 13 costs the port forty frames and the same segment costs the GAME
-    thirty-eight under a bias smaller than the port's. That is what "inside the
-    family" means, and it is why RideCheck reports the count rather than grading it.
-
-    WHY 13 AND NOT 14, WHICH LOOKS THE SAME. The exit is a 50-degree corner and
-    turnSpeed(50) is 0.222 m/frame, the second slowest on the route. At that speed
-    one metre is four and a half frames, so a couple of metres of difference in
-    where the corner brake takes hold is tens of frames of transit. The amplifier
-    is the low speed, not a coin flip: the durations spread continuously (305, 300,
-    297, 295, 292, 269, 267, 266, 265, 240) rather than falling into two values.
-
-    WHAT WOULD ACTUALLY CLOSE IT, for the record, because "we could not" should
-    always name what "could" would cost. Bit-identical arithmetic, which means
-    computing in f32. Two things block it and the second is the harder one:
-
-      1. Real is f64 in every plug and there is no f32 conversion builtin at all
-         (A7). A `real-to-f32` row would be the same shape as the real-to-int rows
-         this port already filled (PLUG_WORK.md), so this half is a day.
-      2. Even with it, +, -, * and / would round correctly -- f64 carries 53 bits
-         and 2*24+2 is 50, so rounding an f64 result to f32 gives the f32 answer --
-         but simulate-rider-step calls SIN and COS every frame, and zig's f32
-         transcendentals are not DeviceMath's. Matching those bit for bit means
-         porting LLVM's sinf, which is a different project.
-
-    So the honest position is the one NOTES section 4 took before any of this was
-    measured: compare one step from a shared state, and check the whole ride by
-    INVARIANTS. What is new is that the ruling now has numbers under it.
-
-    THE SENSITIVITY DOES NOT CUT THE OTHER WAY, AND THE DRAFT THAT SAID IT DID WAS
-    WRONG. The third arm runs this same ride and prints 6,960, segment 13 and
-    68,700 mm byte-identically -- but the table above is the reason that is a
-    weaker statement than it looks. (The ENTRY path got the resolution this note
-    says the checks lack: C16 records the bit-pattern comparison, which does reach
-    1e-16. RideCheck is a check and prints verdicts, so what follows still holds
-    for it.) The floor for a PERSISTENT bias is between 1e-8
-    and 1e-7, and a ONE-TIME 1e-7 is absorbed outright; two IEEE f64 emitters
-    differ at 1e-16 if at all. So the frame count detects the port-against-game gap
-    and is blind to the arm-against-arm one. C16 carries the corrected reading.
 
 D12. A NaN PASSED EVERY REAL GATE IN THE PROJECT, AND NO TOLERANCE WAS EVER
      GOING TO CATCH IT.
@@ -1367,54 +522,8 @@ D12. A NaN PASSED EVERY REAL GATE IN THE PROJECT, AND NO TOLERANCE WAS EVER
     `g-abs` hands the NaN back (because `NaN < 0.0` is false and the else arm
     returns its argument), and `NaN > tol` is FALSE. Not flagged. Walk continues.
 
-    INFINITY WAS ALWAYS CAUGHT and that is what made the hole easy to miss:
-    `inf - want` is `inf`, which exceeds any tolerance, so the obvious bad value
-    behaves. It is specifically the NaN that a comparison-shaped gate cannot see,
-    and it cannot see it BY CONSTRUCTION rather than by oversight -- every
-    comparison against a NaN is false, so any gate phrased as "flag it if it is
-    too far" waves it through. A gate phrased as "flag it unless it is close
-    enough" would have caught it. The two read as synonyms in English.
+    (Derivation and measurements: git.)
 
-    Measured before fixing, in zig, with the exact expressions the chapter uses:
-    g-abs of (NaN - 42.0) is NaN, and `NaN > 0.0` is false.
-
-    IT WAS UNDETECTABLE FROM INSIDE CODEX UNTIL THE SAME DAY. `show` on a Real is
-    refused (A2), and a NaN is the one value that does not equal itself, so no
-    printing and no comparison this project had could witness one. `real-to-bits`
-    is what changed -- plugs-backlog 2.07, the row added on 2026-08-30 for a
-    completely different reason (printing spike coordinates exactly). The fix
-    costs one mask and one comparison:
-
-        g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
-
-    Clear the sign bit and every finite double is below #7FF0000000000000,
-    positive infinity IS that number, and every NaN is above it. One gate, both
-    classes, exact.
-
-    THE GATE WAS THEN PROVEN TO FIRE, because a gate that has never fired is
-    indistinguishable from one that cannot. PondCheck was fed
-    `bits-to-real #7FF8000000000000`, then `#7FF0000000000000`, then
-    `#FFF0000000000000`; all three report `duck-height BAD at 0` and the sweep
-    goes red. Restored, it is green again.
-
-    NOTHING IN THE PORT PRODUCES A NaN TODAY -- the sweep was green before the fix
-    and is green after it, so this closed a hole rather than caught a bug. That is
-    the honest reading and it is not a reason to skip it: the two infinity sites
-    in the game are both turned into a Boolean by the port (Truck's `NextTurn`
-    carries `found`, World's tree search threads a flag), so the one obvious
-    source of a non-finite Real was designed out. What the gate protects against
-    is the next one.
-
-    THE GENERAL SHAPE: a tolerance is a claim about MAGNITUDE, and a NaN has no
-    magnitude. Any gate built only out of ordering silently admits the values that
-    are not ordered. Ask what your comparison does with the values that answer
-    false to every question.
-
-================================================================================
-E. WHAT A MODULE'S SURFACE DOES TO ITS CHECK
-================================================================================
-
-    Seams are chosen by the zig, not by the porter.
 
 E1. RENDER.ZIG EXPOSES FOUR NAMES, AND THAT DECIDES HOW RENDER CAN BE GRADED.
 
@@ -1428,32 +537,8 @@ E1. RENDER.ZIG EXPOSES FOUR NAMES, AND THAT DECIDES HOW RENDER CAN BE GRADED.
     calls the real thing" was free. Here it is not, and the check has to say
     which of its rows is backed by what. RenderCheck grades three strengths:
 
-      a REAL ORACLE      r-at. render.at is pub; the probe calls it.
-      THE DEFINITION     r-prev. mapPt's prev branch is private, but it is
-                         geom.curToNext then geom.toRider and both ARE pub, so
-                         the probe composes the two real functions in that order.
-                         Every arithmetic step is oracled; the ORDER is not.
-      TRANSCRIBED        r-chain. buildChain is private AND `at` never consults
-                         the caps -- hand `at` a chain of any length and it
-                         composes it -- so the chain's EXTENT is not observable
-                         through the public surface at all. LOOK_AHEAD (7) and
-                         MAX_CHAIN (8) are copied from render.zig's source. Those
-                         two integers are the only value in this port that is
-                         transcribed rather than measured.
+    (The narration that followed is in git.)
 
-    THE WAY OUT WAS ALREADY IN THE FILE AND WAS TAKEN. `render.cull_seg` IS pub,
-    and frame() accumulates into it `n_cows + n_pigs` for every chain index at or
-    beyond FARM_SEG_REACH -- counts WorldCheck already grades exactly. So one
-    frame() call turns the chain's extent into a number the world's own graded
-    data predicts, and RenderCheck's f-cull seam does exactly that across eight
-    rider states. The state on segment 16 is the one that pins it: a three-long
-    chain never reaches the farm cull's third index, so its tally is zero.
-
-    So r-chain no longer stands alone, and the two transcribed integers are
-    constrained by a real oracle even though `at` itself can never see them. The
-    lesson generalises better than the fix: an instrumentation counter can be the
-    only window into a module's private structure, and it is worth hunting for
-    one before accepting a transcribed value.
 
 E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
 
@@ -1463,12 +548,6 @@ E2. CHECK WHAT IS `pub` BEFORE CHOOSING A SEAM, not after writing the port.
     is not guaranteed. Read the pub markers first; they are the real contract,
     and they can make a natural seam ungradeable and an awkward one free.
 
-E3. RENDER'S PRIVATE RAIL-PATH CAP IS NOWHERE NEAR LIVE. RAIL_PATH_CAP is 192
-    points and the longest path any joint produced across eight rider states was
-    27 — run-up 11, both legs into and out of the apex, run-out 10. So the port
-    leaves the cap out rather than porting a truncation that cannot fire, and
-    that is now a measurement instead of an assumption. Same for the collection
-    caps: MAX_VIS_TREES is 640 against a peak render itself puts near 37 percent.
 
 E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
 
@@ -1476,37 +555,9 @@ E4. PORTING AN ALGORITHM MEANS PORTING ITS ANSWER, NOT ITS COST MODEL.
     a mutable array of a few hundred items. Ported literally onto Codex lists it
     exhausted the whole 4 GiB bump heap and killed the check.
 
-    The reason is that an insertion sort has nothing to shift. Rebuilding the tail
-    past the insertion point allocates a list PER ELEMENT, so one insert is
-    quadratic in allocations and the sort is cubic — about 700 items across eight
-    frames, and the heap that never reclaims (C6) turns that from slow into fatal.
+    (Derivation and measurements: git.)
 
-    A STABLE MERGE SORT GIVES THE IDENTICAL ORDER. Same comparison, same tie rule,
-    so nothing observable changes; the cost falls to quadratic in copies, roughly
-    a hundred megabytes. The port takes the merge and says so at the definition.
 
-    The general shape: an in-place algorithm carried across to persistent lists can
-    gain a whole complexity class, and on this arm that is a crash rather than a
-    wait. Check the cost model of anything that mutates in place before porting it
-    line for line — the ANSWER is what has to match.
-
-E5. THE GAME'S COMMENTS GO STALE AND THE CODE IS THE ORACLE. Not a defect in
-    anything, and worth stating once because this port reads comments closely and
-    they are usually excellent.
-
-    truck.zig says three times that the headlight wedges and the brake-light glow
-    are DEFERRED — the file header calls the truck "a placeholder blue dot",
-    drawBody's own header says the wedges "need alpha/gradient seam tags the
-    polygon-only blitter doesn't have yet", and the brake block says the halo is
-    "deferred (needs a gradient/alpha seam tag)". All three are stale: the code
-    calls drawWedge and drawBrakeGlow and pushes tag 4 for both, and paint.zig has
-    had the tag for as long as the bull has.
-
-    A port written from the comments would have emitted sixteen faces where the
-    game emits twenty-four commands. The check would have caught it — a missing
-    wedge is a missing command and structure is graded exactly — but only after
-    the fact. The rule is cheap: read a comment for INTENT and the code for
-    BEHAVIOUR, and when they disagree, grade the code.
 
 E6. THE STRONGEST ORACLE IN THE PROJECT WAS AVAILABLE ALL ALONG: render.frame.
 
@@ -1517,18 +568,5 @@ E6. THE STRONGEST ORACLE IN THE PROJECT WAS AVAILABLE ALL ALONG: render.frame.
     its drawer in one depth order. A probe can call it and read the words it puts
     on paint's wire.
 
-    It could not be USED until the last drawer was ported -- a frame with an
-    unported truck body or a flattened bull compares two different wires -- so the
-    check that grades it arrived with the last of them, and immediately paid for
-    itself twice: it found the bull's flattened gradients as a tag mismatch, and
-    then the depth-tie transposition of D9, which nothing else could have seen.
+    (The narration that followed is in git.)
 
-    THE THING IT GRADES THAT NOTHING ELSE DID IS THE SEQUENCE. Every drawer was
-    already graded in isolation; what was not graded at all was the dispatch --
-    which kind goes to which drawer, in what order, with which focal. That logic
-    had lived in the browser poc, outside every check, for the whole project.
-
-    The general shape: when a module's public surface looks thin, check whether
-    one of the names on it is the WHOLE THING. An orchestrator that takes state
-    and produces output is a better oracle than any of its parts, and it is worth
-    revisiting the day its last dependency lands.

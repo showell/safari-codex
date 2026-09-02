@@ -59,7 +59,7 @@ fi
 # is the fastest way to see whether a frame is empty before opening a browser. The
 # transpiled program is hosted zig, so this is one build-exe off the same file the
 # wasm leg starts from -- and it leaves build/<mod> beside build/<mod>-unit.codex,
-# a pair built from one source, which is what rust-codex-compiler's ./safari.sh
+# a pair built from one source, which is what rust-codex-compiler's ./safari/run.sh
 # reads as its fourth arm.
 ( cd build && "$zig" build-exe "$mod.zig" )
 echo "--- $entry, native ---"

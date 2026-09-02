@@ -12,8 +12,15 @@
 build/*
 !build/*.zig
 !build/*.codex
-!build/*.diag
 !build/*.wasm
+
+# NOT the .diag files. The generated .zig and the bundled .codex earn tracking
+# because they are written BY THE TOOLCHAIN UNDER TEST -- a compiler or emitter
+# change shows up as a reviewable diff, which is the same reason the ladder
+# banks truths. Diagnostics are not that: they are noisy, they regenerate
+# freely, and they are better read live than diffed. Steve, 2026-09-02.
+#
+# The wider question of which artifacts belong in this repo AT ALL is open.
 
 # The probes, likewise: sources tracked, binaries not.
 probe/probe_*

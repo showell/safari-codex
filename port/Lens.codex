@@ -1,0 +1,66 @@
+Chapter: Lens
+  cites Safari chapter Trig
+
+ How wide the camera sees: the base focal length in pixels, and the two
+ narrowings that pull it in. Pure; no drawing, no allocation.
+
+ IT KNOWS NOTHING ABOUT WHERE A POINT LANDS. `project` takes the focal as an
+ argument rather than reading one, so the lens and the transform were already
+ separate at the call before they were separate files -- which is why this
+ chapter and Camera share no definition in either direction.
+
+ Split out of Camera on 2026-09-03. It was Camera's Lens and Focal Pull-In
+ sections, minus the three values the projection reads and the near plane,
+ which is Geom's.
+
+ ONE ADAPTATION, inherited. The zig carries the live projection width as a
+ mutable global, `pub var view_w`, which the native window widens toward the
+ screen's aspect while FOCAL stays frozen -- that is what makes a wider window a
+ wider field of view rather than a zoom. Codex has no mutable global, so view-w
+ is threaded as a parameter to `project`. `camera-w` here is the design width
+ the browser and the golden-PNG harness both use, and it is what the base focal
+ is frozen at.
+
+ We say:
+
+Section: The Base Focal
+
+  camera-w : Real
+  camera-w = 960.0
+
+  fov-deg : Real
+  fov-deg = 70.0
+
+ The base focal, in pixels, looking straight ahead. FROZEN at the design width and
+ NOT recomputed from the live view-w -- that is what keeps a wider window a wider
+ FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
+
+  focal : Real
+  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
+
+Section: Focal Pull-In
+
+ The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
+ narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
+ road. The lean narrows hardest and is squared so it snaps in deep in the turn;
+ attention narrows gentler and linearly, but a crossing cat's attention overshoots
+ 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
+ mid-corner -- so the tightest simply wins.
+
+  min-focal-factor : Real
+  min-focal-factor = 0.35
+
+  min-gaze-focal-factor : Real
+  min-gaze-focal-factor = 0.61
+
+  focal-for-lean : Real -> Real
+  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
+
+  focal-for-gaze : Real -> Real
+  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
+
+  cam-focal : Real, Real -> Real
+  cam-focal (lean-frac) (attention) =
+    let a = focal-for-lean lean-frac
+    in let b = focal-for-gaze attention
+    in if a < b then a else b

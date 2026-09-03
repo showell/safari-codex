@@ -120,6 +120,14 @@ Section: Near-Plane Clipping
  edge is the reason the index walks to the length and reads (i + 1) modulo it: the
  polygon is closed, so the last vertex pairs with the first.
 
+ `near` lived in Camera until 2026-09-03, declared under its Lens section and
+ read by nothing in that chapter. Four callers carried it from there to
+ `clip-near` here, into a parameter of the same name. It is the near plane and
+ the near plane is this section's business.
+
+  near : Real
+  near = 0.4
+
   clip-cross : Vec3, Vec3, Real -> List Vec3
   clip-cross (a) (b) (near) =
     let f = (near - a.forward) / (b.forward - a.forward)

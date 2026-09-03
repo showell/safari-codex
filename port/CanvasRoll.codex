@@ -1,0 +1,37 @@
+Chapter: CanvasRoll
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Pose
+
+ THE BIKE'S LEAN AS THE CANVAS SHOULD ROLL IT, which is not quite the lean the simulation
+ carries.
+
+ Nothing else in the game reads this -- it exists for the shim, which is why it kept
+ turning up in whatever chapter happened to be nearby. It is a READ of the rider, not a
+ part of him, so it is not Rider's; and it is about the canvas, so it is not the
+ simulation's either.
+
+ We say:
+
+Section: The Canvas Roll
+
+ THE BIKE'S LEAN AS THE CANVAS SHOULD ROLL IT, which is not quite the lean the
+ simulation carries. The lean search leaves a residue around 1e-5 rad on a
+ straight that never quite reaches zero; below a thousandth of a radian -- under
+ half a pixel of bank at the screen edge -- the camera is upright for every
+ practical purpose and the blitter's straight-line fast paths key on exactly
+ zero. The simulation is untouched: this is a read, not a state.
+
+  roll-deadband : Real
+  roll-deadband = 0.001
+
+ THE `let` IS LOAD-BEARING AND IT SHOULD NOT BE. Written as a bare
+ `if real-abs s.tilt < roll-deadband then 0.0 else s.tilt`, this function is
+ INLINED and never emitted, so the shim -- which is outside the program -- fails
+ to link against it. Binding the field first makes it a real function. Measured
+ over four variants: the same shape over a scalar parameter emits, and the
+ arithmetic-bodied `view-yaw-for` beside it emits. PORTING_NOTES B12.
+
+  rider-roll : RiderState -> Real
+  rider-roll (s) =
+    let t = s.tilt
+    in if real-abs t < roll-deadband then 0.0 else t

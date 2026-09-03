@@ -13,7 +13,8 @@ Chapter: Safari
   cites Safari chapter Frame
   cites Safari chapter GroundPlan
   cites Safari chapter ItemDraw
-  cites Safari chapter RideCamera
+  cites Safari chapter RideFocal
+  cites Safari chapter ViewYaw
 
  The whole game, folded: one ride state, one step of it, and one frame drawn from
  it. A port of wasm/safari.zig, and the last file in the game to be ported.

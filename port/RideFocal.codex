@@ -1,0 +1,45 @@
+Chapter: RideFocal
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Bike
+  cites Safari chapter Cat
+  cites Safari chapter Gaze
+  cites Safari chapter Lens
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+
+ HOW FAR THE LENS HAS PULLED IN this frame.
+
+ It narrows on two independent things and the frame takes the deeper of them: leaning into
+ a corner, and watching a crossing cat or gawking at the roadside pigs. `cam-focal` is a
+ min over the two, so whichever is more distracted wins.
+
+ THE WHOLE FRAME READS ONE FOCAL. The projection, the backdrop and the sun all take it,
+ which is what keeps them one camera; the only place the STABLE base focal survives is the
+ critter size cull, because culling animals on a leaned focal would pop them in and out of
+ a corner.
+
+ We say:
+
+Section: The Lens Pulls In
+
+ THE LENS PULLS IN -- narrows -- on two independent things, and the frame takes
+ the deeper of them. Leaning into a corner narrows it toward 0.35x; watching a
+ crossing cat or gawking at the roadside pigs narrows it too. `camera.camFocal`
+ is a min over the two, so whichever is more distracted wins.
+
+ THE WHOLE FRAME READS ONE FOCAL. The projection, the backdrop and the sun all
+ take it, which is what keeps them one camera; the only place the STABLE base
+ focal survives is the critter size cull, and Render's own prose argues that at
+ length (culling animals on a leaned focal would pop them in and out of a corner).
+
+  cat-attention : List Segment, RiderState -> Real
+  cat-attention (w) (s) =
+    let seg = list-at w s.segment
+    in if seg.has-cat then cat-focus (seg.cat.along - s.along) s.v else 0.0
+
+  ride-focal : List Segment, RiderState -> Real
+  ride-focal (w) (s) =
+    let lean-frac = real-min (real-abs s.tilt / max-lean) 1.0
+    in let attention = real-max (cat-attention w s) (gaze-focus s.focus)
+    in cam-focal lean-frac attention

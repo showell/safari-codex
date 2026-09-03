@@ -12,7 +12,9 @@ Chapter: SafariCheck
   cites Safari chapter Truck
   cites Judge chapter Grade
   cites Gold chapter SafariGold
-  cites Safari chapter RideCamera
+  cites Safari chapter CanvasRoll
+  cites Safari chapter RideFocal
+  cites Safari chapter ViewYaw
 
  Grade Safari chapter Safari -- the state fold, the live camera, and the whole
  frame -- against wasm/safari.zig and wasm/render.zig.

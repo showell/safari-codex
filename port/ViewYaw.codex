@@ -1,0 +1,33 @@
+Chapter: ViewYaw
+  cites Safari chapter Frame
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+
+ WHICH WAY HE IS LOOKING, which is not quite where the bike points.
+
+ The extra camera yaw on top of his heading: the distracted gaze toward the pigs plus a
+ subtle head-turn into a lean. It swings the WHOLE view, so it folds into the scene pose
+ and the backdrop heading alike -- `pose-for` and `heading-for` are the two places that
+ fold happens, and everything that draws goes through one of them.
+
+ We say:
+
+Section: Where He Is Looking
+
+ The extra camera yaw on top of his heading: the distracted gaze toward the pigs
+ plus a subtle head-turn into a lean. It swings the WHOLE view, so it folds into
+ the scene pose and the backdrop heading alike.
+
+  head-yaw-frac : Real
+  head-yaw-frac = 0.15
+
+  view-yaw-for : RiderState -> Real
+  view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
+
+  heading-for : RiderState -> Real
+  heading-for (s) = s.heading + view-yaw-for s
+
+  pose-for : List Segment, RiderState -> Pose
+  pose-for (w) (s) =
+    Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }

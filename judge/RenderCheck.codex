@@ -13,6 +13,8 @@ Chapter: RenderCheck
   cites Gold chapter RenderGold
   cites Safari chapter Frame
   cites Safari chapter GroundPlan
+  cites Safari chapter DepthSort
+  cites Safari chapter TruckPlan
 
  Grade the Render port's mapping spine against wasm/render.zig, and SafariCritter
  against wasm/safari_critter.zig.

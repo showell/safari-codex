@@ -1,0 +1,26 @@
+Chapter: SceneLimits
+
+ The culls every roadside population shares, and the two the renderer reads.
+
+ A population's OWN limit lives with the population -- `max-vis-towers` is TowerPlan's --
+ so that removing a kind removes its cap with it. What is left here is what more than one
+ kind asks about.
+
+ We say:
+
+Section: The Shared Culls
+
+ Beyond this depth a tree draws as flat triangles rather than cone hulls, and the
+ crown's foliage gradient fades to solid over this much depth. Both are drawing
+ decisions, carried here because the collector is what measures the depth.
+
+  detail-dist : Real
+  detail-dist = 200.0
+
+  crown-shade-dist : Real
+  crown-shade-dist = 80.0
+
+ Scenery shorter than this on screen is skipped.
+
+  min-scenery-px : Real
+  min-scenery-px = 2.0

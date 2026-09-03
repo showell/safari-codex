@@ -1,0 +1,120 @@
+Chapter: DepthSort
+  cites Foreword chapter ListUtils
+
+ One pass over everything that stands up, front to back.
+
+ `Item` is the currency: a depth, a kind tag and an index back into that kind's own list.
+ Each kind is collected into its own list and merged only here, which is what makes the
+ sort one pass rather than a sort per kind. The tag is why this chapter, and not the
+ renderer, owns the enum.
+
+ We say:
+
+Section: The Currency
+
+ One order over everything that stands up off the ground, far to near, so a tree
+ occludes a rail and a rail occludes a cow by honest depth rather than by paint
+ order. This is what guard_rail's collect-then-sort design exists to feed, and why
+ its RailPoly carries a `fwd` it never draws with.
+
+  Kind =
+   | KTree
+   | KTower
+   | KCow
+   | KCat
+   | KTruck
+   | KRail
+
+  Item = record {
+    fwd : Real,
+    kind : Kind,
+    i : Integer
+  }
+
+Section: One Pass, Front to Back
+
+ THE SORT MUST BE STABLE AND THE ZIG'S IS. Its insertion loop moves a key left
+ only while the element before it is STRICTLY nearer-to-far -- `items[j-1].fwd <
+ key.fwd` -- so equal depths keep the order they were merged in. That matters more
+ here than it looks: a rail bar and its post share a corner and can land on the
+ same depth, and so can two roadside trees on opposite shoulders.
+
+ `core/Sort` EXISTS AND MUST NOT BE SUBSTITUTED HERE, which is worth saying before
+ the merge is described, because the shape of this chapter invites the swap. The
+ foreword's `sort-by : List a, (a, a -> Integer) -> List a` looks like exactly what
+ this wants and is an in-place QUICKSORT with median-of-three pivoting. Quicksort
+ swaps across equal keys; it is not stable and its chapter claims no stability.
+
+ STABILITY IS LOAD-BEARING HERE AND THE EVIDENCE IS A BUG THAT HAPPENED. Ties are
+ real -- render.zig sorts by an f32 depth and equal depths keep merge order -- and
+ PORTING_NOTES D9 records a rail post and a rail bar swapping places in a
+ 3,091-command stream, one adjacent transposition with every other command
+ identical, invisible to every per-module check because both modules were right.
+ Handing this to `sort-by` would reintroduce that class silently and only the
+ whole-frame check would ever say so. De-duplicating against the foreword is right
+ far more often than it is wrong; this is one of the times it is wrong.
+
+ THE PORT SORTS BY MERGING RATHER THAN BY INSERTING, and that is the one place in
+ this chapter where the algorithm departs from the zig on purpose. A stable merge
+ sort and a stable insertion sort produce the SAME total order -- same comparison,
+ same tie rule -- so nothing observable changes. What changes is the cost, and on
+ persistent lists the difference is not a constant factor.
+
+ Insertion sort on a mutable array shifts elements in place. On a Codex list there
+ is nothing to shift: rebuilding the tail past the insertion point allocates a list
+ per element, so ONE insert is quadratic in allocations and the whole sort is
+ cubic. Measured, it is not slow but fatal -- seven hundred items across eight
+ frames exhausted codexzig's whole 4 GiB bump heap, which never reclaims (C6). The
+ merge is quadratic in copies and comes in around a hundred megabytes.
+
+ So the rule this is an instance of: PORTING AN ALGORITHM FAITHFULLY MEANS PORTING
+ ITS ANSWER, NOT ITS COST MODEL. An in-place algorithm carried literally onto
+ persistent lists can gain a whole complexity class, and the bump heap turns that
+ into a crash rather than a wait. See PORTING_NOTES E4.
+
+  rest-from : List Item, Integer -> List Item
+  rest-from (ys) (j) =
+    if j >= list-length ys then []
+    else [list-at ys j] & rest-from ys (j + 1)
+
+ Merge two runs already in far-to-near order. `a` wins ties -- the test asks
+ whether b is STRICTLY deeper -- which is what makes the merge stable and matches
+ the zig's strict `<`.
+
+  merge-items : List Item, List Item, Integer, Integer -> List Item
+  merge-items (a) (b) (i) (j) =
+    if i >= list-length a then rest-from b j
+    else if j >= list-length b then rest-from a i
+    else if deeper-than (list-at b j).fwd (list-at a i).fwd
+      then [list-at b j] & merge-items a b i (j + 1)
+      else [list-at a i] & merge-items a b (i + 1) j
+
+ THE SORT DECLINES TO ORDER TWO DEPTHS IT CANNOT TELL APART, and that is the one
+ place this chapter's comparison is not the zig's character for character. The
+ zig's key is an f32; the port's is a Real, which is f64 in every plug. Two depths
+ that differ by less than the f32 grid are THE SAME NUMBER in the game -- its sort
+ sees a tie and keeps merge order -- while the port can see a difference and would
+ order them by it. Sorting on precision the oracle does not have is not fidelity;
+ it is the port inventing an order.
+
+ So `deeper-than` is a strict comparison with half an f32 ulp of slack, and the
+ slack is measured rather than chosen. A rail post and a rail bar in the whole
+ frame check land within 6e-8 of each other and swap without it; at 2e-8 they
+ still swap, so the gap is between a sixth and a half of an ulp. Half an ulp is
+ the largest threshold that cannot tie two depths the game holds apart, since two
+ distinct f32s differ by a whole one.
+
+ A grader that measures inversions has to use the same rule -- RenderCheck's does,
+ and its own prose says why. A property asserted at a finer resolution than the
+ sort works at reports the rule as a defect.
+
+  sort-tie : Real
+  sort-tie = 0.00000006
+
+  deeper-than : Real, Real -> Boolean
+  deeper-than (x) (y) = x - y > sort-tie * real-max (real-abs y) 1.0
+
+  sort-items : List Item -> List Item
+  sort-items (xs) =
+    if list-length xs <= 1 then xs
+    else merge-items (sort-items (list-take xs (list-length xs / 2))) (sort-items (list-drop xs (list-length xs / 2))) 0 0

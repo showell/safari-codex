@@ -1,0 +1,53 @@
+Chapter: TruckPlan
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Geom
+
+ WHETHER the chased truck is on screen and at what depth. `Safari chapter Truck` owns
+ its motion along the route; this places it in the rider's frame for the sort.
+
+ We say:
+
+Section: Where the Truck Is
+
+ Walk the truck's LEAD -- its route distance minus the rider's -- forward along
+ the chain to find which segment its centre lands on. It sorts at that centre-line
+ depth, one item however long the body is.
+
+  TruckAt = record {
+    present : Boolean,
+    d : Integer,
+    along : Real,
+    fwd : Real
+  }
+
+  no-truck : TruckAt
+  no-truck = TruckAt { present = False, d = 0, along = 0.0, fwd = 0.0 }
+
+  truck-step : List Segment, List Integer, Pose, Real, Integer -> TruckAt
+  truck-step (segs) (ch) (pose) (remaining) (d) =
+    if d >= list-length ch then no-truck
+    else if remaining > (list-at segs (list-at ch d)).length
+      then truck-step segs ch pose (remaining - (list-at segs (list-at ch d)).length) (d + 1)
+      else truck-here segs ch pose remaining d
+
+  truck-here : List Segment, List Integer, Pose, Real, Integer -> TruckAt
+  truck-here (segs) (ch) (pose) (remaining) (d) =
+    let c = at segs ch pose d remaining ((list-at segs (list-at ch d)).width / 2.0)
+    in if c.forward > near
+      then TruckAt { present = True, d = d, along = remaining, fwd = c.forward }
+      else no-truck
+
+ A lead of zero or less means the truck is level with or behind the rider, and it
+ is simply not drawn -- the zig does not clamp it forward.
+
+  truck-at : List Segment, List Integer, Pose, Real, Real -> TruckAt
+  truck-at (segs) (ch) (pose) (along) (lead) =
+    if lead > 0.0 then truck-step segs ch pose (along + lead) 0 else no-truck
+
+Section: Into the Frame
+
+  truck-items : TruckAt -> List Item
+  truck-items (t) = if t.present then [Item { fwd = t.fwd, kind = KTruck, i = 0 }] else []

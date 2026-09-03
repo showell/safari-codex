@@ -151,6 +151,22 @@ const RailPolyS = struct {
 };
 const RailPoly = *RailPolyS;
 
+const Kind = enum {
+    KTree,
+    KTower,
+    KCow,
+    KCat,
+    KTruck,
+    KRail,
+};
+
+const ItemS = struct {
+    fwd: f64,
+    kind: Kind,
+    i_: i64,
+};
+const Item = *ItemS;
+
 const PoseS = struct {
     along: f64,
     across: f64,
@@ -169,24 +185,14 @@ const MapperS = struct {
 };
 const Mapper = *MapperS;
 
-const PondPtS = struct {
-    cu: f64,
-    cv: f64,
+const CatItemS = struct {
+    right: f64,
+    fwd: f64,
+    height: f64,
+    pose_idx: i64,
+    lift: f64,
 };
-const PondPt = *PondPtS;
-
-const DuckS = struct {
-    p_: PondPt,
-    face_right: bool,
-};
-const Duck = *DuckS;
-
-const SpeciesS = struct {
-    present: bool,
-    cp_: i64,
-    adult_h: f64,
-};
-const Species = *SpeciesS;
+const CatItem = *CatItemS;
 
 const BillboardS = struct {
     right: f64,
@@ -204,13 +210,24 @@ const PlacedS = struct {
 };
 const Placed = *PlacedS;
 
-const TreeItemS = struct {
-    right: f64,
-    fwd: f64,
-    height: f64,
-    color: i64,
+const SpeciesS = struct {
+    present: bool,
+    cp_: i64,
+    adult_h: f64,
 };
-const TreeItem = *TreeItemS;
+const Species = *SpeciesS;
+
+const PondPtS = struct {
+    cu: f64,
+    cv: f64,
+};
+const PondPt = *PondPtS;
+
+const DuckS = struct {
+    p_: PondPt,
+    face_right: bool,
+};
+const Duck = *DuckS;
 
 const TowerItemS = struct {
     map: Mapper,
@@ -222,14 +239,13 @@ const TowerItemS = struct {
 };
 const TowerItem = *TowerItemS;
 
-const CatItemS = struct {
+const TreeItemS = struct {
     right: f64,
     fwd: f64,
     height: f64,
-    pose_idx: i64,
-    lift: f64,
+    color: i64,
 };
-const CatItem = *CatItemS;
+const TreeItem = *TreeItemS;
 
 const TruckAtS = struct {
     present: bool,
@@ -238,22 +254,6 @@ const TruckAtS = struct {
     fwd: f64,
 };
 const TruckAt = *TruckAtS;
-
-const Kind = enum {
-    KTree,
-    KTower,
-    KCow,
-    KCat,
-    KTruck,
-    KRail,
-};
-
-const ItemS = struct {
-    fwd: f64,
-    kind: Kind,
-    i_: i64,
-};
-const Item = *ItemS;
 
 const CollectedS = struct {
     trees: *CxList(TreeItem),
@@ -933,6 +933,26 @@ fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
     return (if ((cx_list_len(path_) < 2)) cx_ll_empty(RailPoly) else list_take(RailPoly, cx_ll_concat(bars(path_, 0), posts(path_, 0)), max_rail_polys()));
 }
 
+fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
+    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j +% 1))));
+}
+
+fn merge_items(a_: *CxList(Item), b_: *CxList(Item), i_: i64, j: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
+}
+
+fn sort_tie() f64 {
+    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
+}
+
+fn deeper_than(x: f64, y: f64) bool {
+    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
+}
+
+fn sort_items(xs: *CxList(Item)) *CxList(Item) {
+    return (if ((cx_list_len(xs) <= 1)) xs else merge_items(sort_items(list_take(Item, xs, @divTrunc(cx_list_len(xs), 2))), sort_items(list_drop(Item, xs, @divTrunc(cx_list_len(xs), 2))), 0, 0));
+}
+
 fn look_ahead() i64 {
     return 7;
 }
@@ -974,56 +994,32 @@ fn map_pt(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper,
     return (if (m_.is_chain) at(_arg_segs, ch, pose, m_.d_, a_, x) else b1: { const p_ = cur_to_next(a_, x, m_.prev_len, m_.prev_angle, m_.prev_right, m_.prev_w); break :b1 to_rider(p_.a_, p_.x, pose.along, pose.across, pose.yaw, pose.hw); });
 }
 
-fn water_outline() *CxList(PondPt) {
-    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4611686018427387904)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628574517030027264)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4629418941960159232)))), .cv = @as(f64, @bitCast(@as(i64, 4624070917402656768))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4607182418800017408)))), .cv = @as(f64, @bitCast(@as(i64, 4625196817309499392))) }) });
+fn min_scenery_px() f64 {
+    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
 }
 
-fn water_color() i64 {
-    return 3112588;
+fn chain_gap(w: *CxList(Segment), ch: *CxList(i64), along: f64, d_: i64) f64 {
+    return (if ((d_ <= 0)) (@as(f64, @bitCast(@as(i64, 0))) - along) else (chain_gap(w, ch, along, (d_ -% 1)) + cx_list_at(w, cx_list_at(ch, (d_ -% 1))).length));
 }
 
-fn bank() *CxList(PondPt) {
-    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629841154425225216))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4629137466983448576))) }) });
+fn cat_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, gap: f64, sg: Segment, v_: f64) *CxList(CatItem) {
+    return b0: { const st = cat_state(sg.cat, (gap + sg.cat.along), v_); break :b0 b1: { const rp = at(w, ch, pose, d_, sg.cat.along, (st.across + (sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))); break :b1 (if ((rp.forward <= near())) cx_ll_empty(CatItem) else (if ((((sg.cat.height / rp.forward) * cf) < min_scenery_px())) cx_ll_empty(CatItem) else cx_ll_of(CatItem, &[_]CatItem{ cx_new(CatItemS{ .right = rp.right, .fwd = rp.forward, .height = sg.cat.height, .pose_idx = st.pose_idx, .lift = st.lift }) }))); }; };
 }
 
-fn bank_color() i64 {
-    return 12759680;
+fn seg_cat(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, along: f64, v_: f64) *CxList(CatItem) {
+    return b0: { const sg = cx_list_at(w, cx_list_at(ch, d_)); break :b0 (if (sg.has_cat) cat_item(w, ch, pose, d_, cf, chain_gap(w, ch, along, d_), sg, v_) else cx_ll_empty(CatItem)); };
 }
 
-fn duck_codepoint() i64 {
-    return 129414;
+fn walk_cats(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, along: f64, v_: f64, d_: i64) *CxList(CatItem) {
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(CatItem) else cx_ll_concat(seg_cat(w, ch, pose, d_, cf, along, v_), walk_cats(w, ch, pose, cf, along, v_, (d_ +% 1))));
 }
 
-fn duck_height() f64 {
-    return @as(f64, @bitCast(@as(i64, 4606281698874543309)));
+fn max_vis_cats() i64 {
+    return 8;
 }
 
-fn ducks() *CxList(Duck) {
-    return cx_ll_of(Duck, &[_]Duck{ cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4620693217682128896)))), .cv = @as(f64, @bitCast(@as(i64, 4622382067542392832))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4625196817309499392)))), .cv = @as(f64, @bitCast(@as(i64, 4625478292286210048))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4621256167635550208)))), .cv = @as(f64, @bitCast(@as(i64, 4626604192193052672))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4616189618054758400)))), .cv = @as(f64, @bitCast(@as(i64, 4618441417868443648))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4622945017495814144)))), .cv = @as(f64, @bitCast(@as(i64, 4619567317775286272))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4626322717216342016)))), .cv = @as(f64, @bitCast(@as(i64, 4620693217682128896))) }), .face_right = true }) });
-}
-
-fn no_species() Species {
-    return cx_new(SpeciesS{ .present = false, .cp_ = 0, .adult_h = @as(f64, @bitCast(@as(i64, 0))) });
-}
-
-fn adult_rail_buffer() f64 {
-    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
-}
-
-fn baby_ratio() f64 {
-    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
-}
-
-fn baby_beyond() f64 {
-    return @as(f64, @bitCast(@as(i64, 4624070917402656768)));
-}
-
-fn species_of(c_: Creature) Species {
-    return switch (c_) { .Elephant => cx_new(SpeciesS{ .present = true, .cp_ = 128024, .adult_h = @as(f64, @bitCast(@as(i64, 4613487458278336102))) }), .Giraffe => cx_new(SpeciesS{ .present = true, .cp_ = 129426, .adult_h = @as(f64, @bitCast(@as(i64, 4616752568008179712))) }), .Zebra => cx_new(SpeciesS{ .present = true, .cp_ = 129427, .adult_h = @as(f64, @bitCast(@as(i64, 4609884578576439706))) }), .Rhino => cx_new(SpeciesS{ .present = true, .cp_ = 129423, .adult_h = @as(f64, @bitCast(@as(i64, 4612136378390124954))) }), .DuckPond => no_species(), .NoCreature => no_species(),  };
-}
-
-fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(Critter) {
-    return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
+fn cat_items(cs: *CxList(CatItem), i_: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(cs, i_).fwd, .kind = Kind.KCat, .i_ = i_ }) }), cat_items(cs, (i_ +% 1))));
 }
 
 fn min_critter_px() f64 {
@@ -1052,72 +1048,56 @@ fn size_culled_of(ps: *CxList(Placed), i_: i64) i64 {
     }
 }
 
-fn outer_cu(exit_right: bool, wd: f64) f64 {
-    return @as(f64, (if (exit_right) @as(f64, @bitCast(@as(i64, 0))) else wd));
+fn no_species() Species {
+    return cx_new(SpeciesS{ .present = false, .cp_ = 0, .adult_h = @as(f64, @bitCast(@as(i64, 0))) });
 }
 
-fn joint_apex(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) RiderPt {
-    return b0: { const fcu: f64 = outer_cu(exit_right, from_w); break :b0 b1: { const tx: f64 = outer_cu(exit_right, to_w); break :b1 line_meet(map_pt(_arg_segs, ch, pose, from_map, from_len, fcu), map_pt(_arg_segs, ch, pose, from_map, (from_len + @as(f64, @bitCast(@as(i64, 4607182418800017408)))), fcu), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), tx), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 4607182418800017408))), tx)); }; };
+fn adult_rail_buffer() f64 {
+    return @as(f64, @bitCast(@as(i64, 4609434218613702656)));
 }
 
-fn min_scenery_px() f64 {
-    return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
+fn baby_ratio() f64 {
+    return @as(f64, @bitCast(@as(i64, 4602678819172646912)));
 }
 
-fn farm_seg_reach() i64 {
-    return 3;
+fn baby_beyond() f64 {
+    return @as(f64, @bitCast(@as(i64, 4624070917402656768)));
 }
 
-fn safari_seg_reach() i64 {
-    return 5;
+fn species_of(c_: Creature) Species {
+    return switch (c_) { .Elephant => cx_new(SpeciesS{ .present = true, .cp_ = 128024, .adult_h = @as(f64, @bitCast(@as(i64, 4613487458278336102))) }), .Giraffe => cx_new(SpeciesS{ .present = true, .cp_ = 129426, .adult_h = @as(f64, @bitCast(@as(i64, 4616752568008179712))) }), .Zebra => cx_new(SpeciesS{ .present = true, .cp_ = 129427, .adult_h = @as(f64, @bitCast(@as(i64, 4609884578576439706))) }), .Rhino => cx_new(SpeciesS{ .present = true, .cp_ = 129423, .adult_h = @as(f64, @bitCast(@as(i64, 4612136378390124954))) }), .DuckPond => no_species(), .NoCreature => no_species(),  };
 }
 
-fn max_vis_trees() i64 {
-    return 640;
+fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(Critter) {
+    return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
 }
 
-fn max_vis_towers() i64 {
-    return 16;
+fn water_outline() *CxList(PondPt) {
+    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4611686018427387904)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628574517030027264)))), .cv = @as(f64, @bitCast(@as(i64, 4613937818241073152))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4629418941960159232)))), .cv = @as(f64, @bitCast(@as(i64, 4624070917402656768))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4607182418800017408)))), .cv = @as(f64, @bitCast(@as(i64, 4625196817309499392))) }) });
 }
 
-fn max_vis_critters() i64 {
-    return 320;
+fn water_color() i64 {
+    return 3112588;
 }
 
-fn max_vis_cats() i64 {
-    return 8;
+fn bank() *CxList(PondPt) {
+    return cx_ll_of(PondPt, &[_]PondPt{ cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629700416936869888))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628574517030027264))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4628011567076605952)))), .cv = @as(f64, @bitCast(@as(i64, 4628855992006737920))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4624633867356078080)))), .cv = @as(f64, @bitCast(@as(i64, 4629841154425225216))) }), cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4617315517961601024)))), .cv = @as(f64, @bitCast(@as(i64, 4629137466983448576))) }) });
 }
 
-fn tower_beyond() f64 {
-    return @as(f64, @bitCast(@as(i64, 4639833516098453504)));
+fn bank_color() i64 {
+    return 12759680;
 }
 
-fn tower_right() f64 {
-    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+fn duck_codepoint() i64 {
+    return 129414;
 }
 
-fn seg_tower_left() f64 {
-    return @as(f64, @bitCast(@as(i64, 4636737291354636288)));
+fn duck_height() f64 {
+    return @as(f64, @bitCast(@as(i64, 4606281698874543309)));
 }
 
-fn tower_yaw() f64 {
-    return ((@as(f64, @bitCast(@as(i64, 4629137466983448576))) * @as(f64, @bitCast(@as(i64, 4614256656543962353)))) / @as(f64, @bitCast(@as(i64, 4640537203540230144))));
-}
-
-fn chain_gap(w: *CxList(Segment), ch: *CxList(i64), along: f64, d_: i64) f64 {
-    return (if ((d_ <= 0)) (@as(f64, @bitCast(@as(i64, 0))) - along) else (chain_gap(w, ch, along, (d_ -% 1)) + cx_list_at(w, cx_list_at(ch, (d_ -% 1))).length));
-}
-
-fn cat_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, gap: f64, sg: Segment, v_: f64) *CxList(CatItem) {
-    return b0: { const st = cat_state(sg.cat, (gap + sg.cat.along), v_); break :b0 b1: { const rp = at(w, ch, pose, d_, sg.cat.along, (st.across + (sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))); break :b1 (if ((rp.forward <= near())) cx_ll_empty(CatItem) else (if ((((sg.cat.height / rp.forward) * cf) < min_scenery_px())) cx_ll_empty(CatItem) else cx_ll_of(CatItem, &[_]CatItem{ cx_new(CatItemS{ .right = rp.right, .fwd = rp.forward, .height = sg.cat.height, .pose_idx = st.pose_idx, .lift = st.lift }) }))); }; };
-}
-
-fn seg_cat(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, along: f64, v_: f64) *CxList(CatItem) {
-    return b0: { const sg = cx_list_at(w, cx_list_at(ch, d_)); break :b0 (if (sg.has_cat) cat_item(w, ch, pose, d_, cf, chain_gap(w, ch, along, d_), sg, v_) else cx_ll_empty(CatItem)); };
-}
-
-fn walk_cats(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, along: f64, v_: f64, d_: i64) *CxList(CatItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(CatItem) else cx_ll_concat(seg_cat(w, ch, pose, d_, cf, along, v_), walk_cats(w, ch, pose, cf, along, v_, (d_ +% 1))));
+fn ducks() *CxList(Duck) {
+    return cx_ll_of(Duck, &[_]Duck{ cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4620693217682128896)))), .cv = @as(f64, @bitCast(@as(i64, 4622382067542392832))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4625196817309499392)))), .cv = @as(f64, @bitCast(@as(i64, 4625478292286210048))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4621256167635550208)))), .cv = @as(f64, @bitCast(@as(i64, 4626604192193052672))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4616189618054758400)))), .cv = @as(f64, @bitCast(@as(i64, 4618441417868443648))) }), .face_right = true }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4622945017495814144)))), .cv = @as(f64, @bitCast(@as(i64, 4619567317775286272))) }), .face_right = false }), cx_new(DuckS{ .p_ = cx_new(PondPtS{ .cu = (-@as(f64, @bitCast(@as(i64, 4626322717216342016)))), .cv = @as(f64, @bitCast(@as(i64, 4620693217682128896))) }), .face_right = true }) });
 }
 
 fn place_critter(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, hw: f64, cr: Critter) Placed {
@@ -1144,32 +1124,16 @@ fn place_ducks(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Ma
     return (if ((i_ >= cx_list_len(ducks()))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_duck(_arg_segs, ch, pose, m_, from_len, cx_list_at(ducks(), i_)) }), place_ducks(_arg_segs, ch, pose, m_, from_len, (i_ +% 1))));
 }
 
-fn place_tree(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, tr: Tree) *CxList(TreeItem) {
-    return b0: { const rp = at(_arg_segs, ch, pose, d_, tr.along, (tr.across + hw)); break :b0 (if ((rp.forward <= near())) cx_ll_empty(TreeItem) else (if ((((tr.height / rp.forward) * cf) < min_scenery_px())) cx_ll_empty(TreeItem) else cx_ll_of(TreeItem, &[_]TreeItem{ cx_new(TreeItemS{ .right = rp.right, .fwd = rp.forward, .height = tr.height, .color = tr.color }) }))); };
+fn farm_seg_reach() i64 {
+    return 3;
 }
 
-fn seg_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, trs: *CxList(Tree), i_: i64) *CxList(TreeItem) {
-    return (if ((i_ >= cx_list_len(trs))) cx_ll_empty(TreeItem) else cx_ll_concat(place_tree(_arg_segs, ch, pose, d_, cf, hw, cx_list_at(trs, i_)), seg_trees(_arg_segs, ch, pose, d_, cf, hw, trs, (i_ +% 1))));
-}
-
-fn tower_if_ahead(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, a0: f64, x0: f64, yw: f64, key: i64) *CxList(TowerItem) {
-    return b0: { const c_ = map_pt(_arg_segs, ch, pose, m_, a0, x0); break :b0 (if ((c_.forward <= near())) cx_ll_empty(TowerItem) else cx_ll_of(TowerItem, &[_]TowerItem{ cx_new(TowerItemS{ .map = m_, .a0 = a0, .x0 = x0, .yaw = yw, .fwd = c_.forward, .off_ = cx_real_from_int(((key *% 37) -% (@divTrunc((key *% 37), 120) *% 120))) }) })); };
-}
-
-fn seg_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 cx_ll_concat(tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length + tower_beyond()), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), cx_list_at(ch, d_)), seg_mid_tower(_arg_segs, ch, pose, d_)); };
-}
-
-fn seg_mid_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (sg.has_mid_tower) tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - seg_tower_left()), @as(f64, @bitCast(@as(i64, 0))), (cx_list_at(ch, d_) +% 60)) else cx_ll_empty(TowerItem)); };
+fn safari_seg_reach() i64 {
+    return 5;
 }
 
 fn seg_farm(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, hw: f64) *CxList(Placed) {
     return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if ((d_ >= farm_seg_reach())) cx_ll_empty(Placed) else cx_ll_concat(place_all(_arg_segs, ch, pose, d_, hw, sg.cows, 0), place_all(_arg_segs, ch, pose, d_, hw, sg.pigs, 0))); };
-}
-
-fn seg_cull_count(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 @as(i64, (if ((d_ >= farm_seg_reach())) (cx_list_len(sg.cows) +% cx_list_len(sg.pigs)) else 0)); };
 }
 
 fn seg_safari(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, hw: f64) *CxList(Placed) {
@@ -1184,28 +1148,28 @@ fn seg_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_:
     return b0: { const hw: f64 = (cx_list_at(_arg_segs, cx_list_at(ch, d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); break :b0 cx_ll_concat(cx_ll_concat(seg_farm(_arg_segs, ch, pose, d_, hw), seg_safari(_arg_segs, ch, pose, d_, hw)), seg_ducks(_arg_segs, ch, pose, d_)); };
 }
 
-fn walk_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, d_: i64) *CxList(TreeItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TreeItem) else cx_ll_concat(seg_trees(_arg_segs, ch, pose, d_, cf, (cx_list_at(_arg_segs, cx_list_at(ch, d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), cx_list_at(_arg_segs, cx_list_at(ch, d_)).trees, 0), walk_trees(_arg_segs, ch, pose, cf, (d_ +% 1))));
-}
-
-fn walk_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TowerItem) else cx_ll_concat(seg_towers(_arg_segs, ch, pose, d_), walk_towers(_arg_segs, ch, pose, (d_ +% 1))));
-}
-
 fn walk_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(Placed) {
     return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(Placed) else cx_ll_concat(seg_billboards(_arg_segs, ch, pose, d_), walk_billboards(_arg_segs, ch, pose, (d_ +% 1))));
-}
-
-fn walk_seg_cull(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
-    return @as(i64, (if ((d_ >= cx_list_len(ch))) 0 else (seg_cull_count(_arg_segs, ch, d_) +% walk_seg_cull(_arg_segs, ch, (d_ +% 1)))));
 }
 
 fn behind_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(Placed) {
     return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 cx_ll_concat(place_all_via(_arg_segs, ch, pose, prev_map(pv), (pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), corner_critters(pv.exit_creature, pv.length, pv.exit_right, (pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904))))), 0), (if (is_pond(pv.exit_creature)) place_ducks(_arg_segs, ch, pose, prev_map(pv), pv.length, 0) else cx_ll_empty(Placed))); };
 }
 
-fn behind_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(TowerItem) {
-    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 tower_if_ahead(_arg_segs, ch, pose, prev_map(pv), (pv.length + tower_beyond()), ((pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), prev_idx); };
+fn max_vis_critters() i64 {
+    return 320;
+}
+
+fn cow_items(bs: *CxList(Billboard), i_: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(bs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(bs, i_).fwd, .kind = Kind.KCow, .i_ = i_ }) }), cow_items(bs, (i_ +% 1))));
+}
+
+fn outer_cu(exit_right: bool, wd: f64) f64 {
+    return @as(f64, (if (exit_right) @as(f64, @bitCast(@as(i64, 0))) else wd));
+}
+
+fn joint_apex(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) RiderPt {
+    return b0: { const fcu: f64 = outer_cu(exit_right, from_w); break :b0 b1: { const tx: f64 = outer_cu(exit_right, to_w); break :b1 line_meet(map_pt(_arg_segs, ch, pose, from_map, from_len, fcu), map_pt(_arg_segs, ch, pose, from_map, (from_len + @as(f64, @bitCast(@as(i64, 4607182418800017408)))), fcu), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), tx), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 4607182418800017408))), tx)); }; };
 }
 
 fn leg_steps(dist: f64) i64 {
@@ -1244,6 +1208,74 @@ fn behind_rails(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_
     return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 joint_rails(_arg_segs, ch, pose, prev_map(pv), chain_map(0), pv.length, pv.width, cx_list_at(_arg_segs, cx_list_at(ch, 0)).width, pv.exit_right); };
 }
 
+fn rail_items(rs: *CxList(RailPoly), i_: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(rs, i_).fwd, .kind = Kind.KRail, .i_ = i_ }) }), rail_items(rs, (i_ +% 1))));
+}
+
+fn tower_beyond() f64 {
+    return @as(f64, @bitCast(@as(i64, 4639833516098453504)));
+}
+
+fn tower_right() f64 {
+    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+}
+
+fn seg_tower_left() f64 {
+    return @as(f64, @bitCast(@as(i64, 4636737291354636288)));
+}
+
+fn tower_yaw() f64 {
+    return ((@as(f64, @bitCast(@as(i64, 4629137466983448576))) * @as(f64, @bitCast(@as(i64, 4614256656543962353)))) / @as(f64, @bitCast(@as(i64, 4640537203540230144))));
+}
+
+fn tower_if_ahead(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, a0: f64, x0: f64, yw: f64, key: i64) *CxList(TowerItem) {
+    return b0: { const c_ = map_pt(_arg_segs, ch, pose, m_, a0, x0); break :b0 (if ((c_.forward <= near())) cx_ll_empty(TowerItem) else cx_ll_of(TowerItem, &[_]TowerItem{ cx_new(TowerItemS{ .map = m_, .a0 = a0, .x0 = x0, .yaw = yw, .fwd = c_.forward, .off_ = cx_real_from_int(((key *% 37) -% (@divTrunc((key *% 37), 120) *% 120))) }) })); };
+}
+
+fn seg_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 cx_ll_concat(tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length + tower_beyond()), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), cx_list_at(ch, d_)), seg_mid_tower(_arg_segs, ch, pose, d_)); };
+}
+
+fn seg_mid_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (sg.has_mid_tower) tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - seg_tower_left()), @as(f64, @bitCast(@as(i64, 0))), (cx_list_at(ch, d_) +% 60)) else cx_ll_empty(TowerItem)); };
+}
+
+fn walk_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TowerItem) else cx_ll_concat(seg_towers(_arg_segs, ch, pose, d_), walk_towers(_arg_segs, ch, pose, (d_ +% 1))));
+}
+
+fn behind_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(TowerItem) {
+    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 tower_if_ahead(_arg_segs, ch, pose, prev_map(pv), (pv.length + tower_beyond()), ((pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), prev_idx); };
+}
+
+fn max_vis_towers() i64 {
+    return 16;
+}
+
+fn tower_items(ts: *CxList(TowerItem), i_: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTower, .i_ = i_ }) }), tower_items(ts, (i_ +% 1))));
+}
+
+fn place_tree(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, tr: Tree) *CxList(TreeItem) {
+    return b0: { const rp = at(_arg_segs, ch, pose, d_, tr.along, (tr.across + hw)); break :b0 (if ((rp.forward <= near())) cx_ll_empty(TreeItem) else (if ((((tr.height / rp.forward) * cf) < min_scenery_px())) cx_ll_empty(TreeItem) else cx_ll_of(TreeItem, &[_]TreeItem{ cx_new(TreeItemS{ .right = rp.right, .fwd = rp.forward, .height = tr.height, .color = tr.color }) }))); };
+}
+
+fn seg_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, trs: *CxList(Tree), i_: i64) *CxList(TreeItem) {
+    return (if ((i_ >= cx_list_len(trs))) cx_ll_empty(TreeItem) else cx_ll_concat(place_tree(_arg_segs, ch, pose, d_, cf, hw, cx_list_at(trs, i_)), seg_trees(_arg_segs, ch, pose, d_, cf, hw, trs, (i_ +% 1))));
+}
+
+fn walk_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, d_: i64) *CxList(TreeItem) {
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TreeItem) else cx_ll_concat(seg_trees(_arg_segs, ch, pose, d_, cf, (cx_list_at(_arg_segs, cx_list_at(ch, d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), cx_list_at(_arg_segs, cx_list_at(ch, d_)).trees, 0), walk_trees(_arg_segs, ch, pose, cf, (d_ +% 1))));
+}
+
+fn max_vis_trees() i64 {
+    return 640;
+}
+
+fn tree_items(ts: *CxList(TreeItem), i_: i64) *CxList(Item) {
+    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTree, .i_ = i_ }) }), tree_items(ts, (i_ +% 1))));
+}
+
 fn no_truck() TruckAt {
     return cx_new(TruckAtS{ .present = false, .d_ = 0, .along = @as(f64, @bitCast(@as(i64, 0))), .fwd = @as(f64, @bitCast(@as(i64, 0))) });
 }
@@ -1264,48 +1296,16 @@ fn truck_at(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, along: f6
     return (if ((lead > @as(f64, @bitCast(@as(i64, 0))))) truck_step(_arg_segs, ch, pose, (along + lead), 0) else no_truck());
 }
 
-fn tree_items(ts: *CxList(TreeItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTree, .i_ = i_ }) }), tree_items(ts, (i_ +% 1))));
-}
-
-fn tower_items(ts: *CxList(TowerItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTower, .i_ = i_ }) }), tower_items(ts, (i_ +% 1))));
-}
-
-fn cow_items(bs: *CxList(Billboard), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(bs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(bs, i_).fwd, .kind = Kind.KCow, .i_ = i_ }) }), cow_items(bs, (i_ +% 1))));
-}
-
-fn cat_items(cs: *CxList(CatItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(cs, i_).fwd, .kind = Kind.KCat, .i_ = i_ }) }), cat_items(cs, (i_ +% 1))));
-}
-
-fn rail_items(rs: *CxList(RailPoly), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(rs, i_).fwd, .kind = Kind.KRail, .i_ = i_ }) }), rail_items(rs, (i_ +% 1))));
-}
-
 fn truck_items(t: TruckAt) *CxList(Item) {
     return (if (t.present) cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = t.fwd, .kind = Kind.KTruck, .i_ = 0 }) }) else cx_ll_empty(Item));
 }
 
-fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
-    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j +% 1))));
+fn seg_cull_count(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 @as(i64, (if ((d_ >= farm_seg_reach())) (cx_list_len(sg.cows) +% cx_list_len(sg.pigs)) else 0)); };
 }
 
-fn merge_items(a_: *CxList(Item), b_: *CxList(Item), i_: i64, j: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
-}
-
-fn sort_tie() f64 {
-    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
-}
-
-fn deeper_than(x: f64, y: f64) bool {
-    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
-}
-
-fn sort_items(xs: *CxList(Item)) *CxList(Item) {
-    return (if ((cx_list_len(xs) <= 1)) xs else merge_items(sort_items(list_take(Item, xs, @divTrunc(cx_list_len(xs), 2))), sort_items(list_drop(Item, xs, @divTrunc(cx_list_len(xs), 2))), 0, 0));
+fn walk_seg_cull(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
+    return @as(i64, (if ((d_ >= cx_list_len(ch))) 0 else (seg_cull_count(_arg_segs, ch, d_) +% walk_seg_cull(_arg_segs, ch, (d_ +% 1)))));
 }
 
 fn collect(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, along: f64, v_: f64, truck_pos: f64) Collected {

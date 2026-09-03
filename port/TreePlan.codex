@@ -1,0 +1,75 @@
+Chapter: TreePlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter SceneLimits
+  cites Safari chapter Scenery
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Geom
+
+ WHICH conifers this frame shows. `Safari chapter Trees` owns the rows and their
+ colours, `Safari chapter Tree` draws one; this decides which are worth projecting.
+
+ We say:
+
+Section: A Conifer Worth Projecting
+
+ The zig collects into PARALLEL ARRAYS -- t-right, t-fwd, t-h, t-col -- because it
+ has to; the port collects records, which is the same data with the index made
+ implicit. What the port does NOT change is that each kind is collected into its
+ own list and merged only at the sort, because that is what makes the sort one
+ pass over everything rather than a sort per kind.
+
+  TreeItem = record {
+    right : Real,
+    fwd : Real,
+    height : Real,
+    color : Integer
+  }
+
+ Trees are authored centre-relative, so the half width shifts them to
+ from-the-left. They cull on the LIVE focal, unlike the critters above.
+
+  place-tree : List Segment, List Integer, Pose, Integer, Real, Real, Tree -> List TreeItem
+  place-tree (segs) (ch) (pose) (d) (cf) (hw) (tr) =
+    let rp = at segs ch pose d tr.along (tr.across + hw)
+    in if rp.forward <= near then []
+      else if tr.height / rp.forward * cf < min-scenery-px then []
+      else [TreeItem { right = rp.right, fwd = rp.forward, height = tr.height, color = tr.color }]
+
+  seg-trees : List Segment, List Integer, Pose, Integer, Real, Real, List Tree, Integer -> List TreeItem
+  seg-trees (segs) (ch) (pose) (d) (cf) (hw) (trs) (i) =
+    if i >= list-length trs then []
+    else (place-tree segs ch pose d cf hw (list-at trs i)) & seg-trees segs ch pose d cf hw trs (i + 1)
+
+Section: Into the Frame
+
+  walk-trees : List Segment, List Integer, Pose, Real, Integer -> List TreeItem
+  walk-trees (segs) (ch) (pose) (cf) (d) =
+    if d >= list-length ch then []
+    else (seg-trees segs ch pose d cf ((list-at segs (list-at ch d)).width / 2.0) (list-at segs (list-at ch d)).trees 0)
+         & walk-trees segs ch pose cf (d + 1)
+
+ THE SIZE CULL MEASURES AGAINST THE STABLE BASE FOCAL, NOT THE LIVE ONE, and that
+ is not an oversight to tidy up. The focal pulls in to 0.35x during a lean, so
+ culling a critter on the live focal would yank close animals out of view the
+ instant the rider turns and pop them back when he straightened. Scenery -- trees
+ and the cat -- does cull on the live `cam-focal`. The two are different on
+ purpose and the port keeps them different.
+
+ The fixed-array caps. Codex lists carry their own length, so these bound nothing
+ here; they are ported because they are observable IF reached, and the truncation
+ below is where that would show. On this route they are not reached -- render's
+ own note puts the tree peak at about 37 percent of its cap -- so the port
+ truncates at the end where the zig stops mid-segment. Those differ only once a
+ cap is hit, and making them agree there would mean threading a running count
+ through every collector for a case this route cannot produce.
+
+  max-vis-trees : Integer
+  max-vis-trees = 640
+
+  tree-items : List TreeItem, Integer -> List Item
+  tree-items (ts) (i) =
+    if i >= list-length ts then []
+    else [Item { fwd = (list-at ts i).fwd, kind = KTree, i = i }] & tree-items ts (i + 1)

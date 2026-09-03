@@ -1,0 +1,167 @@
+Chapter: CritterPlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Billboards
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter SafariCritter
+  cites Safari chapter Scenery
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Pond
+
+ WHICH emoji animals this frame shows -- the cow herd, the pigs, the corner safari pair
+ and the pond ducks. They all collect to the same billboard, which is why one chapter
+ places all four populations and one list holds them.
+
+ This is the one collector with two reaches rather than one: the farm animals are worth
+ projecting closer in than the safari pair, so `farm-seg-reach` and `safari-seg-reach`
+ are both here.
+
+ We say:
+
+Section: Placing a Billboard
+
+ One rule for every emoji animal: map it into the rider frame, drop it if it is
+ behind the near plane, size-cull it if it would project shorter than the floor.
+
+  place-critter : List Segment, List Integer, Pose, Integer, Real, Critter -> Placed
+  place-critter (segs) (ch) (pose) (d) (hw) (cr) =
+    let rp = at segs ch pose d cr.along (cr.across + hw)
+    in verdict rp cr.height cr.codepoint cr.face-right
+
+ The behind joint's critters map FORWARD through the join instead, so they take
+ the mapper rather than a chain index. Same verdict.
+
+  place-critter-via : List Segment, List Integer, Pose, Mapper, Real, Critter -> Placed
+  place-critter-via (segs) (ch) (pose) (m) (hw) (cr) =
+    let rp = map-pt segs ch pose m cr.along (cr.across + hw)
+    in verdict rp cr.height cr.codepoint cr.face-right
+
+ A DUCK IS AUTHORED IN THE CORNER FRAME AND MAPS RAW -- no half-width shift. Its
+ `cu` is the bottom-left across directly, which is why the pond's negative cu sits
+ LEFT of the left edge rather than left of the centre line. Getting this wrong
+ would slide the whole pond half a lane and still look like a pond.
+
+  place-duck : List Segment, List Integer, Pose, Mapper, Real, Duck -> Placed
+  place-duck (segs) (ch) (pose) (m) (from-len) (dk) =
+    let rp = map-pt segs ch pose m (from-len + dk.p.cv) dk.p.cu
+    in verdict rp duck-height duck-codepoint dk.face-right
+
+Section: Harvesting a Placement List
+
+ Collect the survivors and count the size-culled, over a list of placements. Two
+ walks over one list rather than one walk returning a pair, because a pair would
+ need a record whose only purpose is to be taken apart again.
+
+  place-all : List Segment, List Integer, Pose, Integer, Real, List Critter, Integer -> List Placed
+  place-all (segs) (ch) (pose) (d) (hw) (crs) (i) =
+    if i >= list-length crs then []
+    else [place-critter segs ch pose d hw (list-at crs i)] & place-all segs ch pose d hw crs (i + 1)
+
+  place-all-via : List Segment, List Integer, Pose, Mapper, Real, List Critter, Integer -> List Placed
+  place-all-via (segs) (ch) (pose) (m) (hw) (crs) (i) =
+    if i >= list-length crs then []
+    else [place-critter-via segs ch pose m hw (list-at crs i)] & place-all-via segs ch pose m hw crs (i + 1)
+
+  place-ducks : List Segment, List Integer, Pose, Mapper, Real, Integer -> List Placed
+  place-ducks (segs) (ch) (pose) (m) (from-len) (i) =
+    if i >= list-length ducks then []
+    else [place-duck segs ch pose m from-len (list-at ducks i)] & place-ducks segs ch pose m from-len (i + 1)
+
+Section: One Segment's Populations
+
+ THE TWO CULLS ARE DELIBERATELY DIFFERENT AND BOTH MUST STAY LIVE. The SEGMENT
+ cull saves projecting a critter at all: trees hide the farm animals past a few
+ segments, and the corner safari animals carry a little further before they are
+ worth it. The SIZE cull then trims whatever is left down to a genuine speck. The
+ zig counts each separately every frame so a gate can assert both still fire -- a
+ reach so loose the size cull never fires, or so tight the segments do all the
+ work, is a bug in the budget. Those two counters are `pub`, and they are this
+ chapter's only observable output.
+
+  farm-seg-reach : Integer
+  farm-seg-reach = 3
+
+  safari-seg-reach : Integer
+  safari-seg-reach = 5
+
+ The farm animals of one chain segment, if it is near enough to be worth
+ projecting at all. Cows first, then the pig herd -- the order the zig fills its
+ array in, which is the order ties break in at the sort.
+
+  seg-farm : List Segment, List Integer, Pose, Integer, Real -> List Placed
+  seg-farm (segs) (ch) (pose) (d) (hw) =
+    let sg = list-at segs (list-at ch d)
+    in if d >= farm-seg-reach then []
+      else (place-all segs ch pose d hw sg.cows 0) & (place-all segs ch pose d hw sg.pigs 0)
+
+ The corner pair at this segment's exit. Skipped at the terminus, which has no
+ exit corner, and beyond the safari reach.
+
+  seg-safari : List Segment, List Integer, Pose, Integer, Real -> List Placed
+  seg-safari (segs) (ch) (pose) (d) (hw) =
+    let sg = list-at segs (list-at ch d)
+    in if sg.terminates then []
+      else if d >= safari-seg-reach then []
+      else place-all segs ch pose d hw (corner-critters sg.exit-creature sg.length sg.exit-right hw) 0
+
+ The three ducks on the pond at this segment's exit. The pond's WATER and BANK are
+ ground quads and belong to the paint pass, not to this one; only the billboards
+ are collected for the sort.
+
+  seg-ducks : List Segment, List Integer, Pose, Integer -> List Placed
+  seg-ducks (segs) (ch) (pose) (d) =
+    let sg = list-at segs (list-at ch d)
+    in if d >= safari-seg-reach then []
+      else if is-pond sg.exit-creature then place-ducks segs ch pose (chain-map d) sg.length 0
+      else []
+
+ Everything one chain segment contributes to the billboard list, in the zig's own
+ fill order: farm animals, then the corner pair, then the ducks.
+
+  seg-billboards : List Segment, List Integer, Pose, Integer -> List Placed
+  seg-billboards (segs) (ch) (pose) (d) =
+    let hw = (list-at segs (list-at ch d)).width / 2.0
+    in (seg-farm segs ch pose d hw) & (seg-safari segs ch pose d hw) & (seg-ducks segs ch pose d)
+
+Section: Walking the Chain
+
+  walk-billboards : List Segment, List Integer, Pose, Integer -> List Placed
+  walk-billboards (segs) (ch) (pose) (d) =
+    if d >= list-length ch then []
+    else (seg-billboards segs ch pose d) & walk-billboards segs ch pose (d + 1)
+
+ The segment the rider just left owns a corner, and everything on it -- pavement,
+ tower, creatures, pond -- pops out the instant his segment index flips unless it
+ is drawn through the join. The route is finite, so there is a previous segment
+ everywhere EXCEPT the start.
+
+ THE BEHIND CRITTERS TAKE NO REACH TEST. The forward ones are gated on
+ safari-seg-reach; this pair is one join away by construction, so the zig does not
+ test it and neither does the port.
+
+  behind-billboards : List Segment, List Integer, Pose, Integer -> List Placed
+  behind-billboards (segs) (ch) (pose) (prev-idx) =
+    let pv = list-at segs prev-idx
+    in (place-all-via segs ch pose (prev-map pv) (pv.width / 2.0) (corner-critters pv.exit-creature pv.length pv.exit-right (pv.width / 2.0)) 0)
+       & (behind-ducks segs ch pose pv)
+
+  behind-ducks : List Segment, List Integer, Pose, Segment -> List Placed
+  behind-ducks (segs) (ch) (pose) (pv) =
+    if is-pond pv.exit-creature then place-ducks segs ch pose (prev-map pv) pv.length 0 else []
+
+Section: Into the Frame
+
+  all-placed : List Segment, List Integer, Pose, Integer -> List Placed
+  all-placed (segs) (ch) (pose) (seg-idx) =
+    if seg-idx > 0
+      then (walk-billboards segs ch pose 0) & (behind-billboards segs ch pose (seg-idx - 1))
+      else walk-billboards segs ch pose 0
+
+  max-vis-critters : Integer
+  max-vis-critters = 320
+
+  cow-items : List Billboard, Integer -> List Item
+  cow-items (bs) (i) =
+    if i >= list-length bs then []
+    else [Item { fwd = (list-at bs i).fwd, kind = KCow, i = i }] & cow-items bs (i + 1)

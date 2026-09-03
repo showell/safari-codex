@@ -1,0 +1,74 @@
+Chapter: CatPlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Cat
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter SceneLimits
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Geom
+
+ WHETHER the cat is on screen and where. `Safari chapter Cat` owns its placement and
+ crossing state; this collects it into the frame with everything else that stands up.
+
+ We say:
+
+Section: The Crossing Cat
+
+ A cat is a billboard like the animals, but its across is not authored -- it comes
+ out of the crossing clock, keyed on the rider's ROAD-ALONG GAP to it. So it needs
+ something none of the other kinds do: how far down the route the chain segment it
+ stands on begins.
+
+ That gap starts NEGATIVE. The rider is already `along` into his own segment, so
+ the start of chain[0] is behind him, and each further segment adds its length.
+ The zig accumulates it as it walks; the port sums it, which is the same number
+ and does not need the walk to carry state.
+
+  chain-gap : List Segment, List Integer, Real, Integer -> Real
+  chain-gap (w) (ch) (along) (d) =
+    if d <= 0 then 0.0 - along
+    else chain-gap w ch along (d - 1) + (list-at w (list-at ch (d - 1))).length
+
+  CatItem = record {
+    right : Real,
+    fwd : Real,
+    height : Real,
+    pose-idx : Integer,
+    lift : Real
+  }
+
+ THE CAT CULLS ON THE LIVE FOCAL, like the trees and unlike the critters, and it
+ culls only at the near plane besides. render.zig argues the point: it is a flat
+ billboard at one depth, so as the rider passes, the whole still scales and slides
+ off to the left together -- it never streaks across the viewport the way a tower
+ can -- and culling it earlier would vanish the collapsed cat exactly as he
+ reaches it, instead of letting him pass it.
+
+  cat-item : List Segment, List Integer, Pose, Integer, Real, Real, Segment, Real -> List CatItem
+  cat-item (w) (ch) (pose) (d) (cf) (gap) (sg) (v) =
+    let st = cat-state sg.cat (gap + sg.cat.along) v
+    in let rp = at w ch pose d sg.cat.along (st.across + sg.width / 2.0)
+    in if rp.forward <= near then []
+      else if sg.cat.height / rp.forward * cf < min-scenery-px then []
+      else [CatItem { right = rp.right, fwd = rp.forward, height = sg.cat.height, pose-idx = st.pose-idx, lift = st.lift }]
+
+  seg-cat : List Segment, List Integer, Pose, Integer, Real, Real, Real -> List CatItem
+  seg-cat (w) (ch) (pose) (d) (cf) (along) (v) =
+    let sg = list-at w (list-at ch d)
+    in if sg.has-cat then cat-item w ch pose d cf (chain-gap w ch along d) sg v else []
+
+Section: Into the Frame
+
+  walk-cats : List Segment, List Integer, Pose, Real, Real, Real, Integer -> List CatItem
+  walk-cats (w) (ch) (pose) (cf) (along) (v) (d) =
+    if d >= list-length ch then []
+    else (seg-cat w ch pose d cf along v) & walk-cats w ch pose cf along v (d + 1)
+
+  max-vis-cats : Integer
+  max-vis-cats = 8
+
+  cat-items : List CatItem, Integer -> List Item
+  cat-items (cs) (i) =
+    if i >= list-length cs then []
+    else [Item { fwd = (list-at cs i).fwd, kind = KCat, i = i }] & cat-items cs (i + 1)

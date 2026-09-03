@@ -1,0 +1,107 @@
+Chapter: TowerPlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter Geom
+  cites Safari chapter Tower
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+
+ WHICH radio towers this frame shows: where each one stands, which are near enough
+ to bother with, and how many. `Safari chapter Tower` draws one and does not know how
+ many there are.
+
+ Split out of Render on 2026-09-03 so that the towers can be REMOVED. Deleting this file
+ and its four call sites in `collect` takes the towers out of the screensaver; nothing
+ else knows about them.
+
+ We say:
+
+Section: The Tower's Place
+
+ Out past the corner, off to the right, and yawed. A long segment also stands its
+ own tower halfway down, that far LEFT of the centreline.
+
+  tower-beyond : Real
+  tower-beyond = 160.0
+
+  tower-right : Real
+  tower-right = 20.0
+
+  seg-tower-left : Real
+  seg-tower-left = 100.0
+
+ THE ZIG WRITES ITS OWN PI HERE, TRUNCATED, and the port copies the literal rather
+ than reaching for Trig's `deg`. render.zig says `30.0 * 3.14159265 / 180.0`, which
+ is 0.523598775 where thirty times a full-precision degree is 0.5235987756. The
+ difference is below f32 and would almost certainly vanish at the seam -- but a
+ port that silently improves a constant is a port whose disagreements no longer
+ mean what they say, so the truncation is kept.
+
+  tower-yaw : Real
+  tower-yaw = 30.0 * 3.14159265 / 180.0
+
+ A tower is collected as the RECIPE for its base rather than as points: the mapper
+ that owns its frame, its base centre and yaw, and the beacon's blink offset. It
+ has to be, because the four base corners are re-derived at draw time from the
+ yaw. `fwd` is the depth of the centre, which is what it sorts by.
+
+  TowerItem = record {
+    map : Mapper,
+    a0 : Real,
+    x0 : Real,
+    yaw : Real,
+    fwd : Real,
+    off : Real
+  }
+
+Section: Which Are Worth Showing
+
+ A tower is collected only if its base CENTRE is in front of the near plane, and
+ the centre is what it sorts by. The exit tower is keyed off its own segment; the
+ mid-tower adds sixty so a long segment's two towers do not blink in step.
+
+  tower-if-ahead : List Segment, List Integer, Pose, Mapper, Real, Real, Real, Integer -> List TowerItem
+  tower-if-ahead (segs) (ch) (pose) (m) (a0) (x0) (yw) (key) =
+    let c = map-pt segs ch pose m a0 x0
+    in if c.forward <= near then []
+      else [TowerItem { map = m, a0 = a0, x0 = x0, yaw = yw, fwd = c.forward, off = beacon-offset-for key }]
+
+  seg-towers : List Segment, List Integer, Pose, Integer -> List TowerItem
+  seg-towers (segs) (ch) (pose) (d) =
+    let sg = list-at segs (list-at ch d)
+    in (tower-if-ahead segs ch pose (chain-map d) (sg.length + tower-beyond) (sg.width / 2.0 + tower-right) tower-yaw (list-at ch d))
+       & (seg-mid-tower segs ch pose d)
+
+  seg-mid-tower : List Segment, List Integer, Pose, Integer -> List TowerItem
+  seg-mid-tower (segs) (ch) (pose) (d) =
+    let sg = list-at segs (list-at ch d)
+    in if sg.has-mid-tower
+      then tower-if-ahead segs ch pose (chain-map d) (sg.length / 2.0) (sg.width / 2.0 - seg-tower-left) 0.0 (list-at ch d + 60)
+      else []
+
+  walk-towers : List Segment, List Integer, Pose, Integer -> List TowerItem
+  walk-towers (segs) (ch) (pose) (d) =
+    if d >= list-length ch then []
+    else (seg-towers segs ch pose d) & walk-towers segs ch pose (d + 1)
+
+  behind-tower : List Segment, List Integer, Pose, Integer -> List TowerItem
+  behind-tower (segs) (ch) (pose) (prev-idx) =
+    let pv = list-at segs prev-idx
+    in tower-if-ahead segs ch pose (prev-map pv) (pv.length + tower-beyond) (pv.width / 2.0 + tower-right) tower-yaw prev-idx
+
+Section: Into the Frame
+
+  all-towers : List Segment, List Integer, Pose, Integer -> List TowerItem
+  all-towers (segs) (ch) (pose) (seg-idx) =
+    if seg-idx > 0
+      then (walk-towers segs ch pose 0) & (behind-tower segs ch pose (seg-idx - 1))
+      else walk-towers segs ch pose 0
+
+  max-vis-towers : Integer
+  max-vis-towers = 16
+
+  tower-items : List TowerItem, Integer -> List Item
+  tower-items (ts) (i) =
+    if i >= list-length ts then []
+    else [Item { fwd = (list-at ts i).fwd, kind = KTower, i = i }] & tower-items ts (i + 1)

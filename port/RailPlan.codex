@@ -1,0 +1,98 @@
+Chapter: RailPlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter Geom
+  cites Safari chapter GuardRail
+  cites Safari chapter Joint
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Num
+
+ WHERE the guard rail runs on a corner: the path, leg by leg, from the joint geometry
+ in `Safari chapter Joint`. `Safari chapter GuardRail` draws the barrier; this decides
+ the line it follows.
+
+ We say:
+
+Section: One Leg of the Rail
+
+ Append points from `from` EXCLUSIVE to `to` inclusive at about one metre spacing
+ -- one rail post per metre along a straight leg of the corner. At least one step
+ always, so a zero-length leg still lands its endpoint.
+
+  leg-steps : Real -> Integer
+  leg-steps (dist) =
+    let r = round-real dist
+    in real-to-int (if r < 1.0 then 1.0 else r)
+
+  leg-points : RiderPt, Real, Real, Integer, Integer -> List RiderPt
+  leg-points (from) (dr) (df) (steps) (i) =
+    if i > steps then []
+    else let t = real-from-int i / real-from-int steps
+    in [RiderPt { right = from.right + dr * t, forward = from.forward + df * t }] & leg-points from dr df steps (i + 1)
+
+  push-leg : RiderPt, RiderPt -> List RiderPt
+  push-leg (from) (to) =
+    let dr = to.right - from.right
+    in let df = to.forward - from.forward
+    in leg-points from dr df (leg-steps (real-sqrt (dr * dr + df * df))) 1
+
+Section: The Path Around a Corner
+
+ The run-up counts DOWN to the end edge, so the last point of the run-up is the
+ outer corner itself and the first leg starts from it.
+
+  rail-run-up : List Segment, List Integer, Pose, Mapper, Real, Real, Integer -> List RiderPt
+  rail-run-up (segs) (ch) (pose) (m) (from-len) (cu) (k) =
+    if k < 0 then []
+    else [map-pt segs ch pose m (from-len - real-from-int k) cu] & rail-run-up segs ch pose m from-len cu (k - 1)
+
+  rail-run-out : List Segment, List Integer, Pose, Mapper, Real, Integer -> List RiderPt
+  rail-run-out (segs) (ch) (pose) (m) (x) (k) =
+    if k > rail-runout then []
+    else [map-pt segs ch pose m (real-from-int k) x] & rail-run-out segs ch pose m x (k + 1)
+
+ The whole corner path: run-up along the from segment's outer shoulder, the two
+ legs into and out of the apex, and the run-out along the to segment's. guard_rail
+ then raises that path to a bar strip and its posts.
+
+  joint-rail-path : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> List RiderPt
+  joint-rail-path (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    let fcu = outer-cu exit-right from-w
+    in let tx = outer-cu exit-right to-w
+    in let of-pt = map-pt segs ch pose from-map from-len fcu
+    in let ot-pt = map-pt segs ch pose to-map 0.0 tx
+    in let q = joint-apex segs ch pose from-map to-map from-len from-w to-w exit-right
+    in (rail-run-up segs ch pose from-map from-len fcu rail-runout) & (push-leg of-pt q) & (push-leg q ot-pt) & (rail-run-out segs ch pose to-map tx 1)
+
+  joint-rails : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> List RailPoly
+  joint-rails (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    rail-emit (joint-rail-path segs ch pose from-map to-map from-len from-w to-w exit-right)
+
+Section: Into the Frame
+
+ Every FORWARD joint on the chain, in chain order, then the joint behind. That is
+ the order the zig's rail store holds them in, and the order ties break in.
+
+  walk-rails : List Segment, List Integer, Pose, Integer -> List RailPoly
+  walk-rails (segs) (ch) (pose) (d) =
+    if d + 1 >= list-length ch then []
+    else (joint-rails segs ch pose (chain-map d) (chain-map (d + 1)) (list-at segs (list-at ch d)).length (list-at segs (list-at ch d)).width (list-at segs (list-at ch (d + 1))).width (list-at segs (list-at ch d)).exit-right)
+         & walk-rails segs ch pose (d + 1)
+
+  behind-rails : List Segment, List Integer, Pose, Integer -> List RailPoly
+  behind-rails (segs) (ch) (pose) (prev-idx) =
+    let pv = list-at segs prev-idx
+    in joint-rails segs ch pose (prev-map pv) (chain-map 0) pv.length pv.width (list-at segs (list-at ch 0)).width pv.exit-right
+
+  all-rails : List Segment, List Integer, Pose, Integer -> List RailPoly
+  all-rails (segs) (ch) (pose) (seg-idx) =
+    if seg-idx > 0
+      then (walk-rails segs ch pose 0) & (behind-rails segs ch pose (seg-idx - 1))
+      else walk-rails segs ch pose 0
+
+  rail-items : List RailPoly, Integer -> List Item
+  rail-items (rs) (i) =
+    if i >= list-length rs then []
+    else [Item { fwd = (list-at rs i).fwd, kind = KRail, i = i }] & rail-items rs (i + 1)

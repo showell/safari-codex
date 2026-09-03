@@ -23,6 +23,12 @@ Chapter: Safari
   cites Safari chapter Frame
   cites Safari chapter Billboards
   cites Safari chapter GroundPlan
+  cites Safari chapter CatPlan
+  cites Safari chapter DepthSort
+  cites Safari chapter SceneLimits
+  cites Safari chapter TowerPlan
+  cites Safari chapter TreePlan
+  cites Safari chapter TruckPlan
 
  The whole game, folded: one ride state, one step of it, and one frame drawn from
  it. A port of wasm/safari.zig, and the last file in the game to be ported.

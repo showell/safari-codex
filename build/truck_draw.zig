@@ -144,6 +144,22 @@ const DrawCmdS = struct {
 };
 const DrawCmd = *DrawCmdS;
 
+const Kind = enum {
+    KTree,
+    KTower,
+    KCow,
+    KCat,
+    KTruck,
+    KRail,
+};
+
+const ItemS = struct {
+    fwd: f64,
+    kind: Kind,
+    i_: i64,
+};
+const Item = *ItemS;
+
 const PoseS = struct {
     along: f64,
     across: f64,
@@ -161,6 +177,38 @@ const MapperS = struct {
     prev_w: f64,
 };
 const Mapper = *MapperS;
+
+const CatItemS = struct {
+    right: f64,
+    fwd: f64,
+    height: f64,
+    pose_idx: i64,
+    lift: f64,
+};
+const CatItem = *CatItemS;
+
+const BillboardS = struct {
+    right: f64,
+    fwd: f64,
+    height: f64,
+    cp_: i64,
+    face_right: bool,
+};
+const Billboard = *BillboardS;
+
+const PlacedS = struct {
+    b_: Billboard,
+    kept: bool,
+    size_culled: bool,
+};
+const Placed = *PlacedS;
+
+const SpeciesS = struct {
+    present: bool,
+    cp_: i64,
+    adult_h: f64,
+};
+const Species = *SpeciesS;
 
 const PondPtS = struct {
     cu: f64,
@@ -181,37 +229,6 @@ const RailPolyS = struct {
 };
 const RailPoly = *RailPolyS;
 
-const SpeciesS = struct {
-    present: bool,
-    cp_: i64,
-    adult_h: f64,
-};
-const Species = *SpeciesS;
-
-const BillboardS = struct {
-    right: f64,
-    fwd: f64,
-    height: f64,
-    cp_: i64,
-    face_right: bool,
-};
-const Billboard = *BillboardS;
-
-const PlacedS = struct {
-    b_: Billboard,
-    kept: bool,
-    size_culled: bool,
-};
-const Placed = *PlacedS;
-
-const TreeItemS = struct {
-    right: f64,
-    fwd: f64,
-    height: f64,
-    color: i64,
-};
-const TreeItem = *TreeItemS;
-
 const TowerItemS = struct {
     map: Mapper,
     a0: f64,
@@ -222,14 +239,13 @@ const TowerItemS = struct {
 };
 const TowerItem = *TowerItemS;
 
-const CatItemS = struct {
+const TreeItemS = struct {
     right: f64,
     fwd: f64,
     height: f64,
-    pose_idx: i64,
-    lift: f64,
+    color: i64,
 };
-const CatItem = *CatItemS;
+const TreeItem = *TreeItemS;
 
 const TruckAtS = struct {
     present: bool,
@@ -238,22 +254,6 @@ const TruckAtS = struct {
     fwd: f64,
 };
 const TruckAt = *TruckAtS;
-
-const Kind = enum {
-    KTree,
-    KTower,
-    KCow,
-    KCat,
-    KTruck,
-    KRail,
-};
-
-const ItemS = struct {
-    fwd: f64,
-    kind: Kind,
-    i_: i64,
-};
-const Item = *ItemS;
 
 const CollectedS = struct {
     trees: *CxList(TreeItem),
@@ -766,6 +766,14 @@ fn push_grad_poly(rgba_center: i64, rgba_edge: i64, cx: f64, cy: f64, r_: f64, p
     return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 4, .color = rgba_center, .color2 = rgba_edge, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ cx, cy, r_ }), .pts = flatten_screen(ps, 0) }) }));
 }
 
+fn sort_tie() f64 {
+    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
+}
+
+fn deeper_than(x: f64, y: f64) bool {
+    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
+}
+
 fn look_ahead() i64 {
     return 7;
 }
@@ -793,14 +801,6 @@ fn compose_down(segs: *CxList(Segment), ch: *CxList(i64), k_: i64, a_: f64, x: f
 
 fn at(segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, a_: f64, x: f64) RiderPt {
     return b0: { const p_ = compose_down(segs, ch, d_, a_, x); break :b0 to_rider(p_.a_, p_.x, pose.along, pose.across, pose.yaw, pose.hw); };
-}
-
-fn sort_tie() f64 {
-    return @as(f64, @bitCast(@as(i64, 4499125899939309867)));
-}
-
-fn deeper_than(x: f64, y: f64) bool {
-    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
 }
 
 fn truck_length() f64 {

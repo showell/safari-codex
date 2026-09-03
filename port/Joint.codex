@@ -1,0 +1,30 @@
+Chapter: Joint
+  cites Safari chapter Geom
+  cites Safari chapter World
+  cites Safari chapter Frame
+
+ The three points a corner hangs off, and the only geometry the road surface and
+ the things standing on it both need. `GroundPlan` reaches it for the corner
+ pavement and `Render` for the guard rail, so it belongs to neither.
+
+ We say:
+
+Section: The Outer Shoulders
+
+ Both the corner pavement and the guard rail hang off the same three points: each
+ segment's OUTER shoulder at the join, and the apex Q where the two extended
+ shoulders cross. Which edge is outer flips with the turn -- a right turn's outer
+ edge is the left one.
+
+  outer-cu : Boolean, Real -> Real
+  outer-cu (exit-right) (wd) = if exit-right then 0.0 else wd
+
+ Q is found by extending each shoulder one metre past the join and intersecting
+ the two lines. A real turn has a non-zero angle, so they are never parallel.
+
+  joint-apex : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> RiderPt
+  joint-apex (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    let fcu = outer-cu exit-right from-w
+    in let tx = outer-cu exit-right to-w
+    in line-meet (map-pt segs ch pose from-map from-len fcu) (map-pt segs ch pose from-map (from-len + 1.0) fcu) (map-pt segs ch pose to-map 0.0 tx) (map-pt segs ch pose to-map 1.0 tx)
+

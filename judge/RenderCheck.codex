@@ -12,6 +12,7 @@ Chapter: RenderCheck
   cites Judge chapter Grade
   cites Gold chapter RenderGold
   cites Safari chapter Frame
+  cites Safari chapter GroundPlan
 
  Grade the Render port's mapping spine against wasm/render.zig, and SafariCritter
  against wasm/safari_critter.zig.

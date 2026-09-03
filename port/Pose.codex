@@ -46,3 +46,11 @@ Section: State
   initial-rider-state : RiderState
   initial-rider-state =
     RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+ `with-tilt` is here for the same reason the record is: two chapters need it and
+ neither may cite the other. LeanSearch builds a hypothetical rider to project an
+ arc from, and Rider builds the leaned rider the throttle answers.
+
+  with-tilt : RiderState, Real -> RiderState
+  with-tilt (s) (t) =
+    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }

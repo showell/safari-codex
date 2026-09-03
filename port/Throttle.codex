@@ -1,0 +1,99 @@
+Chapter: Throttle
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Arc
+  cites Safari chapter Cat
+  cites Safari chapter Gaze
+  cites Safari chapter Num
+  cites Safari chapter Pose
+  cites Safari chapter Trig
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+
+ Pick the forward acceleration: accelerate, but only while near-upright, and then
+ take the MOST RESTRICTIVE of the brakes.
+
+ Reach the corner's entry speed by the commit point, hold the throttle for a
+ crossing cat, ease down for the pigs, and do not run off the shoulder.
+
+ The order is the zig's and matters: the cat gate sits after the corner brake and
+ before the shoulder brake.
+
+ Deferred exactly as the zig defers them, and for the same reason: the cat's
+ drawing and pose machinery is out of scope, but `cat-in-danger` is arithmetic and
+ is ported, so the throttle hold is real here rather than a no-op.
+
+ We say:
+
+Section: When He May Accelerate
+
+  tilt-hold : Real
+  tilt-hold = 2.0 * deg
+
+Section: The Brakes
+
+  corner-brake : RiderState, Segment, Real, Real -> Real
+  corner-brake (state) (seg) (v-end) (a) =
+    let d = seg.commit-along - state.along
+    in let corner-a = if d <= 0.000001 then 0.0 else (v-end * v-end - state.v * state.v) / (2.0 * d)
+    in if corner-a < a then corner-a else a
+
+ While the cat is in its danger window he stops CLOSING on it -- the acceleration
+ goes to zero -- but he never brakes. Coasting in slows his approach, so he reaches
+ the final segment later and there is more time for the sunset.
+
+  cat-gate : RiderState, Segment, Real -> Real
+  cat-gate (state) (seg) (a) =
+    if seg.has-cat then (if a > 0.0 then (if cat-in-danger (seg.cat.along - state.along) state.v then 0.0 else a) else a) else a
+
+  pig-gate : RiderState, Segment, Real -> Real
+  pig-gate (state) (seg) (a) =
+    let b = pig-gaze-brake state seg
+    in if b.engaged then (if b.accel < a then b.accel else a) else a
+
+ The decayed kinematic stop: the further ahead the shoulder is, the gentler the
+ brake, and the decay makes a distant shoulder almost free.
+
+  brake-decay : Real
+  brake-decay = 20.0
+
+  shoulder-brake : RiderState, Segment, Real -> Real
+  shoulder-brake (state) (seg) (a) =
+    let sim = project-arc state seg
+    in if stayed-on-road sim then a else shoulder-brake-at state sim a
+
+  stayed-on-road : ArcOutcome -> Boolean
+  stayed-on-road (sim) =
+   when sim.shoulder
+    is ShoulderNone -> True
+    is ShoulderLeft -> False
+    is ShoulderRight -> False
+
+  shoulder-brake-at : RiderState, ArcOutcome, Real -> Real
+  shoulder-brake-at (state) (sim) (a) =
+    let n = sim.frames
+    in let sa = (0.0 - state.v) / (2.0 * real-max n 1.0) * exp-real ((0.0 - n) / brake-decay)
+    in if sa < a then sa else a
+
+Section: The Speed Clamp
+
+ Do not crawl below the corner's entry speed approaching it -- UNLESS he is
+ gawking at the pigs, where staying at the slow gawk speed and taking the corner
+ slow beats snapping back up, because he never re-accelerates.
+
+  clamp-v : RiderState, Segment, Real, Real, Boolean -> Real
+  clamp-v (state) (seg) (v-end) (v0) (near) =
+    let v1 = if v0 > v-max then v-max else v0
+    in let v2 = if v1 < 0.0 then 0.0 else v1
+    in if near then (if v2 < v-end then (if gawk-engaged state seg then v2 else v-end) else v2) else v2
+
+Section: Deciding the Acceleration
+
+  get-forward-accel-decel : RiderState, Segment -> Real
+  get-forward-accel-decel (state) (seg) =
+    let a0 = if real-abs state.tilt >= tilt-hold then 0.0 else a-accel
+    in let v-end = if seg.terminates then 0.0 else turn-speed seg.exit-angle
+    in let near = (seg.length - state.along) <= approach-intersection-dist
+    in let a1 = if near then corner-brake state seg v-end a0 else a0
+    in let a3 = pig-gate state seg (cat-gate state seg a1)
+    in let a4 = shoulder-brake state seg a3
+    in clamp-v state seg v-end (state.v + a4) near - state.v

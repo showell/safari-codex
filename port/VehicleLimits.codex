@@ -1,0 +1,49 @@
+Chapter: VehicleLimits
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ What a vehicle on this route may do: how hard it accelerates, how fast it will go,
+ how early it starts thinking about the intersection, and how fast it dares take a
+ corner.
+
+ THE RIDER AND THE TRUCK BOTH READ THESE, so they belong to neither. The truck
+ expresses its whole envelope as a multiple of this one -- `truck-chase-accel` is
+ `1.1 * a-accel` and `truck-max-v` is `1.1 * v-max` -- which is the sense in which
+ it chases: it is the same vehicle with ten percent more of everything. Before this
+ chapter existed those four names lived in Rider and Truck cited Rider for them,
+ which read as the chased depending on the chaser.
+
+ LIMITS, not physics. These are an envelope the two vehicles are held inside and
+ nothing integrates here; the numbers are chosen to look right rather than derived
+ from anything. The integration that actually moves a bike is
+ `Safari chapter Bike`.
+
+ We say:
+
+Section: The Envelope
+
+  a-accel : Real
+  a-accel = 0.010
+
+  v-max : Real
+  v-max = 2.5
+
+  approach-intersection-dist : Real
+  approach-intersection-dist = 60.0
+
+Section: Corner Entry Speed
+
+ The safe entry speed for a turn angle: the table from the TypeScript, and every
+ angle on this route is tabulated. The comparison is on the ROUNDED degrees, which
+ is what makes an exact match on a Real safe here.
+
+  turn-speed : Real -> Real
+  turn-speed (angle-rad) =
+    let d = round-real (angle-rad * 180.0 / pi)
+    in if d ~0 15.0 then 1.297
+    else if d ~0 20.0 then 0.840
+    else if d ~0 30.0 then 0.461
+    else if d ~0 50.0 then 0.222
+    else if d ~0 70.0 then 0.139
+    else if d ~0 80.0 then 0.117
+    else 0.222

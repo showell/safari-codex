@@ -1,0 +1,84 @@
+Chapter: Arc
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Bike
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Trig
+
+ Project the held-lean, constant-speed arc forward and score how it plays out: off
+ a shoulder is a bad lean, net-backward is a disaster, and clearing the forward
+ progress is a good lean -- all pinned to the SAME forward, so survivors tie and
+ the search then separates them on where they end up across the road.
+
+ THE SCORE IS SHAPED FOR THE SEARCH, not for physics, and reading it as a
+ measurement will mislead. `forward` is clamped to `min-forward-progress` precisely
+ so that every arm which clears it ties, leaving `end-across` to separate them.
+ `frames` is a placeholder on the arms that stayed on the road. This is a verdict
+ on a candidate lean, and `Safari chapter LeanSearch` is the only thing entitled to
+ read it as one.
+
+ We say:
+
+Section: Leaving the Road
+
+ Shoulder is which shoulder he left, if any.
+
+  Shoulder =
+   | ShoulderLeft
+   | ShoulderNone
+   | ShoulderRight
+
+  ArcOutcome = record {
+    shoulder : Shoulder,
+    forward : Real,
+    crossed : Boolean,
+    end-across : Real,
+    frames : Real
+  }
+
+ The zig uses 1e9 as the frames answer for the arms that did not leave the road,
+ and the shoulder brake only reads frames when the shoulder is not none, so the
+ value is a placeholder rather than a number. It is kept because it is what the zig
+ stores.
+
+  no-frames : Real
+  no-frames = 1000000000.0
+
+Section: How Far To Look
+
+  straighten-margin : Real
+  straighten-margin = 0.05
+
+  turn-danger-steps : Integer
+  turn-danger-steps = 2000
+
+  min-forward-progress : Real
+  min-forward-progress = 25.0
+
+Section: Projecting the Arc
+
+  sim-loop : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> ArcOutcome
+  sim-loop (start) (left-bound) (right-bound) (start-side) (start-along) (crossed) (i) (phys) =
+    if i >= turn-danger-steps then ArcOutcome { shoulder = ShoulderNone, forward = phys.along - start-along, crossed = crossed, end-across = phys.across, frames = no-frames }
+    else sim-step start left-bound right-bound start-side start-along crossed i (simulate-rider-step phys 0.0 0.0)
+
+  sim-step : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> ArcOutcome
+  sim-step (start) (left-bound) (right-bound) (start-side) (start-along) (crossed0) (i) (phys) =
+    let across = phys.across
+    in let forward = phys.along - start-along
+    in let crossed = if across * start-side < 0.0 then True else crossed0
+    in if across < left-bound then ArcOutcome { shoulder = ShoulderLeft, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if across > right-bound then ArcOutcome { shoulder = ShoulderRight, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if forward < 0.0 then ArcOutcome { shoulder = ShoulderNone, forward = forward, crossed = crossed, end-across = across, frames = no-frames }
+    else if forward >= min-forward-progress then ArcOutcome { shoulder = ShoulderNone, forward = min-forward-progress, crossed = crossed, end-across = across, frames = no-frames }
+    else sim-loop start left-bound right-bound start-side start-along crossed (i + 1) phys
+
+ The bounds widen to wherever he already is, so a rider who starts outside the
+ inset is not instantly judged to have left the road.
+
+  project-arc : RiderState, Segment -> ArcOutcome
+  project-arc (state) (seg) =
+    let inset-hw = seg.width / 2.0 - straighten-margin
+    in let right-bound = real-max inset-hw state.across
+    in let left-bound = real-min (0.0 - inset-hw) state.across
+    in sim-loop state left-bound right-bound (r-sign state.across) state.along False 0 state

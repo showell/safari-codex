@@ -2,7 +2,8 @@ Chapter: Truck
   cites Foreword chapter Maybe
   cites Gpu chapter DeviceMath
   cites Safari chapter World
-  cites Safari chapter Rider
+  cites Safari chapter Pose
+  cites Safari chapter VehicleLimits
   cites Foreword chapter ListUtils
 
  The truck the rider is chasing: how far it has driven along the route, its speed,

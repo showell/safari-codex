@@ -1,0 +1,40 @@
+Chapter: Bike
+  cites Safari chapter Pose
+  cites Safari chapter Trig
+
+ How the bike moves: the lean limit, and one integrated step.
+
+ THIS CHAPTER EXISTS TO CUT A CYCLE, in the same family as Pose. The integrator has
+ two callers on opposite sides of the split -- `Arc` runs it thousands of times to
+ project a hypothetical arc, and `Rider` runs it once a frame for real. Left in
+ Rider it would make Rider cite Arc and Arc cite Rider. The honest place is the
+ thing they share: the step itself. No logic moves, so this is a packaging
+ adaptation and not a change of behaviour.
+
+ We say:
+
+Section: The Lean Limit
+
+  yaw-per-tilt : Real
+  yaw-per-tilt = 0.1
+
+ The route never banks past this, and the focal pull-in normalises the lean by it.
+
+  max-lean : Real
+  max-lean = 20.0 * deg
+
+Section: One Physics Step
+
+ A lean tip and an acceleration, integrated. He leans FIRST, then that tilt yaws
+ the heading, then the new speed along the MID heading moves the position -- which
+ is a midpoint rule, not an Euler step, and the halving is load-bearing.
+
+ The absolute heading turns by the same delta as the frame-relative yaw.
+
+  simulate-rider-step : RiderState, Real, Real -> RiderState
+  simulate-rider-step (s) (tilt-step) (accel) =
+    let tilt = s.tilt + tilt-step
+    in let v = s.v + accel
+    in let heading-change = yaw-per-tilt * tilt
+    in let mid = s.yaw + heading-change / 2.0
+    in RiderState { segment = s.segment, along = s.along + v * r-cos mid, across = s.across + v * r-sin mid, yaw = s.yaw + heading-change, v = v, tilt = tilt, heading = s.heading + heading-change, gaze-yaw = s.gaze-yaw, focus = s.focus }

@@ -1,0 +1,68 @@
+Chapter: LeanSearch
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Arc
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Trig
+
+ Pick the lean: binary-search the held lean whose projected arc stays on the road
+ and ends nearest an asymptotic centre target.
+
+ THIS IS THE HAZARD NOTES WARNS ABOUT. Twelve iterations, each deciding on a float
+ comparison after simulating up to two thousand physics steps. A difference of 1e-7
+ between f32 and f64 will eventually flip one of those comparisons, and from there
+ the two rides are on different trajectories -- so a long trace comparison WILL go
+ red and it will NOT mean the port is wrong. The check therefore compares ONE STEP
+ FROM A SHARED STATE and never a trajectory.
+
+ We say:
+
+Section: Reading the Arc
+
+  want-more-right : ArcOutcome, Real -> Boolean
+  want-more-right (sim) (target) =
+   when sim.shoulder
+    is ShoulderLeft -> True
+    is ShoulderRight -> False
+    is ShoulderNone -> sim.end-across < target
+
+Section: The Centre Target
+
+ The target is an asymptote rather than the centre line: he aims at a fraction of
+ his current offset, so he converges on the middle without ever committing to a
+ lean that would overshoot it. Dead centre gets a signed epsilon instead, because
+ a target of exactly zero has no side to lean toward.
+
+  asymptote-tuning : Real
+  asymptote-tuning = 0.30
+
+  center-lane-epsilon : Real
+  center-lane-epsilon = 0.04
+
+  lean-target : Real -> Real
+  lean-target (across) =
+    if real-abs across < center-lane-epsilon then (if across >= 0.0 then center-lane-epsilon else 0.0 - center-lane-epsilon)
+    else across * asymptote-tuning
+
+Section: The Search
+
+  max-tilt-correction : Real
+  max-tilt-correction = 1.0 * deg
+
+  lean-search-iters : Integer
+  lean-search-iters = 12
+
+  search-lean : RiderState, Segment, Real, Real, Real, Integer -> Real
+  search-lean (state) (seg) (target) (lo) (hi) (i) =
+    if i >= lean-search-iters then (lo + hi) / 2.0
+    else search-step state seg target lo hi i ((lo + hi) / 2.0)
+
+  search-step : RiderState, Segment, Real, Real, Real, Integer, Real -> Real
+  search-step (state) (seg) (target) (lo) (hi) (i) (mid) =
+    if want-more-right (project-arc (with-tilt state mid) seg) target
+      then search-lean state seg target mid hi (i + 1)
+      else search-lean state seg target lo mid (i + 1)
+
+  best-tilt-correction : RiderState, Segment -> Real
+  best-tilt-correction (state) (seg) =
+    search-lean state seg (lean-target state.across) (state.tilt - max-tilt-correction) (state.tilt + max-tilt-correction) 0

@@ -108,7 +108,18 @@ t_values() {
 }
 
 t_port()  { say "port -- codexzig builds it, the golds grade it";  ./harness/run.sh || fail=1; }
-t_wasm()  { say "wasm -- the second road agrees with the first";   ./harness/wasm_arm.py --native --all || fail=1; }
+t_wasm() {
+    say "wasm -- the second road agrees with the first"
+    # wasmtime and the node modules are downloaded, not tracked, so a fresh
+    # worktree has neither and the arm dies mid-unit with a FileNotFoundError
+    # forty lines deep. Refuse at the top with the name of the missing thing:
+    # this cost a full-sweep run on 2026-09-03, and the traceback was read as
+    # a pass because the tier after it started anyway.
+    for t in tools/bin/wasmtime tools/node_modules; do
+        [ -e "$t" ] || { note "NO $t -- this tier did NOT run"; note "see tools/README.md"; fail=1; return; }
+    done
+    ./harness/wasm_arm.py --native --all || fail=1
+}
 t_metal() { say "metal -- the compiler's own x86-64 emitter, DDC"; ./harness/metal.py --all || fail=1; }
 
 t_eyes() {

@@ -447,6 +447,13 @@ Section: The Exponential
     let k = real-to-int (round-real (x / ln2))
     in exp-poly (x - real-from-int k * ln2) * pow2-int k
 
+ Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule. It was Render's until
+ 2026-09-03, where it sliced the road strip; nothing about it is a road.
+
+  ceil-real : Real -> Real
+  ceil-real (x) = 0.0 - floor-real (0.0 - x)
+
 Chapter: Trig
   cites Gpu chapter DeviceMath
 

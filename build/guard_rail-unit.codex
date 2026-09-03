@@ -622,6 +622,16 @@ Section: Projection
       y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
     }
 
+ The list form. It lived in `Safari chapter GuardRail` until 2026-09-03, which
+ is where the first caller happened to be; Render and TruckDraw read it from
+ there too, so a rail chapter was on the cite line of everything that projects
+ a polygon. It is `project` in a loop and it belongs beside it.
+
+  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
+  project-all (ps) (cf) (view-w) (i) =
+    if i >= list-length ps then []
+    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
+
 Chapter: Paint
   cites Safari chapter Camera
 
@@ -925,11 +935,6 @@ Section: Draw
  Near-clip one stored rail poly, project it, and push the fill -- the same pipeline
  as a road quad, but the corners carry their own heights so it stands above the
  pavement. Called by render in depth-sorted order.
-
-  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
-  project-all (ps) (cf) (view-w) (i) =
-    if i >= list-length ps then []
-    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
 
   rail-draw-poly : RailPoly, Real, Real -> List DrawCmd
   rail-draw-poly (rp) (cf) (view-w) =

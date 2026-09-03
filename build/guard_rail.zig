@@ -173,6 +173,10 @@ fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
     return cx_new(ScreenPtS{ .x = ((view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + ((p_.right / p_.forward) * cf)), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (((p_.height - eye_h()) / p_.forward) * cf)) });
 }
 
+fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
+}
+
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
     return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.x, p_.y }), flatten_screen(ps, (i_ +% 1))); });
 }
@@ -243,10 +247,6 @@ fn posts(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
 
 fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
     return (if ((cx_list_len(path_) < 2)) cx_ll_empty(RailPoly) else list_take(RailPoly, cx_ll_concat(bars(path_, 0), posts(path_, 0)), max_rail_polys()));
-}
-
-fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
 }
 
 fn rail_draw_poly(rp: RailPoly, cf: f64, view_w: f64) *CxList(DrawCmd) {

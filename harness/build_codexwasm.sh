@@ -39,7 +39,14 @@ subject=build/codexwasm-subject.codex
 # ladder's own ast/ directory, so both are given relative to it and nothing is
 # written into that tree.
 [ -f "$ladder/ast/bundle_codexir.ps1" ] || { echo "no $ladder/ast/bundle_codexir.ps1; set SAFARI_LADDER" >&2; exit 1; }
-back=../../safari-codex
+# THE WAY BACK TO THIS CHECKOUT, COMPUTED AND NOT ASSUMED. It was the literal
+# `../../safari-codex` until 2026-09-03, which is the path of ONE checkout: run
+# from a git worktree or a second clone, the bundler resolved that against the
+# ladder's ast/ and wrote this tree's subject into the OTHER tree, then failed
+# here because the file it had just written was not where it was looking. A
+# hardcoded sibling path is a cross-tree write waiting for a second checkout,
+# and the sandbox rules exist to stop exactly that.
+back=$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$root" "$ladder/ast")
 # -Command and not -File: `-MoreChapters` is a [string[]], and under -File every
 # argument arrives as one string -- a comma-joined pair binds as a single
 # element and the bundler then looks for a chapter whose name contains a comma.

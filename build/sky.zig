@@ -146,10 +146,6 @@ fn camera_w() f64 {
     return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
 }
 
-fn camera_h() f64 {
-    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
-}
-
 fn fov_deg() f64 {
     return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
 }
@@ -172,6 +168,10 @@ fn cam_focal(lean_frac: f64, attention: f64) f64 {
 
 fn round_real(x: f64) f64 {
     return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
+}
+
+fn camera_h() f64 {
+    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
 }
 
 fn sun_bearing() f64 {

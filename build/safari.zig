@@ -765,6 +765,14 @@ fn cat_airborne(c_: Cat, pose: i64, b_: f64) CatState {
     return cx_new(CatStateS{ .pose_idx = pose, .across = lerp(c_.mid_across, c_.end_across, real_sqrt((b_ * real_sqrt(b_)))), .lift = (((leap_height() * @as(f64, @bitCast(@as(i64, 4616189618054758400)))) * b_) * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - b_)) });
 }
 
+fn lane_width() f64 {
+    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
+}
+
+fn herd_road_offset() f64 {
+    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
+}
+
 fn conifer_green() i64 {
     return 1858082;
 }
@@ -799,14 +807,6 @@ fn tree_start_inset() f64 {
 
 fn tree_end_inset() f64 {
     return @as(f64, @bitCast(@as(i64, 4635681760191971328)));
-}
-
-fn lane_width() f64 {
-    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
-}
-
-fn mid_tower_min_length() f64 {
-    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
 }
 
 fn max_trees() i64 {
@@ -847,10 +847,6 @@ fn calf_height() f64 {
 
 fn bull_height() f64 {
     return (cow_height() * @as(f64, @bitCast(@as(i64, 4607857958744122982))));
-}
-
-fn herd_road_offset() f64 {
-    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
 }
 
 fn bull_dist() f64 {
@@ -985,6 +981,10 @@ fn fill_pig_row(length: f64) *CxList(Critter) {
     return b0: { const base_: f64 = (length - pig_dist_before_end()); break :b0 b1: { const edge: f64 = ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()); break :b1 cx_ll_concat(row_pigs_at(base_, edge, pig_row_front(), 0), row_pigs_at(base_, (edge + pig_back_row_offset()), pig_row_back(), 0)); }; };
 }
 
+fn mid_tower_min_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
+}
+
 fn cfg(len_: f64, sch: Scheme, turn: f64, c_: bool, p_: bool, b_: bool, t: bool, cr: Creature) Cfg {
     return cx_new(CfgS{ .length = len_, .scheme = sch, .turn_deg = turn, .cat = c_, .pigs = p_, .bull = b_, .terminates = t, .creature = cr });
 }
@@ -1069,6 +1069,10 @@ fn line_meet(a0: RiderPt, a1: RiderPt, b0_: RiderPt, b1: RiderPt) RiderPt {
     return b0: { const dax: f64 = (a1.right - a0.right); break :b0 b1: { const daf: f64 = (a1.forward - a0.forward); break :b1 b2: { const dbx: f64 = (b1.right - b0_.right); break :b2 b3: { const dbf: f64 = (b1.forward - b0_.forward); break :b3 b4: { const t: f64 = ((((b0_.right - a0.right) * dbf) - ((b0_.forward - a0.forward) * dbx)) / ((dax * dbf) - (daf * dbx))); break :b4 cx_new(RiderPtS{ .right = (a0.right + (t * dax)), .forward = (a0.forward + (t * daf)) }); }; }; }; }; };
 }
 
+fn near() f64 {
+    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
+}
+
 fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
     return b0: { const f: f64 = ((_arg_near - a_.forward) / (b_.forward - a_.forward)); break :b0 cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = (a_.right + (f * (b_.right - a_.right))), .forward = _arg_near, .height = (a_.height + (f * (b_.height - a_.height))) }) }); };
 }
@@ -1081,40 +1085,12 @@ fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
     return clip_near_edge(poly, _arg_near, 0);
 }
 
-fn camera_w() f64 {
-    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
-}
-
 fn camera_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
 }
 
 fn eye_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
-}
-
-fn near() f64 {
-    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
-}
-
-fn fov_deg() f64 {
-    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
-}
-
-fn focal() f64 {
-    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
-}
-
-fn min_focal_factor() f64 {
-    return @as(f64, @bitCast(@as(i64, 4599976659396224614)));
-}
-
-fn min_gaze_focal_factor() f64 {
-    return @as(f64, @bitCast(@as(i64, 4603669611090668421)));
-}
-
-fn cam_focal(lean_frac: f64, attention: f64) f64 {
-    return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
 }
 
 fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
@@ -1387,6 +1363,30 @@ fn get_next_rider_state(state: RiderState, _arg_segs: *CxList(Segment)) RiderSta
 
 fn is_finished(s_: RiderState, _arg_segs: *CxList(Segment)) bool {
     return b0: { const seg = cx_list_at(_arg_segs, s_.segment); break :b0 (if (seg.terminates) (s_.along >= seg.length) else false); };
+}
+
+fn camera_w() f64 {
+    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
+}
+
+fn fov_deg() f64 {
+    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
+}
+
+fn focal() f64 {
+    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
+fn min_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599976659396224614)));
+}
+
+fn min_gaze_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4603669611090668421)));
+}
+
+fn cam_focal(lean_frac: f64, attention: f64) f64 {
+    return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
 }
 
 fn water_outline() *CxList(PondPt) {

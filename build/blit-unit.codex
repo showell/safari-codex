@@ -144,9 +144,9 @@ Chapter: Num
  already exists.
 
  EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
- before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
- the honest reason this chapter did not exist earlier: the port had no way to
- reach the integers at all.
+ before 2026-08-29 -- see plugs-backlog row 2.03. That is the honest reason
+ this chapter did not exist earlier: the port had no way to reach the integers
+ at all.
 
  We say:
 
@@ -634,6 +634,14 @@ Section: Near-Plane Clipping
  edge is the reason the index walks to the length and reads (i + 1) modulo it: the
  polygon is closed, so the last vertex pairs with the first.
 
+ `near` lived in Camera until 2026-09-03, declared under its Lens section and
+ read by nothing in that chapter. Four callers carried it from there to
+ `clip-near` here, into a parameter of the same name. It is the near plane and
+ the near plane is this section's business.
+
+  near : Real
+  near = 0.4
+
   clip-cross : Vec3, Vec3, Real -> List Vec3
   clip-cross (a) (b) (near) =
     let f = (near - a.forward) / (b.forward - a.forward)
@@ -658,29 +666,22 @@ Section: Near-Plane Clipping
   clip-near (poly) (near) = clip-near-edge poly near 0
 
 Chapter: Camera
-  cites Safari chapter Trig
   cites Safari chapter Geom
 
  The perspective projection: a rider-relative ground point at a height becomes a
- screen pixel. Owns the lens constants and the near plane. Pure; no drawing, no
- allocation.
+ screen pixel. Owns the eye height and the screen height. Owns no lens and no
+ near plane. Pure; no drawing, no allocation.
 
- A port of wasm/camera.zig.
-
- ONE ADAPTATION. The zig carries the live projection width as a mutable global,
- `pub var view_w`, which the native window widens toward the screen's aspect while
- FOCAL stays frozen -- that is what makes a wider window a wider field of view
- rather than a zoom. Codex has no mutable global, so view-w is threaded as a
- parameter. It is the camera's only mutable state, and threading it is the pure
- equivalent rather than a change of behaviour: pass camera-w for the design width
- the browser and the golden-PNG harness both use.
+ A port of wasm/camera.zig, and no longer the shape of it. On 2026-09-03 the
+ lens moved to `Safari chapter Lens` and the near plane to `Safari chapter
+ Geom`, because this chapter never read either: `project` is handed a focal,
+ and the near plane was carried by four callers straight into Geom's clipping.
+ Fidelity to the zig file boundaries is not a constraint here; agreement
+ between the arms is, and it is untouched by which chapter a definition sits in.
 
  We say:
 
-Section: Lens
-
-  camera-w : Real
-  camera-w = 960.0
+Section: Projection
 
   camera-h : Real
   camera-h = 600.0
@@ -688,55 +689,15 @@ Section: Lens
   eye-h : Real
   eye-h = 1.2
 
-  near : Real
-  near = 0.4
-
-  fov-deg : Real
-  fov-deg = 70.0
-
- The base focal, in pixels, looking straight ahead. FROZEN at the design width and
- NOT recomputed from the live view-w -- that is what keeps a wider window a wider
- FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
-
-  focal : Real
-  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
-
-Section: Focal Pull-In
-
- The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
- narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
- road. The lean narrows hardest and is squared so it snaps in deep in the turn;
- attention narrows gentler and linearly, but a crossing cat's attention overshoots
- 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
- mid-corner -- so the tightest simply wins.
-
-  min-focal-factor : Real
-  min-focal-factor = 0.35
-
-  min-gaze-focal-factor : Real
-  min-gaze-focal-factor = 0.61
-
-  focal-for-lean : Real -> Real
-  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
-
-  focal-for-gaze : Real -> Real
-  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
-
-  cam-focal : Real, Real -> Real
-  cam-focal (lean-frac) (attention) =
-    let a = focal-for-lean lean-frac
-    in let b = focal-for-gaze attention
-    in if a < b then a else b
-
-Section: Projection
-
   ScreenPt = record {
     x : Real,
     y : Real
   }
 
  The perspective divide is by forward, so callers must clip to the near plane
- first -- forward is then never near zero.
+ first -- forward is then never near zero. `cf` is the live camera focal, which
+ the caller gets from `cam-focal`; passing it rather than reading it is what
+ keeps this chapter independent of the lens.
 
   project : Vec3, Real, Real -> ScreenPt
   project (p) (cf) (view-w) =

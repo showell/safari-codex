@@ -133,6 +133,22 @@ fn r_tan(x: f64) f64 {
     return (real_sin(x) / real_cos(x));
 }
 
+fn camera_w() f64 {
+    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
+}
+
+fn fov_deg() f64 {
+    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
+}
+
+fn focal() f64 {
+    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
+fn near() f64 {
+    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
+}
+
 fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
     return b0: { const f: f64 = ((_arg_near - a_.forward) / (b_.forward - a_.forward)); break :b0 cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = (a_.right + (f * (b_.right - a_.right))), .forward = _arg_near, .height = (a_.height + (f * (b_.height - a_.height))) }) }); };
 }
@@ -145,10 +161,6 @@ fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
     return clip_near_edge(poly, _arg_near, 0);
 }
 
-fn camera_w() f64 {
-    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
-}
-
 fn camera_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
 }
@@ -157,20 +169,12 @@ fn eye_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
 }
 
-fn near() f64 {
-    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
-}
-
-fn fov_deg() f64 {
-    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
-}
-
-fn focal() f64 {
-    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
-}
-
 fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
     return cx_new(ScreenPtS{ .x = ((view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + ((p_.right / p_.forward) * cf)), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (((p_.height - eye_h()) / p_.forward) * cf)) });
+}
+
+fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
 }
 
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
@@ -243,10 +247,6 @@ fn posts(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
 
 fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
     return (if ((cx_list_len(path_) < 2)) cx_ll_empty(RailPoly) else list_take(RailPoly, cx_ll_concat(bars(path_, 0), posts(path_, 0)), max_rail_polys()));
-}
-
-fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
 }
 
 fn rail_draw_poly(rp: RailPoly, cf: f64, view_w: f64) *CxList(DrawCmd) {

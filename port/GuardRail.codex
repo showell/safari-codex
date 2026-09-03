@@ -173,11 +173,6 @@ Section: Draw
  as a road quad, but the corners carry their own heights so it stands above the
  pavement. Called by render in depth-sorted order.
 
-  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
-  project-all (ps) (cf) (view-w) (i) =
-    if i >= list-length ps then []
-    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
-
   rail-draw-poly : RailPoly, Real, Real -> List DrawCmd
   rail-draw-poly (rp) (cf) (view-w) =
     let clipped = clip-near rp.v near

@@ -260,9 +260,9 @@ Chapter: Num
  already exists.
 
  EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
- before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
- the honest reason this chapter did not exist earlier: the port had no way to
- reach the integers at all.
+ before 2026-08-29 -- see plugs-backlog row 2.03. That is the honest reason
+ this chapter did not exist earlier: the port had no way to reach the integers
+ at all.
 
  We say:
 
@@ -397,6 +397,13 @@ Section: The Exponential
   exp-real (x) =
     let k = real-to-int (round-real (x / ln2))
     in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+ Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule. It was Render's until
+ 2026-09-03, where it sliced the road strip; nothing about it is a road.
+
+  ceil-real : Real -> Real
+  ceil-real (x) = 0.0 - floor-real (0.0 - x)
 
 Chapter: Trig
   cites Gpu chapter DeviceMath
@@ -851,81 +858,28 @@ Section: The Cat's State
       lift = leap-height * 4.0 * b * (1.0 - b)
     }
 
-Chapter: World
-  cites Foreword chapter Maybe
-  cites Gpu chapter DeviceMath
-  cites Safari chapter Num
-  cites Safari chapter Trig
-  cites Safari chapter Cat
-  cites Foreword chapter ListUtils
+Chapter: Scenery
 
- The road network as data: a chain of straight segments joined by turns. Each
- segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
- angle, direction, and the segment it leads to -- and build-world accumulates each
- segment's heading relative to north.
+ The vocabulary the roadside populations share: what a tree is, what a critter
+ is, which colour scheme a segment runs, which big animal stands at its exit --
+ and the two distances everything beside the road is measured from.
 
- A port of wasm/world.zig.
-
- NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
- draws nothing at all: it is authored data plus the deterministic generators that
- expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
- EXACTLY, because there is no arithmetic here whose width could differ except the
- jitter sines and the turn angles.
-
- The route is the full nineteen segments of the TypeScript. The baseline is
- deliberately boring -- all-green trees and a cow herd -- so the rare departures
- surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
- gold trees on 4. Segment 19 terminates; the rider arrives and stops.
-
- PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
- PORTED -- critter.zig needs emoji_frames.zig, 182 KB of generated bakes that
- NOTES scopes out. The placement data is still ported because it is the world's,
- not the renderer's, and because it is what the exit-corner logic reads.
+ Split out of World on 2026-09-03. It exists because `Trees`, `Herd` and `Pigs`
+ each build their own population and all three need the same words for it: a
+ pig and a cow are both a `Critter`, and both stand `herd-road-offset` off a
+ road `lane-width` wide. Nothing here generates anything.
 
  We say:
 
-Section: Palette and Dimensions
-
-  conifer-green : Integer
-  conifer-green = 1858082
-
-  conifer-gold : Integer
-  conifer-gold = 13605400
-
-  conifer-red : Integer
-  conifer-red = 11680298
-
-  small-height : Real
-  small-height = 4.5
-
-  big-scale : Real
-  big-scale = 1.3
-
- Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
- so density, and the speed illusion it creates, is uniform across segments.
-
-  tree-spacing : Real
-  tree-spacing = 30.0
-
-  tree-road-offset : Real
-  tree-road-offset = 1.5
-
-  tree-start-inset : Real
-  tree-start-inset = 6.0
-
-  tree-end-inset : Real
-  tree-end-inset = 85.0
+Section: The Road
 
   lane-width : Real
   lane-width = 4.0
 
  Longer segments stand their own tower halfway down.
 
-  mid-tower-min-length : Real
-  mid-tower-min-length = 1000.0
-
-  max-trees : Integer
-  max-trees = 96
+  herd-road-offset : Real
+  herd-road-offset = 10.0
 
 Section: Schemes and Creatures
 
@@ -942,6 +896,7 @@ Section: Schemes and Creatures
  namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
  port -- a collision that would only appear once something cited both.
 
+
   Creature =
    | NoCreature
    | Elephant
@@ -950,7 +905,7 @@ Section: Schemes and Creatures
    | Rhino
    | DuckPond
 
-Section: Trees and Critters
+Section: What Stands Beside the Road
 
   Tree = record {
     along : Real,
@@ -961,6 +916,7 @@ Section: Trees and Critters
 
  A roadside animal: an emoji billboard at along and across-from-centre.
 
+
   Critter = record {
     along : Real,
     across : Real,
@@ -968,6 +924,59 @@ Section: Trees and Critters
     height : Real,
     face-right : Boolean
   }
+
+Chapter: Trees
+  cites Safari chapter Scenery
+
+ The conifer rows: their colours, their spacing, and the pair-at-a-time fill
+ that lays them down the length of a segment.
+
+ Split out of World on 2026-09-03, and the split moved the palette with it. The
+ three conifer colours sat under a heading called `Palette and Dimensions` and
+ were reachable only through `fill-trees` -- so they were never a palette, they
+ were the tree colours, and they belong here.
+
+ We say:
+
+Section: Colours
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+Section: Dimensions
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Filling a Segment
 
   accent-color : Scheme -> Integer
   accent-color (s) =
@@ -982,6 +991,7 @@ Section: Trees and Critters
 
  The pair is emitted together, so the cap is checked two at a time exactly as the
  zig's `n_trees + 2 <= MAX_TREES` does.
+
 
   tree-height-for : Integer, Boolean -> Real
   tree-height-for (color) (even) =
@@ -1007,11 +1017,27 @@ Section: Trees and Critters
     in let x = tree-x-for color
     in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)
 
+Chapter: Herd
+  cites Safari chapter Scenery
+  cites Safari chapter Trees
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The cow herd, split out of World on 2026-09-03.
+
+ IT CITES `Trees`, AND THAT IS A REAL DEPENDENCY RATHER THAN A LEFTOVER. The
+ bull stands `bull-tree-gap` outside the tree line, so `bull-of` measures from
+ `tree-road-offset`; the herd is placed relative to the conifers on purpose.
+ The split made that edge visible instead of removing it.
+
+ We say:
+
 Section: The Cow Herd
 
  The boring CONSTANT on every segment, near the start and on the left: a bull
  leading ten cows and four calves in a deterministic jittered grid. No randomness
  anywhere -- the jitter is a sine of the index.
+
 
   bull-cp : Integer
   bull-cp = 128002
@@ -1027,9 +1053,6 @@ Section: The Cow Herd
 
   bull-height : Real
   bull-height = cow-height * 1.15
-
-  herd-road-offset : Real
-  herd-road-offset = 10.0
 
   bull-dist : Real
   bull-dist = 24.0
@@ -1058,6 +1081,7 @@ Section: The Cow Herd
  The bull is authored per segment in the route table, like the cat and the pigs,
  so the whole schedule of surprises reads in one place.
 
+
   bull-of : Boolean -> List Critter
   bull-of (bull) =
     if bull then [Critter { along = bull-dist, across = 0.0 - (lane-width / 2.0 + tree-road-offset + bull-height / 2.0 + bull-tree-gap), codepoint = bull-cp, height = bull-height, face-right = False }]
@@ -1080,11 +1104,23 @@ Section: The Cow Herd
   fill-cows : Boolean -> List Critter
   fill-cows (bull) = (bull-of bull) & cows-from 0
 
+Chapter: Pigs
+  cites Safari chapter Scenery
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The pigs, split out of World on 2026-09-03: the deep distraction block the
+ rider gawks at, the one pig he fixes on, and the small row that does not
+ distract.
+
+ We say:
+
 Section: The Pigs
 
  The DISTRACTION herd is a deep seven-by-seven staggered block near the segment's
  end, on the right, and the rider gawks at one designated pig as he passes. Only
  the first two pig appearances distract -- the novelty wears off.
+
 
   pig-cp : Integer
   pig-cp = 128022
@@ -1113,6 +1149,7 @@ Section: The Pigs
  Across-spacing AND the per-row along-shear, which is what slants the herd's sides
  at forty-five degrees.
 
+
   pig-row-depth : Real
   pig-row-depth = 6.0
 
@@ -1130,6 +1167,7 @@ Section: The Pigs
 
  The ONE front-row pig the distracted rider fixes on, so the head-turn always aims
  at a pig that is actually drawn.
+
 
   gaze-pig : Real, Real -> Critter
   gaze-pig (length) (lane-half) =
@@ -1160,6 +1198,7 @@ Section: The Pigs
  The small non-distraction row: a front rank of four at the road edge and a back
  rank of six further off. The rider does not gawk at these.
 
+
   pig-row-front : List Real
   pig-row-front = [0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0]
 
@@ -1176,6 +1215,55 @@ Section: The Pigs
     let base = length - pig-dist-before-end
     in let edge = lane-width / 2.0 + herd-road-offset
     in (row-pigs-at base edge pig-row-front 0) & row-pigs-at base (edge + pig-back-row-offset) pig-row-back 0
+
+Chapter: World
+  cites Foreword chapter Maybe
+  cites Foreword chapter ListUtils
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Cat
+  cites Safari chapter Scenery
+  cites Safari chapter Trees
+  cites Safari chapter Herd
+  cites Safari chapter Pigs
+
+ The road network as data: a chain of straight segments joined by turns. Each
+ segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
+ angle, direction, and the segment it leads to -- and build-world accumulates each
+ segment's heading relative to north.
+
+ A port of wasm/world.zig, and no longer the shape of it. On 2026-09-03 the
+ three roadside populations left: `Trees`, `Herd` and `Pigs`, over the shared
+ vocabulary in `Scenery`. Each was a subtree of the call graph owned by a single
+ function -- fill-trees, fill-cows, fill-pig-herd -- and each already had a
+ section heading of its own. What is left here is the route and the segments,
+ which is what the chapter was named for.
+
+ NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
+ draws nothing at all: it is authored data plus the deterministic generators that
+ expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
+ EXACTLY, because there is no arithmetic here whose width could differ except the
+ jitter sines and the turn angles.
+
+ The route is the full nineteen segments of the TypeScript. The baseline is
+ deliberately boring -- all-green trees and a cow herd -- so the rare departures
+ surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
+ gold trees on 4. Segment 19 terminates; the rider arrives and stops.
+
+ PIGS AND SAFARI CREATURES ARE AUTHORED IN THEIR OWN CHAPTERS BUT THE CRITTER
+ DRAWING IS NOT PORTED -- critter.zig needs emoji_frames.zig, 182 KB of
+ generated bakes that NOTES scopes out. The placement data is still ported
+ because it is the world's, not the renderer's, and because it is what the
+ exit-corner logic reads.
+
+ We say:
+
+Section: Dimensions
+
+
+  mid-tower-min-length : Real
+  mid-tower-min-length = 1000.0
 
 Section: The Route
 
@@ -1462,6 +1550,14 @@ Section: Near-Plane Clipping
  edge is the reason the index walks to the length and reads (i + 1) modulo it: the
  polygon is closed, so the last vertex pairs with the first.
 
+ `near` lived in Camera until 2026-09-03, declared under its Lens section and
+ read by nothing in that chapter. Four callers carried it from there to
+ `clip-near` here, into a parameter of the same name. It is the near plane and
+ the near plane is this section's business.
+
+  near : Real
+  near = 0.4
+
   clip-cross : Vec3, Vec3, Real -> List Vec3
   clip-cross (a) (b) (near) =
     let f = (near - a.forward) / (b.forward - a.forward)
@@ -1486,29 +1582,22 @@ Section: Near-Plane Clipping
   clip-near (poly) (near) = clip-near-edge poly near 0
 
 Chapter: Camera
-  cites Safari chapter Trig
   cites Safari chapter Geom
 
  The perspective projection: a rider-relative ground point at a height becomes a
- screen pixel. Owns the lens constants and the near plane. Pure; no drawing, no
- allocation.
+ screen pixel. Owns the eye height and the screen height. Owns no lens and no
+ near plane. Pure; no drawing, no allocation.
 
- A port of wasm/camera.zig.
-
- ONE ADAPTATION. The zig carries the live projection width as a mutable global,
- `pub var view_w`, which the native window widens toward the screen's aspect while
- FOCAL stays frozen -- that is what makes a wider window a wider field of view
- rather than a zoom. Codex has no mutable global, so view-w is threaded as a
- parameter. It is the camera's only mutable state, and threading it is the pure
- equivalent rather than a change of behaviour: pass camera-w for the design width
- the browser and the golden-PNG harness both use.
+ A port of wasm/camera.zig, and no longer the shape of it. On 2026-09-03 the
+ lens moved to `Safari chapter Lens` and the near plane to `Safari chapter
+ Geom`, because this chapter never read either: `project` is handed a focal,
+ and the near plane was carried by four callers straight into Geom's clipping.
+ Fidelity to the zig file boundaries is not a constraint here; agreement
+ between the arms is, and it is untouched by which chapter a definition sits in.
 
  We say:
 
-Section: Lens
-
-  camera-w : Real
-  camera-w = 960.0
+Section: Projection
 
   camera-h : Real
   camera-h = 600.0
@@ -1516,55 +1605,15 @@ Section: Lens
   eye-h : Real
   eye-h = 1.2
 
-  near : Real
-  near = 0.4
-
-  fov-deg : Real
-  fov-deg = 70.0
-
- The base focal, in pixels, looking straight ahead. FROZEN at the design width and
- NOT recomputed from the live view-w -- that is what keeps a wider window a wider
- FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
-
-  focal : Real
-  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
-
-Section: Focal Pull-In
-
- The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
- narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
- road. The lean narrows hardest and is squared so it snaps in deep in the turn;
- attention narrows gentler and linearly, but a crossing cat's attention overshoots
- 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
- mid-corner -- so the tightest simply wins.
-
-  min-focal-factor : Real
-  min-focal-factor = 0.35
-
-  min-gaze-focal-factor : Real
-  min-gaze-focal-factor = 0.61
-
-  focal-for-lean : Real -> Real
-  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
-
-  focal-for-gaze : Real -> Real
-  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
-
-  cam-focal : Real, Real -> Real
-  cam-focal (lean-frac) (attention) =
-    let a = focal-for-lean lean-frac
-    in let b = focal-for-gaze attention
-    in if a < b then a else b
-
-Section: Projection
-
   ScreenPt = record {
     x : Real,
     y : Real
   }
 
  The perspective divide is by forward, so callers must clip to the near plane
- first -- forward is then never near zero.
+ first -- forward is then never near zero. `cf` is the live camera focal, which
+ the caller gets from `cam-focal`; passing it rather than reading it is what
+ keeps this chapter independent of the lens.
 
   project : Vec3, Real, Real -> ScreenPt
   project (p) (cf) (view-w) =
@@ -1572,6 +1621,16 @@ Section: Projection
       x = view-w / 2.0 + (p.right / p.forward) * cf,
       y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
     }
+
+ The list form. It lived in `Safari chapter GuardRail` until 2026-09-03, which
+ is where the first caller happened to be; Render and TruckDraw read it from
+ there too, so a rail chapter was on the cite line of everything that projects
+ a polygon. It is `project` in a loop and it belongs beside it.
+
+  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
+  project-all (ps) (cf) (view-w) (i) =
+    if i >= list-length ps then []
+    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
 
 Chapter: Paint
   cites Safari chapter Camera
@@ -1757,6 +1816,8 @@ Chapter: Gaze
   cites Safari chapter Trig
   cites Safari chapter Pose
   cites Safari chapter World
+  cites Safari chapter Pigs
+  cites Safari chapter Scenery
 
  The distracted rider: his head swivels toward the roadside pigs and drifts back
  to the road, and his focus narrows while he gawks.
@@ -2306,6 +2367,224 @@ Section: One Frame
     let seg = list-at segs s.segment
     in if seg.terminates then s.along >= seg.length else False
 
+Chapter: Frame
+  cites Safari chapter Geom
+  cites Safari chapter World
+
+ THE ROUTE WALK AND THE COORDINATE CHANGE, and nothing that knows what stands
+ beside the road. Which segments are in view, where the rider sits on his, and
+ how a point authored in any segment's frame reaches the rider's.
+
+ Split out of Render on 2026-09-03, and it is the piece a DIFFERENT screensaver
+ would keep. Nothing here mentions a tree, a tower, a cow, a cat, a rail or the
+ truck; the four names other chapters already read from it -- build-chain, at,
+ prev-map, map-pt -- were the scene-independent ones all along, which is the
+ export list and the call graph agreeing from opposite ends.
+
+ render.zig's entire public surface is four names -- Chain, Pose, at, frame --
+ and three of the four are here. That is not a coincidence either: the piece
+ the original file was willing to expose is the piece with no scene in it.
+
+ WHAT IT STILL STANDS ON is `Segment`, which is World's. A route made of
+ straight runs joined by turns is an assumption, not a universal, and a walk
+ through a city would either keep it or replace `World` beneath this chapter.
+ The coupling is one type deep and it is written here so the next reader does
+ not have to find it.
+
+ We say:
+
+
+Section: The Chain
+
+ How many segments ahead are drawn, and the fixed buffer that bounds them. The zig
+ carries both because its Chain is a fixed array that the look-ahead has to fit
+ inside; the port keeps both because the SMALLER of the two is what actually stops
+ the walk, and which one that is should stay visible rather than being folded into
+ one number.
+
+  look-ahead : Integer
+  look-ahead = 7
+
+  max-chain : Integer
+  max-chain = 8
+
+ THE CHAIN IS A LIST OF SEGMENT INDICES. The zig's Chain is an array plus a length
+ because it has to be; a Codex list carries its own length, so the record collapses
+ to the list and every `ch.len` becomes `list-length ch`.
+
+ Follow exit-to from `start`, stopping at the cap or at the terminus -- no segment
+ leads out of the finish line, so the chain ends there rather than looping. `n` is
+ how many indices are already down, which is the zig's `ch.len` read at the TOP of
+ its loop: the cap is tested before the index is appended, so a chain is never
+ longer than the cap and the terminus is never dropped for being one past it.
+
+  build-chain : List Segment, Integer -> List Integer
+  build-chain (segs) (start) = chain-from segs start 0
+
+  chain-from : List Segment, Integer, Integer -> List Integer
+  chain-from (segs) (s) (n) =
+    if n >= look-ahead then []
+    else if n >= max-chain then []
+    else if (list-at segs s).terminates then [s]
+    else [s] & chain-from segs (list-at segs s).exit-to (n + 1)
+
+Section: The Rider Pose
+
+ Where the rider sits on his CURRENT segment and which way he is looking. `hw` is
+ that segment's half width, and it is here rather than being looked up because his
+ `across` is centre-relative while to-rider wants from-the-left -- the same shift
+ Camera's port already threads.
+
+ The `yaw` handed in is not his heading alone. render.zig folds the distracted
+ gaze and the lean's head turn into it before building the pose, so the whole view
+ swings together with the backdrop; the port takes the sum, as the zig does.
+
+  Pose = record {
+    along : Real,
+    across : Real,
+    yaw : Real,
+    hw : Real
+  }
+
+Section: The Frame Composition
+
+ at maps (a, x) in chain[d]'s bottom-left frame into the rider's, composing the
+ joins down to chain[0] and then applying the rider transform. For d = 0 there is
+ nothing to compose and it is just to-rider.
+
+ THE JOINS COMPOSE BACKWARDS, from d down to 1, and the segment that supplies each
+ join is the one BELOW it. chain[k] leads to chain[k+1] through chain[k]'s OWN exit
+ turn, so stepping a point from chain[k+1]'s frame down into chain[k]'s reads
+ chain[k]'s length, angle, direction and width -- never chain[k+1]'s. Off by one
+ here and a distant segment lands rotated by its neighbour's turn, which does not
+ look like corruption; it looks like a plausible road bending the wrong way.
+
+  compose-down : List Segment, List Integer, Integer, Real, Real -> AX
+  compose-down (segs) (ch) (k) (a) (x) =
+    if k <= 0 then AX { a = a, x = x }
+    else let seg = list-at segs (list-at ch (k - 1))
+    in let p = next-to-cur a x seg.length seg.exit-angle seg.exit-right seg.width
+    in compose-down segs ch (k - 1) p.a p.x
+
+  at : List Segment, List Integer, Pose, Integer, Real, Real -> RiderPt
+  at (segs) (ch) (pose) (d) (a) (x) =
+    let p = compose-down segs ch d a x
+    in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
+
+Section: Mappers
+
+ How to express a point authored in SOME segment's frame in the rider's. A forward
+ joint maps both of its segments through the chain -- `at` at index d, above.
+
+ THE JOINT JUST BEHIND THE RIDER IS THE ONE THAT CANNOT, and it is the reason this
+ abstraction exists at all. Its `from` is the PREVIOUS segment, which is not on the
+ chain: the chain starts at the rider's current segment and only ever runs forward.
+ So a point authored there steps FORWARD through the join with cur-to-next -- the
+ inverse of what every other point does -- and then goes straight to the rider.
+ Without that pass the pavement the rider is still crossing vanishes the instant
+ his segment index flips, which is the bug the behind-joint pass was written for
+ and which the tower and the corner creatures each had in turn.
+
+ The zig's Mapper is a struct with a two-valued tag; the port keeps the struct and
+ narrows the tag to a Boolean, because a Codex variant carries no payload and the
+ four prev fields have to live somewhere. `is-chain` reads as the zig's
+ `kind == .chain`.
+
+  Mapper = record {
+    is-chain : Boolean,
+    d : Integer,
+    prev-len : Real,
+    prev-angle : Real,
+    prev-right : Boolean,
+    prev-w : Real
+  }
+
+ The zig defaults every Mapper field and fills in the one or two that matter. Codex
+ records are built whole, so the two constructors below take that place -- and they
+ also make the two kinds impossible to half-build, which the defaults did not.
+
+  chain-map : Integer -> Mapper
+  chain-map (d) =
+    Mapper { is-chain = True, d = d, prev-len = 0.0, prev-angle = 0.0, prev-right = False, prev-w = 0.0 }
+
+  prev-map : Segment -> Mapper
+  prev-map (s) =
+    Mapper { is-chain = False, d = 0, prev-len = s.length, prev-angle = s.exit-angle, prev-right = s.exit-right, prev-w = s.width }
+
+  map-pt : List Segment, List Integer, Pose, Mapper, Real, Real -> RiderPt
+  map-pt (segs) (ch) (pose) (m) (a) (x) =
+    if m.is-chain
+      then at segs ch pose m.d a x
+      else let p = cur-to-next a x m.prev-len m.prev-angle m.prev-right m.prev-w
+        in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
+
+Chapter: Lens
+  cites Safari chapter Trig
+
+ How wide the camera sees: the base focal length in pixels, and the two
+ narrowings that pull it in. Pure; no drawing, no allocation.
+
+ IT KNOWS NOTHING ABOUT WHERE A POINT LANDS. `project` takes the focal as an
+ argument rather than reading one, so the lens and the transform were already
+ separate at the call before they were separate files -- which is why this
+ chapter and Camera share no definition in either direction.
+
+ Split out of Camera on 2026-09-03. It was Camera's Lens and Focal Pull-In
+ sections, minus the three values the projection reads and the near plane,
+ which is Geom's.
+
+ ONE ADAPTATION, inherited. The zig carries the live projection width as a
+ mutable global, `pub var view_w`, which the native window widens toward the
+ screen's aspect while FOCAL stays frozen -- that is what makes a wider window a
+ wider field of view rather than a zoom. Codex has no mutable global, so view-w
+ is threaded as a parameter to `project`. `camera-w` here is the design width
+ the browser and the golden-PNG harness both use, and it is what the base focal
+ is frozen at.
+
+ We say:
+
+Section: The Base Focal
+
+  camera-w : Real
+  camera-w = 960.0
+
+  fov-deg : Real
+  fov-deg = 70.0
+
+ The base focal, in pixels, looking straight ahead. FROZEN at the design width and
+ NOT recomputed from the live view-w -- that is what keeps a wider window a wider
+ FOV. The live cam-focal pulls IN from this as the rider leans or narrows focus.
+
+  focal : Real
+  focal = (camera-w / 2.0) / r-tan (fov-deg / 2.0 * deg)
+
+Section: Focal Pull-In
+
+ The focal pulls IN -- widening the FOV, a smaller focal -- for the deeper of two
+ narrowings: the LEAN into a turn, and the rider's ATTENTION on something off the
+ road. The lean narrows hardest and is squared so it snaps in deep in the turn;
+ attention narrows gentler and linearly, but a crossing cat's attention overshoots
+ 1, so it can pull harder than a full gaze. They rarely overlap -- eyes on the road
+ mid-corner -- so the tightest simply wins.
+
+  min-focal-factor : Real
+  min-focal-factor = 0.35
+
+  min-gaze-focal-factor : Real
+  min-gaze-focal-factor = 0.61
+
+  focal-for-lean : Real -> Real
+  focal-for-lean (lean-frac) = focal * (1.0 - (1.0 - min-focal-factor) * lean-frac * lean-frac)
+
+  focal-for-gaze : Real -> Real
+  focal-for-gaze (attention) = focal * (1.0 - (1.0 - min-gaze-focal-factor) * attention)
+
+  cam-focal : Real, Real -> Real
+  cam-focal (lean-frac) (attention) =
+    let a = focal-for-lean lean-frac
+    in let b = focal-for-gaze attention
+    in if a < b then a else b
+
 Chapter: Pond
 
  pond -- a small pond at a corner (seg13), just BEYOND a right-turn intersection,
@@ -2848,11 +3127,6 @@ Section: Draw
  as a road quad, but the corners carry their own heights so it stands above the
  pavement. Called by render in depth-sorted order.
 
-  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
-  project-all (ps) (cf) (view-w) (i) =
-    if i >= list-length ps then []
-    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
-
   rail-draw-poly : RailPoly, Real, Real -> List DrawCmd
   rail-draw-poly (rp) (cf) (view-w) =
     let clipped = clip-near rp.v near
@@ -2870,6 +3144,7 @@ Section: Draw
 
 Chapter: SafariCritter
   cites Safari chapter World
+  cites Safari chapter Scenery
 
  The two big animals parked AT a corner: an ADULT standing just past the far
  (outer) edge as if it had crossed, facing into the turn, and its BABY ahead in
@@ -2958,21 +3233,153 @@ Section: The Corner Pair
             Critter { along = along + baby-beyond, across = 0.0, codepoint = sp.cp, height = adult-h * baby-ratio, face-right = turn-right }]
       else []
 
+Chapter: Billboards
+  cites Safari chapter Geom
+  cites Safari chapter Lens
+
+ AN EMOJI SPRITE PLACED IN THE RIDER'S FRAME, and the two culls that decide
+ whether it is drawn at all. Nothing here knows what the sprite is of.
+
+ Split out of Render on 2026-09-03. Every emoji animal in the safari -- cows,
+ bulls, the pig herd, the corner pair, the pond ducks -- collects to the same
+ billboard, and the placement rule was already written once for all of them.
+ That is what makes it liftable: the callers differ, the verdict does not.
+
+ A placement carries its own verdict rather than being dropped, which is the
+ detail a re-implementation would lose. The near-plane cull is SILENT in the
+ zig -- it `continue`s without touching a counter -- so a placement can be
+ neither kept nor size-culled, and that third state has to survive.
+
+ We say:
+
+Section: What a Placement Is
+
+  Billboard = record {
+    right : Real,
+    fwd : Real,
+    height : Real,
+    cp : Integer,
+    face-right : Boolean
+  }
+
+ A placement carries its own verdict rather than being dropped, so the two culls
+ can be counted separately. `kept` says it survived both; `size-culled` says which
+ one rejected it. The near-plane cull is SILENT in the zig -- it `continue`s
+ without touching a counter -- so a placement can be neither kept nor size-culled,
+ and that third state is the one the port has to preserve.
+
+  Placed = record {
+    b : Billboard,
+    kept : Boolean,
+    size-culled : Boolean
+  }
+
+Section: The Size Floor
+
+  min-critter-px : Real
+  min-critter-px = 2.0
+
+Section: The Verdict
+
+  no-billboard : Billboard
+  no-billboard = Billboard { right = 0.0, fwd = 0.0, height = 0.0, cp = 0, face-right = False }
+
+  verdict : RiderPt, Real, Integer, Boolean -> Placed
+  verdict (rp) (h) (cp) (fr) =
+    if rp.forward <= near
+      then Placed { b = no-billboard, kept = False, size-culled = False }
+      else if h / rp.forward * focal < min-critter-px
+        then Placed { b = no-billboard, kept = False, size-culled = True }
+        else Placed { b = Billboard { right = rp.right, fwd = rp.forward, height = h, cp = cp, face-right = fr }, kept = True, size-culled = False }
+
+Section: Harvesting a Placement List
+
+ Collect the survivors and count the size-culled, over a list of placements. Two
+ walks over one list rather than one walk returning a pair, because a pair would
+ need a record whose only purpose is to be taken apart again.
+
+  kept-of : List Placed, Integer -> List Billboard
+  kept-of (ps) (i) =
+    if i >= list-length ps then []
+    else if (list-at ps i).kept then [(list-at ps i).b] & kept-of ps (i + 1)
+    else kept-of ps (i + 1)
+
+  size-culled-of : List Placed, Integer -> Integer
+  size-culled-of (ps) (i) =
+    if i >= list-length ps then 0
+    else if (list-at ps i).size-culled then 1 + size-culled-of ps (i + 1)
+    else size-culled-of ps (i + 1)
+
+Chapter: Ground
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+
+ A QUAD ON THE FLOOR: drop each corner by the curvature at its distance, clip
+ the polygon to the near plane, project it, paint it. It does not know whether
+ it is painting a road, a corner's pavement or a pond.
+
+ Split out of Render on 2026-09-03. Ground quads never enter the depth sort --
+ they are painted first, in walk order, and everything that stands up is sorted
+ and painted over them -- so this is a pipeline of its own rather than a stage
+ of that one.
+
+ We say:
+
+Section: A Ground Vertex
+
+  ground-vert : RiderPt -> Vec3
+  ground-vert (p) =
+    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
+
+  ground-verts : List RiderPt, Integer -> List Vec3
+  ground-verts (ps) (i) =
+    if i >= list-length ps then []
+    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
+
+Section: Clip, Project, Paint
+
+ THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
+ in more than eight points gets nothing at all rather than a truncated polygon,
+ which is the zig's behaviour and is the safer of the two: a silently shortened
+ ground quad would be a wrong shape painted confidently.
+
+  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
+  emit-ground-color (ps) (color) (cf) (view-w) =
+    if list-length ps > 8 then []
+    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
+
+  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
+  ground-clip (vs) (color) (cf) (view-w) =
+    if list-length vs < 3 then []
+    else push-poly color (project-all vs cf view-w 0)
+
 Chapter: Render
   cites Gpu chapter DeviceMath
   cites Foreword chapter ListUtils
   cites Safari chapter Geom
   cites Safari chapter World
-  cites Safari chapter Camera
+  cites Safari chapter Frame
+  cites Safari chapter Scenery
+  cites Safari chapter Lens
   cites Safari chapter Num
   cites Safari chapter Pond
   cites Safari chapter Tower
   cites Safari chapter GuardRail
   cites Safari chapter Cat
   cites Safari chapter SafariCritter
+  cites Safari chapter Billboards
+  cites Safari chapter Ground
 
- The frame mapping: which segments are in view, and how a point authored in any of
- their frames reaches the rider's.
+ The safari's frame: what stands in it, and what it stands on. Everything here
+ is collected, culled, depth-sorted or painted -- the trees, the towers, the
+ critters, the crossing cat, the guard rails, the chased truck, the road strip
+ and the pond.
+
+ THE ROUTE WALK IS NOT HERE ANY MORE. `Safari chapter Frame` took the chain,
+ the rider pose, the composition and the mappers on 2026-09-03, because none of
+ them mentions anything that stands beside the road and a second screensaver
+ would keep every one. What is left is this one's scenery.
 
  A partial port of wasm/render.zig -- the spine, not yet the frame. render.zig is
  the orchestrator: one 431-line `frame` that walks the chain, lays the road strip
@@ -2992,129 +3399,6 @@ Chapter: Render
 
  We say:
 
-Section: The Chain
-
- How many segments ahead are drawn, and the fixed buffer that bounds them. The zig
- carries both because its Chain is a fixed array that the look-ahead has to fit
- inside; the port keeps both because the SMALLER of the two is what actually stops
- the walk, and which one that is should stay visible rather than being folded into
- one number.
-
-  look-ahead : Integer
-  look-ahead = 7
-
-  max-chain : Integer
-  max-chain = 8
-
- THE CHAIN IS A LIST OF SEGMENT INDICES. The zig's Chain is an array plus a length
- because it has to be; a Codex list carries its own length, so the record collapses
- to the list and every `ch.len` becomes `list-length ch`.
-
- Follow exit-to from `start`, stopping at the cap or at the terminus -- no segment
- leads out of the finish line, so the chain ends there rather than looping. `n` is
- how many indices are already down, which is the zig's `ch.len` read at the TOP of
- its loop: the cap is tested before the index is appended, so a chain is never
- longer than the cap and the terminus is never dropped for being one past it.
-
-  build-chain : List Segment, Integer -> List Integer
-  build-chain (segs) (start) = chain-from segs start 0
-
-  chain-from : List Segment, Integer, Integer -> List Integer
-  chain-from (segs) (s) (n) =
-    if n >= look-ahead then []
-    else if n >= max-chain then []
-    else if (list-at segs s).terminates then [s]
-    else [s] & chain-from segs (list-at segs s).exit-to (n + 1)
-
-Section: The Rider Pose
-
- Where the rider sits on his CURRENT segment and which way he is looking. `hw` is
- that segment's half width, and it is here rather than being looked up because his
- `across` is centre-relative while to-rider wants from-the-left -- the same shift
- Camera's port already threads.
-
- The `yaw` handed in is not his heading alone. render.zig folds the distracted
- gaze and the lean's head turn into it before building the pose, so the whole view
- swings together with the backdrop; the port takes the sum, as the zig does.
-
-  Pose = record {
-    along : Real,
-    across : Real,
-    yaw : Real,
-    hw : Real
-  }
-
-Section: The Frame Composition
-
- at maps (a, x) in chain[d]'s bottom-left frame into the rider's, composing the
- joins down to chain[0] and then applying the rider transform. For d = 0 there is
- nothing to compose and it is just to-rider.
-
- THE JOINS COMPOSE BACKWARDS, from d down to 1, and the segment that supplies each
- join is the one BELOW it. chain[k] leads to chain[k+1] through chain[k]'s OWN exit
- turn, so stepping a point from chain[k+1]'s frame down into chain[k]'s reads
- chain[k]'s length, angle, direction and width -- never chain[k+1]'s. Off by one
- here and a distant segment lands rotated by its neighbour's turn, which does not
- look like corruption; it looks like a plausible road bending the wrong way.
-
-  compose-down : List Segment, List Integer, Integer, Real, Real -> AX
-  compose-down (segs) (ch) (k) (a) (x) =
-    if k <= 0 then AX { a = a, x = x }
-    else let seg = list-at segs (list-at ch (k - 1))
-    in let p = next-to-cur a x seg.length seg.exit-angle seg.exit-right seg.width
-    in compose-down segs ch (k - 1) p.a p.x
-
-  at : List Segment, List Integer, Pose, Integer, Real, Real -> RiderPt
-  at (segs) (ch) (pose) (d) (a) (x) =
-    let p = compose-down segs ch d a x
-    in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
-
-Section: Mappers
-
- How to express a point authored in SOME segment's frame in the rider's. A forward
- joint maps both of its segments through the chain -- `at` at index d, above.
-
- THE JOINT JUST BEHIND THE RIDER IS THE ONE THAT CANNOT, and it is the reason this
- abstraction exists at all. Its `from` is the PREVIOUS segment, which is not on the
- chain: the chain starts at the rider's current segment and only ever runs forward.
- So a point authored there steps FORWARD through the join with cur-to-next -- the
- inverse of what every other point does -- and then goes straight to the rider.
- Without that pass the pavement the rider is still crossing vanishes the instant
- his segment index flips, which is the bug the behind-joint pass was written for
- and which the tower and the corner creatures each had in turn.
-
- The zig's Mapper is a struct with a two-valued tag; the port keeps the struct and
- narrows the tag to a Boolean, because a Codex variant carries no payload and the
- four prev fields have to live somewhere. `is-chain` reads as the zig's
- `kind == .chain`.
-
-  Mapper = record {
-    is-chain : Boolean,
-    d : Integer,
-    prev-len : Real,
-    prev-angle : Real,
-    prev-right : Boolean,
-    prev-w : Real
-  }
-
- The zig defaults every Mapper field and fills in the one or two that matter. Codex
- records are built whole, so the two constructors below take that place -- and they
- also make the two kinds impossible to half-build, which the defaults did not.
-
-  chain-map : Integer -> Mapper
-  chain-map (d) =
-    Mapper { is-chain = True, d = d, prev-len = 0.0, prev-angle = 0.0, prev-right = False, prev-w = 0.0 }
-
-  prev-map : Segment -> Mapper
-  prev-map (s) =
-    Mapper { is-chain = False, d = 0, prev-len = s.length, prev-angle = s.exit-angle, prev-right = s.exit-right, prev-w = s.width }
-
-  map-pt : List Segment, List Integer, Pose, Mapper, Real, Real -> RiderPt
-  map-pt (segs) (ch) (pose) (m) (a) (x) =
-    if m.is-chain
-      then at segs ch pose m.d a x
-      else let p = cur-to-next a x m.prev-len m.prev-angle m.prev-right m.prev-w
-        in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
 
 Section: Collection Limits and Culls
 
@@ -3133,8 +3417,6 @@ Section: Collection Limits and Culls
   min-scenery-px : Real
   min-scenery-px = 2.0
 
-  min-critter-px : Real
-  min-critter-px = 2.0
 
  THE TWO CULLS ARE DELIBERATELY DIFFERENT AND BOTH MUST STAY LIVE. The SEGMENT
  cull saves projecting a critter at all: trees hide the farm animals past a few
@@ -3234,25 +3516,6 @@ Section: The Collected Kinds
  Every emoji animal -- cows, bulls, the pig herd, the corner safari pair, the pond
  ducks -- collects to the same billboard, which is why one list holds all of them.
 
-  Billboard = record {
-    right : Real,
-    fwd : Real,
-    height : Real,
-    cp : Integer,
-    face-right : Boolean
-  }
-
- A placement carries its own verdict rather than being dropped, so the two culls
- can be counted separately. `kept` says it survived both; `size-culled` says which
- one rejected it. The near-plane cull is SILENT in the zig -- it `continue`s
- without touching a counter -- so a placement can be neither kept nor size-culled,
- and that third state is the one the port has to preserve.
-
-  Placed = record {
-    b : Billboard,
-    kept : Boolean,
-    size-culled : Boolean
-  }
 
 Section: The Crossing Cat
 
@@ -3309,16 +3572,6 @@ Section: Placing Billboards
  One rule for every emoji animal: map it into the rider frame, drop it if it is
  behind the near plane, size-cull it if it would project shorter than the floor.
 
-  no-billboard : Billboard
-  no-billboard = Billboard { right = 0.0, fwd = 0.0, height = 0.0, cp = 0, face-right = False }
-
-  verdict : RiderPt, Real, Integer, Boolean -> Placed
-  verdict (rp) (h) (cp) (fr) =
-    if rp.forward <= near
-      then Placed { b = no-billboard, kept = False, size-culled = False }
-      else if h / rp.forward * focal < min-critter-px
-        then Placed { b = no-billboard, kept = False, size-culled = True }
-        else Placed { b = Billboard { right = rp.right, fwd = rp.forward, height = h, cp = cp, face-right = fr }, kept = True, size-culled = False }
 
   place-critter : List Segment, List Integer, Pose, Integer, Real, Critter -> Placed
   place-critter (segs) (ch) (pose) (d) (hw) (cr) =
@@ -3348,18 +3601,6 @@ Section: Harvesting a Placement List
  Collect the survivors and count the size-culled, over a list of placements. Two
  walks over one list rather than one walk returning a pair, because a pair would
  need a record whose only purpose is to be taken apart again.
-
-  kept-of : List Placed, Integer -> List Billboard
-  kept-of (ps) (i) =
-    if i >= list-length ps then []
-    else if (list-at ps i).kept then [(list-at ps i).b] & kept-of ps (i + 1)
-    else kept-of ps (i + 1)
-
-  size-culled-of : List Placed, Integer -> Integer
-  size-culled-of (ps) (i) =
-    if i >= list-length ps then 0
-    else if (list-at ps i).size-culled then 1 + size-culled-of ps (i + 1)
-    else size-culled-of ps (i + 1)
 
   place-all : List Segment, List Integer, Pose, Integer, Real, List Critter, Integer -> List Placed
   place-all (segs) (ch) (pose) (d) (hw) (crs) (i) =
@@ -3885,29 +4126,6 @@ Section: The Ground
  of a vanishing point at infinity. The sign is the thing to get right: ground-drop
  returns a positive distance and the height is its NEGATIVE.
 
-  ground-vert : RiderPt -> Vec3
-  ground-vert (p) =
-    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
-
-  ground-verts : List RiderPt, Integer -> List Vec3
-  ground-verts (ps) (i) =
-    if i >= list-length ps then []
-    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
-
- THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
- in more than eight points gets nothing at all rather than a truncated polygon,
- which is the zig's behaviour and is the safer of the two: a silently shortened
- ground quad would be a wrong shape painted confidently.
-
-  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
-  emit-ground-color (ps) (color) (cf) (view-w) =
-    if list-length ps > 8 then []
-    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
-
-  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
-  ground-clip (vs) (color) (cf) (view-w) =
-    if list-length vs < 3 then []
-    else push-poly color (project-all vs cf view-w 0)
 
   emit-ground : List RiderPt, Real, Real -> List DrawCmd
   emit-ground (ps) (cf) (view-w) = emit-ground-color ps road-color cf view-w
@@ -3918,8 +4136,6 @@ Section: The Road Strip
  chunk. Codex's foreword has a floor and no ceiling, so this is the identity
  ceil x = -floor(-x) rather than a second rounding rule.
 
-  ceil-real : Real -> Real
-  ceil-real (x) = 0.0 - floor-real (0.0 - x)
 
   chunks-for : Real -> Integer
   chunks-for (len) =
@@ -4051,6 +4267,7 @@ Chapter: Sky
   cites Safari chapter Num
   cites Safari chapter Trig
   cites Safari chapter Camera
+  cites Safari chapter Lens
 
  The day-to-dusk clock: the sky's colour, and the setting sun's screen placement.
  Pure functions of the STEP clock -- safari.zig owns it -- and the rider's absolute
@@ -4066,8 +4283,8 @@ Chapter: Sky
  THIS IS THE FIRST CHAPTER THAT NEEDS real-to-int, and it needs it twice: to
  round a lerped colour channel and to pack three of them into one integer. Until
  2026-08-29 the zig plug could emit neither conversion and this module was simply
- unportable -- see PORTING_NOTES A1, and plugs-backlog row 2.03 for the emitter
- that closed it. Nothing here works around anything any more.
+ unportable -- see plugs-backlog row 2.03 for the emitter that closed it.
+ Nothing here works around anything any more.
 
  We say:
 
@@ -4227,6 +4444,7 @@ Chapter: Mountains
   cites Safari chapter Num
   cites Safari chapter Trig
   cites Safari chapter Camera
+  cites Safari chapter Lens
   cites Safari chapter Paint
   cites Safari chapter Sky
   cites Foreword chapter ListUtils
@@ -5129,7 +5347,7 @@ Chapter: Truck
  zig's own. `State`, `initial`, `nextTurn` and `next` reach nothing but the world
  and a few of the rider's constants. The drawing half -- the trailer box, its
  tires, the headlight wedges -- reaches `render.Chain`, `render.Pose` and
- `render.at`, and it is `Safari chapter TruckBody`, which cites Render for exactly
+ `render.at`, and it is `Safari chapter TruckDraw`, which cites Render for exactly
  that. The split is what keeps World's cite of this chapter cheap: placing a truck
  costs five constants, and only the chapters that DRAW one pay for the mapping
  spine. Cat and CatDraw are split for the same reason.
@@ -5260,7 +5478,7 @@ Section: One Frame
     let v = if truck.pos < scheduled then real-min truck-max-v (truck.v + truck-chase-accel) else truck.v
     in TruckState { pos = truck.pos + v, v = v, braking = False }
 
-Chapter: TruckBody
+Chapter: TruckDraw
   cites Gpu chapter DeviceMath
   cites Foreword chapter ListUtils
   cites Safari chapter Geom
@@ -5270,6 +5488,7 @@ Chapter: TruckBody
   cites Safari chapter World
   cites Safari chapter GuardRail
   cites Safari chapter Render
+  cites Safari chapter Frame
 
  The trailer, the cab, the tires, the headlight beams and the brake lights: the
  truck as it is SEEN, where `Safari chapter Truck` is the truck as it MOVES.
@@ -5759,7 +5978,7 @@ Chapter: Safari
   cites Foreword chapter ListUtils
   cites Gpu chapter DeviceMath
   cites Safari chapter Geom
-  cites Safari chapter Camera
+  cites Safari chapter Lens
   cites Safari chapter Paint
   cites Safari chapter World
   cites Safari chapter Sky
@@ -5775,7 +5994,9 @@ Chapter: Safari
   cites Safari chapter Rider
   cites Safari chapter Render
   cites Safari chapter Truck
-  cites Safari chapter TruckBody
+  cites Safari chapter TruckDraw
+  cites Safari chapter Frame
+  cites Safari chapter Billboards
 
  The whole game, folded: one ride state, one step of it, and one frame drawn from
  it. A port of wasm/safari.zig, and the last file in the game to be ported.
@@ -5792,7 +6013,7 @@ Chapter: Safari
      stands up in depth order) had lived in the browser poc because half its
      drawers were unported. They are all ported now, so it belongs here, above
      Render rather than inside it: the dispatch has to cite every drawer, and
-     TruckBody cites Render, so a dispatch inside Render would be a cycle.
+     TruckDraw cites Render, so a dispatch inside Render would be a cycle.
    THE CAMERA PULL-IN. The lens narrows as he leans and as he watches a crossing
      cat. `cam-focal`, `focal-for-lean` and `focal-for-gaze` have been ported and
      idle since Camera landed, because nothing above them existed to compute the

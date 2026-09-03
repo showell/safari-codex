@@ -2,7 +2,8 @@ Chapter: RenderCheck
   cites Foreword chapter Console
   cites Safari chapter Geom
   cites Safari chapter World
-  cites Safari chapter Camera
+  cites Safari chapter Scenery
+  cites Safari chapter Lens
   cites Safari chapter Cat
   cites Safari chapter GuardRail
   cites Safari chapter Paint
@@ -10,6 +11,7 @@ Chapter: RenderCheck
   cites Safari chapter SafariCritter
   cites Judge chapter Grade
   cites Gold chapter RenderGold
+  cites Safari chapter Frame
 
  Grade the Render port's mapping spine against wasm/render.zig, and SafariCritter
  against wasm/safari_critter.zig.

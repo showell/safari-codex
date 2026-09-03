@@ -17,6 +17,22 @@ checks below still grade against the game because a free, exact oracle is worth
 keeping -- not because the port is forbidden to diverge. It may diverge, and in
 features too.
 
+**And as of 2026-09-03 it has stopped matching the original's SHAPE.** Every
+chapter here began as one of the game's files, and several of those files were
+two jobs; `Camera` held a lens, a projection and a near plane that it never
+read, and the near plane was carried by four callers into `Geom`'s clipping.
+The chapter boundaries are ours now, chosen for cohesion, and the `A port of
+wasm/<x>.zig` line at the top of a chapter is PROVENANCE rather than a promise
+-- it says where the code came from, not what shape it must keep.
+
+**What is still promised, and it is the part that was doing the work.** The
+four arms compile the same Codex source and must print the same bytes. The
+golds are regenerated from the zig probe and grade VALUES. The eye test is a
+picture a human looks at. Not one of those has an opinion about which chapter
+computed a number, which is exactly why the structure was free to move and the
+behaviour is not: a restructure either leaves every value identical or it does
+not, and the sweep says which.
+
 `PROVENANCE.md` pins the trees this builds against. `FINDINGS.md` and
 `WASM_FINDINGS.md` are the defects this project found, written to be sent.
 `PORTING_NOTES.txt` is the lessons file -- the first thing to read before
@@ -462,7 +478,7 @@ alone changes anything visible:
 All three are done. The shim keeps a `TruckStateS` beside the rider's and steps it
 in lockstep against the **new** rider distance, which is `safari.zig`'s own order;
 the history ring scrubs both together, so the down arrow rewinds the chase as well
-as the ride; and `port/TruckBody.codex` draws the body, graded at 2,962 values
+as the ride; and `port/TruckDraw.codex` draws it, graded at 2,962 values
 against `truck.drawBody` itself.
 
 Measured over one drive: the lead runs 500 m at the line down to 68 m by frame

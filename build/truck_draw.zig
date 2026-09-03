@@ -144,6 +144,24 @@ const DrawCmdS = struct {
 };
 const DrawCmd = *DrawCmdS;
 
+const PoseS = struct {
+    along: f64,
+    across: f64,
+    yaw: f64,
+    hw: f64,
+};
+const Pose = *PoseS;
+
+const MapperS = struct {
+    is_chain: bool,
+    d_: i64,
+    prev_len: f64,
+    prev_angle: f64,
+    prev_right: bool,
+    prev_w: f64,
+};
+const Mapper = *MapperS;
+
 const PondPtS = struct {
     cu: f64,
     cv: f64,
@@ -170,23 +188,21 @@ const SpeciesS = struct {
 };
 const Species = *SpeciesS;
 
-const PoseS = struct {
-    along: f64,
-    across: f64,
-    yaw: f64,
-    hw: f64,
+const BillboardS = struct {
+    right: f64,
+    fwd: f64,
+    height: f64,
+    cp_: i64,
+    face_right: bool,
 };
-const Pose = *PoseS;
+const Billboard = *BillboardS;
 
-const MapperS = struct {
-    is_chain: bool,
-    d_: i64,
-    prev_len: f64,
-    prev_angle: f64,
-    prev_right: bool,
-    prev_w: f64,
+const PlacedS = struct {
+    b_: Billboard,
+    kept: bool,
+    size_culled: bool,
 };
-const Mapper = *MapperS;
+const Placed = *PlacedS;
 
 const TreeItemS = struct {
     right: f64,
@@ -205,22 +221,6 @@ const TowerItemS = struct {
     off_: f64,
 };
 const TowerItem = *TowerItemS;
-
-const BillboardS = struct {
-    right: f64,
-    fwd: f64,
-    height: f64,
-    cp_: i64,
-    face_right: bool,
-};
-const Billboard = *BillboardS;
-
-const PlacedS = struct {
-    b_: Billboard,
-    kept: bool,
-    size_culled: bool,
-};
-const Placed = *PlacedS;
 
 const CatItemS = struct {
     right: f64,
@@ -434,6 +434,14 @@ fn cat_make(lane_half: f64, tree_offset: f64, tree_along: f64) Cat {
     return b0: { const tree_x: f64 = (lane_half + tree_offset); break :b0 cx_new(CatS{ .along = (tree_along + cat_beyond_tree()), .start_across = (tree_x + cat_road_gap()), .mid_across = ((@as(f64, @bitCast(@as(i64, 0))) - cat_head_x()) * cat_height()), .end_across = ((@as(f64, @bitCast(@as(i64, 0))) - (lane_half + grass_toehold())) - land_hind_reach()), .height = cat_height() }); };
 }
 
+fn lane_width() f64 {
+    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
+}
+
+fn herd_road_offset() f64 {
+    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
+}
+
 fn conifer_green() i64 {
     return 1858082;
 }
@@ -468,14 +476,6 @@ fn tree_start_inset() f64 {
 
 fn tree_end_inset() f64 {
     return @as(f64, @bitCast(@as(i64, 4635681760191971328)));
-}
-
-fn lane_width() f64 {
-    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
-}
-
-fn mid_tower_min_length() f64 {
-    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
 }
 
 fn max_trees() i64 {
@@ -516,10 +516,6 @@ fn calf_height() f64 {
 
 fn bull_height() f64 {
     return (cow_height() * @as(f64, @bitCast(@as(i64, 4607857958744122982))));
-}
-
-fn herd_road_offset() f64 {
-    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
 }
 
 fn bull_dist() f64 {
@@ -646,6 +642,10 @@ fn fill_pig_row(length: f64) *CxList(Critter) {
     return b0: { const base_: f64 = (length - pig_dist_before_end()); break :b0 b1: { const edge: f64 = ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()); break :b1 cx_ll_concat(row_pigs_at(base_, edge, pig_row_front(), 0), row_pigs_at(base_, (edge + pig_back_row_offset()), pig_row_back(), 0)); }; };
 }
 
+fn mid_tower_min_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
+}
+
 fn cfg(len_: f64, sch: Scheme, turn: f64, c_: bool, p_: bool, b_: bool, t: bool, cr: Creature) Cfg {
     return cx_new(CfgS{ .length = len_, .scheme = sch, .turn_deg = turn, .cat = c_, .pigs = p_, .bull = b_, .terminates = t, .creature = cr });
 }
@@ -694,6 +694,18 @@ fn build_world() *CxList(Segment) {
     return segments_from(0);
 }
 
+fn camera_w() f64 {
+    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
+}
+
+fn fov_deg() f64 {
+    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
+}
+
+fn focal() f64 {
+    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
 fn ground_radius() f64 {
     return @as(f64, @bitCast(@as(i64, 4681608360884174848)));
 }
@@ -710,6 +722,10 @@ fn next_to_cur(a_b: f64, x_b: f64, seg_len: f64, theta: f64, turns_right: bool, 
     return b0: { const c_: f64 = r_cos(theta); break :b0 b1: { const s_: f64 = r_sin(theta); break :b1 (if (turns_right) cx_new(AXS{ .a_ = ((((a_b * c_) - (x_b * s_)) + (width * s_)) + seg_len), .x = (((x_b * c_) + (a_b * s_)) + (width * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - c_))) }) else cx_new(AXS{ .a_ = (((a_b * c_) + (x_b * s_)) + seg_len), .x = ((x_b * c_) - (a_b * s_)) })); }; };
 }
 
+fn near() f64 {
+    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
+}
+
 fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
     return b0: { const f: f64 = ((_arg_near - a_.forward) / (b_.forward - a_.forward)); break :b0 cx_ll_of(Vec3, &[_]Vec3{ cx_new(Vec3S{ .right = (a_.right + (f * (b_.right - a_.right))), .forward = _arg_near, .height = (a_.height + (f * (b_.height - a_.height))) }) }); };
 }
@@ -722,10 +738,6 @@ fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
     return clip_near_edge(poly, _arg_near, 0);
 }
 
-fn camera_w() f64 {
-    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
-}
-
 fn camera_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
 }
@@ -734,20 +746,12 @@ fn eye_h() f64 {
     return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
 }
 
-fn near() f64 {
-    return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
-}
-
-fn fov_deg() f64 {
-    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
-}
-
-fn focal() f64 {
-    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
-}
-
 fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
     return cx_new(ScreenPtS{ .x = ((view_w / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + ((p_.right / p_.forward) * cf)), .y = ((camera_h() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - (((p_.height - eye_h()) / p_.forward) * cf)) });
+}
+
+fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
 }
 
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
@@ -760,10 +764,6 @@ fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
 
 fn push_grad_poly(rgba_center: i64, rgba_edge: i64, cx: f64, cy: f64, r_: f64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
     return (if ((cx_list_len(ps) < 3)) cx_ll_empty(DrawCmd) else cx_ll_of(DrawCmd, &[_]DrawCmd{ cx_new(DrawCmdS{ .tag = 4, .color = rgba_center, .color2 = rgba_edge, .strength = @as(f64, @bitCast(@as(i64, 0))), .geom = cx_ll_of(f64, &[_]f64{ cx, cy, r_ }), .pts = flatten_screen(ps, 0) }) }));
-}
-
-fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
 }
 
 fn look_ahead() i64 {

@@ -138,20 +138,12 @@ fn r_tan(x: f64) f64 {
     return (real_sin(x) / real_cos(x));
 }
 
-fn camera_w() f64 {
-    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
-}
-
-fn camera_h() f64 {
-    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
-}
-
-fn eye_h() f64 {
-    return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
-}
-
 fn near() f64 {
     return @as(f64, @bitCast(@as(i64, 4600877379321698714)));
+}
+
+fn camera_w() f64 {
+    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
 }
 
 fn fov_deg() f64 {
@@ -160,6 +152,14 @@ fn fov_deg() f64 {
 
 fn focal() f64 {
     return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
+fn camera_h() f64 {
+    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
+}
+
+fn eye_h() f64 {
+    return @as(f64, @bitCast(@as(i64, 4608083138725491507)));
 }
 
 fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {

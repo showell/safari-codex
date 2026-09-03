@@ -193,6 +193,14 @@ fn from_maybe(comptime T43: type, m_: Maybe(T43), default: T43) T43 {
     return switch (m_) { .Just => |x| x, .None => default,  };
 }
 
+fn lane_width() f64 {
+    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
+}
+
+fn herd_road_offset() f64 {
+    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
+}
+
 fn conifer_green() i64 {
     return 1858082;
 }
@@ -227,14 +235,6 @@ fn tree_start_inset() f64 {
 
 fn tree_end_inset() f64 {
     return @as(f64, @bitCast(@as(i64, 4635681760191971328)));
-}
-
-fn lane_width() f64 {
-    return @as(f64, @bitCast(@as(i64, 4616189618054758400)));
-}
-
-fn mid_tower_min_length() f64 {
-    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
 }
 
 fn max_trees() i64 {
@@ -275,10 +275,6 @@ fn calf_height() f64 {
 
 fn bull_height() f64 {
     return (cow_height() * @as(f64, @bitCast(@as(i64, 4607857958744122982))));
-}
-
-fn herd_road_offset() f64 {
-    return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
 }
 
 fn bull_dist() f64 {
@@ -411,6 +407,10 @@ fn row_pigs_at(base_: f64, across: f64, ds: *CxList(f64), i_: i64) *CxList(Critt
 
 fn fill_pig_row(length: f64) *CxList(Critter) {
     return b0: { const base_: f64 = (length - pig_dist_before_end()); break :b0 b1: { const edge: f64 = ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()); break :b1 cx_ll_concat(row_pigs_at(base_, edge, pig_row_front(), 0), row_pigs_at(base_, (edge + pig_back_row_offset()), pig_row_back(), 0)); }; };
+}
+
+fn mid_tower_min_length() f64 {
+    return @as(f64, @bitCast(@as(i64, 4652007308841189376)));
 }
 
 fn cfg(len_: f64, sch: Scheme, turn: f64, c_: bool, p_: bool, b_: bool, t: bool, cr: Creature) Cfg {

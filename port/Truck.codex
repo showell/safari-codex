@@ -12,7 +12,7 @@ Chapter: Truck
  zig's own. `State`, `initial`, `nextTurn` and `next` reach nothing but the world
  and a few of the rider's constants. The drawing half -- the trailer box, its
  tires, the headlight wedges -- reaches `render.Chain`, `render.Pose` and
- `render.at`, and it is `Safari chapter TruckBody`, which cites Render for exactly
+ `render.at`, and it is `Safari chapter TruckDraw`, which cites Render for exactly
  that. The split is what keeps World's cite of this chapter cheap: placing a truck
  costs five constants, and only the chapters that DRAW one pay for the mapping
  spine. Cat and CatDraw are split for the same reason.

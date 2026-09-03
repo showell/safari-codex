@@ -205,10 +205,6 @@ fn camera_w() f64 {
     return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
 }
 
-fn camera_h() f64 {
-    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
-}
-
 fn fov_deg() f64 {
     return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
 }
@@ -227,6 +223,10 @@ fn min_gaze_focal_factor() f64 {
 
 fn cam_focal(lean_frac: f64, attention: f64) f64 {
     return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
+}
+
+fn camera_h() f64 {
+    return @as(f64, @bitCast(@as(i64, 4648488871632306176)));
 }
 
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {

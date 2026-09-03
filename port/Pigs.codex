@@ -1,0 +1,111 @@
+Chapter: Pigs
+  cites Safari chapter Scenery
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The pigs, split out of World on 2026-09-03: the deep distraction block the
+ rider gawks at, the one pig he fixes on, and the small row that does not
+ distract.
+
+ We say:
+
+Section: The Pigs
+
+ The DISTRACTION herd is a deep seven-by-seven staggered block near the segment's
+ end, on the right, and the rider gawks at one designated pig as he passes. Only
+ the first two pig appearances distract -- the novelty wears off.
+
+
+  pig-cp : Integer
+  pig-cp = 128022
+
+  pig-height : Real
+  pig-height = 1.1
+
+  pig-novelty-count : Integer
+  pig-novelty-count = 2
+
+  pig-dist-before-end : Real
+  pig-dist-before-end = 60.0
+
+  gaze-pig-along-offset : Real
+  gaze-pig-along-offset = 2.0
+
+  big-herd-cols : Integer
+  big-herd-cols = 7
+
+  big-herd-rows : Integer
+  big-herd-rows = 7
+
+  pig-col-spacing : Real
+  pig-col-spacing = 4.0
+
+ Across-spacing AND the per-row along-shear, which is what slants the herd's sides
+ at forty-five degrees.
+
+
+  pig-row-depth : Real
+  pig-row-depth = 6.0
+
+  pig-jitter-along : Real
+  pig-jitter-along = 1.2
+
+  pig-jitter-across : Real
+  pig-jitter-across = 1.0
+
+  pig-herd-first-col : Real
+  pig-herd-first-col = 0.0 - 6.0
+
+  pig-back-row-offset : Real
+  pig-back-row-offset = 6.0
+
+ The ONE front-row pig the distracted rider fixes on, so the head-turn always aims
+ at a pig that is actually drawn.
+
+
+  gaze-pig : Real, Real -> Critter
+  gaze-pig (length) (lane-half) =
+    Critter { along = length - pig-dist-before-end + gaze-pig-along-offset, across = lane-half + herd-road-offset, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-pig-at : Real, Integer, Integer -> Critter
+  herd-pig-at (base) (r) (c) =
+    let i = real-from-int (r * big-herd-cols + c)
+    in let fr = real-from-int r
+    in let fc = real-from-int c
+    in let along = base + pig-herd-first-col + fc * pig-col-spacing + fr * pig-row-depth + pig-jitter-along * r-sin (i * 2.3)
+    in let across = lane-width / 2.0 + herd-road-offset + fr * pig-row-depth + pig-jitter-across * r-cos (i * 1.7)
+    in Critter { along = along, across = across, codepoint = pig-cp, height = pig-height, face-right = False }
+
+  herd-cols-from : Real, Integer, Integer -> List Critter
+  herd-cols-from (base) (r) (c) =
+    if c >= big-herd-cols then []
+    else [herd-pig-at base r c] & herd-cols-from base r (c + 1)
+
+  herd-rows-from : Real, Integer -> List Critter
+  herd-rows-from (base) (r) =
+    if r >= big-herd-rows then []
+    else (herd-cols-from base r 0) & herd-rows-from base (r + 1)
+
+  fill-pig-herd : Real -> List Critter
+  fill-pig-herd (length) = herd-rows-from (length - pig-dist-before-end) 0
+
+ The small non-distraction row: a front rank of four at the road edge and a back
+ rank of six further off. The rider does not gawk at these.
+
+
+  pig-row-front : List Real
+  pig-row-front = [0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0]
+
+  pig-row-back : List Real
+  pig-row-back = [0.0 - 10.0, 0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0, 10.0]
+
+  row-pigs-at : Real, Real, List Real, Integer -> List Critter
+  row-pigs-at (base) (across) (ds) (i) =
+    if i >= list-length ds then []
+    else [Critter { along = base + list-at ds i, across = across, codepoint = pig-cp, height = pig-height, face-right = False }] & row-pigs-at base across ds (i + 1)
+
+  fill-pig-row : Real -> List Critter
+  fill-pig-row (length) =
+    let base = length - pig-dist-before-end
+    in let edge = lane-width / 2.0 + herd-road-offset
+    in (row-pigs-at base edge pig-row-front 0) & row-pigs-at base (edge + pig-back-row-offset) pig-row-back 0

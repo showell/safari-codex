@@ -1,15 +1,16 @@
-Chapter: TruckBodyCheck
+Chapter: TruckDrawCheck
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter World
-  cites Safari chapter Camera
+  cites Safari chapter Lens
   cites Safari chapter Paint
   cites Safari chapter Render
-  cites Safari chapter TruckBody
+  cites Safari chapter TruckDraw
   cites Judge chapter Grade
-  cites Gold chapter TruckBodyGold
+  cites Gold chapter TruckDrawGold
+  cites Safari chapter Frame
 
- Grade Safari chapter TruckBody against wasm/truck.zig's drawBody.
+ Grade Safari chapter TruckDraw against wasm/truck.zig's drawBody.
 
  A REAL ORACLE, and a stronger one than the drawing seams that came before it.
  drawBody is `pub` -- render.zig's own comment says so and names this as the

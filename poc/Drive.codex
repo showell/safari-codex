@@ -1,6 +1,6 @@
 Chapter: Drive
   cites Safari chapter Geom
-  cites Safari chapter Camera
+  cites Safari chapter Lens
   cites Safari chapter Paint
   cites Safari chapter Trig
   cites Safari chapter Num
@@ -18,6 +18,7 @@ Chapter: Drive
   cites Safari chapter Render
   cites Safari chapter Truck
   cites Safari chapter Safari
+  cites Safari chapter Frame
 
  A browser frame of the REAL route, SCRUBBED -- every value on the page a function
  of one number `u` running 0..1.
@@ -50,7 +51,7 @@ Chapter: Drive
  hundred, with `Safari chapter Cat` picking one per crossing step and computing the
  lateral travel and the hop continuously.
 
- AND THE TRUCK IS HERE, drawn by `Safari chapter TruckBody`.
+ AND THE TRUCK IS HERE, drawn by `Safari chapter TruckDraw`.
 
  THE RIDER IS NOT SIMULATED ON THIS PAGE, and that is what makes it a scrub rather
  than a drive. `frame-at u` has to answer from u alone, so u walks the route by arc

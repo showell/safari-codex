@@ -1,0 +1,150 @@
+Chapter: Frame
+  cites Safari chapter Geom
+  cites Safari chapter World
+
+ THE ROUTE WALK AND THE COORDINATE CHANGE, and nothing that knows what stands
+ beside the road. Which segments are in view, where the rider sits on his, and
+ how a point authored in any segment's frame reaches the rider's.
+
+ Split out of Render on 2026-09-03, and it is the piece a DIFFERENT screensaver
+ would keep. Nothing here mentions a tree, a tower, a cow, a cat, a rail or the
+ truck; the four names other chapters already read from it -- build-chain, at,
+ prev-map, map-pt -- were the scene-independent ones all along, which is the
+ export list and the call graph agreeing from opposite ends.
+
+ render.zig's entire public surface is four names -- Chain, Pose, at, frame --
+ and three of the four are here. That is not a coincidence either: the piece
+ the original file was willing to expose is the piece with no scene in it.
+
+ WHAT IT STILL STANDS ON is `Segment`, which is World's. A route made of
+ straight runs joined by turns is an assumption, not a universal, and a walk
+ through a city would either keep it or replace `World` beneath this chapter.
+ The coupling is one type deep and it is written here so the next reader does
+ not have to find it.
+
+ We say:
+
+
+Section: The Chain
+
+ How many segments ahead are drawn, and the fixed buffer that bounds them. The zig
+ carries both because its Chain is a fixed array that the look-ahead has to fit
+ inside; the port keeps both because the SMALLER of the two is what actually stops
+ the walk, and which one that is should stay visible rather than being folded into
+ one number.
+
+  look-ahead : Integer
+  look-ahead = 7
+
+  max-chain : Integer
+  max-chain = 8
+
+ THE CHAIN IS A LIST OF SEGMENT INDICES. The zig's Chain is an array plus a length
+ because it has to be; a Codex list carries its own length, so the record collapses
+ to the list and every `ch.len` becomes `list-length ch`.
+
+ Follow exit-to from `start`, stopping at the cap or at the terminus -- no segment
+ leads out of the finish line, so the chain ends there rather than looping. `n` is
+ how many indices are already down, which is the zig's `ch.len` read at the TOP of
+ its loop: the cap is tested before the index is appended, so a chain is never
+ longer than the cap and the terminus is never dropped for being one past it.
+
+  build-chain : List Segment, Integer -> List Integer
+  build-chain (segs) (start) = chain-from segs start 0
+
+  chain-from : List Segment, Integer, Integer -> List Integer
+  chain-from (segs) (s) (n) =
+    if n >= look-ahead then []
+    else if n >= max-chain then []
+    else if (list-at segs s).terminates then [s]
+    else [s] & chain-from segs (list-at segs s).exit-to (n + 1)
+
+Section: The Rider Pose
+
+ Where the rider sits on his CURRENT segment and which way he is looking. `hw` is
+ that segment's half width, and it is here rather than being looked up because his
+ `across` is centre-relative while to-rider wants from-the-left -- the same shift
+ Camera's port already threads.
+
+ The `yaw` handed in is not his heading alone. render.zig folds the distracted
+ gaze and the lean's head turn into it before building the pose, so the whole view
+ swings together with the backdrop; the port takes the sum, as the zig does.
+
+  Pose = record {
+    along : Real,
+    across : Real,
+    yaw : Real,
+    hw : Real
+  }
+
+Section: The Frame Composition
+
+ at maps (a, x) in chain[d]'s bottom-left frame into the rider's, composing the
+ joins down to chain[0] and then applying the rider transform. For d = 0 there is
+ nothing to compose and it is just to-rider.
+
+ THE JOINS COMPOSE BACKWARDS, from d down to 1, and the segment that supplies each
+ join is the one BELOW it. chain[k] leads to chain[k+1] through chain[k]'s OWN exit
+ turn, so stepping a point from chain[k+1]'s frame down into chain[k]'s reads
+ chain[k]'s length, angle, direction and width -- never chain[k+1]'s. Off by one
+ here and a distant segment lands rotated by its neighbour's turn, which does not
+ look like corruption; it looks like a plausible road bending the wrong way.
+
+  compose-down : List Segment, List Integer, Integer, Real, Real -> AX
+  compose-down (segs) (ch) (k) (a) (x) =
+    if k <= 0 then AX { a = a, x = x }
+    else let seg = list-at segs (list-at ch (k - 1))
+    in let p = next-to-cur a x seg.length seg.exit-angle seg.exit-right seg.width
+    in compose-down segs ch (k - 1) p.a p.x
+
+  at : List Segment, List Integer, Pose, Integer, Real, Real -> RiderPt
+  at (segs) (ch) (pose) (d) (a) (x) =
+    let p = compose-down segs ch d a x
+    in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
+
+Section: Mappers
+
+ How to express a point authored in SOME segment's frame in the rider's. A forward
+ joint maps both of its segments through the chain -- `at` at index d, above.
+
+ THE JOINT JUST BEHIND THE RIDER IS THE ONE THAT CANNOT, and it is the reason this
+ abstraction exists at all. Its `from` is the PREVIOUS segment, which is not on the
+ chain: the chain starts at the rider's current segment and only ever runs forward.
+ So a point authored there steps FORWARD through the join with cur-to-next -- the
+ inverse of what every other point does -- and then goes straight to the rider.
+ Without that pass the pavement the rider is still crossing vanishes the instant
+ his segment index flips, which is the bug the behind-joint pass was written for
+ and which the tower and the corner creatures each had in turn.
+
+ The zig's Mapper is a struct with a two-valued tag; the port keeps the struct and
+ narrows the tag to a Boolean, because a Codex variant carries no payload and the
+ four prev fields have to live somewhere. `is-chain` reads as the zig's
+ `kind == .chain`.
+
+  Mapper = record {
+    is-chain : Boolean,
+    d : Integer,
+    prev-len : Real,
+    prev-angle : Real,
+    prev-right : Boolean,
+    prev-w : Real
+  }
+
+ The zig defaults every Mapper field and fills in the one or two that matter. Codex
+ records are built whole, so the two constructors below take that place -- and they
+ also make the two kinds impossible to half-build, which the defaults did not.
+
+  chain-map : Integer -> Mapper
+  chain-map (d) =
+    Mapper { is-chain = True, d = d, prev-len = 0.0, prev-angle = 0.0, prev-right = False, prev-w = 0.0 }
+
+  prev-map : Segment -> Mapper
+  prev-map (s) =
+    Mapper { is-chain = False, d = 0, prev-len = s.length, prev-angle = s.exit-angle, prev-right = s.exit-right, prev-w = s.width }
+
+  map-pt : List Segment, List Integer, Pose, Mapper, Real, Real -> RiderPt
+  map-pt (segs) (ch) (pose) (m) (a) (x) =
+    if m.is-chain
+      then at segs ch pose m.d a x
+      else let p = cur-to-next a x m.prev-len m.prev-angle m.prev-right m.prev-w
+        in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw

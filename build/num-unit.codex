@@ -144,9 +144,9 @@ Chapter: Num
  already exists.
 
  EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
- before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
- the honest reason this chapter did not exist earlier: the port had no way to
- reach the integers at all.
+ before 2026-08-29 -- see plugs-backlog row 2.03. That is the honest reason
+ this chapter did not exist earlier: the port had no way to reach the integers
+ at all.
 
  We say:
 
@@ -281,6 +281,13 @@ Section: The Exponential
   exp-real (x) =
     let k = real-to-int (round-real (x / ln2))
     in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+ Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule. It was Render's until
+ 2026-09-03, where it sliced the road strip; nothing about it is a road.
+
+  ceil-real : Real -> Real
+  ceil-real (x) = 0.0 - floor-real (0.0 - x)
 
 Chapter: Grade
 

@@ -260,9 +260,9 @@ Chapter: Num
  already exists.
 
  EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
- before 2026-08-29 -- see PORTING_NOTES A1 and plugs-backlog row 2.03. That is
- the honest reason this chapter did not exist earlier: the port had no way to
- reach the integers at all.
+ before 2026-08-29 -- see plugs-backlog row 2.03. That is the honest reason
+ this chapter did not exist earlier: the port had no way to reach the integers
+ at all.
 
  We say:
 
@@ -397,6 +397,13 @@ Section: The Exponential
   exp-real (x) =
     let k = real-to-int (round-real (x / ln2))
     in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+ Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule. It was Render's until
+ 2026-09-03, where it sliced the road strip; nothing about it is a road.
+
+  ceil-real : Real -> Real
+  ceil-real (x) = 0.0 - floor-real (0.0 - x)
 
 Chapter: Trig
   cites Gpu chapter DeviceMath
@@ -851,81 +858,28 @@ Section: The Cat's State
       lift = leap-height * 4.0 * b * (1.0 - b)
     }
 
-Chapter: World
-  cites Foreword chapter Maybe
-  cites Gpu chapter DeviceMath
-  cites Safari chapter Num
-  cites Safari chapter Trig
-  cites Safari chapter Cat
-  cites Foreword chapter ListUtils
+Chapter: Scenery
 
- The road network as data: a chain of straight segments joined by turns. Each
- segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
- angle, direction, and the segment it leads to -- and build-world accumulates each
- segment's heading relative to north.
+ The vocabulary the roadside populations share: what a tree is, what a critter
+ is, which colour scheme a segment runs, which big animal stands at its exit --
+ and the two distances everything beside the road is measured from.
 
- A port of wasm/world.zig.
-
- NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
- draws nothing at all: it is authored data plus the deterministic generators that
- expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
- EXACTLY, because there is no arithmetic here whose width could differ except the
- jitter sines and the turn angles.
-
- The route is the full nineteen segments of the TypeScript. The baseline is
- deliberately boring -- all-green trees and a cow herd -- so the rare departures
- surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
- gold trees on 4. Segment 19 terminates; the rider arrives and stops.
-
- PIGS AND SAFARI CREATURES ARE AUTHORED HERE BUT THE CRITTER DRAWING IS NOT
- PORTED -- critter.zig needs emoji_frames.zig, 182 KB of generated bakes that
- NOTES scopes out. The placement data is still ported because it is the world's,
- not the renderer's, and because it is what the exit-corner logic reads.
+ Split out of World on 2026-09-03. It exists because `Trees`, `Herd` and `Pigs`
+ each build their own population and all three need the same words for it: a
+ pig and a cow are both a `Critter`, and both stand `herd-road-offset` off a
+ road `lane-width` wide. Nothing here generates anything.
 
  We say:
 
-Section: Palette and Dimensions
-
-  conifer-green : Integer
-  conifer-green = 1858082
-
-  conifer-gold : Integer
-  conifer-gold = 13605400
-
-  conifer-red : Integer
-  conifer-red = 11680298
-
-  small-height : Real
-  small-height = 4.5
-
-  big-scale : Real
-  big-scale = 1.3
-
- Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
- so density, and the speed illusion it creates, is uniform across segments.
-
-  tree-spacing : Real
-  tree-spacing = 30.0
-
-  tree-road-offset : Real
-  tree-road-offset = 1.5
-
-  tree-start-inset : Real
-  tree-start-inset = 6.0
-
-  tree-end-inset : Real
-  tree-end-inset = 85.0
+Section: The Road
 
   lane-width : Real
   lane-width = 4.0
 
  Longer segments stand their own tower halfway down.
 
-  mid-tower-min-length : Real
-  mid-tower-min-length = 1000.0
-
-  max-trees : Integer
-  max-trees = 96
+  herd-road-offset : Real
+  herd-road-offset = 10.0
 
 Section: Schemes and Creatures
 
@@ -942,6 +896,7 @@ Section: Schemes and Creatures
  namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
  port -- a collision that would only appear once something cited both.
 
+
   Creature =
    | NoCreature
    | Elephant
@@ -950,7 +905,7 @@ Section: Schemes and Creatures
    | Rhino
    | DuckPond
 
-Section: Trees and Critters
+Section: What Stands Beside the Road
 
   Tree = record {
     along : Real,
@@ -961,6 +916,7 @@ Section: Trees and Critters
 
  A roadside animal: an emoji billboard at along and across-from-centre.
 
+
   Critter = record {
     along : Real,
     across : Real,
@@ -968,6 +924,59 @@ Section: Trees and Critters
     height : Real,
     face-right : Boolean
   }
+
+Chapter: Trees
+  cites Safari chapter Scenery
+
+ The conifer rows: their colours, their spacing, and the pair-at-a-time fill
+ that lays them down the length of a segment.
+
+ Split out of World on 2026-09-03, and the split moved the palette with it. The
+ three conifer colours sat under a heading called `Palette and Dimensions` and
+ were reachable only through `fill-trees` -- so they were never a palette, they
+ were the tree colours, and they belong here.
+
+ We say:
+
+Section: Colours
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+Section: Dimensions
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Filling a Segment
 
   accent-color : Scheme -> Integer
   accent-color (s) =
@@ -982,6 +991,7 @@ Section: Trees and Critters
 
  The pair is emitted together, so the cap is checked two at a time exactly as the
  zig's `n_trees + 2 <= MAX_TREES` does.
+
 
   tree-height-for : Integer, Boolean -> Real
   tree-height-for (color) (even) =
@@ -1007,11 +1017,27 @@ Section: Trees and Critters
     in let x = tree-x-for color
     in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)
 
+Chapter: Herd
+  cites Safari chapter Scenery
+  cites Safari chapter Trees
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The cow herd, split out of World on 2026-09-03.
+
+ IT CITES `Trees`, AND THAT IS A REAL DEPENDENCY RATHER THAN A LEFTOVER. The
+ bull stands `bull-tree-gap` outside the tree line, so `bull-of` measures from
+ `tree-road-offset`; the herd is placed relative to the conifers on purpose.
+ The split made that edge visible instead of removing it.
+
+ We say:
+
 Section: The Cow Herd
 
  The boring CONSTANT on every segment, near the start and on the left: a bull
  leading ten cows and four calves in a deterministic jittered grid. No randomness
  anywhere -- the jitter is a sine of the index.
+
 
   bull-cp : Integer
   bull-cp = 128002
@@ -1027,9 +1053,6 @@ Section: The Cow Herd
 
   bull-height : Real
   bull-height = cow-height * 1.15
-
-  herd-road-offset : Real
-  herd-road-offset = 10.0
 
   bull-dist : Real
   bull-dist = 24.0
@@ -1058,6 +1081,7 @@ Section: The Cow Herd
  The bull is authored per segment in the route table, like the cat and the pigs,
  so the whole schedule of surprises reads in one place.
 
+
   bull-of : Boolean -> List Critter
   bull-of (bull) =
     if bull then [Critter { along = bull-dist, across = 0.0 - (lane-width / 2.0 + tree-road-offset + bull-height / 2.0 + bull-tree-gap), codepoint = bull-cp, height = bull-height, face-right = False }]
@@ -1080,11 +1104,23 @@ Section: The Cow Herd
   fill-cows : Boolean -> List Critter
   fill-cows (bull) = (bull-of bull) & cows-from 0
 
+Chapter: Pigs
+  cites Safari chapter Scenery
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The pigs, split out of World on 2026-09-03: the deep distraction block the
+ rider gawks at, the one pig he fixes on, and the small row that does not
+ distract.
+
+ We say:
+
 Section: The Pigs
 
  The DISTRACTION herd is a deep seven-by-seven staggered block near the segment's
  end, on the right, and the rider gawks at one designated pig as he passes. Only
  the first two pig appearances distract -- the novelty wears off.
+
 
   pig-cp : Integer
   pig-cp = 128022
@@ -1113,6 +1149,7 @@ Section: The Pigs
  Across-spacing AND the per-row along-shear, which is what slants the herd's sides
  at forty-five degrees.
 
+
   pig-row-depth : Real
   pig-row-depth = 6.0
 
@@ -1130,6 +1167,7 @@ Section: The Pigs
 
  The ONE front-row pig the distracted rider fixes on, so the head-turn always aims
  at a pig that is actually drawn.
+
 
   gaze-pig : Real, Real -> Critter
   gaze-pig (length) (lane-half) =
@@ -1160,6 +1198,7 @@ Section: The Pigs
  The small non-distraction row: a front rank of four at the road edge and a back
  rank of six further off. The rider does not gawk at these.
 
+
   pig-row-front : List Real
   pig-row-front = [0.0 - 6.0, 0.0 - 2.0, 2.0, 6.0]
 
@@ -1176,6 +1215,55 @@ Section: The Pigs
     let base = length - pig-dist-before-end
     in let edge = lane-width / 2.0 + herd-road-offset
     in (row-pigs-at base edge pig-row-front 0) & row-pigs-at base (edge + pig-back-row-offset) pig-row-back 0
+
+Chapter: World
+  cites Foreword chapter Maybe
+  cites Foreword chapter ListUtils
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Cat
+  cites Safari chapter Scenery
+  cites Safari chapter Trees
+  cites Safari chapter Herd
+  cites Safari chapter Pigs
+
+ The road network as data: a chain of straight segments joined by turns. Each
+ segment carries its length, width, tree rows, cow herd, pigs, and its EXIT turn --
+ angle, direction, and the segment it leads to -- and build-world accumulates each
+ segment's heading relative to north.
+
+ A port of wasm/world.zig, and no longer the shape of it. On 2026-09-03 the
+ three roadside populations left: `Trees`, `Herd` and `Pigs`, over the shared
+ vocabulary in `Scenery`. Each was a subtree of the call graph owned by a single
+ function -- fill-trees, fill-cows, fill-pig-herd -- and each already had a
+ section heading of its own. What is left here is the route and the segments,
+ which is what the chapter was named for.
+
+ NO RIDER, NO PROJECTION, NO DRAWING. This is the first chapter in the port that
+ draws nothing at all: it is authored data plus the deterministic generators that
+ expand it. That makes it seam 2 in NOTES' terms -- the seam that compares
+ EXACTLY, because there is no arithmetic here whose width could differ except the
+ jitter sines and the turn angles.
+
+ The route is the full nineteen segments of the TypeScript. The baseline is
+ deliberately boring -- all-green trees and a cow herd -- so the rare departures
+ surprise, and novelty is front-loaded: the cat debuts on segment 2, pigs on 3,
+ gold trees on 4. Segment 19 terminates; the rider arrives and stops.
+
+ PIGS AND SAFARI CREATURES ARE AUTHORED IN THEIR OWN CHAPTERS BUT THE CRITTER
+ DRAWING IS NOT PORTED -- critter.zig needs emoji_frames.zig, 182 KB of
+ generated bakes that NOTES scopes out. The placement data is still ported
+ because it is the world's, not the renderer's, and because it is what the
+ exit-corner logic reads.
+
+ We say:
+
+Section: Dimensions
+
+
+  mid-tower-min-length : Real
+  mid-tower-min-length = 1000.0
 
 Section: The Route
 
@@ -1395,6 +1483,8 @@ Chapter: Gaze
   cites Safari chapter Trig
   cites Safari chapter Pose
   cites Safari chapter World
+  cites Safari chapter Pigs
+  cites Safari chapter Scenery
 
  The distracted rider: his head swivels toward the roadside pigs and drifts back
  to the road, and his focus narrows while he gawks.
@@ -1958,7 +2048,7 @@ Chapter: Truck
  zig's own. `State`, `initial`, `nextTurn` and `next` reach nothing but the world
  and a few of the rider's constants. The drawing half -- the trailer box, its
  tires, the headlight wedges -- reaches `render.Chain`, `render.Pose` and
- `render.at`, and it is `Safari chapter TruckBody`, which cites Render for exactly
+ `render.at`, and it is `Safari chapter TruckDraw`, which cites Render for exactly
  that. The split is what keeps World's cite of this chapter cheap: placing a truck
  costs five constants, and only the chapters that DRAW one pay for the mapping
  spine. Cat and CatDraw are split for the same reason.

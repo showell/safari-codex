@@ -1,0 +1,66 @@
+Chapter: Scenery
+
+ The vocabulary the roadside populations share: what a tree is, what a critter
+ is, which colour scheme a segment runs, which big animal stands at its exit --
+ and the two distances everything beside the road is measured from.
+
+ Split out of World on 2026-09-03. It exists because `Trees`, `Herd` and `Pigs`
+ each build their own population and all three need the same words for it: a
+ pig and a cow are both a `Critter`, and both stand `herd-road-offset` off a
+ road `lane-width` wide. Nothing here generates anything.
+
+ We say:
+
+Section: The Road
+
+  lane-width : Real
+  lane-width = 4.0
+
+ Longer segments stand their own tower halfway down.
+
+  herd-road-offset : Real
+  herd-road-offset = 10.0
+
+Section: Schemes and Creatures
+
+  Scheme =
+   | AllGreen
+   | YellowGreen
+   | RedGreen
+
+ The big animal parked at a segment's EXIT corner. Elephant is the unmarked
+ default; the rest are the rare departures. DuckPond is a hand-drawn scene rather
+ than an emoji pair, and NoCreature is the terminus, which has no exit corner.
+
+ The constructor is DuckPond rather than Pond because chapters share one flat
+ namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
+ port -- a collision that would only appear once something cited both.
+
+
+  Creature =
+   | NoCreature
+   | Elephant
+   | Giraffe
+   | Zebra
+   | Rhino
+   | DuckPond
+
+Section: What Stands Beside the Road
+
+  Tree = record {
+    along : Real,
+    across : Real,
+    color : Integer,
+    height : Real
+  }
+
+ A roadside animal: an emoji billboard at along and across-from-centre.
+
+
+  Critter = record {
+    along : Real,
+    across : Real,
+    codepoint : Integer,
+    height : Real,
+    face-right : Boolean
+  }

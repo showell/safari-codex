@@ -1,0 +1,91 @@
+Chapter: Trees
+  cites Safari chapter Scenery
+
+ The conifer rows: their colours, their spacing, and the pair-at-a-time fill
+ that lays them down the length of a segment.
+
+ Split out of World on 2026-09-03, and the split moved the palette with it. The
+ three conifer colours sat under a heading called `Palette and Dimensions` and
+ were reachable only through `fill-trees` -- so they were never a palette, they
+ were the tree colours, and they belong here.
+
+ We say:
+
+Section: Colours
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+Section: Dimensions
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Filling a Segment
+
+  accent-color : Scheme -> Integer
+  accent-color (s) =
+   when s
+    is YellowGreen -> conifer-gold
+    is RedGreen -> conifer-red
+    is AllGreen -> conifer-green
+
+ Conifers every tree-spacing metres from the start inset to the end-clear zone.
+ Even index is green and 1.3 times tall, odd is the scheme's accent. Red trees are
+ twice everything; gold three times and set about four times further off the road.
+
+ The pair is emitted together, so the cap is checked two at a time exactly as the
+ zig's `n_trees + 2 <= MAX_TREES` does.
+
+
+  tree-height-for : Integer, Boolean -> Real
+  tree-height-for (color) (even) =
+    let base = if even then small-height * big-scale else small-height
+    in if color == conifer-red then base * 2.0 else (if color == conifer-gold then base * 3.0 else base)
+
+  tree-x-for : Integer -> Real
+  tree-x-for (color) =
+    if color == conifer-gold then lane-width / 2.0 + 4.0 * tree-road-offset
+    else lane-width / 2.0 + tree-road-offset
+
+  fill-trees : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees (scheme) (length) (along) (k) (n) =
+    if along > length - tree-end-inset then []
+    else if n + 2 > max-trees then []
+    else fill-trees-pair scheme length along k n
+
+  fill-trees-pair : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees-pair (scheme) (length) (along) (k) (n) =
+    let even = k - ((k / 2) * 2) == 0
+    in let color = if even then conifer-green else accent-color scheme
+    in let height = tree-height-for color even
+    in let x = tree-x-for color
+    in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)

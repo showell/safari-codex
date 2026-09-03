@@ -1,0 +1,86 @@
+Chapter: Herd
+  cites Safari chapter Scenery
+  cites Safari chapter Trees
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ The cow herd, split out of World on 2026-09-03.
+
+ IT CITES `Trees`, AND THAT IS A REAL DEPENDENCY RATHER THAN A LEFTOVER. The
+ bull stands `bull-tree-gap` outside the tree line, so `bull-of` measures from
+ `tree-road-offset`; the herd is placed relative to the conifers on purpose.
+ The split made that edge visible instead of removing it.
+
+ We say:
+
+Section: The Cow Herd
+
+ The boring CONSTANT on every segment, near the start and on the left: a bull
+ leading ten cows and four calves in a deterministic jittered grid. No randomness
+ anywhere -- the jitter is a sine of the index.
+
+
+  bull-cp : Integer
+  bull-cp = 128002
+
+  cow-cp : Integer
+  cow-cp = 128004
+
+  cow-height : Real
+  cow-height = 1.4
+
+  calf-height : Real
+  calf-height = cow-height / 2.0
+
+  bull-height : Real
+  bull-height = cow-height * 1.15
+
+  bull-dist : Real
+  bull-dist = 24.0
+
+  bull-tree-gap : Real
+  bull-tree-gap = 0.5
+
+  herd-gap-behind-bull : Real
+  herd-gap-behind-bull = 6.0
+
+  herd-col-spacing : Real
+  herd-col-spacing = 6.0
+
+  herd-row-stagger : Real
+  herd-row-stagger = 2.0
+
+  herd-row-depth : Real
+  herd-row-depth = 5.0
+
+  herd-jitter-along : Real
+  herd-jitter-along = 1.5
+
+  herd-jitter-across : Real
+  herd-jitter-across = 1.2
+
+ The bull is authored per segment in the route table, like the cat and the pigs,
+ so the whole schedule of surprises reads in one place.
+
+
+  bull-of : Boolean -> List Critter
+  bull-of (bull) =
+    if bull then [Critter { along = bull-dist, across = 0.0 - (lane-width / 2.0 + tree-road-offset + bull-height / 2.0 + bull-tree-gap), codepoint = bull-cp, height = bull-height, face-right = False }]
+    else []
+
+  cows-from : Integer -> List Critter
+  cows-from (i) =
+    if i >= 14 then []
+    else [cow-at i] & cows-from (i + 1)
+
+  cow-at : Integer -> Critter
+  cow-at (i) =
+    let fi = real-from-int i
+    in let col = real-from-int (i / 3)
+    in let row = real-from-int (i - ((i / 3) * 3))
+    in let along = bull-dist + herd-gap-behind-bull + col * herd-col-spacing + (row - 1.0) * herd-row-stagger + herd-jitter-along * r-sin (fi * 2.7)
+    in let across = 0.0 - (lane-width / 2.0 + herd-road-offset + row * herd-row-depth + herd-jitter-across * r-cos (fi * 1.9))
+    in Critter { along = along, across = across, codepoint = cow-cp, height = if i - ((i / 4) * 4) == 1 then calf-height else cow-height, face-right = True }
+
+  fill-cows : Boolean -> List Critter
+  fill-cows (bull) = (bull-of bull) & cows-from 0

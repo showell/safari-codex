@@ -1,0 +1,88 @@
+Chapter: RideCamera
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Bike
+  cites Safari chapter Cat
+  cites Safari chapter Frame
+  cites Safari chapter Gaze
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Lens
+
+ THE CAMERA THIS RIDE IS SEEN THROUGH, derived from the rider's state and nothing else.
+
+ `Safari chapter Camera` is the projection; `Safari chapter Lens` is its width. This is
+ what those take THIS frame: how far the lens has pulled in, which way the head is turned,
+ and the pose the whole scene is drawn from.
+
+ ALL OF IT IS A READ. Nothing here is state and nothing here feeds the simulation -- the
+ roll is a deadbanded view of a tilt the rider carries untouched -- which is why it is a
+ chapter of its own rather than part of Rider. Split out of Safari on 2026-09-03, where it
+ had sat above the drawing and the ride step with nothing in common with either.
+ We say:
+
+Section: The Lens Pulls In
+
+ THE LENS PULLS IN -- narrows -- on two independent things, and the frame takes
+ the deeper of them. Leaning into a corner narrows it toward 0.35x; watching a
+ crossing cat or gawking at the roadside pigs narrows it too. `camera.camFocal`
+ is a min over the two, so whichever is more distracted wins.
+
+ THE WHOLE FRAME READS ONE FOCAL. The projection, the backdrop and the sun all
+ take it, which is what keeps them one camera; the only place the STABLE base
+ focal survives is the critter size cull, and Render's own prose argues that at
+ length (culling animals on a leaned focal would pop them in and out of a corner).
+
+  cat-attention : List Segment, RiderState -> Real
+  cat-attention (w) (s) =
+    let seg = list-at w s.segment
+    in if seg.has-cat then cat-focus (seg.cat.along - s.along) s.v else 0.0
+
+  ride-focal : List Segment, RiderState -> Real
+  ride-focal (w) (s) =
+    let lean-frac = real-min (real-abs s.tilt / max-lean) 1.0
+    in let attention = real-max (cat-attention w s) (gaze-focus s.focus)
+    in cam-focal lean-frac attention
+
+Section: Where He Is Looking
+
+ The extra camera yaw on top of his heading: the distracted gaze toward the pigs
+ plus a subtle head-turn into a lean. It swings the WHOLE view, so it folds into
+ the scene pose and the backdrop heading alike.
+
+  head-yaw-frac : Real
+  head-yaw-frac = 0.15
+
+  view-yaw-for : RiderState -> Real
+  view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
+
+  heading-for : RiderState -> Real
+  heading-for (s) = s.heading + view-yaw-for s
+
+  pose-for : List Segment, RiderState -> Pose
+  pose-for (w) (s) =
+    Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
+
+Section: The Canvas Roll
+
+ THE BIKE'S LEAN AS THE CANVAS SHOULD ROLL IT, which is not quite the lean the
+ simulation carries. The lean search leaves a residue around 1e-5 rad on a
+ straight that never quite reaches zero; below a thousandth of a radian -- under
+ half a pixel of bank at the screen edge -- the camera is upright for every
+ practical purpose and the blitter's straight-line fast paths key on exactly
+ zero. The simulation is untouched: this is a read, not a state.
+
+  roll-deadband : Real
+  roll-deadband = 0.001
+
+ THE `let` IS LOAD-BEARING AND IT SHOULD NOT BE. Written as a bare
+ `if real-abs s.tilt < roll-deadband then 0.0 else s.tilt`, this function is
+ INLINED and never emitted, so the shim -- which is outside the program -- fails
+ to link against it. Binding the field first makes it a real function. Measured
+ over four variants: the same shape over a scalar parameter emits, and the
+ arithmetic-bodied `view-yaw-for` beside it emits. PORTING_NOTES B12.
+
+  rider-roll : RiderState -> Real
+  rider-roll (s) =
+    let t = s.tilt
+    in if real-abs t < roll-deadband then 0.0 else t

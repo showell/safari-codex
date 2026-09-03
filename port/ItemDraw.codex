@@ -1,0 +1,108 @@
+Chapter: ItemDraw
+  cites Safari chapter CatDraw
+  cites Safari chapter CatPlan
+  cites Safari chapter Critter
+  cites Safari chapter DepthSort
+  cites Safari chapter Frame
+  cites Safari chapter GuardRail
+  cites Safari chapter Lens
+  cites Safari chapter Mountains
+  cites Safari chapter Render
+  cites Safari chapter SceneLimits
+  cites Safari chapter Tower
+  cites Safari chapter TowerPlan
+  cites Safari chapter Tree
+  cites Safari chapter TreePlan
+  cites Safari chapter TruckDraw
+  cites Safari chapter TruckPlan
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Billboards
+  cites Safari chapter Geom
+  cites Safari chapter Paint
+
+ ONE DRAW PER KIND, and the dispatch over the depth order.
+
+ `Safari chapter DepthSort` decides what order the items come in; this turns each one back
+ into the drawer that owns it. Tree, Tower, GuardRail, Critter, CatDraw and TruckDraw do
+ the actual painting -- what is here is the per-kind glue each of them needs and the
+ `when it.kind` that picks one.
+
+ IT CANNOT BE DISTRIBUTED TO THE KIND CHAPTERS, and that is forced rather than chosen.
+ TruckDraw cites Render and Render cites TruckPlan, so a `draw-one-truck` living in
+ TruckPlan would close a cycle. The dispatch has to sit ABOVE Render as one piece, which is
+ the same reason it was never inside Render.
+ We say:
+
+Section: A Tree's Two Detail Axes
+
+ How many trees stand strictly nearer than this one. Only the closest four get a
+ round shaded trunk, and since a roadside pair shares one depth, "fewer than four
+ strictly closer" is the nearest two pairs.
+
+  closer-count : List TreeItem, Real, Integer -> Integer
+  closer-count (ts) (f) (i) =
+    if i >= list-length ts then 0
+    else if (list-at ts i).fwd < f then 1 + closer-count ts f (i + 1)
+    else closer-count ts f (i + 1)
+
+  crown-shade-of : Real -> Real
+  crown-shade-of (fwd) =
+    let raw = 1.0 - fwd / crown-shade-dist
+    in if raw < 0.0 then 0.0 else (if raw > 1.0 then 1.0 else raw)
+
+  draw-one-tree : List TreeItem, Integer, Real -> List DrawCmd
+  draw-one-tree (ts) (i) (cf) =
+    let t = list-at ts i
+    in tree-draw t.right t.fwd t.height t.color cf camera-w (closer-count ts t.fwd 0 < 4) (t.fwd < detail-dist) (crown-shade-of t.fwd)
+
+Section: One of Each Other Kind
+
+ A tower's four base corners are re-derived from its yaw at draw time and mapped
+ through the frame that owns it, which is why the collector kept the recipe rather
+ than the points.
+
+  tower-base : List Segment, List Integer, Pose, TowerItem, Integer -> List RiderPt
+  tower-base (w) (ch) (pose) (tw) (k) =
+    if k >= 4 then []
+    else [map-pt w ch pose tw.map (base-corner-ax k tw.a0 tw.x0 tw.yaw).a (base-corner-ax k tw.a0 tw.x0 tw.yaw).x]
+         & tower-base w ch pose tw (k + 1)
+
+  draw-one-tower : List Segment, List Integer, Pose, TowerItem, Real, Real -> List DrawCmd
+  draw-one-tower (w) (ch) (pose) (tw) (cf) (step) =
+    draw-flat (tower-base w ch pose tw 0) (map-pt w ch pose tw.map tw.a0 tw.x0) cf camera-w (step + tw.off)
+
+  draw-one-critter : Billboard, Real -> List DrawCmd
+  draw-one-critter (b) (cf) = critter-draw b.right b.fwd b.height b.cp b.face-right cf camera-w
+
+  draw-one-cat : CatItem, Real -> List DrawCmd
+  draw-one-cat (k) (cf) = cat-draw k.right k.fwd k.height k.pose-idx k.lift cf camera-w
+
+ THE TRUCK TAKES TWO THINGS THE COLLECTOR DOES NOT CARRY, and both come from
+ outside the depth sort: whether it is braking, which is a field on the state the
+ shim steps, and whether its headlights are on, which is the sunset clock -- the
+ same `sun-behind-mountains` the backdrop uses, so the beams come on at the moment
+ the sun leaves the crest rather than at a time of their own. Its half width is
+ the width of the segment its CENTRE landed on, chain index `tk.d`, not the
+ rider's own.
+
+  draw-one-truck : List Segment, List Integer, Pose, TruckAt, Boolean, Real, Real -> List DrawCmd
+  draw-one-truck (w) (ch) (pose) (tk) (braking) (cf) (step) =
+    truck-draw-body w ch pose tk.d tk.along ((list-at w (list-at ch tk.d)).width / 2.0) braking (sun-behind-mountains step) cf camera-w
+
+Section: The Dispatch
+
+  draw-item : List Segment, List Integer, Pose, Collected, Item, Boolean, Real, Real -> List DrawCmd
+  draw-item (w) (ch) (pose) (c) (it) (braking) (cf) (step) =
+   when it.kind
+    is KTree -> draw-one-tree c.trees it.i cf
+    is KTower -> draw-one-tower w ch pose (list-at c.towers it.i) cf step
+    is KRail -> rail-draw-poly (list-at c.rails it.i) cf camera-w
+    is KCow -> draw-one-critter (list-at c.cows it.i) cf
+    is KCat -> draw-one-cat (list-at c.cats it.i) cf
+    is KTruck -> draw-one-truck w ch pose c.truck braking cf step
+
+  draw-order : List Segment, List Integer, Pose, Collected, Boolean, Real, Real, Integer -> List DrawCmd
+  draw-order (w) (ch) (pose) (c) (braking) (cf) (step) (i) =
+    if i >= list-length c.order then []
+    else (draw-item w ch pose c (list-at c.order i) braking cf step) & draw-order w ch pose c braking cf step (i + 1)

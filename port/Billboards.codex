@@ -1,0 +1,76 @@
+Chapter: Billboards
+  cites Safari chapter Geom
+  cites Safari chapter Lens
+
+ AN EMOJI SPRITE PLACED IN THE RIDER'S FRAME, and the two culls that decide
+ whether it is drawn at all. Nothing here knows what the sprite is of.
+
+ Split out of Render on 2026-09-03. Every emoji animal in the safari -- cows,
+ bulls, the pig herd, the corner pair, the pond ducks -- collects to the same
+ billboard, and the placement rule was already written once for all of them.
+ That is what makes it liftable: the callers differ, the verdict does not.
+
+ A placement carries its own verdict rather than being dropped, which is the
+ detail a re-implementation would lose. The near-plane cull is SILENT in the
+ zig -- it `continue`s without touching a counter -- so a placement can be
+ neither kept nor size-culled, and that third state has to survive.
+
+ We say:
+
+Section: What a Placement Is
+
+  Billboard = record {
+    right : Real,
+    fwd : Real,
+    height : Real,
+    cp : Integer,
+    face-right : Boolean
+  }
+
+ A placement carries its own verdict rather than being dropped, so the two culls
+ can be counted separately. `kept` says it survived both; `size-culled` says which
+ one rejected it. The near-plane cull is SILENT in the zig -- it `continue`s
+ without touching a counter -- so a placement can be neither kept nor size-culled,
+ and that third state is the one the port has to preserve.
+
+  Placed = record {
+    b : Billboard,
+    kept : Boolean,
+    size-culled : Boolean
+  }
+
+Section: The Size Floor
+
+  min-critter-px : Real
+  min-critter-px = 2.0
+
+Section: The Verdict
+
+  no-billboard : Billboard
+  no-billboard = Billboard { right = 0.0, fwd = 0.0, height = 0.0, cp = 0, face-right = False }
+
+  verdict : RiderPt, Real, Integer, Boolean -> Placed
+  verdict (rp) (h) (cp) (fr) =
+    if rp.forward <= near
+      then Placed { b = no-billboard, kept = False, size-culled = False }
+      else if h / rp.forward * focal < min-critter-px
+        then Placed { b = no-billboard, kept = False, size-culled = True }
+        else Placed { b = Billboard { right = rp.right, fwd = rp.forward, height = h, cp = cp, face-right = fr }, kept = True, size-culled = False }
+
+Section: Harvesting a Placement List
+
+ Collect the survivors and count the size-culled, over a list of placements. Two
+ walks over one list rather than one walk returning a pair, because a pair would
+ need a record whose only purpose is to be taken apart again.
+
+  kept-of : List Placed, Integer -> List Billboard
+  kept-of (ps) (i) =
+    if i >= list-length ps then []
+    else if (list-at ps i).kept then [(list-at ps i).b] & kept-of ps (i + 1)
+    else kept-of ps (i + 1)
+
+  size-culled-of : List Placed, Integer -> Integer
+  size-culled-of (ps) (i) =
+    if i >= list-length ps then 0
+    else if (list-at ps i).size-culled then 1 + size-culled-of ps (i + 1)
+    else size-culled-of ps (i + 1)

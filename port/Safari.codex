@@ -20,6 +20,7 @@ Chapter: Safari
   cites Safari chapter Truck
   cites Safari chapter TruckDraw
   cites Safari chapter Frame
+  cites Safari chapter Billboards
 
  The whole game, folded: one ride state, one step of it, and one frame drawn from
  it. A port of wasm/safari.zig, and the last file in the game to be ported.

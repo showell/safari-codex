@@ -12,6 +12,8 @@ Chapter: Render
   cites Safari chapter GuardRail
   cites Safari chapter Cat
   cites Safari chapter SafariCritter
+  cites Safari chapter Billboards
+  cites Safari chapter Ground
 
  The safari's frame: what stands in it, and what it stands on. Everything here
  is collected, culled, depth-sorted or painted -- the trees, the towers, the
@@ -59,8 +61,6 @@ Section: Collection Limits and Culls
   min-scenery-px : Real
   min-scenery-px = 2.0
 
-  min-critter-px : Real
-  min-critter-px = 2.0
 
  THE TWO CULLS ARE DELIBERATELY DIFFERENT AND BOTH MUST STAY LIVE. The SEGMENT
  cull saves projecting a critter at all: trees hide the farm animals past a few
@@ -160,25 +160,6 @@ Section: The Collected Kinds
  Every emoji animal -- cows, bulls, the pig herd, the corner safari pair, the pond
  ducks -- collects to the same billboard, which is why one list holds all of them.
 
-  Billboard = record {
-    right : Real,
-    fwd : Real,
-    height : Real,
-    cp : Integer,
-    face-right : Boolean
-  }
-
- A placement carries its own verdict rather than being dropped, so the two culls
- can be counted separately. `kept` says it survived both; `size-culled` says which
- one rejected it. The near-plane cull is SILENT in the zig -- it `continue`s
- without touching a counter -- so a placement can be neither kept nor size-culled,
- and that third state is the one the port has to preserve.
-
-  Placed = record {
-    b : Billboard,
-    kept : Boolean,
-    size-culled : Boolean
-  }
 
 Section: The Crossing Cat
 
@@ -235,16 +216,6 @@ Section: Placing Billboards
  One rule for every emoji animal: map it into the rider frame, drop it if it is
  behind the near plane, size-cull it if it would project shorter than the floor.
 
-  no-billboard : Billboard
-  no-billboard = Billboard { right = 0.0, fwd = 0.0, height = 0.0, cp = 0, face-right = False }
-
-  verdict : RiderPt, Real, Integer, Boolean -> Placed
-  verdict (rp) (h) (cp) (fr) =
-    if rp.forward <= near
-      then Placed { b = no-billboard, kept = False, size-culled = False }
-      else if h / rp.forward * focal < min-critter-px
-        then Placed { b = no-billboard, kept = False, size-culled = True }
-        else Placed { b = Billboard { right = rp.right, fwd = rp.forward, height = h, cp = cp, face-right = fr }, kept = True, size-culled = False }
 
   place-critter : List Segment, List Integer, Pose, Integer, Real, Critter -> Placed
   place-critter (segs) (ch) (pose) (d) (hw) (cr) =
@@ -274,18 +245,6 @@ Section: Harvesting a Placement List
  Collect the survivors and count the size-culled, over a list of placements. Two
  walks over one list rather than one walk returning a pair, because a pair would
  need a record whose only purpose is to be taken apart again.
-
-  kept-of : List Placed, Integer -> List Billboard
-  kept-of (ps) (i) =
-    if i >= list-length ps then []
-    else if (list-at ps i).kept then [(list-at ps i).b] & kept-of ps (i + 1)
-    else kept-of ps (i + 1)
-
-  size-culled-of : List Placed, Integer -> Integer
-  size-culled-of (ps) (i) =
-    if i >= list-length ps then 0
-    else if (list-at ps i).size-culled then 1 + size-culled-of ps (i + 1)
-    else size-culled-of ps (i + 1)
 
   place-all : List Segment, List Integer, Pose, Integer, Real, List Critter, Integer -> List Placed
   place-all (segs) (ch) (pose) (d) (hw) (crs) (i) =
@@ -811,29 +770,6 @@ Section: The Ground
  of a vanishing point at infinity. The sign is the thing to get right: ground-drop
  returns a positive distance and the height is its NEGATIVE.
 
-  ground-vert : RiderPt -> Vec3
-  ground-vert (p) =
-    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
-
-  ground-verts : List RiderPt, Integer -> List Vec3
-  ground-verts (ps) (i) =
-    if i >= list-length ps then []
-    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
-
- THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
- in more than eight points gets nothing at all rather than a truncated polygon,
- which is the zig's behaviour and is the safer of the two: a silently shortened
- ground quad would be a wrong shape painted confidently.
-
-  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
-  emit-ground-color (ps) (color) (cf) (view-w) =
-    if list-length ps > 8 then []
-    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
-
-  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
-  ground-clip (vs) (color) (cf) (view-w) =
-    if list-length vs < 3 then []
-    else push-poly color (project-all vs cf view-w 0)
 
   emit-ground : List RiderPt, Real, Real -> List DrawCmd
   emit-ground (ps) (cf) (view-w) = emit-ground-color ps road-color cf view-w
@@ -844,8 +780,6 @@ Section: The Road Strip
  chunk. Codex's foreword has a floor and no ceiling, so this is the identity
  ceil x = -floor(-x) rather than a second rounding rule.
 
-  ceil-real : Real -> Real
-  ceil-real (x) = 0.0 - floor-real (0.0 - x)
 
   chunks-for : Real -> Integer
   chunks-for (len) =

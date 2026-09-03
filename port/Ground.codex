@@ -1,0 +1,43 @@
+Chapter: Ground
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+
+ A QUAD ON THE FLOOR: drop each corner by the curvature at its distance, clip
+ the polygon to the near plane, project it, paint it. It does not know whether
+ it is painting a road, a corner's pavement or a pond.
+
+ Split out of Render on 2026-09-03. Ground quads never enter the depth sort --
+ they are painted first, in walk order, and everything that stands up is sorted
+ and painted over them -- so this is a pipeline of its own rather than a stage
+ of that one.
+
+ We say:
+
+Section: A Ground Vertex
+
+  ground-vert : RiderPt -> Vec3
+  ground-vert (p) =
+    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
+
+  ground-verts : List RiderPt, Integer -> List Vec3
+  ground-verts (ps) (i) =
+    if i >= list-length ps then []
+    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
+
+Section: Clip, Project, Paint
+
+ THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
+ in more than eight points gets nothing at all rather than a truncated polygon,
+ which is the zig's behaviour and is the safer of the two: a silently shortened
+ ground quad would be a wrong shape painted confidently.
+
+  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
+  emit-ground-color (ps) (color) (cf) (view-w) =
+    if list-length ps > 8 then []
+    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
+
+  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
+  ground-clip (vs) (color) (cf) (view-w) =
+    if list-length vs < 3 then []
+    else push-poly color (project-all vs cf view-w 0)

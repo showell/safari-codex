@@ -122,39 +122,6 @@ const RiderStateS = struct {
 };
 const RiderState = *RiderStateS;
 
-const PigLookS = struct {
-    looking: bool,
-    dist: f64,
-};
-const PigLook = *PigLookS;
-
-const GazeBrakeS = struct {
-    engaged: bool,
-    accel: f64,
-};
-const GazeBrake = *GazeBrakeS;
-
-const Side = enum {
-    SideLeft,
-    SideNone,
-    SideRight,
-};
-
-const PathSimS = struct {
-    side: Side,
-    forward: f64,
-    crossed: bool,
-    end_across: f64,
-    frames: f64,
-};
-const PathSim = *PathSimS;
-
-const DecisionS = struct {
-    tilt_step: f64,
-    accel: f64,
-};
-const Decision = *DecisionS;
-
 const TruckStateS = struct {
     pos: f64,
     v_: f64,

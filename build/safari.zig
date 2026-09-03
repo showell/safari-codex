@@ -169,20 +169,20 @@ const GazeBrakeS = struct {
 };
 const GazeBrake = *GazeBrakeS;
 
-const Side = enum {
-    SideLeft,
-    SideNone,
-    SideRight,
+const Shoulder = enum {
+    ShoulderLeft,
+    ShoulderNone,
+    ShoulderRight,
 };
 
-const PathSimS = struct {
-    side: Side,
+const ArcOutcomeS = struct {
+    shoulder: Shoulder,
     forward: f64,
     crossed: bool,
     end_across: f64,
     frames: f64,
 };
-const PathSim = *PathSimS;
+const ArcOutcome = *ArcOutcomeS;
 
 const DecisionS = struct {
     tilt_step: f64,
@@ -777,6 +777,10 @@ fn herd_road_offset() f64 {
     return @as(f64, @bitCast(@as(i64, 4621819117588971520)));
 }
 
+fn is_pond(c_: Creature) bool {
+    return switch (c_) { .DuckPond => true, .NoCreature => false, .Elephant => false, .Giraffe => false, .Zebra => false, .Rhino => false,  };
+}
+
 fn conifer_green() i64 {
     return 1858082;
 }
@@ -1141,6 +1145,10 @@ fn initial_rider_state() RiderState {
     return cx_new(RiderStateS{ .segment = 0, .along = @as(f64, @bitCast(@as(i64, 0))), .across = @as(f64, @bitCast(@as(i64, 0))), .yaw = @as(f64, @bitCast(@as(i64, 0))), .v_ = v_base(), .tilt = @as(f64, @bitCast(@as(i64, 0))), .heading = @as(f64, @bitCast(@as(i64, 0))), .gaze_yaw = @as(f64, @bitCast(@as(i64, 0))), .focus = @as(f64, @bitCast(@as(i64, 0))) });
 }
 
+fn with_tilt(s_: RiderState, t: f64) RiderState {
+    return cx_new(RiderStateS{ .segment = s_.segment, .along = s_.along, .across = s_.across, .yaw = s_.yaw, .v_ = s_.v_, .tilt = t, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
+}
+
 fn gaze_look_dist() f64 {
     return @as(f64, @bitCast(@as(i64, 4639481672377565184)));
 }
@@ -1225,16 +1233,12 @@ fn max_lean() f64 {
     return (@as(f64, @bitCast(@as(i64, 4626322717216342016))) * deg());
 }
 
-fn a_accel() f64 {
-    return @as(f64, @bitCast(@as(i64, 4576918229304087675)));
+fn simulate_rider_step(s_: RiderState, tilt_step: f64, accel: f64) RiderState {
+    return b0: { const tilt: f64 = (s_.tilt + tilt_step); break :b0 b1: { const v_: f64 = (s_.v_ + accel); break :b1 b2: { const heading_change: f64 = (yaw_per_tilt() * tilt); break :b2 b3: { const mid: f64 = (s_.yaw + (heading_change / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 cx_new(RiderStateS{ .segment = s_.segment, .along = (s_.along + (v_ * r_cos(mid))), .across = (s_.across + (v_ * r_sin(mid))), .yaw = (s_.yaw + heading_change), .v_ = v_, .tilt = tilt, .heading = (s_.heading + heading_change), .gaze_yaw = s_.gaze_yaw, .focus = s_.focus }); }; }; }; };
 }
 
-fn v_max() f64 {
-    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
-}
-
-fn approach_intersection_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
+fn no_frames() f64 {
+    return @as(f64, @bitCast(@as(i64, 4741671816366391296)));
 }
 
 fn straighten_margin() f64 {
@@ -1249,12 +1253,20 @@ fn min_forward_progress() f64 {
     return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
 }
 
-fn tilt_hold() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * deg());
+fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed: bool, i_: i64, phys: RiderState) ArcOutcome {
+    return (if ((i_ >= turn_danger_steps())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = (phys.along - start_along), .crossed = crossed, .end_across = phys.across, .frames = no_frames() }) else sim_step(start_, left_bound, right_bound, start_side, start_along, crossed, i_, simulate_rider_step(phys, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))))));
 }
 
-fn brake_decay() f64 {
-    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) ArcOutcome {
+    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
+}
+
+fn project_arc(state: RiderState, seg: Segment) ArcOutcome {
+    return b0: { const inset_hw: f64 = ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - straighten_margin()); break :b0 b1: { const right_bound: f64 = real_max(inset_hw, state.across); break :b1 b2: { const left_bound: f64 = real_min((@as(f64, @bitCast(@as(i64, 0))) - inset_hw), state.across); break :b2 sim_loop(state, left_bound, right_bound, r_sign(state.across), state.along, false, 0, state); }; }; };
+}
+
+fn want_more_right(sim: ArcOutcome, target: f64) bool {
+    return switch (sim.shoulder) { .ShoulderLeft => true, .ShoulderRight => false, .ShoulderNone => (sim.end_across < target),  };
 }
 
 fn asymptote_tuning() f64 {
@@ -1265,6 +1277,10 @@ fn center_lane_epsilon() f64 {
     return @as(f64, @bitCast(@as(i64, 4585925428558828667)));
 }
 
+fn lean_target(across: f64) f64 {
+    return (if ((real_abs(across) < center_lane_epsilon())) (if ((across >= @as(f64, @bitCast(@as(i64, 0))))) center_lane_epsilon() else (@as(f64, @bitCast(@as(i64, 0))) - center_lane_epsilon())) else (across * asymptote_tuning()));
+}
+
 fn max_tilt_correction() f64 {
     return (@as(f64, @bitCast(@as(i64, 4607182418800017408))) * deg());
 }
@@ -1273,48 +1289,32 @@ fn lean_search_iters() i64 {
     return 12;
 }
 
-fn simulate_rider_step(s_: RiderState, tilt_step: f64, accel: f64) RiderState {
-    return b0: { const tilt: f64 = (s_.tilt + tilt_step); break :b0 b1: { const v_: f64 = (s_.v_ + accel); break :b1 b2: { const heading_change: f64 = (yaw_per_tilt() * tilt); break :b2 b3: { const mid: f64 = (s_.yaw + (heading_change / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 cx_new(RiderStateS{ .segment = s_.segment, .along = (s_.along + (v_ * r_cos(mid))), .across = (s_.across + (v_ * r_sin(mid))), .yaw = (s_.yaw + heading_change), .v_ = v_, .tilt = tilt, .heading = (s_.heading + heading_change), .gaze_yaw = s_.gaze_yaw, .focus = s_.focus }); }; }; }; };
-}
-
-fn no_frames() f64 {
-    return @as(f64, @bitCast(@as(i64, 4741671816366391296)));
-}
-
-fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed: bool, i_: i64, phys: RiderState) PathSim {
-    return (if ((i_ >= turn_danger_steps())) cx_new(PathSimS{ .side = Side.SideNone, .forward = (phys.along - start_along), .crossed = crossed, .end_across = phys.across, .frames = no_frames() }) else sim_step(start_, left_bound, right_bound, start_side, start_along, crossed, i_, simulate_rider_step(phys, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))))));
-}
-
-fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) PathSim {
-    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(PathSimS{ .side = Side.SideLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(PathSimS{ .side = Side.SideRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(PathSimS{ .side = Side.SideNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(PathSimS{ .side = Side.SideNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
-}
-
-fn simulate_rider_path(state: RiderState, seg: Segment) PathSim {
-    return b0: { const inset_hw: f64 = ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - straighten_margin()); break :b0 b1: { const right_bound: f64 = real_max(inset_hw, state.across); break :b1 b2: { const left_bound: f64 = real_min((@as(f64, @bitCast(@as(i64, 0))) - inset_hw), state.across); break :b2 sim_loop(state, left_bound, right_bound, r_sign(state.across), state.along, false, 0, state); }; }; };
-}
-
-fn want_more_right(sim: PathSim, target: f64) bool {
-    return switch (sim.side) { .SideLeft => true, .SideRight => false, .SideNone => (sim.end_across < target),  };
-}
-
-fn lean_target(across: f64) f64 {
-    return (if ((real_abs(across) < center_lane_epsilon())) (if ((across >= @as(f64, @bitCast(@as(i64, 0))))) center_lane_epsilon() else (@as(f64, @bitCast(@as(i64, 0))) - center_lane_epsilon())) else (across * asymptote_tuning()));
-}
-
-fn with_tilt(s_: RiderState, t: f64) RiderState {
-    return cx_new(RiderStateS{ .segment = s_.segment, .along = s_.along, .across = s_.across, .yaw = s_.yaw, .v_ = s_.v_, .tilt = t, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
-}
-
 fn search_lean(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64) f64 {
     return (if ((i_ >= lean_search_iters())) ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) else search_step(state, seg, target, lo, hi, i_, ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))));
 }
 
 fn search_step(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64, mid: f64) f64 {
-    return (if (want_more_right(simulate_rider_path(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
+    return (if (want_more_right(project_arc(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
+}
+
+fn a_accel() f64 {
+    return @as(f64, @bitCast(@as(i64, 4576918229304087675)));
+}
+
+fn v_max() f64 {
+    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
+}
+
+fn approach_intersection_dist() f64 {
+    return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
 }
 
 fn turn_speed(angle_rad: f64) f64 {
     return b0: { const d_: f64 = round_real(((angle_rad * @as(f64, @bitCast(@as(i64, 4640537203540230144)))) / pi())); break :b0 @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4624633867356078080))))) @as(f64, @bitCast(@as(i64, 4608519987889346445))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4626322717216342016))))) @as(f64, @bitCast(@as(i64, 4605741266919258849))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4629137466983448576))))) @as(f64, @bitCast(@as(i64, 4601976257630777115))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4632233691727265792))))) @as(f64, @bitCast(@as(i64, 4597166413228745425))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4634626229029306368))))) @as(f64, @bitCast(@as(i64, 4594176023076171416))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4635329916471083008))))) @as(f64, @bitCast(@as(i64, 4593095159165602497))) else @as(f64, @bitCast(@as(i64, 4597166413228745425))))))))))))))); };
+}
+
+fn tilt_hold() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * deg());
 }
 
 fn corner_brake(state: RiderState, seg: Segment, v_end: f64, a_: f64) f64 {
@@ -1325,15 +1325,19 @@ fn pig_gate(state: RiderState, seg: Segment, a_: f64) f64 {
     return b0: { const b_ = (if ((gawk_engaged(state, seg) == false)) cx_new(GazeBrakeS{ .engaged = false, .accel = @as(f64, @bitCast(@as(i64, 0))) }) else (if ((state.v_ <= pig_gaze_speed())) cx_new(GazeBrakeS{ .engaged = true, .accel = @as(f64, @bitCast(@as(i64, 0))) }) else pig_gaze_brake_easing(state, seg))); break :b0 (if (b_.engaged) (if ((b_.accel < a_)) b_.accel else a_) else a_); };
 }
 
+fn brake_decay() f64 {
+    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+}
+
 fn shoulder_brake(state: RiderState, seg: Segment, a_: f64) f64 {
-    return b0: { const sim = simulate_rider_path(state, seg); break :b0 (if (side_none(sim)) a_ else shoulder_brake_at(state, sim, a_)); };
+    return b0: { const sim = project_arc(state, seg); break :b0 (if (stayed_on_road(sim)) a_ else shoulder_brake_at(state, sim, a_)); };
 }
 
-fn side_none(sim: PathSim) bool {
-    return switch (sim.side) { .SideNone => true, .SideLeft => false, .SideRight => false,  };
+fn stayed_on_road(sim: ArcOutcome) bool {
+    return switch (sim.shoulder) { .ShoulderNone => true, .ShoulderLeft => false, .ShoulderRight => false,  };
 }
 
-fn shoulder_brake_at(state: RiderState, sim: PathSim, a_: f64) f64 {
+fn shoulder_brake_at(state: RiderState, sim: ArcOutcome, a_: f64) f64 {
     return b0: { const n_: f64 = sim.frames; break :b0 b1: { const sa: f64 = (((@as(f64, @bitCast(@as(i64, 0))) - state.v_) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * real_max(n_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) * exp_real(((@as(f64, @bitCast(@as(i64, 0))) - n_) / brake_decay()))); break :b1 (if ((sa < a_)) sa else a_); }; };
 }
 
@@ -1412,30 +1416,6 @@ fn prev_map(s_: Segment) Mapper {
 
 fn map_pt(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, a_: f64, x: f64) RiderPt {
     return (if (m_.is_chain) at(_arg_segs, ch, pose, m_.d_, a_, x) else b1: { const p_ = cur_to_next(a_, x, m_.prev_len, m_.prev_angle, m_.prev_right, m_.prev_w); break :b1 to_rider(p_.a_, p_.x, pose.along, pose.across, pose.yaw, pose.hw); });
-}
-
-fn camera_w() f64 {
-    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
-}
-
-fn fov_deg() f64 {
-    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
-}
-
-fn focal() f64 {
-    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
-}
-
-fn min_focal_factor() f64 {
-    return @as(f64, @bitCast(@as(i64, 4599976659396224614)));
-}
-
-fn min_gaze_focal_factor() f64 {
-    return @as(f64, @bitCast(@as(i64, 4603669611090668421)));
-}
-
-fn cam_focal(lean_frac: f64, attention: f64) f64 {
-    return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
 }
 
 fn water_outline() *CxList(PondPt) {
@@ -1694,6 +1674,30 @@ fn corner_critters(c_: Creature, along: f64, turn_right: bool, hw: f64) *CxList(
     return b0: { const sp = species_of(c_); break :b0 b1: { const turn_sign: f64 = @as(f64, (if (turn_right) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); break :b1 b2: { const adult_h: f64 = sp.adult_h; break :b2 (if (sp.present) cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = along, .across = ((@as(f64, @bitCast(@as(i64, 0))) - turn_sign) * ((hw + adult_rail_buffer()) + (adult_h / @as(f64, @bitCast(@as(i64, 4611686018427387904)))))), .codepoint = sp.cp_, .height = adult_h, .face_right = turn_right }), cx_new(CritterS{ .along = (along + baby_beyond()), .across = @as(f64, @bitCast(@as(i64, 0))), .codepoint = sp.cp_, .height = (adult_h * baby_ratio()), .face_right = turn_right }) }) else cx_ll_empty(Critter)); }; }; };
 }
 
+fn camera_w() f64 {
+    return @as(f64, @bitCast(@as(i64, 4651655465120301056)));
+}
+
+fn fov_deg() f64 {
+    return @as(f64, @bitCast(@as(i64, 4634626229029306368)));
+}
+
+fn focal() f64 {
+    return ((camera_w() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(((fov_deg() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) * deg())));
+}
+
+fn min_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4599976659396224614)));
+}
+
+fn min_gaze_focal_factor() f64 {
+    return @as(f64, @bitCast(@as(i64, 4603669611090668421)));
+}
+
+fn cam_focal(lean_frac: f64, attention: f64) f64 {
+    return b0: { const a_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_focal_factor()) * lean_frac) * lean_frac))); break :b0 b1: { const b_: f64 = (focal() * (@as(f64, @bitCast(@as(i64, 4607182418800017408))) - ((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - min_gaze_focal_factor()) * attention))); break :b1 (if ((a_ < b_)) a_ else b_); }; };
+}
+
 fn min_critter_px() f64 {
     return @as(f64, @bitCast(@as(i64, 4611686018427387904)));
 }
@@ -1720,20 +1724,12 @@ fn size_culled_of(ps: *CxList(Placed), i_: i64) i64 {
     }
 }
 
-fn ground_vert(p_: RiderPt) Vec3 {
-    return cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = (@as(f64, @bitCast(@as(i64, 0))) - ground_drop(p_.right, p_.forward)) });
+fn outer_cu(exit_right: bool, wd: f64) f64 {
+    return @as(f64, (if (exit_right) @as(f64, @bitCast(@as(i64, 0))) else wd));
 }
 
-fn ground_verts(ps: *CxList(RiderPt), i_: i64) *CxList(Vec3) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(Vec3) else cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ ground_vert(cx_list_at(ps, i_)) }), ground_verts(ps, (i_ +% 1))));
-}
-
-fn emit_ground_color(ps: *CxList(RiderPt), color: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return (if ((cx_list_len(ps) > 8)) cx_ll_empty(DrawCmd) else ground_clip(clip_near(ground_verts(ps, 0), near()), color, cf, view_w));
-}
-
-fn ground_clip(vs_: *CxList(Vec3), color: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return (if ((cx_list_len(vs_) < 3)) cx_ll_empty(DrawCmd) else push_poly(color, project_all(vs_, cf, view_w, 0)));
+fn joint_apex(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) RiderPt {
+    return b0: { const fcu: f64 = outer_cu(exit_right, from_w); break :b0 b1: { const tx: f64 = outer_cu(exit_right, to_w); break :b1 line_meet(map_pt(_arg_segs, ch, pose, from_map, from_len, fcu), map_pt(_arg_segs, ch, pose, from_map, (from_len + @as(f64, @bitCast(@as(i64, 4607182418800017408)))), fcu), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), tx), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 4607182418800017408))), tx)); }; };
 }
 
 fn detail_dist() f64 {
@@ -1848,10 +1844,6 @@ fn seg_mid_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: 
     return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (sg.has_mid_tower) tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - seg_tower_left()), @as(f64, @bitCast(@as(i64, 0))), (cx_list_at(ch, d_) +% 60)) else cx_ll_empty(TowerItem)); };
 }
 
-fn is_pond(c_: Creature) bool {
-    return switch (c_) { .DuckPond => true, .NoCreature => false, .Elephant => false, .Giraffe => false, .Zebra => false, .Rhino => false,  };
-}
-
 fn seg_farm(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, hw: f64) *CxList(Placed) {
     return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if ((d_ >= farm_seg_reach())) cx_ll_empty(Placed) else cx_ll_concat(place_all(_arg_segs, ch, pose, d_, hw, sg.cows, 0), place_all(_arg_segs, ch, pose, d_, hw, sg.pigs, 0))); };
 }
@@ -1894,14 +1886,6 @@ fn behind_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, 
 
 fn behind_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(TowerItem) {
     return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 tower_if_ahead(_arg_segs, ch, pose, prev_map(pv), (pv.length + tower_beyond()), ((pv.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tower_right()), tower_yaw(), prev_idx); };
-}
-
-fn outer_cu(exit_right: bool, wd: f64) f64 {
-    return @as(f64, (if (exit_right) @as(f64, @bitCast(@as(i64, 0))) else wd));
-}
-
-fn joint_apex(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) RiderPt {
-    return b0: { const fcu: f64 = outer_cu(exit_right, from_w); break :b0 b1: { const tx: f64 = outer_cu(exit_right, to_w); break :b1 line_meet(map_pt(_arg_segs, ch, pose, from_map, from_len, fcu), map_pt(_arg_segs, ch, pose, from_map, (from_len + @as(f64, @bitCast(@as(i64, 4607182418800017408)))), fcu), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), tx), map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 4607182418800017408))), tx)); }; };
 }
 
 fn leg_steps(dist: f64) i64 {
@@ -2002,86 +1986,6 @@ fn sort_items(xs: *CxList(Item)) *CxList(Item) {
 
 fn collect(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, along: f64, v_: f64, truck_pos: f64) Collected {
     return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 b1: { const placed = (if ((seg_idx > 0)) cx_ll_concat(walk_billboards(_arg_segs, ch, pose, 0), behind_billboards(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_billboards(_arg_segs, ch, pose, 0)); break :b1 b2: { const trees = list_take(TreeItem, walk_trees(_arg_segs, ch, pose, cf, 0), max_vis_trees()); break :b2 b3: { const towers = list_take(TowerItem, (if ((seg_idx > 0)) cx_ll_concat(walk_towers(_arg_segs, ch, pose, 0), behind_tower(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_towers(_arg_segs, ch, pose, 0)), max_vis_towers()); break :b3 b4: { const cows = list_take(Billboard, kept_of(placed, 0), max_vis_critters()); break :b4 b5: { const cats = list_take(CatItem, walk_cats(_arg_segs, ch, pose, cf, along, v_, 0), max_vis_cats()); break :b5 b6: { const rails = (if ((seg_idx > 0)) cx_ll_concat(walk_rails(_arg_segs, ch, pose, 0), behind_rails(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_rails(_arg_segs, ch, pose, 0)); break :b6 b7: { const tk = truck_at(_arg_segs, ch, pose, along, (truck_pos - route_distance(_arg_segs, seg_idx, along))); break :b7 cx_new(CollectedS{ .trees = trees, .towers = towers, .cows = cows, .cats = cats, .rails = rails, .truck = tk, .order = sort_items(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(tree_items(trees, 0), tower_items(towers, 0)), cow_items(cows, 0)), cat_items(cats, 0)), (if (tk.present) cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = tk.fwd, .kind = Kind.KTruck, .i_ = 0 }) }) else cx_ll_empty(Item))), rail_items(rails, 0))), .cull_seg = walk_seg_cull(_arg_segs, ch, 0), .cull_size = size_culled_of(placed, 0) }); }; }; }; }; }; }; }; };
-}
-
-fn road_color() i64 {
-    return 3421500;
-}
-
-fn road_chunk() f64 {
-    return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
-}
-
-fn entry_road_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4630826316843712512)));
-}
-
-fn emit_ground(ps: *CxList(RiderPt), cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return emit_ground_color(ps, road_color(), cf, view_w);
-}
-
-fn chunks_for(len_: f64) i64 {
-    return b0: { const c_: f64 = ceil_real((len_ / road_chunk())); break :b0 cx_real_to_int(@as(f64, (if ((c_ < @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else c_))); };
-}
-
-fn road_slice(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(DrawCmd) {
-    return (if ((ci >= n_)) cx_ll_empty(DrawCmd) else cx_ll_concat(emit_ground(slice_quad(_arg_segs, ch, pose, d_, ci, n_, len_, wd), cf, view_w), road_slice(_arg_segs, ch, pose, d_, cf, view_w, (ci +% 1), n_, len_, wd)));
-}
-
-fn slice_quad(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(RiderPt) {
-    return b0: { const a0: f64 = ((len_ * cx_real_from_int(ci)) / cx_real_from_int(n_)); break :b0 b1: { const a1: f64 = ((len_ * cx_real_from_int((ci +% 1))) / cx_real_from_int(n_)); break :b1 cx_ll_of(RiderPt, &[_]RiderPt{ at(_arg_segs, ch, pose, d_, a0, @as(f64, @bitCast(@as(i64, 0)))), at(_arg_segs, ch, pose, d_, a0, wd), at(_arg_segs, ch, pose, d_, a1, wd), at(_arg_segs, ch, pose, d_, a1, @as(f64, @bitCast(@as(i64, 0)))) }); }; };
-}
-
-fn seg_road(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 road_slice(_arg_segs, ch, pose, d_, cf, view_w, 0, chunks_for(sg.length), sg.length, sg.width); };
-}
-
-fn joint_approach(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, from_len: f64, from_w: f64) *CxList(RiderPt) {
-    return cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, from_map, from_len, @as(f64, @bitCast(@as(i64, 0)))), map_pt(_arg_segs, ch, pose, from_map, from_len, from_w), map_pt(_arg_segs, ch, pose, from_map, (from_len - entry_road_dist()), from_w), map_pt(_arg_segs, ch, pose, from_map, (from_len - entry_road_dist()), @as(f64, @bitCast(@as(i64, 0)))) });
-}
-
-fn joint_pavement(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) *CxList(RiderPt) {
-    return b0: { const inner = map_pt(_arg_segs, ch, pose, from_map, from_len, @as(f64, (if (exit_right) from_w else @as(f64, @bitCast(@as(i64, 0)))))); break :b0 b1: { const outer_from = map_pt(_arg_segs, ch, pose, from_map, from_len, outer_cu(exit_right, from_w)); break :b1 b2: { const outer_to = map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), outer_cu(exit_right, to_w)); break :b2 b3: { const q = joint_apex(_arg_segs, ch, pose, from_map, to_map, from_len, from_w, to_w, exit_right); break :b3 cx_ll_of(RiderPt, &[_]RiderPt{ inner, outer_from, q, outer_to }); }; }; }; };
-}
-
-fn emit_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return cx_ll_concat(emit_ground(joint_approach(_arg_segs, ch, pose, from_map, from_len, from_w), cf, view_w), emit_ground(joint_pavement(_arg_segs, ch, pose, from_map, to_map, from_len, from_w, to_w, exit_right), cf, view_w));
-}
-
-fn pond_shape(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, ps: *CxList(PondPt), i_: i64) *CxList(RiderPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len + cx_list_at(ps, i_).cv), cx_list_at(ps, i_).cu) }), pond_shape(_arg_segs, ch, pose, m_, from_len, ps, (i_ +% 1))));
-}
-
-fn emit_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return cx_ll_concat(emit_ground_color(pond_shape(_arg_segs, ch, pose, m_, from_len, water_outline(), 0), water_color(), cf, view_w), emit_ground_color(pond_shape(_arg_segs, ch, pose, m_, from_len, bank(), 0), bank_color(), cf, view_w));
-}
-
-fn seg_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return cx_ll_concat(cx_ll_concat(seg_road(_arg_segs, ch, pose, d_, cf, view_w), seg_joint_ground(_arg_segs, ch, pose, d_, cf, view_w)), seg_pond_ground(_arg_segs, ch, pose, d_, cf, view_w));
-}
-
-fn seg_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return (if (((d_ +% 1) >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else emit_joint_ground(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ +% 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ +% 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right, cf, view_w));
-}
-
-fn seg_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (is_pond(sg.exit_creature)) emit_pond_ground(_arg_segs, ch, pose, chain_map(d_), sg.length, cf, view_w) else cx_ll_empty(DrawCmd)); };
-}
-
-fn walk_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, view_w: f64, d_: i64) *CxList(DrawCmd) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else cx_ll_concat(seg_ground(_arg_segs, ch, pose, d_, cf, view_w), walk_ground(_arg_segs, ch, pose, cf, view_w, (d_ +% 1))));
-}
-
-fn behind_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 cx_ll_concat(emit_joint_ground(_arg_segs, ch, pose, prev_map(pv), chain_map(0), pv.length, pv.width, cx_list_at(_arg_segs, cx_list_at(ch, 0)).width, pv.exit_right, cf, view_w), behind_pond_ground(_arg_segs, ch, pose, pv, cf, view_w)); };
-}
-
-fn behind_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, pv: Segment, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return (if (is_pond(pv.exit_creature)) emit_pond_ground(_arg_segs, ch, pose, prev_map(pv), pv.length, cf, view_w) else cx_ll_empty(DrawCmd));
-}
-
-fn frame_ground(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(_arg_segs, ch, pose, cf, view_w, 0), behind_ground(_arg_segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(_arg_segs, ch, pose, cf, view_w, 0)); };
 }
 
 fn sun_bearing() f64 {
@@ -2814,6 +2718,102 @@ fn brake_lights(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i
 
 fn truck_draw_body(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, center_along: f64, hw: f64, braking: bool, headlights: bool, cf: f64, view_w: f64) *CxList(DrawCmd) {
     return b0: { const bx = truck_box(center_along, hw); break :b0 b1: { const beams = (if (headlights) truck_wedges(_arg_segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b1 b2: { const body = draw_faces(sort_faces(truck_faces(_arg_segs, ch, pose, d_, bx)), cf, view_w, 0); break :b2 b3: { const lights = (if (braking) brake_lights(_arg_segs, ch, pose, d_, bx, cf, view_w) else cx_ll_empty(DrawCmd)); break :b3 cx_ll_concat(cx_ll_concat(beams, body), lights); }; }; }; };
+}
+
+fn ground_vert(p_: RiderPt) Vec3 {
+    return cx_new(Vec3S{ .right = p_.right, .forward = p_.forward, .height = (@as(f64, @bitCast(@as(i64, 0))) - ground_drop(p_.right, p_.forward)) });
+}
+
+fn ground_verts(ps: *CxList(RiderPt), i_: i64) *CxList(Vec3) {
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(Vec3) else cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ ground_vert(cx_list_at(ps, i_)) }), ground_verts(ps, (i_ +% 1))));
+}
+
+fn emit_ground_color(ps: *CxList(RiderPt), color: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if ((cx_list_len(ps) > 8)) cx_ll_empty(DrawCmd) else ground_clip(clip_near(ground_verts(ps, 0), near()), color, cf, view_w));
+}
+
+fn ground_clip(vs_: *CxList(Vec3), color: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if ((cx_list_len(vs_) < 3)) cx_ll_empty(DrawCmd) else push_poly(color, project_all(vs_, cf, view_w, 0)));
+}
+
+fn road_color() i64 {
+    return 3421500;
+}
+
+fn road_chunk() f64 {
+    return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
+}
+
+fn entry_road_dist() f64 {
+    return @as(f64, @bitCast(@as(i64, 4630826316843712512)));
+}
+
+fn emit_ground(ps: *CxList(RiderPt), cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return emit_ground_color(ps, road_color(), cf, view_w);
+}
+
+fn chunks_for(len_: f64) i64 {
+    return b0: { const c_: f64 = ceil_real((len_ / road_chunk())); break :b0 cx_real_to_int(@as(f64, (if ((c_ < @as(f64, @bitCast(@as(i64, 4607182418800017408))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else c_))); };
+}
+
+fn road_slice(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(DrawCmd) {
+    return (if ((ci >= n_)) cx_ll_empty(DrawCmd) else cx_ll_concat(emit_ground(slice_quad(_arg_segs, ch, pose, d_, ci, n_, len_, wd), cf, view_w), road_slice(_arg_segs, ch, pose, d_, cf, view_w, (ci +% 1), n_, len_, wd)));
+}
+
+fn slice_quad(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(RiderPt) {
+    return b0: { const a0: f64 = ((len_ * cx_real_from_int(ci)) / cx_real_from_int(n_)); break :b0 b1: { const a1: f64 = ((len_ * cx_real_from_int((ci +% 1))) / cx_real_from_int(n_)); break :b1 cx_ll_of(RiderPt, &[_]RiderPt{ at(_arg_segs, ch, pose, d_, a0, @as(f64, @bitCast(@as(i64, 0)))), at(_arg_segs, ch, pose, d_, a0, wd), at(_arg_segs, ch, pose, d_, a1, wd), at(_arg_segs, ch, pose, d_, a1, @as(f64, @bitCast(@as(i64, 0)))) }); }; };
+}
+
+fn seg_road(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 road_slice(_arg_segs, ch, pose, d_, cf, view_w, 0, chunks_for(sg.length), sg.length, sg.width); };
+}
+
+fn joint_approach(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, from_len: f64, from_w: f64) *CxList(RiderPt) {
+    return cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, from_map, from_len, @as(f64, @bitCast(@as(i64, 0)))), map_pt(_arg_segs, ch, pose, from_map, from_len, from_w), map_pt(_arg_segs, ch, pose, from_map, (from_len - entry_road_dist()), from_w), map_pt(_arg_segs, ch, pose, from_map, (from_len - entry_road_dist()), @as(f64, @bitCast(@as(i64, 0)))) });
+}
+
+fn joint_pavement(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) *CxList(RiderPt) {
+    return b0: { const inner = map_pt(_arg_segs, ch, pose, from_map, from_len, @as(f64, (if (exit_right) from_w else @as(f64, @bitCast(@as(i64, 0)))))); break :b0 b1: { const outer_from = map_pt(_arg_segs, ch, pose, from_map, from_len, outer_cu(exit_right, from_w)); break :b1 b2: { const outer_to = map_pt(_arg_segs, ch, pose, to_map, @as(f64, @bitCast(@as(i64, 0))), outer_cu(exit_right, to_w)); break :b2 b3: { const q = joint_apex(_arg_segs, ch, pose, from_map, to_map, from_len, from_w, to_w, exit_right); break :b3 cx_ll_of(RiderPt, &[_]RiderPt{ inner, outer_from, q, outer_to }); }; }; }; };
+}
+
+fn emit_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat(emit_ground(joint_approach(_arg_segs, ch, pose, from_map, from_len, from_w), cf, view_w), emit_ground(joint_pavement(_arg_segs, ch, pose, from_map, to_map, from_len, from_w, to_w, exit_right), cf, view_w));
+}
+
+fn pond_shape(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, ps: *CxList(PondPt), i_: i64) *CxList(RiderPt) {
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len + cx_list_at(ps, i_).cv), cx_list_at(ps, i_).cu) }), pond_shape(_arg_segs, ch, pose, m_, from_len, ps, (i_ +% 1))));
+}
+
+fn emit_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat(emit_ground_color(pond_shape(_arg_segs, ch, pose, m_, from_len, water_outline(), 0), water_color(), cf, view_w), emit_ground_color(pond_shape(_arg_segs, ch, pose, m_, from_len, bank(), 0), bank_color(), cf, view_w));
+}
+
+fn seg_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return cx_ll_concat(cx_ll_concat(seg_road(_arg_segs, ch, pose, d_, cf, view_w), seg_joint_ground(_arg_segs, ch, pose, d_, cf, view_w)), seg_pond_ground(_arg_segs, ch, pose, d_, cf, view_w));
+}
+
+fn seg_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if (((d_ +% 1) >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else emit_joint_ground(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ +% 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ +% 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right, cf, view_w));
+}
+
+fn seg_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (is_pond(sg.exit_creature)) emit_pond_ground(_arg_segs, ch, pose, chain_map(d_), sg.length, cf, view_w) else cx_ll_empty(DrawCmd)); };
+}
+
+fn walk_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, view_w: f64, d_: i64) *CxList(DrawCmd) {
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else cx_ll_concat(seg_ground(_arg_segs, ch, pose, d_, cf, view_w), walk_ground(_arg_segs, ch, pose, cf, view_w, (d_ +% 1))));
+}
+
+fn behind_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const pv = cx_list_at(_arg_segs, prev_idx); break :b0 cx_ll_concat(emit_joint_ground(_arg_segs, ch, pose, prev_map(pv), chain_map(0), pv.length, pv.width, cx_list_at(_arg_segs, cx_list_at(ch, 0)).width, pv.exit_right, cf, view_w), behind_pond_ground(_arg_segs, ch, pose, pv, cf, view_w)); };
+}
+
+fn behind_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, pv: Segment, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return (if (is_pond(pv.exit_creature)) emit_pond_ground(_arg_segs, ch, pose, prev_map(pv), pv.length, cf, view_w) else cx_ll_empty(DrawCmd));
+}
+
+fn frame_ground(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_w: f64) *CxList(DrawCmd) {
+    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(_arg_segs, ch, pose, cf, view_w, 0), behind_ground(_arg_segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(_arg_segs, ch, pose, cf, view_w, 0)); };
 }
 
 fn cat_attention(w: *CxList(Segment), s_: RiderState) f64 {

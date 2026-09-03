@@ -1078,6 +1078,19 @@ Section: What Stands Beside the Road
     face-right : Boolean
   }
 
+ A pond is a Creature that is not an animal, which the ground walk asks about to
+ place water and the collection asks about to place ducks.
+
+  is-pond : Creature -> Boolean
+  is-pond (c) =
+   when c
+    is DuckPond -> True
+    is NoCreature -> False
+    is Elephant -> False
+    is Giraffe -> False
+    is Zebra -> False
+    is Rhino -> False
+
 Chapter: Trees
   cites Safari chapter Scenery
 
@@ -2704,49 +2717,35 @@ Section: Harvesting a Placement List
     else if (list-at ps i).size-culled then 1 + size-culled-of ps (i + 1)
     else size-culled-of ps (i + 1)
 
-Chapter: Ground
+Chapter: Joint
   cites Safari chapter Geom
-  cites Safari chapter Camera
-  cites Safari chapter Paint
+  cites Safari chapter World
+  cites Safari chapter Frame
 
- A QUAD ON THE FLOOR: drop each corner by the curvature at its distance, clip
- the polygon to the near plane, project it, paint it. It does not know whether
- it is painting a road, a corner's pavement or a pond.
-
- Split out of Render on 2026-09-03. Ground quads never enter the depth sort --
- they are painted first, in walk order, and everything that stands up is sorted
- and painted over them -- so this is a pipeline of its own rather than a stage
- of that one.
+ The three points a corner hangs off, and the only geometry the road surface and
+ the things standing on it both need. `GroundPlan` reaches it for the corner
+ pavement and `Render` for the guard rail, so it belongs to neither.
 
  We say:
 
-Section: A Ground Vertex
+Section: The Outer Shoulders
 
-  ground-vert : RiderPt -> Vec3
-  ground-vert (p) =
-    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
+ Both the corner pavement and the guard rail hang off the same three points: each
+ segment's OUTER shoulder at the join, and the apex Q where the two extended
+ shoulders cross. Which edge is outer flips with the turn -- a right turn's outer
+ edge is the left one.
 
-  ground-verts : List RiderPt, Integer -> List Vec3
-  ground-verts (ps) (i) =
-    if i >= list-length ps then []
-    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
+  outer-cu : Boolean, Real -> Real
+  outer-cu (exit-right) (wd) = if exit-right then 0.0 else wd
 
-Section: Clip, Project, Paint
+ Q is found by extending each shoulder one metre past the join and intersecting
+ the two lines. A real turn has a non-zero angle, so they are never parallel.
 
- THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
- in more than eight points gets nothing at all rather than a truncated polygon,
- which is the zig's behaviour and is the safer of the two: a silently shortened
- ground quad would be a wrong shape painted confidently.
-
-  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
-  emit-ground-color (ps) (color) (cf) (view-w) =
-    if list-length ps > 8 then []
-    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
-
-  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
-  ground-clip (vs) (color) (cf) (view-w) =
-    if list-length vs < 3 then []
-    else push-poly color (project-all vs cf view-w 0)
+  joint-apex : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> RiderPt
+  joint-apex (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    let fcu = outer-cu exit-right from-w
+    in let tx = outer-cu exit-right to-w
+    in line-meet (map-pt segs ch pose from-map from-len fcu) (map-pt segs ch pose from-map (from-len + 1.0) fcu) (map-pt segs ch pose to-map 0.0 tx) (map-pt segs ch pose to-map 1.0 tx)
 
 Chapter: Render
   cites Gpu chapter DeviceMath
@@ -2755,7 +2754,6 @@ Chapter: Render
   cites Safari chapter World
   cites Safari chapter Frame
   cites Safari chapter Scenery
-  cites Safari chapter Lens
   cites Safari chapter Num
   cites Safari chapter Pond
   cites Safari chapter Tower
@@ -2763,7 +2761,7 @@ Chapter: Render
   cites Safari chapter Cat
   cites Safari chapter SafariCritter
   cites Safari chapter Billboards
-  cites Safari chapter Ground
+  cites Safari chapter Joint
 
  The safari's frame: what stands in it, and what it stands on. Everything here
  is collected, culled, depth-sorted or painted -- the trees, the towers, the
@@ -3055,15 +3053,6 @@ Section: Collecting Towers
 
 Section: Collecting Critters
 
-  is-pond : Creature -> Boolean
-  is-pond (c) =
-   when c
-    is DuckPond -> True
-    is NoCreature -> False
-    is Elephant -> False
-    is Giraffe -> False
-    is Zebra -> False
-    is Rhino -> False
 
  The farm animals of one chain segment, if it is near enough to be worth
  projecting at all. Cows first, then the pig herd -- the order the zig fills its
@@ -3162,25 +3151,6 @@ Section: The Joint Just Behind
   behind-tower (segs) (ch) (pose) (prev-idx) =
     let pv = list-at segs prev-idx
     in tower-if-ahead segs ch pose (prev-map pv) (pv.length + tower-beyond) (pv.width / 2.0 + tower-right) tower-yaw prev-idx
-
-Section: The Corner's Outer Shoulders
-
- Both the corner pavement and the guard rail hang off the same three points: each
- segment's OUTER shoulder at the join, and the apex Q where the two extended
- shoulders cross. Which edge is outer flips with the turn -- a right turn's outer
- edge is the left one.
-
-  outer-cu : Boolean, Real -> Real
-  outer-cu (exit-right) (wd) = if exit-right then 0.0 else wd
-
- Q is found by extending each shoulder one metre past the join and intersecting
- the two lines. A real turn has a non-zero angle, so they are never parallel.
-
-  joint-apex : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> RiderPt
-  joint-apex (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
-    let fcu = outer-cu exit-right from-w
-    in let tx = outer-cu exit-right to-w
-    in line-meet (map-pt segs ch pose from-map from-len fcu) (map-pt segs ch pose from-map (from-len + 1.0) fcu) (map-pt segs ch pose to-map 0.0 tx) (map-pt segs ch pose to-map 1.0 tx)
 
 Section: The Guard Rail Path
 
@@ -3493,169 +3463,6 @@ Section: The Frame's Collection
       cull-size = size-culled-of placed 0
     }
 
-Section: The Ground
-
- The road surface and everything paved: road strips, each corner's approach and
- pavement, and the pond's water and bank. These are quads on the FLOOR. They never
- enter the depth sort -- they are painted first, in walk order, and everything that
- stands up is sorted and painted over them.
-
-  road-color : Integer
-  road-color = 3421500
-
- Road strips are sliced this long so a bend reads smooth rather than as one long
- flat quad cutting the curve.
-
-  road-chunk : Real
-  road-chunk = 25.0
-
- Metres of approach road a joint paints behind its end edge. It is what covers the
- joint when the joint is the one BEHIND the rider.
-
-  entry-road-dist : Real
-  entry-road-dist = 40.0
-
- A ground vertex drops below the rider's tangent plane by the curvature at its
- horizontal distance, which is what bends the road toward a finite horizon instead
- of a vanishing point at infinity. The sign is the thing to get right: ground-drop
- returns a positive distance and the height is its NEGATIVE.
-
-
-  emit-ground : List RiderPt, Real, Real -> List DrawCmd
-  emit-ground (ps) (cf) (view-w) = emit-ground-color ps road-color cf view-w
-
-Section: The Road Strip
-
- The zig takes the ceiling of length over the chunk size and floors it at one
- chunk. Codex's foreword has a floor and no ceiling, so this is the identity
- ceil x = -floor(-x) rather than a second rounding rule.
-
-
-  chunks-for : Real -> Integer
-  chunks-for (len) =
-    let c = ceil-real (len / road-chunk)
-    in real-to-int (if c < 1.0 then 1.0 else c)
-
- EACH SLICE IS CUT FROM THE SEGMENT LENGTH BY INDEX, not accumulated by adding a
- chunk at a time. It matters: the zig computes a0 and a1 as length*i/n and
- length*(i+1)/n, so the last slice ends exactly on the segment end and the strip
- cannot drift short of the joint by an accumulated rounding.
-
-  road-slice : List Segment, List Integer, Pose, Integer, Real, Real, Integer, Integer, Real, Real -> List DrawCmd
-  road-slice (segs) (ch) (pose) (d) (cf) (view-w) (ci) (n) (len) (wd) =
-    if ci >= n then []
-    else (emit-ground (slice-quad segs ch pose d ci n len wd) cf view-w)
-         & road-slice segs ch pose d cf view-w (ci + 1) n len wd
-
-  slice-quad : List Segment, List Integer, Pose, Integer, Integer, Integer, Real, Real -> List RiderPt
-  slice-quad (segs) (ch) (pose) (d) (ci) (n) (len) (wd) =
-    let a0 = len * real-from-int ci / real-from-int n
-    in let a1 = len * real-from-int (ci + 1) / real-from-int n
-    in [at segs ch pose d a0 0.0, at segs ch pose d a0 wd, at segs ch pose d a1 wd, at segs ch pose d a1 0.0]
-
-  seg-road : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
-  seg-road (segs) (ch) (pose) (d) (cf) (view-w) =
-    let sg = list-at segs (list-at ch d)
-    in road-slice segs ch pose d cf view-w 0 (chunks-for sg.length) sg.length sg.width
-
-Section: A Joint's Ground
-
- The approach road is the `from` segment's tail, its end edge drawn back
- entry-road-dist. The corner pavement is a quad from the INNER fuse-corner out to
- the outer apex Q: inner corner, `from`'s outer corner, Q, `to`'s outer corner.
-
- THE INNER CORNER IS THE EDGE THE TURN GOES TOWARD and the outer is the one it
- goes away from, so both flip with the turn direction and they flip oppositely.
- Getting the pair the wrong way round still paints a quad -- just one folded
- through the intersection.
-
-  joint-approach : List Segment, List Integer, Pose, Mapper, Real, Real -> List RiderPt
-  joint-approach (segs) (ch) (pose) (from-map) (from-len) (from-w) =
-    [map-pt segs ch pose from-map from-len 0.0,
-     map-pt segs ch pose from-map from-len from-w,
-     map-pt segs ch pose from-map (from-len - entry-road-dist) from-w,
-     map-pt segs ch pose from-map (from-len - entry-road-dist) 0.0]
-
-  joint-pavement : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> List RiderPt
-  joint-pavement (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
-    let inner = map-pt segs ch pose from-map from-len (if exit-right then from-w else 0.0)
-    in let outer-from = map-pt segs ch pose from-map from-len (outer-cu exit-right from-w)
-    in let outer-to = map-pt segs ch pose to-map 0.0 (outer-cu exit-right to-w)
-    in let q = joint-apex segs ch pose from-map to-map from-len from-w to-w exit-right
-    in [inner, outer-from, q, outer-to]
-
-  emit-joint-ground : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean, Real, Real -> List DrawCmd
-  emit-joint-ground (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) (cf) (view-w) =
-    (emit-ground (joint-approach segs ch pose from-map from-len from-w) cf view-w)
-    & (emit-ground (joint-pavement segs ch pose from-map to-map from-len from-w to-w exit-right) cf view-w)
-
-Section: The Pond's Ground
-
- The water then the bank, authored in the incoming corner frame: corner (cu, cv)
- is map (from-len + cv, cu). The ducks that float on it are billboards and were
- collected for the depth sort; only the two ground shapes are painted here.
-
-  pond-shape : List Segment, List Integer, Pose, Mapper, Real, List PondPt, Integer -> List RiderPt
-  pond-shape (segs) (ch) (pose) (m) (from-len) (ps) (i) =
-    if i >= list-length ps then []
-    else [map-pt segs ch pose m (from-len + (list-at ps i).cv) (list-at ps i).cu] & pond-shape segs ch pose m from-len ps (i + 1)
-
-  emit-pond-ground : List Segment, List Integer, Pose, Mapper, Real, Real, Real -> List DrawCmd
-  emit-pond-ground (segs) (ch) (pose) (m) (from-len) (cf) (view-w) =
-    (emit-ground-color (pond-shape segs ch pose m from-len water-outline 0) water-color cf view-w)
-    & (emit-ground-color (pond-shape segs ch pose m from-len bank 0) bank-color cf view-w)
-
-Section: Walking the Ground
-
- One chain segment's floor: its road strip, then its exit joint's ground when the
- next segment is in view, then the pond at that exit if there is one. The pond
- ground takes NO reach test -- the ducks on it do, but the water is painted
- wherever the corner is drawn at all.
-
-  seg-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
-  seg-ground (segs) (ch) (pose) (d) (cf) (view-w) =
-    (seg-road segs ch pose d cf view-w)
-    & (seg-joint-ground segs ch pose d cf view-w)
-    & (seg-pond-ground segs ch pose d cf view-w)
-
-  seg-joint-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
-  seg-joint-ground (segs) (ch) (pose) (d) (cf) (view-w) =
-    if d + 1 >= list-length ch then []
-    else emit-joint-ground segs ch pose (chain-map d) (chain-map (d + 1)) (list-at segs (list-at ch d)).length (list-at segs (list-at ch d)).width (list-at segs (list-at ch (d + 1))).width (list-at segs (list-at ch d)).exit-right cf view-w
-
-  seg-pond-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
-  seg-pond-ground (segs) (ch) (pose) (d) (cf) (view-w) =
-    let sg = list-at segs (list-at ch d)
-    in if is-pond sg.exit-creature
-      then emit-pond-ground segs ch pose (chain-map d) sg.length cf view-w
-      else []
-
-  walk-ground : List Segment, List Integer, Pose, Real, Real, Integer -> List DrawCmd
-  walk-ground (segs) (ch) (pose) (cf) (view-w) (d) =
-    if d >= list-length ch then []
-    else (seg-ground segs ch pose d cf view-w) & walk-ground segs ch pose cf view-w (d + 1)
-
-  behind-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
-  behind-ground (segs) (ch) (pose) (prev-idx) (cf) (view-w) =
-    let pv = list-at segs prev-idx
-    in (emit-joint-ground segs ch pose (prev-map pv) (chain-map 0) pv.length pv.width (list-at segs (list-at ch 0)).width pv.exit-right cf view-w)
-       & (behind-pond-ground segs ch pose pv cf view-w)
-
-  behind-pond-ground : List Segment, List Integer, Pose, Segment, Real, Real -> List DrawCmd
-  behind-pond-ground (segs) (ch) (pose) (pv) (cf) (view-w) =
-    if is-pond pv.exit-creature
-      then emit-pond-ground segs ch pose (prev-map pv) pv.length cf view-w
-      else []
-
- The whole floor for one frame, forward chain then the joint behind.
-
-  frame-ground : List Segment, Integer, Pose, Real, Real -> List DrawCmd
-  frame-ground (segs) (seg-idx) (pose) (cf) (view-w) =
-    let ch = build-chain segs seg-idx
-    in if seg-idx > 0
-      then (walk-ground segs ch pose cf view-w 0) & (behind-ground segs ch pose (seg-idx - 1) cf view-w)
-      else walk-ground segs ch pose cf view-w 0
-
 Chapter: Grade
 
  The reusable grader: compare a flattened list of values against gold and say
@@ -3897,6 +3704,240 @@ Section: Gold
   g-sc-place : List Real
   g-sc-place = [300.0, -4.9, 2.8, 314.0, 0.0, 1.4, 300.0, 4.9, 2.8, 314.0, 0.0, 1.4, 300.0, -5.75, 4.5, 314.0, 0.0, 2.25, 300.0, 5.75, 4.5, 314.0, 0.0, 2.25, 300.0, -4.3, 1.6, 314.0, 0.0, 0.8, 300.0, 4.3, 1.6, 314.0, 0.0, 0.8, 300.0, -4.6, 2.2, 314.0, 0.0, 1.1, 300.0, 4.6, 2.2, 314.0, 0.0, 1.1]
 
+Chapter: Ground
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+
+ A QUAD ON THE FLOOR: drop each corner by the curvature at its distance, clip
+ the polygon to the near plane, project it, paint it. It does not know whether
+ it is painting a road, a corner's pavement or a pond.
+
+ Split out of Render on 2026-09-03. Ground quads never enter the depth sort --
+ they are painted first, in walk order, and everything that stands up is sorted
+ and painted over them -- so this is a pipeline of its own rather than a stage
+ of that one.
+
+ We say:
+
+Section: A Ground Vertex
+
+  ground-vert : RiderPt -> Vec3
+  ground-vert (p) =
+    Vec3 { right = p.right, forward = p.forward, height = 0.0 - ground-drop p.right p.forward }
+
+  ground-verts : List RiderPt, Integer -> List Vec3
+  ground-verts (ps) (i) =
+    if i >= list-length ps then []
+    else [ground-vert (list-at ps i)] & ground-verts ps (i + 1)
+
+Section: Clip, Project, Paint
+
+ THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT IS KEPT. A caller handing
+ in more than eight points gets nothing at all rather than a truncated polygon,
+ which is the zig's behaviour and is the safer of the two: a silently shortened
+ ground quad would be a wrong shape painted confidently.
+
+  emit-ground-color : List RiderPt, Integer, Real, Real -> List DrawCmd
+  emit-ground-color (ps) (color) (cf) (view-w) =
+    if list-length ps > 8 then []
+    else ground-clip (clip-near (ground-verts ps 0) near) color cf view-w
+
+  ground-clip : List Vec3, Integer, Real, Real -> List DrawCmd
+  ground-clip (vs) (color) (cf) (view-w) =
+    if list-length vs < 3 then []
+    else push-poly color (project-all vs cf view-w 0)
+
+Chapter: GroundPlan
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Geom
+  cites Safari chapter Ground
+  cites Safari chapter Joint
+  cites Safari chapter Num
+  cites Safari chapter Pond
+  cites Safari chapter Scenery
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+  cites Safari chapter Frame
+  cites Safari chapter Paint
+
+ WHICH ground this frame paints, in walk order. `Safari chapter Ground` paints one
+ quad and does not know what it is painting; this decides what the quads are.
+
+ Split out of Render on 2026-09-03, and the split was not a judgment call. Render
+ held two programs: `collect`, which gathers everything that STANDS UP and sorts it
+ by depth, and this, which lays the floor. Collapsing every single-caller
+ definition into its caller reduced the chapter's 92 definitions to exactly those
+ two blocks plus three functions they share -- `is-pond`, and the corner geometry
+ that is now `Safari chapter Joint`. Two programs sharing a file is the one thing
+ cohesion was built to find, and here it was hiding behind a call graph that was
+ fully connected.
+
+ We say:
+
+Section: The Ground
+
+ The road surface and everything paved: road strips, each corner's approach and
+ pavement, and the pond's water and bank. These are quads on the FLOOR. They never
+ enter the depth sort -- they are painted first, in walk order, and everything that
+ stands up is sorted and painted over them.
+
+  road-color : Integer
+  road-color = 3421500
+
+ Road strips are sliced this long so a bend reads smooth rather than as one long
+ flat quad cutting the curve.
+
+  road-chunk : Real
+  road-chunk = 25.0
+
+ Metres of approach road a joint paints behind its end edge. It is what covers the
+ joint when the joint is the one BEHIND the rider.
+
+  entry-road-dist : Real
+  entry-road-dist = 40.0
+
+ A ground vertex drops below the rider's tangent plane by the curvature at its
+ horizontal distance, which is what bends the road toward a finite horizon instead
+ of a vanishing point at infinity. The sign is the thing to get right: ground-drop
+ returns a positive distance and the height is its NEGATIVE.
+
+
+  emit-ground : List RiderPt, Real, Real -> List DrawCmd
+  emit-ground (ps) (cf) (view-w) = emit-ground-color ps road-color cf view-w
+
+Section: The Road Strip
+
+ The zig takes the ceiling of length over the chunk size and floors it at one
+ chunk. Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule.
+
+
+  chunks-for : Real -> Integer
+  chunks-for (len) =
+    let c = ceil-real (len / road-chunk)
+    in real-to-int (if c < 1.0 then 1.0 else c)
+
+ EACH SLICE IS CUT FROM THE SEGMENT LENGTH BY INDEX, not accumulated by adding a
+ chunk at a time. It matters: the zig computes a0 and a1 as length*i/n and
+ length*(i+1)/n, so the last slice ends exactly on the segment end and the strip
+ cannot drift short of the joint by an accumulated rounding.
+
+  road-slice : List Segment, List Integer, Pose, Integer, Real, Real, Integer, Integer, Real, Real -> List DrawCmd
+  road-slice (segs) (ch) (pose) (d) (cf) (view-w) (ci) (n) (len) (wd) =
+    if ci >= n then []
+    else (emit-ground (slice-quad segs ch pose d ci n len wd) cf view-w)
+         & road-slice segs ch pose d cf view-w (ci + 1) n len wd
+
+  slice-quad : List Segment, List Integer, Pose, Integer, Integer, Integer, Real, Real -> List RiderPt
+  slice-quad (segs) (ch) (pose) (d) (ci) (n) (len) (wd) =
+    let a0 = len * real-from-int ci / real-from-int n
+    in let a1 = len * real-from-int (ci + 1) / real-from-int n
+    in [at segs ch pose d a0 0.0, at segs ch pose d a0 wd, at segs ch pose d a1 wd, at segs ch pose d a1 0.0]
+
+  seg-road : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
+  seg-road (segs) (ch) (pose) (d) (cf) (view-w) =
+    let sg = list-at segs (list-at ch d)
+    in road-slice segs ch pose d cf view-w 0 (chunks-for sg.length) sg.length sg.width
+
+Section: A Joint's Ground
+
+ The approach road is the `from` segment's tail, its end edge drawn back
+ entry-road-dist. The corner pavement is a quad from the INNER fuse-corner out to
+ the outer apex Q: inner corner, `from`'s outer corner, Q, `to`'s outer corner.
+
+ THE INNER CORNER IS THE EDGE THE TURN GOES TOWARD and the outer is the one it
+ goes away from, so both flip with the turn direction and they flip oppositely.
+ Getting the pair the wrong way round still paints a quad -- just one folded
+ through the intersection.
+
+  joint-approach : List Segment, List Integer, Pose, Mapper, Real, Real -> List RiderPt
+  joint-approach (segs) (ch) (pose) (from-map) (from-len) (from-w) =
+    [map-pt segs ch pose from-map from-len 0.0,
+     map-pt segs ch pose from-map from-len from-w,
+     map-pt segs ch pose from-map (from-len - entry-road-dist) from-w,
+     map-pt segs ch pose from-map (from-len - entry-road-dist) 0.0]
+
+  joint-pavement : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> List RiderPt
+  joint-pavement (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    let inner = map-pt segs ch pose from-map from-len (if exit-right then from-w else 0.0)
+    in let outer-from = map-pt segs ch pose from-map from-len (outer-cu exit-right from-w)
+    in let outer-to = map-pt segs ch pose to-map 0.0 (outer-cu exit-right to-w)
+    in let q = joint-apex segs ch pose from-map to-map from-len from-w to-w exit-right
+    in [inner, outer-from, q, outer-to]
+
+  emit-joint-ground : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean, Real, Real -> List DrawCmd
+  emit-joint-ground (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) (cf) (view-w) =
+    (emit-ground (joint-approach segs ch pose from-map from-len from-w) cf view-w)
+    & (emit-ground (joint-pavement segs ch pose from-map to-map from-len from-w to-w exit-right) cf view-w)
+
+Section: The Pond's Ground
+
+ The water then the bank, authored in the incoming corner frame: corner (cu, cv)
+ is map (from-len + cv, cu). The ducks that float on it are billboards and were
+ collected for the depth sort; only the two ground shapes are painted here.
+
+  pond-shape : List Segment, List Integer, Pose, Mapper, Real, List PondPt, Integer -> List RiderPt
+  pond-shape (segs) (ch) (pose) (m) (from-len) (ps) (i) =
+    if i >= list-length ps then []
+    else [map-pt segs ch pose m (from-len + (list-at ps i).cv) (list-at ps i).cu] & pond-shape segs ch pose m from-len ps (i + 1)
+
+  emit-pond-ground : List Segment, List Integer, Pose, Mapper, Real, Real, Real -> List DrawCmd
+  emit-pond-ground (segs) (ch) (pose) (m) (from-len) (cf) (view-w) =
+    (emit-ground-color (pond-shape segs ch pose m from-len water-outline 0) water-color cf view-w)
+    & (emit-ground-color (pond-shape segs ch pose m from-len bank 0) bank-color cf view-w)
+
+Section: Walking the Ground
+
+ One chain segment's floor: its road strip, then its exit joint's ground when the
+ next segment is in view, then the pond at that exit if there is one. The pond
+ ground takes NO reach test -- the ducks on it do, but the water is painted
+ wherever the corner is drawn at all.
+
+  seg-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
+  seg-ground (segs) (ch) (pose) (d) (cf) (view-w) =
+    (seg-road segs ch pose d cf view-w)
+    & (seg-joint-ground segs ch pose d cf view-w)
+    & (seg-pond-ground segs ch pose d cf view-w)
+
+  seg-joint-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
+  seg-joint-ground (segs) (ch) (pose) (d) (cf) (view-w) =
+    if d + 1 >= list-length ch then []
+    else emit-joint-ground segs ch pose (chain-map d) (chain-map (d + 1)) (list-at segs (list-at ch d)).length (list-at segs (list-at ch d)).width (list-at segs (list-at ch (d + 1))).width (list-at segs (list-at ch d)).exit-right cf view-w
+
+  seg-pond-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
+  seg-pond-ground (segs) (ch) (pose) (d) (cf) (view-w) =
+    let sg = list-at segs (list-at ch d)
+    in if is-pond sg.exit-creature
+      then emit-pond-ground segs ch pose (chain-map d) sg.length cf view-w
+      else []
+
+  walk-ground : List Segment, List Integer, Pose, Real, Real, Integer -> List DrawCmd
+  walk-ground (segs) (ch) (pose) (cf) (view-w) (d) =
+    if d >= list-length ch then []
+    else (seg-ground segs ch pose d cf view-w) & walk-ground segs ch pose cf view-w (d + 1)
+
+  behind-ground : List Segment, List Integer, Pose, Integer, Real, Real -> List DrawCmd
+  behind-ground (segs) (ch) (pose) (prev-idx) (cf) (view-w) =
+    let pv = list-at segs prev-idx
+    in (emit-joint-ground segs ch pose (prev-map pv) (chain-map 0) pv.length pv.width (list-at segs (list-at ch 0)).width pv.exit-right cf view-w)
+       & (behind-pond-ground segs ch pose pv cf view-w)
+
+  behind-pond-ground : List Segment, List Integer, Pose, Segment, Real, Real -> List DrawCmd
+  behind-pond-ground (segs) (ch) (pose) (pv) (cf) (view-w) =
+    if is-pond pv.exit-creature
+      then emit-pond-ground segs ch pose (prev-map pv) pv.length cf view-w
+      else []
+
+ The whole floor for one frame, forward chain then the joint behind.
+
+  frame-ground : List Segment, Integer, Pose, Real, Real -> List DrawCmd
+  frame-ground (segs) (seg-idx) (pose) (cf) (view-w) =
+    let ch = build-chain segs seg-idx
+    in if seg-idx > 0
+      then (walk-ground segs ch pose cf view-w 0) & (behind-ground segs ch pose (seg-idx - 1) cf view-w)
+      else walk-ground segs ch pose cf view-w 0
+
 Chapter: RenderCheck
   cites Foreword chapter Console
   cites Safari chapter Geom
@@ -3911,6 +3952,7 @@ Chapter: RenderCheck
   cites Judge chapter Grade
   cites Gold chapter RenderGold
   cites Safari chapter Frame
+  cites Safari chapter GroundPlan
 
  Grade the Render port's mapping spine against wasm/render.zig, and SafariCritter
  against wasm/safari_critter.zig.

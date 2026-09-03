@@ -180,6 +180,14 @@ Section: State
   initial-rider-state =
     RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
 
+ `with-tilt` is here for the same reason the record is: two chapters need it and
+ neither may cite the other. LeanSearch builds a hypothetical rider to project an
+ arc from, and Rider builds the leaned rider the throttle answers.
+
+  with-tilt : RiderState, Real -> RiderState
+  with-tilt (s) (t) =
+    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
 Chapter: Maybe
 
  We say:
@@ -974,6 +982,19 @@ Section: What Stands Beside the Road
     face-right : Boolean
   }
 
+ A pond is a Creature that is not an animal, which the ground walk asks about to
+ place water and the collection asks about to place ducks.
+
+  is-pond : Creature -> Boolean
+  is-pond (c) =
+   when c
+    is DuckPond -> True
+    is NoCreature -> False
+    is Elephant -> False
+    is Giraffe -> False
+    is Zebra -> False
+    is Rhino -> False
+
 Chapter: Trees
   cites Safari chapter Scenery
 
@@ -1678,40 +1699,22 @@ Section: The Gawk
     let d = (gaze-pig seg.length (seg.width / 2.0)).along - state.along - pig-gaze-settle-dist
     in GazeBrake { engaged = True, accel = (pig-gaze-speed * pig-gaze-speed - state.v * state.v) / (2.0 * real-max d 1.0) }
 
-Chapter: Rider
-  cites Gpu chapter DeviceMath
-  cites Safari chapter Num
-  cites Safari chapter Trig
+Chapter: Bike
   cites Safari chapter Pose
-  cites Safari chapter World
-  cites Safari chapter Cat
-  cites Safari chapter Gaze
-  cites Foreword chapter ListUtils
+  cites Safari chapter Trig
 
- The RIDER: his state and how he decides to move, one frame at a time.
+ How the bike moves: the lean limit, and one integrated step.
 
- A port of wasm/rider.zig.
-
- THREE THINGS HAPPEN EACH FRAME. He picks a lean by BINARY SEARCH -- the held lean
- whose projected arc stays on the road and ends nearest an asymptotic centre
- target. He picks a forward acceleration, taking the most restrictive of several
- brakes. Then the physics integrates both, and if his real position has crossed
- into the next segment he is re-expressed in that segment's frame.
-
- THE BINARY SEARCH IS THE HAZARD NOTES WARNS ABOUT. Twelve iterations, each
- deciding on a float comparison after simulating up to two thousand physics steps.
- A difference of 1e-7 between f32 and f64 will eventually flip one of those
- comparisons, and from there the two rides are on different trajectories -- so a
- long trace comparison WILL go red and it will NOT mean the port is wrong. The
- check therefore compares ONE STEP FROM A SHARED STATE and never a trajectory.
-
- Deferred exactly as the zig defers them, and for the same reason: the cat's
- drawing and pose machinery is out of scope, but `cat-in-danger` is arithmetic and
- is ported, so the throttle hold is real here rather than a no-op.
+ THIS CHAPTER EXISTS TO CUT A CYCLE, in the same family as Pose. The integrator has
+ two callers on opposite sides of the split -- `Arc` runs it thousands of times to
+ project a hypothetical arc, and `Rider` runs it once a frame for real. Left in
+ Rider it would make Rider cite Arc and Arc cite Rider. The honest place is the
+ thing they share: the step itself. No logic moves, so this is a packaging
+ adaptation and not a change of behaviour.
 
  We say:
 
-Section: Physics Constants
+Section: The Lean Limit
 
   yaw-per-tilt : Real
   yaw-per-tilt = 0.1
@@ -1720,42 +1723,6 @@ Section: Physics Constants
 
   max-lean : Real
   max-lean = 20.0 * deg
-
-  a-accel : Real
-  a-accel = 0.010
-
-  v-max : Real
-  v-max = 2.5
-
-  approach-intersection-dist : Real
-  approach-intersection-dist = 60.0
-
-  straighten-margin : Real
-  straighten-margin = 0.05
-
-  turn-danger-steps : Integer
-  turn-danger-steps = 2000
-
-  min-forward-progress : Real
-  min-forward-progress = 25.0
-
-  tilt-hold : Real
-  tilt-hold = 2.0 * deg
-
-  brake-decay : Real
-  brake-decay = 20.0
-
-  asymptote-tuning : Real
-  asymptote-tuning = 0.30
-
-  center-lane-epsilon : Real
-  center-lane-epsilon = 0.04
-
-  max-tilt-correction : Real
-  max-tilt-correction = 1.0 * deg
-
-  lean-search-iters : Integer
-  lean-search-iters = 12
 
 Section: One Physics Step
 
@@ -1773,22 +1740,38 @@ Section: One Physics Step
     in let mid = s.yaw + heading-change / 2.0
     in RiderState { segment = s.segment, along = s.along + v * r-cos mid, across = s.across + v * r-sin mid, yaw = s.yaw + heading-change, v = v, tilt = tilt, heading = s.heading + heading-change, gaze-yaw = s.gaze-yaw, focus = s.focus }
 
-Section: Projecting the Arc
+Chapter: Arc
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Bike
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Trig
 
  Project the held-lean, constant-speed arc forward and score how it plays out: off
  a shoulder is a bad lean, net-backward is a disaster, and clearing the forward
  progress is a good lean -- all pinned to the SAME forward, so survivors tie and
  the search then separates them on where they end up across the road.
 
- Side is which shoulder he left, if any.
+ THE SCORE IS SHAPED FOR THE SEARCH, not for physics, and reading it as a
+ measurement will mislead. `forward` is clamped to `min-forward-progress` precisely
+ so that every arm which clears it ties, leaving `end-across` to separate them.
+ `frames` is a placeholder on the arms that stayed on the road. This is a verdict
+ on a candidate lean, and `Safari chapter LeanSearch` is the only thing entitled to
+ read it as one.
 
-  Side =
-   | SideLeft
-   | SideNone
-   | SideRight
+ We say:
 
-  PathSim = record {
-    side : Side,
+Section: Leaving the Road
+
+ Shoulder is which shoulder he left, if any.
+
+  Shoulder =
+   | ShoulderLeft
+   | ShoulderNone
+   | ShoulderRight
+
+  ArcOutcome = record {
+    shoulder : Shoulder,
     forward : Real,
     crossed : Boolean,
     end-across : Real,
@@ -1796,65 +1779,105 @@ Section: Projecting the Arc
   }
 
  The zig uses 1e9 as the frames answer for the arms that did not leave the road,
- and the shoulder brake only reads frames when side is not none, so the value is a
- placeholder rather than a number. It is kept because it is what the zig stores.
+ and the shoulder brake only reads frames when the shoulder is not none, so the
+ value is a placeholder rather than a number. It is kept because it is what the zig
+ stores.
 
   no-frames : Real
   no-frames = 1000000000.0
 
-  sim-loop : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> PathSim
+Section: How Far To Look
+
+  straighten-margin : Real
+  straighten-margin = 0.05
+
+  turn-danger-steps : Integer
+  turn-danger-steps = 2000
+
+  min-forward-progress : Real
+  min-forward-progress = 25.0
+
+Section: Projecting the Arc
+
+  sim-loop : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> ArcOutcome
   sim-loop (start) (left-bound) (right-bound) (start-side) (start-along) (crossed) (i) (phys) =
-    if i >= turn-danger-steps then PathSim { side = SideNone, forward = phys.along - start-along, crossed = crossed, end-across = phys.across, frames = no-frames }
+    if i >= turn-danger-steps then ArcOutcome { shoulder = ShoulderNone, forward = phys.along - start-along, crossed = crossed, end-across = phys.across, frames = no-frames }
     else sim-step start left-bound right-bound start-side start-along crossed i (simulate-rider-step phys 0.0 0.0)
 
-  sim-step : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> PathSim
+  sim-step : RiderState, Real, Real, Real, Real, Boolean, Integer, RiderState -> ArcOutcome
   sim-step (start) (left-bound) (right-bound) (start-side) (start-along) (crossed0) (i) (phys) =
     let across = phys.across
     in let forward = phys.along - start-along
     in let crossed = if across * start-side < 0.0 then True else crossed0
-    in if across < left-bound then PathSim { side = SideLeft, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
-    else if across > right-bound then PathSim { side = SideRight, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
-    else if forward < 0.0 then PathSim { side = SideNone, forward = forward, crossed = crossed, end-across = across, frames = no-frames }
-    else if forward >= min-forward-progress then PathSim { side = SideNone, forward = min-forward-progress, crossed = crossed, end-across = across, frames = no-frames }
+    in if across < left-bound then ArcOutcome { shoulder = ShoulderLeft, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if across > right-bound then ArcOutcome { shoulder = ShoulderRight, forward = real-min forward min-forward-progress, crossed = crossed, end-across = across, frames = real-from-int i }
+    else if forward < 0.0 then ArcOutcome { shoulder = ShoulderNone, forward = forward, crossed = crossed, end-across = across, frames = no-frames }
+    else if forward >= min-forward-progress then ArcOutcome { shoulder = ShoulderNone, forward = min-forward-progress, crossed = crossed, end-across = across, frames = no-frames }
     else sim-loop start left-bound right-bound start-side start-along crossed (i + 1) phys
 
  The bounds widen to wherever he already is, so a rider who starts outside the
  inset is not instantly judged to have left the road.
 
-  simulate-rider-path : RiderState, Segment -> PathSim
-  simulate-rider-path (state) (seg) =
+  project-arc : RiderState, Segment -> ArcOutcome
+  project-arc (state) (seg) =
     let inset-hw = seg.width / 2.0 - straighten-margin
     in let right-bound = real-max inset-hw state.across
     in let left-bound = real-min (0.0 - inset-hw) state.across
     in sim-loop state left-bound right-bound (r-sign state.across) state.along False 0 state
 
-Section: The Lean Search
+Chapter: LeanSearch
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Arc
+  cites Safari chapter Pose
+  cites Safari chapter World
+  cites Safari chapter Trig
 
-  want-more-right : PathSim, Real -> Boolean
+ Pick the lean: binary-search the held lean whose projected arc stays on the road
+ and ends nearest an asymptotic centre target.
+
+ THIS IS THE HAZARD NOTES WARNS ABOUT. Twelve iterations, each deciding on a float
+ comparison after simulating up to two thousand physics steps. A difference of 1e-7
+ between f32 and f64 will eventually flip one of those comparisons, and from there
+ the two rides are on different trajectories -- so a long trace comparison WILL go
+ red and it will NOT mean the port is wrong. The check therefore compares ONE STEP
+ FROM A SHARED STATE and never a trajectory.
+
+ We say:
+
+Section: Reading the Arc
+
+  want-more-right : ArcOutcome, Real -> Boolean
   want-more-right (sim) (target) =
-   when sim.side
-    is SideLeft -> True
-    is SideRight -> False
-    is SideNone -> sim.end-across < target
+   when sim.shoulder
+    is ShoulderLeft -> True
+    is ShoulderRight -> False
+    is ShoulderNone -> sim.end-across < target
 
- Binary-search the held lean whose arc stays on the road and ends closest to the
- asymptotic centre target. TWELVE ITERATIONS, each running a fresh path
- simulation, and each deciding on one float comparison -- which is exactly why the
- judge never compares a trajectory.
+Section: The Centre Target
 
  The target is an asymptote rather than the centre line: he aims at a fraction of
  his current offset, so he converges on the middle without ever committing to a
  lean that would overshoot it. Dead centre gets a signed epsilon instead, because
  a target of exactly zero has no side to lean toward.
 
+  asymptote-tuning : Real
+  asymptote-tuning = 0.30
+
+  center-lane-epsilon : Real
+  center-lane-epsilon = 0.04
+
   lean-target : Real -> Real
   lean-target (across) =
     if real-abs across < center-lane-epsilon then (if across >= 0.0 then center-lane-epsilon else 0.0 - center-lane-epsilon)
     else across * asymptote-tuning
 
-  with-tilt : RiderState, Real -> RiderState
-  with-tilt (s) (t) =
-    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
+Section: The Search
+
+  max-tilt-correction : Real
+  max-tilt-correction = 1.0 * deg
+
+  lean-search-iters : Integer
+  lean-search-iters = 12
 
   search-lean : RiderState, Segment, Real, Real, Real, Integer -> Real
   search-lean (state) (seg) (target) (lo) (hi) (i) =
@@ -1863,7 +1886,7 @@ Section: The Lean Search
 
   search-step : RiderState, Segment, Real, Real, Real, Integer, Real -> Real
   search-step (state) (seg) (target) (lo) (hi) (i) (mid) =
-    if want-more-right (simulate-rider-path (with-tilt state mid) seg) target
+    if want-more-right (project-arc (with-tilt state mid) seg) target
       then search-lean state seg target mid hi (i + 1)
       else search-lean state seg target lo mid (i + 1)
 
@@ -1871,7 +1894,40 @@ Section: The Lean Search
   best-tilt-correction (state) (seg) =
     search-lean state seg (lean-target state.across) (state.tilt - max-tilt-correction) (state.tilt + max-tilt-correction) 0
 
-Section: Throttle and Brakes
+Chapter: VehicleLimits
+  cites Safari chapter Num
+  cites Safari chapter Trig
+
+ What a vehicle on this route may do: how hard it accelerates, how fast it will go,
+ how early it starts thinking about the intersection, and how fast it dares take a
+ corner.
+
+ THE RIDER AND THE TRUCK BOTH READ THESE, so they belong to neither. The truck
+ expresses its whole envelope as a multiple of this one -- `truck-chase-accel` is
+ `1.1 * a-accel` and `truck-max-v` is `1.1 * v-max` -- which is the sense in which
+ it chases: it is the same vehicle with ten percent more of everything. Before this
+ chapter existed those four names lived in Rider and Truck cited Rider for them,
+ which read as the chased depending on the chaser.
+
+ LIMITS, not physics. These are an envelope the two vehicles are held inside and
+ nothing integrates here; the numbers are chosen to look right rather than derived
+ from anything. The integration that actually moves a bike is
+ `Safari chapter Bike`.
+
+ We say:
+
+Section: The Envelope
+
+  a-accel : Real
+  a-accel = 0.010
+
+  v-max : Real
+  v-max = 2.5
+
+  approach-intersection-dist : Real
+  approach-intersection-dist = 60.0
+
+Section: Corner Entry Speed
 
  The safe entry speed for a turn angle: the table from the TypeScript, and every
  angle on this route is tabulated. The comparison is on the ROUNDED degrees, which
@@ -1888,12 +1944,38 @@ Section: Throttle and Brakes
     else if d ~0 80.0 then 0.117
     else 0.222
 
- Accelerate, but only while near-upright, and then take the MOST RESTRICTIVE of
- the brakes: reach the corner's entry speed by the commit point, hold the throttle
- for a crossing cat, ease down for the pigs, and do not run off the shoulder.
+Chapter: Throttle
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Arc
+  cites Safari chapter Cat
+  cites Safari chapter Gaze
+  cites Safari chapter Num
+  cites Safari chapter Pose
+  cites Safari chapter Trig
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+
+ Pick the forward acceleration: accelerate, but only while near-upright, and then
+ take the MOST RESTRICTIVE of the brakes.
+
+ Reach the corner's entry speed by the commit point, hold the throttle for a
+ crossing cat, ease down for the pigs, and do not run off the shoulder.
 
  The order is the zig's and matters: the cat gate sits after the corner brake and
  before the shoulder brake.
+
+ Deferred exactly as the zig defers them, and for the same reason: the cat's
+ drawing and pose machinery is out of scope, but `cat-in-danger` is arithmetic and
+ is ported, so the throttle hold is real here rather than a no-op.
+
+ We say:
+
+Section: When He May Accelerate
+
+  tilt-hold : Real
+  tilt-hold = 2.0 * deg
+
+Section: The Brakes
 
   corner-brake : RiderState, Segment, Real, Real -> Real
   corner-brake (state) (seg) (v-end) (a) =
@@ -1917,23 +1999,28 @@ Section: Throttle and Brakes
  The decayed kinematic stop: the further ahead the shoulder is, the gentler the
  brake, and the decay makes a distant shoulder almost free.
 
+  brake-decay : Real
+  brake-decay = 20.0
+
   shoulder-brake : RiderState, Segment, Real -> Real
   shoulder-brake (state) (seg) (a) =
-    let sim = simulate-rider-path state seg
-    in if side-none sim then a else shoulder-brake-at state sim a
+    let sim = project-arc state seg
+    in if stayed-on-road sim then a else shoulder-brake-at state sim a
 
-  side-none : PathSim -> Boolean
-  side-none (sim) =
-   when sim.side
-    is SideNone -> True
-    is SideLeft -> False
-    is SideRight -> False
+  stayed-on-road : ArcOutcome -> Boolean
+  stayed-on-road (sim) =
+   when sim.shoulder
+    is ShoulderNone -> True
+    is ShoulderLeft -> False
+    is ShoulderRight -> False
 
-  shoulder-brake-at : RiderState, PathSim, Real -> Real
+  shoulder-brake-at : RiderState, ArcOutcome, Real -> Real
   shoulder-brake-at (state) (sim) (a) =
     let n = sim.frames
     in let sa = (0.0 - state.v) / (2.0 * real-max n 1.0) * exp-real ((0.0 - n) / brake-decay)
     in if sa < a then sa else a
+
+Section: The Speed Clamp
 
  Do not crawl below the corner's entry speed approaching it -- UNLESS he is
  gawking at the pigs, where staying at the slow gawk speed and taking the corner
@@ -1945,6 +2032,8 @@ Section: Throttle and Brakes
     in let v2 = if v1 < 0.0 then 0.0 else v1
     in if near then (if v2 < v-end then (if gawk-engaged state seg then v2 else v-end) else v2) else v2
 
+Section: Deciding the Acceleration
+
   get-forward-accel-decel : RiderState, Segment -> Real
   get-forward-accel-decel (state) (seg) =
     let a0 = if real-abs state.tilt >= tilt-hold then 0.0 else a-accel
@@ -1954,6 +2043,35 @@ Section: Throttle and Brakes
     in let a3 = pig-gate state seg (cat-gate state seg a1)
     in let a4 = shoulder-brake state seg a3
     in clamp-v state seg v-end (state.v + a4) near - state.v
+
+Chapter: Rider
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Bike
+  cites Safari chapter Gaze
+  cites Safari chapter LeanSearch
+  cites Safari chapter Pose
+  cites Safari chapter Throttle
+  cites Safari chapter Trig
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+  cites Foreword chapter ListUtils
+
+ The RIDER: how he decides to move, one frame at a time.
+
+ A port of wasm/rider.zig.
+
+ THREE THINGS HAPPEN EACH FRAME. He picks a lean by binary search
+ (`Safari chapter LeanSearch`), he picks a forward acceleration by taking the most
+ restrictive of several brakes (`Safari chapter Throttle`), and then the physics
+ integrates both (`Safari chapter Bike`) -- and if his real position has crossed
+ into the next segment he is re-expressed in that segment's frame, which is the
+ part that is only here.
+
+ This chapter is the FRAME, in other words, and the two halves of the decision are
+ their own chapters because each is a self-contained question with its own
+ constants. What is left is the sequencing and the road graph.
+
+ We say:
 
 Section: Deciding
 
@@ -2267,6 +2385,8 @@ Chapter: RiderCheck
   cites Safari chapter World
   cites Safari chapter Gaze
   cites Safari chapter Rider
+  cites Safari chapter Trig
+  cites Safari chapter VehicleLimits
   cites Judge chapter Grade
   cites Gold chapter RiderGold
 

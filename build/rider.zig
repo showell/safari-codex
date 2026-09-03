@@ -134,20 +134,20 @@ const GazeBrakeS = struct {
 };
 const GazeBrake = *GazeBrakeS;
 
-const Side = enum {
-    SideLeft,
-    SideNone,
-    SideRight,
+const Shoulder = enum {
+    ShoulderLeft,
+    ShoulderNone,
+    ShoulderRight,
 };
 
-const PathSimS = struct {
-    side: Side,
+const ArcOutcomeS = struct {
+    shoulder: Shoulder,
     forward: f64,
     crossed: bool,
     end_across: f64,
     frames: f64,
 };
-const PathSim = *PathSimS;
+const ArcOutcome = *ArcOutcomeS;
 
 const DecisionS = struct {
     tilt_step: f64,
@@ -157,6 +157,10 @@ const Decision = *DecisionS;
 
 fn v_base() f64 {
     return @as(f64, @bitCast(@as(i64, 4599075939470750515)));
+}
+
+fn with_tilt(s_: RiderState, t: f64) RiderState {
+    return cx_new(RiderStateS{ .segment = s_.segment, .along = s_.along, .across = s_.across, .yaw = s_.yaw, .v_ = s_.v_, .tilt = t, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
 }
 
 fn from_maybe(comptime T43: type, m_: Maybe(T43), default: T43) T43 {
@@ -712,16 +716,12 @@ fn yaw_per_tilt() f64 {
     return @as(f64, @bitCast(@as(i64, 4591870180066957722)));
 }
 
-fn a_accel() f64 {
-    return @as(f64, @bitCast(@as(i64, 4576918229304087675)));
+fn simulate_rider_step(s_: RiderState, tilt_step: f64, accel: f64) RiderState {
+    return b0: { const tilt: f64 = (s_.tilt + tilt_step); break :b0 b1: { const v_: f64 = (s_.v_ + accel); break :b1 b2: { const heading_change: f64 = (yaw_per_tilt() * tilt); break :b2 b3: { const mid: f64 = (s_.yaw + (heading_change / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 cx_new(RiderStateS{ .segment = s_.segment, .along = (s_.along + (v_ * r_cos(mid))), .across = (s_.across + (v_ * r_sin(mid))), .yaw = (s_.yaw + heading_change), .v_ = v_, .tilt = tilt, .heading = (s_.heading + heading_change), .gaze_yaw = s_.gaze_yaw, .focus = s_.focus }); }; }; }; };
 }
 
-fn v_max() f64 {
-    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
-}
-
-fn approach_intersection_dist() f64 {
-    return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
+fn no_frames() f64 {
+    return @as(f64, @bitCast(@as(i64, 4741671816366391296)));
 }
 
 fn straighten_margin() f64 {
@@ -736,12 +736,20 @@ fn min_forward_progress() f64 {
     return @as(f64, @bitCast(@as(i64, 4627730092099895296)));
 }
 
-fn tilt_hold() f64 {
-    return (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * deg());
+fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed: bool, i_: i64, phys: RiderState) ArcOutcome {
+    return (if ((i_ >= turn_danger_steps())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = (phys.along - start_along), .crossed = crossed, .end_across = phys.across, .frames = no_frames() }) else sim_step(start_, left_bound, right_bound, start_side, start_along, crossed, i_, simulate_rider_step(phys, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))))));
 }
 
-fn brake_decay() f64 {
-    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) ArcOutcome {
+    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
+}
+
+fn project_arc(state: RiderState, seg: Segment) ArcOutcome {
+    return b0: { const inset_hw: f64 = ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - straighten_margin()); break :b0 b1: { const right_bound: f64 = real_max(inset_hw, state.across); break :b1 b2: { const left_bound: f64 = real_min((@as(f64, @bitCast(@as(i64, 0))) - inset_hw), state.across); break :b2 sim_loop(state, left_bound, right_bound, r_sign(state.across), state.along, false, 0, state); }; }; };
+}
+
+fn want_more_right(sim: ArcOutcome, target: f64) bool {
+    return switch (sim.shoulder) { .ShoulderLeft => true, .ShoulderRight => false, .ShoulderNone => (sim.end_across < target),  };
 }
 
 fn asymptote_tuning() f64 {
@@ -752,6 +760,10 @@ fn center_lane_epsilon() f64 {
     return @as(f64, @bitCast(@as(i64, 4585925428558828667)));
 }
 
+fn lean_target(across: f64) f64 {
+    return (if ((real_abs(across) < center_lane_epsilon())) (if ((across >= @as(f64, @bitCast(@as(i64, 0))))) center_lane_epsilon() else (@as(f64, @bitCast(@as(i64, 0))) - center_lane_epsilon())) else (across * asymptote_tuning()));
+}
+
 fn max_tilt_correction() f64 {
     return (@as(f64, @bitCast(@as(i64, 4607182418800017408))) * deg());
 }
@@ -760,48 +772,32 @@ fn lean_search_iters() i64 {
     return 12;
 }
 
-fn simulate_rider_step(s_: RiderState, tilt_step: f64, accel: f64) RiderState {
-    return b0: { const tilt: f64 = (s_.tilt + tilt_step); break :b0 b1: { const v_: f64 = (s_.v_ + accel); break :b1 b2: { const heading_change: f64 = (yaw_per_tilt() * tilt); break :b2 b3: { const mid: f64 = (s_.yaw + (heading_change / @as(f64, @bitCast(@as(i64, 4611686018427387904))))); break :b3 cx_new(RiderStateS{ .segment = s_.segment, .along = (s_.along + (v_ * r_cos(mid))), .across = (s_.across + (v_ * r_sin(mid))), .yaw = (s_.yaw + heading_change), .v_ = v_, .tilt = tilt, .heading = (s_.heading + heading_change), .gaze_yaw = s_.gaze_yaw, .focus = s_.focus }); }; }; }; };
-}
-
-fn no_frames() f64 {
-    return @as(f64, @bitCast(@as(i64, 4741671816366391296)));
-}
-
-fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed: bool, i_: i64, phys: RiderState) PathSim {
-    return (if ((i_ >= turn_danger_steps())) cx_new(PathSimS{ .side = Side.SideNone, .forward = (phys.along - start_along), .crossed = crossed, .end_across = phys.across, .frames = no_frames() }) else sim_step(start_, left_bound, right_bound, start_side, start_along, crossed, i_, simulate_rider_step(phys, @as(f64, @bitCast(@as(i64, 0))), @as(f64, @bitCast(@as(i64, 0))))));
-}
-
-fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) PathSim {
-    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(PathSimS{ .side = Side.SideLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(PathSimS{ .side = Side.SideRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(PathSimS{ .side = Side.SideNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(PathSimS{ .side = Side.SideNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
-}
-
-fn simulate_rider_path(state: RiderState, seg: Segment) PathSim {
-    return b0: { const inset_hw: f64 = ((seg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - straighten_margin()); break :b0 b1: { const right_bound: f64 = real_max(inset_hw, state.across); break :b1 b2: { const left_bound: f64 = real_min((@as(f64, @bitCast(@as(i64, 0))) - inset_hw), state.across); break :b2 sim_loop(state, left_bound, right_bound, r_sign(state.across), state.along, false, 0, state); }; }; };
-}
-
-fn want_more_right(sim: PathSim, target: f64) bool {
-    return switch (sim.side) { .SideLeft => true, .SideRight => false, .SideNone => (sim.end_across < target),  };
-}
-
-fn lean_target(across: f64) f64 {
-    return (if ((real_abs(across) < center_lane_epsilon())) (if ((across >= @as(f64, @bitCast(@as(i64, 0))))) center_lane_epsilon() else (@as(f64, @bitCast(@as(i64, 0))) - center_lane_epsilon())) else (across * asymptote_tuning()));
-}
-
-fn with_tilt(s_: RiderState, t: f64) RiderState {
-    return cx_new(RiderStateS{ .segment = s_.segment, .along = s_.along, .across = s_.across, .yaw = s_.yaw, .v_ = s_.v_, .tilt = t, .heading = s_.heading, .gaze_yaw = s_.gaze_yaw, .focus = s_.focus });
-}
-
 fn search_lean(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64) f64 {
     return (if ((i_ >= lean_search_iters())) ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) else search_step(state, seg, target, lo, hi, i_, ((lo + hi) / @as(f64, @bitCast(@as(i64, 4611686018427387904))))));
 }
 
 fn search_step(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64, mid: f64) f64 {
-    return (if (want_more_right(simulate_rider_path(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
+    return (if (want_more_right(project_arc(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
+}
+
+fn a_accel() f64 {
+    return @as(f64, @bitCast(@as(i64, 4576918229304087675)));
+}
+
+fn v_max() f64 {
+    return @as(f64, @bitCast(@as(i64, 4612811918334230528)));
+}
+
+fn approach_intersection_dist() f64 {
+    return @as(f64, @bitCast(@as(i64, 4633641066610819072)));
 }
 
 fn turn_speed(angle_rad: f64) f64 {
     return b0: { const d_: f64 = round_real(((angle_rad * @as(f64, @bitCast(@as(i64, 4640537203540230144)))) / pi())); break :b0 @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4624633867356078080))))) @as(f64, @bitCast(@as(i64, 4608519987889346445))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4626322717216342016))))) @as(f64, @bitCast(@as(i64, 4605741266919258849))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4629137466983448576))))) @as(f64, @bitCast(@as(i64, 4601976257630777115))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4632233691727265792))))) @as(f64, @bitCast(@as(i64, 4597166413228745425))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4634626229029306368))))) @as(f64, @bitCast(@as(i64, 4594176023076171416))) else @as(f64, (if ((d_ == @as(f64, @bitCast(@as(i64, 4635329916471083008))))) @as(f64, @bitCast(@as(i64, 4593095159165602497))) else @as(f64, @bitCast(@as(i64, 4597166413228745425))))))))))))))); };
+}
+
+fn tilt_hold() f64 {
+    return (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * deg());
 }
 
 fn corner_brake(state: RiderState, seg: Segment, v_end: f64, a_: f64) f64 {
@@ -812,15 +808,19 @@ fn pig_gate(state: RiderState, seg: Segment, a_: f64) f64 {
     return b0: { const b_ = pig_gaze_brake(state, seg); break :b0 (if (b_.engaged) (if ((b_.accel < a_)) b_.accel else a_) else a_); };
 }
 
+fn brake_decay() f64 {
+    return @as(f64, @bitCast(@as(i64, 4626322717216342016)));
+}
+
 fn shoulder_brake(state: RiderState, seg: Segment, a_: f64) f64 {
-    return b0: { const sim = simulate_rider_path(state, seg); break :b0 (if (side_none(sim)) a_ else shoulder_brake_at(state, sim, a_)); };
+    return b0: { const sim = project_arc(state, seg); break :b0 (if (stayed_on_road(sim)) a_ else shoulder_brake_at(state, sim, a_)); };
 }
 
-fn side_none(sim: PathSim) bool {
-    return switch (sim.side) { .SideNone => true, .SideLeft => false, .SideRight => false,  };
+fn stayed_on_road(sim: ArcOutcome) bool {
+    return switch (sim.shoulder) { .ShoulderNone => true, .ShoulderLeft => false, .ShoulderRight => false,  };
 }
 
-fn shoulder_brake_at(state: RiderState, sim: PathSim, a_: f64) f64 {
+fn shoulder_brake_at(state: RiderState, sim: ArcOutcome, a_: f64) f64 {
     return b0: { const n_: f64 = sim.frames; break :b0 b1: { const sa: f64 = (((@as(f64, @bitCast(@as(i64, 0))) - state.v_) / (@as(f64, @bitCast(@as(i64, 4611686018427387904))) * real_max(n_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))) * exp_real(((@as(f64, @bitCast(@as(i64, 0))) - n_) / brake_decay()))); break :b1 (if ((sa < a_)) sa else a_); }; };
 }
 

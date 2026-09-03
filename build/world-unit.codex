@@ -925,6 +925,19 @@ Section: What Stands Beside the Road
     face-right : Boolean
   }
 
+ A pond is a Creature that is not an animal, which the ground walk asks about to
+ place water and the collection asks about to place ducks.
+
+  is-pond : Creature -> Boolean
+  is-pond (c) =
+   when c
+    is DuckPond -> True
+    is NoCreature -> False
+    is Elephant -> False
+    is Giraffe -> False
+    is Zebra -> False
+    is Rhino -> False
+
 Chapter: Trees
   cites Safari chapter Scenery
 

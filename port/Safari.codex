@@ -18,7 +18,8 @@ Chapter: Safari
   cites Safari chapter Rider
   cites Safari chapter Render
   cites Safari chapter Truck
-  cites Safari chapter TruckBody
+  cites Safari chapter TruckDraw
+  cites Safari chapter Frame
 
  The whole game, folded: one ride state, one step of it, and one frame drawn from
  it. A port of wasm/safari.zig, and the last file in the game to be ported.
@@ -35,7 +36,7 @@ Chapter: Safari
      stands up in depth order) had lived in the browser poc because half its
      drawers were unported. They are all ported now, so it belongs here, above
      Render rather than inside it: the dispatch has to cite every drawer, and
-     TruckBody cites Render, so a dispatch inside Render would be a cycle.
+     TruckDraw cites Render, so a dispatch inside Render would be a cycle.
    THE CAMERA PULL-IN. The lens narrows as he leans and as he watches a crossing
      cat. `cam-focal`, `focal-for-lean` and `focal-for-gaze` have been ported and
      idle since Camera landed, because nothing above them existed to compute the

@@ -1,4 +1,4 @@
-//! probe_truck_body -- the oracle for the TruckBody port, the truck as it is SEEN.
+//! probe_truck_draw -- the oracle for the TruckDraw port, the truck as it is SEEN.
 //!
 //! truck.drawBody IS pub, so this is a REAL oracle: the probe calls the game's own
 //! function and reads the words it put on paint's wire. render.at is pub too, and

@@ -478,7 +478,7 @@ alone changes anything visible:
 All three are done. The shim keeps a `TruckStateS` beside the rider's and steps it
 in lockstep against the **new** rider distance, which is `safari.zig`'s own order;
 the history ring scrubs both together, so the down arrow rewinds the chase as well
-as the ride; and `port/TruckBody.codex` draws the body, graded at 2,962 values
+as the ride; and `port/TruckDraw.codex` draws it, graded at 2,962 values
 against `truck.drawBody` itself.
 
 Measured over one drive: the lead runs 500 m at the line down to 68 m by frame

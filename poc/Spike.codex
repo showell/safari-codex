@@ -7,10 +7,11 @@ Chapter: Spike
   cites Safari chapter CatDraw
   cites Safari chapter Render
   cites Safari chapter Truck
-  cites Safari chapter TruckBody
+  cites Safari chapter TruckDraw
   cites Safari chapter Pose
   cites Safari chapter Rider
   cites Poc chapter Drive
+  cites Safari chapter Frame
 
  SPIKE ONLY. THROWAWAY. NOT PART OF THE PORT AND GRADED BY NOTHING.
 
@@ -56,7 +57,7 @@ Section: The Frame
  in the REAL depth order rather than being painted on top afterwards. That is the
  whole point: a pig behind a tree must be behind the tree.
 
- THE TRUCK IS DRAWN BY DRIVE'S OWN ARM, not a marker: `Safari chapter TruckBody`
+ THE TRUCK IS DRAWN BY DRIVE'S OWN ARM, not a marker: `Safari chapter TruckDraw`
  is real geometry rather than a baked still, so there is nothing here to stand in
  for. A spike still never brakes -- braking is a comparison against a previous
  speed and a still has no previous -- so its brake lights are always off, and its

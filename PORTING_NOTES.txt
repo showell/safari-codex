@@ -472,7 +472,7 @@ D7. THE CAT'S LEAP IS THE PORT'S ONE DELIBERATE APPROXIMATION, AND IT IS BOUNDED
 D8. A NEAR-PLANE CLIPPED VERTEX IS THE LOOSEST SCREEN GATE IN THE PORT, AND THE
     RATIO IS ARITHMETIC RATHER THAN A MYSTERY.
 
-    TruckBodyCheck grades coordinates at 1.5e-5 relative where every other screen
+    TruckDrawCheck grades coordinates at 1.5e-5 relative where every other screen
     seam holds at 1e-6. One vertex sets it: a tire in the case where the truck is
     two metres ahead of the rider, so the trailer rear is BEHIND the eye and the
     face is clipped.

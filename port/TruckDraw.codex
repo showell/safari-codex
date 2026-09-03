@@ -1,4 +1,4 @@
-Chapter: TruckBody
+Chapter: TruckDraw
   cites Gpu chapter DeviceMath
   cites Foreword chapter ListUtils
   cites Safari chapter Geom
@@ -8,6 +8,7 @@ Chapter: TruckBody
   cites Safari chapter World
   cites Safari chapter GuardRail
   cites Safari chapter Render
+  cites Safari chapter Frame
 
  The trailer, the cab, the tires, the headlight beams and the brake lights: the
  truck as it is SEEN, where `Safari chapter Truck` is the truck as it MOVES.

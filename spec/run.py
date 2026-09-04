@@ -40,9 +40,11 @@ sys.path.insert(0, str(ROOT / "harness"))
 import bundle as bundler  # noqa: E402
 import mutate  # noqa: E402
 
+# The compiler's own release build, not a dated run directory: a spec suite that
+# points at a snapshot grades a snapshot. CODEXRUN overrides it.
 BIN = os.environ.get(
     "CODEXRUN",
-    os.path.expanduser("~/runs/20260904T112500Z-rust-interp-speed/rust-target/release/codexrun"),
+    os.path.expanduser("~/showell_repos/rust-codex-compiler/target/release/codexrun"),
 )
 
 

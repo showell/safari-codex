@@ -1,0 +1,73 @@
+Chapter: CanvasRollSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter CanvasRoll
+  cites Judge chapter Grade
+
+ CanvasRoll: one function, a deadband, and a `let` that must not be optimised
+ away.
+
+ NOTHING IN THE GAME READS THIS. It exists for the shim, which is outside the
+ program, so no check in judge/ reaches it and no frame comparison would notice
+ if it broke. That makes it exactly the kind of chapter a spec is for: its only
+ caller cannot be part of a test, so the test has to be the caller.
+
+ THE DEADBAND IS THE WHOLE BEHAVIOUR AND IT IS GRADED FROM BOTH SIDES. The lean
+ search leaves a residue around 1e-5 rad on a straight that never quite reaches
+ zero, and the blitter's straight-line fast paths key on EXACTLY zero, so
+ anything under a thousandth of a radian is snapped down. A test that only fed
+ it large tilts would pass against a function that snapped nothing, and one that
+ only fed it tiny ones would pass against a function that snapped everything.
+ Both ends and the boundary itself are below.
+
+ THE BOUNDARY IS EXCLUSIVE AND THAT IS ASSERTED, not assumed: the test is
+ `real-abs t < roll-deadband`, so a tilt of exactly 0.001 is NOT snapped and
+ comes back unchanged. That is one ulp of behaviour either way and the kind of
+ thing a rewrite flips without noticing.
+
+ WHERE THE EXPECTED VALUES COME FROM: the definition. Outside the band the
+ function is the identity, so the want IS the input, which is worth stating
+ because it means half this table is a pass-through check and cannot be got
+ wrong by arithmetic -- only by snapping when it should not.
+
+ THE `let` IN THE CHAPTER IS LOAD-BEARING AND THIS FILE CANNOT SEE IT. Written
+ as a bare `if`, the function is inlined and never emitted, so the shim fails to
+ link -- PORTING_NOTES B12. Every value below is identical either way, because
+ the failure is in what gets EMITTED and not in what gets computed. Said here so
+ that nobody reads a green line as a licence to remove the binding.
+
+ We say:
+
+Section: The Band
+
+  band-got : List Real
+  band-got = [roll-deadband]
+
+  band-want : List Real
+  band-want = [0.001]
+
+Section: Both Sides Of It
+
+ Zero, the straight-line residue the band exists for, both signs just inside,
+ the boundary itself on both signs, and two real leans well outside.
+
+  tilt-in : List Real
+  tilt-in = [0.0, 0.00001, 0.0005, -0.0005, 0.0009999, 0.001, -0.001, 0.002, -0.002, 0.35, -0.42]
+
+  roll-want : List Real
+  roll-want = [0.0, 0.0, 0.0, 0.0, 0.0, 0.001, -0.001, 0.002, -0.002, 0.35, -0.42]
+
+  as-rider : Real -> RiderState
+  as-rider (t) = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = t, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+  roll-walk : Integer -> List Real
+  roll-walk (i) =
+    if i >= list-length tilt-in then []
+    else [rider-roll (as-rider (list-at tilt-in i))] & roll-walk (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "cr-band" band-got band-want 0.0)
+    print-line-uni (grade-reals "cr-roll" (roll-walk 0) roll-want 0.0)
+  end

@@ -1,0 +1,91 @@
+Chapter: ViewYawSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter ViewYaw
+  cites Judge chapter Grade
+
+ ViewYaw: the extra camera yaw on top of the bike's heading.
+
+ Two lines of arithmetic that swing the WHOLE view -- the distracted gaze toward
+ the pigs plus a subtle head-turn into the lean -- and everything that draws goes
+ through one of them. Nothing in judge/ grades the chapter directly; it is
+ covered only where a whole frame is compared, which is the most expensive place
+ to learn that a coefficient moved.
+
+ WHERE THE EXPECTED VALUES COME FROM: `gaze-yaw + 0.15 * tilt`, evaluated in
+ IEEE-754 doubles. Not in decimal -- and that distinction earns its keep on the
+ fourth case. 0.15 is not representable in binary, so `0.125 + 0.15 * (-0.75)`
+ is 0.012500000000000011 and not 0.0125. The want below carries that value.
+ Writing the tidy decimal and reaching for a tolerance to cover the difference
+ would have hidden a real property of the chapter behind a fudge; the arithmetic
+ is exact, it is just not the arithmetic base ten suggests, so every line here
+ is graded at 0.0.
+
+ THE STATES COVER BOTH SIGNS OF BOTH INPUTS, because the fold is a sum and a sum
+ is where a sign error survives: a `-` for a `+` on the gaze term is invisible
+ whenever the gaze is zero, and the rider spends most of a straight there.
+
+ WHAT THIS FILE DOES NOT GRADE, said plainly rather than left to be discovered.
+ `pose-for` needs a `List Segment`, and a Segment carries trees, cows, pigs and
+ a Cat -- building one here would be more fixture than test, and building the
+ real world would put the whole of World under a spec that is about two lines of
+ addition. Its only content beyond the fold graded below is
+ `(list-at w s.segment).width / 2.0`, and the whole-frame check covers that.
+
+ We say:
+
+Section: The Rider States
+
+ Five states: at rest, a right lean with gaze, a left gaze with a right lean,
+ the mixed-sign case, and a pure lean with no gaze at all.
+
+  s0 : RiderState
+  s0 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+  s1 : RiderState
+  s1 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.125, heading = 4.5, gaze-yaw = 0.375, focus = 0.0 }
+
+  s2 : RiderState
+  s2 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.5, heading = 1.0, gaze-yaw = -0.25, focus = 0.0 }
+
+  s3 : RiderState
+  s3 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = -0.75, heading = -2.0, gaze-yaw = 0.125, focus = 0.0 }
+
+  s4 : RiderState
+  s4 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 1.25, heading = 0.5, gaze-yaw = 0.0, focus = 0.0 }
+
+Section: The Fold
+
+ head-yaw-frac is 0.15, and it is pinned: it is the only tunable in the chapter
+ and the one thing a passing edit would reach for.
+
+  frac-got : List Real
+  frac-got = [head-yaw-frac]
+
+  frac-want : List Real
+  frac-want = [0.15]
+
+  yaw-got : List Real
+  yaw-got = [view-yaw-for s0, view-yaw-for s1, view-yaw-for s2, view-yaw-for s3, view-yaw-for s4]
+
+  yaw-want : List Real
+  yaw-want = [0.0, 0.39375, -0.175, 0.012500000000000011, 0.1875]
+
+ heading-for adds the absolute world heading on top, so it is the view yaw again
+ plus one term. Grading it separately catches the case where the two lines were
+ collapsed into one and the heading dropped -- which would leave the horizon
+ still and the scene turning.
+
+  head-got : List Real
+  head-got = [heading-for s0, heading-for s1, heading-for s2, heading-for s3, heading-for s4]
+
+  head-want : List Real
+  head-want = [0.0, 4.89375, 0.825, -1.9875, 0.6875]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "vy-frac" frac-got frac-want 0.0)
+    print-line-uni (grade-reals "vy-yaw " yaw-got yaw-want 0.0)
+    print-line-uni (grade-reals "vy-head" head-got head-want 0.0)
+  end

@@ -1,0 +1,108 @@
+Chapter: TrigSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Trig
+  cites Judge chapter Grade
+
+ Trig, checked against values it does not compute.
+
+ THIS IS A SPEC, NOT A JUDGE, and the difference is where the expected values
+ come from. Everything in judge/ grades this port against the ORIGINAL GAME:
+ a zig probe calls wasm/*.zig, writes gold/, and the check maps over it. That
+ answers "is the port faithful", it needs the game to be present, and for a
+ chapter like Render it costs six hundred million steps because a scene has to
+ be driven before there is anything to compare.
+
+ A spec answers a smaller question and answers it in thousands of steps: does
+ this chapter still compute what it is supposed to compute. The expected values
+ are LITERALS, written here, taken from the mathematical definition rather than
+ from any implementation -- so this file is the whole test, and any arm that can
+ run Codex can render a verdict from it alone. No gold, no probe, no second
+ artifact to keep in step, and the same file is what bare metal, the zig plug,
+ the wasm plug and the Rust interpreter each run.
+
+ TRIG HAD NO CHECK AT ALL BEFORE THIS. Thirty-five of the port's fifty-four
+ chapters do not, and this is the first of them: `r-sin` and `r-cos` are called
+ by ten chapters and graded by none, so an error outside the domains those ten
+ happen to sample was invisible.
+
+ We say:
+
+Section: The Angles
+
+ Nine angles across two full turns, chosen to cross every quadrant and to land
+ on none of the exact points where a series implementation is flattered -- the
+ whole turn, the half turn and the right angle are all absent on purpose.
+
+  ang : List Real
+  ang = [0.0, 0.3, 0.7, 1.0, 1.5, 2.0, 3.0, 4.5, 6.0]
+
+  sin-want : List Real
+  sin-want =
+    [ 0.0,
+      0.29552020666133955,
+      0.644217687237691,
+      0.8414709848078965,
+      0.9974949866040544,
+      0.9092974268256817,
+      0.1411200080598672,
+      -0.977530117665097,
+      -0.27941549819892586 ]
+
+  cos-want : List Real
+  cos-want =
+    [ 1.0,
+      0.955336489125606,
+      0.7648421872844885,
+      0.5403023058681398,
+      0.0707372016677029,
+      -0.4161468365471424,
+      -0.9899924966004454,
+      -0.2107957994307797,
+      0.960170286650366 ]
+
+Section: The Arc Tangent
+
+ `r-atan` is a halving-and-series construction rather than a table, so it is
+ graded on its own inputs: the values where the halving count changes are the
+ ones worth having.
+
+  atan-in : List Real
+  atan-in = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
+
+  atan-want : List Real
+  atan-want =
+    [ 0.0,
+      0.24497866312686414,
+      0.4636476090008061,
+      0.7853981633974483,
+      1.1071487177940904,
+      1.3258176636680326 ]
+
+Section: Entry
+
+ The tolerance is the claim. A spec that passes at a tolerance nobody measured
+ says only that the number is in the right neighbourhood, and this port's own
+ FINDINGS sends upstream a docstring claiming 0.1% where the code delivers
+ 0.45% -- an unmeasured accuracy claim is a defect wherever it is written.
+
+ SO THESE THREE WERE MEASURED, by tightening each until it broke:
+
+   r-sin    passes 5e-8, fails 2e-8    -- about 3e-8
+   r-cos    passes 1e-7, fails 5e-8    -- about 7e-8
+   r-atan   passes 5e-16               -- double precision, near enough
+
+ The tolerances below are those numbers rounded out one step, so a regression
+ in any of the three trips this file rather than being absorbed by slack.
+
+ R-COS IS WORST AT THE ZERO ANGLE, which is index 0 and not a coincidence.
+ `cos 0.0` should be exactly 1.0 and the series returns it about 7e-8 short,
+ because there is no special case at zero. Every caller in this port feeds it
+ an angle that has already been through a lean or a heading, so none of them
+ sees the exact case; a chapter that asks for the cosine of nothing does.
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "t-sin " (list-map r-sin ang) sin-want 0.0000001)
+    print-line-uni (grade-reals "t-cos " (list-map r-cos ang) cos-want 0.0000002)
+    print-line-uni (grade-reals "t-atan" (list-map r-atan atan-in) atan-want 0.000000000000001)
+  end

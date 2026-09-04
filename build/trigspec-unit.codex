@@ -1,0 +1,645 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THE STAND-IN IS RETIRED. This chapter used to carry its own sine and cosine --
+ the same reduction, quadrant fold and 11th-order Taylor polynomial DeviceMath
+ has -- because DeviceMath's dm-reduce calls real-from-int and the zig plug had no
+ emitter for it. That emitter landed (PLUG_WORK, 2026-08-29), so `r-sin` and
+ `r-cos` are now DeviceMath's, and the duplicate implementation is gone.
+
+ THREE CONSTANTS SURVIVED THAT CLEANUP AND SHOULD NOT HAVE. `pi`, `two-pi` and
+ `half-pi` were written out here digit for digit while `dm-pi`, `dm-two-pi` and
+ `dm-half-pi` sat in the chapter this one already cites, identical to the last
+ place. They are aliases now. A retired implementation with its constants left
+ behind is the easy half of de-duplicating, and it is worth naming because the
+ prose above had already claimed the job was done.
+
+ THE NAMES STAY AND THE IMPLEMENTATION DOES NOT, which is the whole change. Nine
+ chapters call `r-sin`, `r-cos` or `r-tan`, and none of them should have to know
+ whether the sine underneath is the foreword's or the port's -- that was the point
+ of the names. What they buy now is one place to look and one place that already
+ cites DeviceMath, rather than nine new cites for a rename.
+
+ RETIRING IT MOVED NUMBERS, and that was the reason it waited rather than being
+ tidied away with the rest. The old `wrap` subtracted two-pi in a bounded loop;
+ dm-reduce divides and converts back through the integers, so the two disagree in
+ the last bits and every angle in the game runs through one of them. See the
+ tolerance note in README and D10.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = dm-pi
+
+  two-pi : Real
+  two-pi = dm-two-pi
+
+  half-pi : Real
+  half-pi = dm-half-pi
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Angle Wrapping
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+Section: Sine and Cosine
+
+ `wrap` OUTLIVED THE SINE IT WAS WRITTEN FOR, and it turns out not to have been
+ part of the stand-in at all. mountains.zig and sky.zig each carry their own
+ `wrap` -- normalising a bearing difference into the half-open turn around zero --
+ and both are ported through this one. It reads as an angle utility now rather
+ than as an argument reduction, which is what those two callers always wanted;
+ what it is NOT any more is anything sine depends on.
+
+ The fuel is the zig's own shape: mountains.zig's wrap is a bounded `while`, not a
+ modulo, for exactly the same reason.
+
+  r-sin : Real -> Real
+  r-sin (x) = real-sin x
+
+  r-cos : Real -> Real
+  r-cos (x) = real-cos x
+
+ DeviceMath has no tangent, so this one is still the port's -- and it is the
+ obvious quotient rather than anything clever, exactly as it was.
+
+  r-tan : Real -> Real
+  r-tan (x) = real-sin x / real-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: TrigSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Trig
+  cites Judge chapter Grade
+
+ Trig, checked against values it does not compute.
+
+ THIS IS A SPEC, NOT A JUDGE, and the difference is where the expected values
+ come from. Everything in judge/ grades this port against the ORIGINAL GAME:
+ a zig probe calls wasm/*.zig, writes gold/, and the check maps over it. That
+ answers "is the port faithful", it needs the game to be present, and for a
+ chapter like Render it costs six hundred million steps because a scene has to
+ be driven before there is anything to compare.
+
+ A spec answers a smaller question and answers it in thousands of steps: does
+ this chapter still compute what it is supposed to compute. The expected values
+ are LITERALS, written here, taken from the mathematical definition rather than
+ from any implementation -- so this file is the whole test, and any arm that can
+ run Codex can render a verdict from it alone. No gold, no probe, no second
+ artifact to keep in step, and the same file is what bare metal, the zig plug,
+ the wasm plug and the Rust interpreter each run.
+
+ TRIG HAD NO CHECK AT ALL BEFORE THIS. Thirty-five of the port's fifty-four
+ chapters do not, and this is the first of them: `r-sin` and `r-cos` are called
+ by ten chapters and graded by none, so an error outside the domains those ten
+ happen to sample was invisible.
+
+ We say:
+
+Section: The Angles
+
+ Nine angles across two full turns, chosen to cross every quadrant and to land
+ on none of the exact points where a series implementation is flattered -- the
+ whole turn, the half turn and the right angle are all absent on purpose.
+
+  ang : List Real
+  ang = [0.0, 0.3, 0.7, 1.0, 1.5, 2.0, 3.0, 4.5, 6.0]
+
+  sin-want : List Real
+  sin-want =
+    [ 0.0,
+      0.29552020666133955,
+      0.644217687237691,
+      0.8414709848078965,
+      0.9974949866040544,
+      0.9092974268256817,
+      0.1411200080598672,
+      -0.977530117665097,
+      -0.27941549819892586 ]
+
+  cos-want : List Real
+  cos-want =
+    [ 1.0,
+      0.955336489125606,
+      0.7648421872844885,
+      0.5403023058681398,
+      0.0707372016677029,
+      -0.4161468365471424,
+      -0.9899924966004454,
+      -0.2107957994307797,
+      0.960170286650366 ]
+
+Section: The Arc Tangent
+
+ `r-atan` is a halving-and-series construction rather than a table, so it is
+ graded on its own inputs: the values where the halving count changes are the
+ ones worth having.
+
+  atan-in : List Real
+  atan-in = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
+
+  atan-want : List Real
+  atan-want =
+    [ 0.0,
+      0.24497866312686414,
+      0.4636476090008061,
+      0.7853981633974483,
+      1.1071487177940904,
+      1.3258176636680326 ]
+
+Section: Entry
+
+ The tolerance is the claim. A spec that passes at a tolerance nobody measured
+ says only that the number is in the right neighbourhood, and this port's own
+ FINDINGS sends upstream a docstring claiming 0.1% where the code delivers
+ 0.45% -- an unmeasured accuracy claim is a defect wherever it is written.
+
+ SO THESE THREE WERE MEASURED, by tightening each until it broke:
+
+   r-sin    passes 5e-8, fails 2e-8    -- about 3e-8
+   r-cos    passes 1e-7, fails 5e-8    -- about 7e-8
+   r-atan   passes 5e-16               -- double precision, near enough
+
+ The tolerances below are those numbers rounded out one step, so a regression
+ in any of the three trips this file rather than being absorbed by slack.
+
+ R-COS IS WORST AT THE ZERO ANGLE, which is index 0 and not a coincidence.
+ `cos 0.0` should be exactly 1.0 and the series returns it about 7e-8 short,
+ because there is no special case at zero. Every caller in this port feeds it
+ an angle that has already been through a lean or a heading, so none of them
+ sees the exact case; a chapter that asks for the cosine of nothing does.
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "t-sin " (list-map r-sin ang) sin-want 0.0000001)
+    print-line-uni (grade-reals "t-cos " (list-map r-cos ang) cos-want 0.0000002)
+    print-line-uni (grade-reals "t-atan" (list-map r-atan atan-in) atan-want 0.000000000000001)
+  end

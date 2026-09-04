@@ -1,0 +1,761 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Pose
+
+ The rider's state, and nothing else.
+
+ THIS CHAPTER EXISTS TO CUT A CYCLE. In the zig, rider.zig imports gaze.zig for the
+ gawk brake and the gaze step, and gaze.zig imports rider.zig for the state type --
+ a mutual import zig permits and Codex cites do not. The cycle has to be cut
+ somewhere, and the honest place is the thing they actually share: the record.
+ Neither module's LOGIC moves, so this is a packaging adaptation and not a change
+ of behaviour, in the same family as Camera threading view-w because Codex has no
+ mutable global.
+
+ A port of the RiderState in wasm/rider.zig.
+
+ We say:
+
+Section: State
+
+ `yaw` is the heading against the CURRENT segment -- frame-relative, which is what
+ the road geometry reads -- and is reset into each new segment's frame at a
+ crossing.
+
+ `heading` is the bike's ABSOLUTE world heading, integrated continuously and left
+ untouched by the crossing. The backdrop reads this one, so the horizon turns
+ exactly as much as the bike does rather than jumping when the frame changes.
+
+ `gaze-yaw` and `focus` are the distracted rider, and both are VIEW-ONLY: an extra
+ camera yaw toward the roadside pigs, and the camera's focus-narrowing progress as
+ he gawks. They are advanced after the bike has moved.
+
+  RiderState = record {
+    segment : Integer,
+    along : Real,
+    across : Real,
+    yaw : Real,
+    v : Real,
+    tilt : Real,
+    heading : Real,
+    gaze-yaw : Real,
+    focus : Real
+  }
+
+  v-base : Real
+  v-base = 0.3
+
+  initial-rider-state : RiderState
+  initial-rider-state =
+    RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+ `with-tilt` is here for the same reason the record is: two chapters need it and
+ neither may cite the other. LeanSearch builds a hypothetical rider to project an
+ arc from, and Rider builds the leaned rider the throttle answers.
+
+  with-tilt : RiderState, Real -> RiderState
+  with-tilt (s) (t) =
+    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THE STAND-IN IS RETIRED. This chapter used to carry its own sine and cosine --
+ the same reduction, quadrant fold and 11th-order Taylor polynomial DeviceMath
+ has -- because DeviceMath's dm-reduce calls real-from-int and the zig plug had no
+ emitter for it. That emitter landed (PLUG_WORK, 2026-08-29), so `r-sin` and
+ `r-cos` are now DeviceMath's, and the duplicate implementation is gone.
+
+ THREE CONSTANTS SURVIVED THAT CLEANUP AND SHOULD NOT HAVE. `pi`, `two-pi` and
+ `half-pi` were written out here digit for digit while `dm-pi`, `dm-two-pi` and
+ `dm-half-pi` sat in the chapter this one already cites, identical to the last
+ place. They are aliases now. A retired implementation with its constants left
+ behind is the easy half of de-duplicating, and it is worth naming because the
+ prose above had already claimed the job was done.
+
+ THE NAMES STAY AND THE IMPLEMENTATION DOES NOT, which is the whole change. Nine
+ chapters call `r-sin`, `r-cos` or `r-tan`, and none of them should have to know
+ whether the sine underneath is the foreword's or the port's -- that was the point
+ of the names. What they buy now is one place to look and one place that already
+ cites DeviceMath, rather than nine new cites for a rename.
+
+ RETIRING IT MOVED NUMBERS, and that was the reason it waited rather than being
+ tidied away with the rest. The old `wrap` subtracted two-pi in a bounded loop;
+ dm-reduce divides and converts back through the integers, so the two disagree in
+ the last bits and every angle in the game runs through one of them. See the
+ tolerance note in README and D10.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = dm-pi
+
+  two-pi : Real
+  two-pi = dm-two-pi
+
+  half-pi : Real
+  half-pi = dm-half-pi
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Angle Wrapping
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+Section: Sine and Cosine
+
+ `wrap` OUTLIVED THE SINE IT WAS WRITTEN FOR, and it turns out not to have been
+ part of the stand-in at all. mountains.zig and sky.zig each carry their own
+ `wrap` -- normalising a bearing difference into the half-open turn around zero --
+ and both are ported through this one. It reads as an angle utility now rather
+ than as an argument reduction, which is what those two callers always wanted;
+ what it is NOT any more is anything sine depends on.
+
+ The fuel is the zig's own shape: mountains.zig's wrap is a bounded `while`, not a
+ modulo, for exactly the same reason.
+
+  r-sin : Real -> Real
+  r-sin (x) = real-sin x
+
+  r-cos : Real -> Real
+  r-cos (x) = real-cos x
+
+ DeviceMath has no tangent, so this one is still the port's -- and it is the
+ obvious quotient rather than anything clever, exactly as it was.
+
+  r-tan : Real -> Real
+  r-tan (x) = real-sin x / real-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
+
+Chapter: Bike
+  cites Safari chapter Pose
+  cites Safari chapter Trig
+
+ How the bike moves: the lean limit, and one integrated step.
+
+ THIS CHAPTER EXISTS TO CUT A CYCLE, in the same family as Pose. The integrator has
+ two callers on opposite sides of the split -- `Arc` runs it thousands of times to
+ project a hypothetical arc, and `Rider` runs it once a frame for real. Left in
+ Rider it would make Rider cite Arc and Arc cite Rider. The honest place is the
+ thing they share: the step itself. No logic moves, so this is a packaging
+ adaptation and not a change of behaviour.
+
+ We say:
+
+Section: The Lean Limit
+
+  yaw-per-tilt : Real
+  yaw-per-tilt = 0.1
+
+ The route never banks past this, and the focal pull-in normalises the lean by it.
+
+  max-lean : Real
+  max-lean = 20.0 * deg
+
+Section: One Physics Step
+
+ A lean tip and an acceleration, integrated. He leans FIRST, then that tilt yaws
+ the heading, then the new speed along the MID heading moves the position -- which
+ is a midpoint rule, not an Euler step, and the halving is load-bearing.
+
+ The absolute heading turns by the same delta as the frame-relative yaw.
+
+  simulate-rider-step : RiderState, Real, Real -> RiderState
+  simulate-rider-step (s) (tilt-step) (accel) =
+    let tilt = s.tilt + tilt-step
+    in let v = s.v + accel
+    in let heading-change = yaw-per-tilt * tilt
+    in let mid = s.yaw + heading-change / 2.0
+    in RiderState { segment = s.segment, along = s.along + v * r-cos mid, across = s.across + v * r-sin mid, yaw = s.yaw + heading-change, v = v, tilt = tilt, heading = s.heading + heading-change, gaze-yaw = s.gaze-yaw, focus = s.focus }
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: BikeSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Bike
+  cites Judge chapter Grade
+
+ Bike: one integrated step, and the halving that makes it a midpoint rule.
+
+ THE HALVING IS LOAD-BEARING AND THE CHAPTER SAYS SO. He leans first, that tilt
+ yaws the heading, and the new speed moves the position along the MID heading --
+ `s.yaw + heading-change / 2.0`. Drop the `/ 2.0` and it is an Euler step: still
+ plausible, still smooth, wrong by half a turn's worth of drift over a corner.
+ Nothing grades this chapter directly; it reaches judge/ only through a whole
+ frame, where a slow positional drift is the hardest possible thing to read.
+
+ SO THE PROBE STATE HAS A NON-ZERO YAW. With yaw at zero the mid heading is half
+ the change and an Euler step is `heading-change` -- different, so a zero-yaw
+ test does catch a dropped halving. But it catches it only through the trig,
+ where it hides behind a tolerance; with a real yaw the wrong angle is a
+ first-order error in both along and across at once. The state also carries
+ distinct non-zero values in all nine fields, for the reason PoseSpec's does:
+ this function rebuilds the whole record by hand and can fail by transposing two
+ names.
+
+ THE EXACT FIELDS ARE GRADED EXACTLY, AND THAT IS MOST OF THE STEP. Only `along`
+ and `across` pass through r-cos and r-sin; yaw, v, tilt and heading are plain
+ sums, so they are graded at 0.0 and no tolerance can hide an error in them.
+ Splitting the lines that way is what keeps the trig tolerance from becoming a
+ general amnesty over the whole record.
+
+ THREE STEPS, NOT ONE. A single step from a hand-written state cannot tell an
+ integrator from a function that returns a plausible constant, and it cannot see
+ an error that only appears once a field feeds back into itself. The second step
+ has a NEGATIVE tilt step and the third has none at all -- the coasting case,
+ where tilt and v must hold and the position must keep moving.
+
+ WHERE THE EXPECTED VALUES COME FROM: the four assignments in the chapter,
+ evaluated in IEEE-754 doubles with true sine and cosine. Nothing was captured;
+ the trig tolerance below is what admits the difference between a true cosine and
+ DeviceMath's series.
+
+ We say:
+
+Section: The Lean Limit
+
+ max-lean is 20 degrees in radians and yaw-per-tilt is the pinned coefficient
+ that turns a lean into a heading change.
+
+  limit-got : List Real
+  limit-got = [yaw-per-tilt, max-lean]
+
+  limit-want : List Real
+  limit-want = [0.1, 0.3490658503988659]
+
+Section: Three Steps
+
+  s0 : RiderState
+  s0 = RiderState { segment = 3, along = 120.5, across = 2.25, yaw = 0.375, v = 0.8, tilt = 0.125, heading = 4.5, gaze-yaw = 0.625, focus = 0.25 }
+
+  s1 : RiderState
+  s1 = simulate-rider-step s0 0.05 0.01
+
+  s2 : RiderState
+  s2 = simulate-rider-step s1 (0.0 - 0.02) 0.005
+
+  s3 : RiderState
+  s3 = simulate-rider-step s2 0.0 0.0
+
+Section: The Exact Fields
+
+ yaw, v, tilt and heading in that order, for each of the three steps. No trig
+ touches any of them.
+
+  exact-got : List Real
+  exact-got = [s1.yaw, s1.v, s1.tilt, s1.heading, s2.yaw, s2.v, s2.tilt, s2.heading, s3.yaw, s3.v, s3.tilt, s3.heading]
+
+  exact-want : List Real
+  exact-want =
+    [ 0.3925, 0.81, 0.175, 4.5175,
+      0.40800000000000003, 0.8150000000000001, 0.155, 4.533,
+      0.42350000000000004, 0.8150000000000001, 0.155, 4.548500000000001 ]
+
+ THE HEADING AND THE YAW MUST MOVE BY THE SAME DELTA, which the table above
+ asserts by construction -- 0.3925 - 0.375 and 4.5175 - 4.5 are both 0.0175 --
+ but only if a reader checks. Stated because it is the chapter's one invariant
+ that is not visible in any single number.
+
+Section: The Carried Fields
+
+ segment, gaze-yaw and focus are copied untouched. This function names all nine
+ fields on both sides, so these three are where a transposition would land
+ without changing any moving part.
+
+  carried-real-got : List Real
+  carried-real-got = [s1.gaze-yaw, s1.focus, s3.gaze-yaw, s3.focus]
+
+  carried-real-want : List Real
+  carried-real-want = [0.625, 0.25, 0.625, 0.25]
+
+  carried-int-got : List Integer
+  carried-int-got = [s1.segment, s2.segment, s3.segment]
+
+  carried-int-want : List Integer
+  carried-int-want = [3, 3, 3]
+
+Section: The Position
+
+ along and across, the only two fields the trig reaches. Graded relatively at
+ 1e-9, which is the gate LensSpec measured for the same series through a
+ different call.
+
+  pos-got : List Real
+  pos-got = [s1.along, s1.across, s2.along, s2.across, s3.along, s3.across]
+
+  pos-want : List Real
+  pos-want = [121.25108639750266, 2.5532642799382796, 122.00167174017032, 2.8708278851774045, 122.7472448817898, 3.1999869508214647]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "bk-limit" limit-got limit-want 0.0)
+    print-line-uni (grade-reals "bk-exact" exact-got exact-want 0.0)
+    print-line-uni (grade-reals "bk-carry" carried-real-got carried-real-want 0.0)
+    print-line-uni (grade-ints  "bk-seg  " carried-int-got carried-int-want)
+    print-line-uni (grade-rel   "bk-pos  " pos-got pos-want 0.000000001)
+  end

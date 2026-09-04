@@ -1,0 +1,13 @@
+# The trees this port is pinned to. One `name<space>path` per line; `~` is home.
+#
+# IT IS A FILE BECAUSE TWO LANGUAGES READ IT. The pin used to live as a default
+# inside harness/pins.py, which meant anything that was not Python had to import
+# Python to find out which checkout this port compiles against -- and the Rust
+# arm, which resolves its own cites, would otherwise have inherited the box's
+# ambient CODEX_ROOT instead. That is not hypothetical: pointed at the shared
+# tree, 25 of 35 safari units bundled differently, because the two checkouts'
+# DeviceMath differ.
+#
+# An override is SAFARI_COBBLESTONE, a name nothing else exports -- which is the
+# property CODEX_ROOT lacks, and the reason pins.py SETS rather than defaults.
+cobblestone ~/showell_repos/cobblestone-safari

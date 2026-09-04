@@ -15,14 +15,34 @@
     An override is `SAFARI_COBBLESTONE`, a name nothing else exports, which is
     the property `CODEX_ROOT` lacked.
 
+    THE PATH ITSELF IS IN `pins.tsv` AND NOT HERE. It is read by things that are
+    not Python -- `spec/run.sh`, and through it the Rust arm's own cite resolver
+    -- and a pin that only a Python module knows is a pin the other arms inherit
+    by accident. That is not hypothetical: bundling safari against the box's
+    ambient CODEX_ROOT instead of this one makes 25 of 35 units differ, because
+    the two checkouts' DeviceMath differ.
+
     Importing this module is what applies it. `PROVENANCE.md` names the trees.
 """
 import os
 import pathlib
 
-COBBLESTONE = pathlib.Path(os.environ.get(
-    "SAFARI_COBBLESTONE",
-    pathlib.Path.home() / "showell_repos" / "cobblestone-safari")).expanduser()
+
+def _pinned(name):
+    """The path `pins.tsv` gives for a tree."""
+    f = pathlib.Path(__file__).resolve().parent.parent / "pins.tsv"
+    for line in f.read_text().splitlines():
+        line = line.split("#")[0].strip()
+        if not line:
+            continue
+        key, _, path = line.partition(" ")
+        if key == name:
+            return pathlib.Path(path.strip()).expanduser()
+    raise SystemExit(f"{f} has no `{name}` line")
+
+
+COBBLESTONE = pathlib.Path(
+    os.environ.get("SAFARI_COBBLESTONE") or _pinned("cobblestone")).expanduser()
 
 if not (COBBLESTONE / "codex" / "compiler" / "opening.codex").is_file():
     raise SystemExit(f"SAFARI_COBBLESTONE={COBBLESTONE} is not a Cobblestone checkout "

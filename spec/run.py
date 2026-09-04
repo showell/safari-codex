@@ -36,8 +36,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "harness"))
-import bundle as bundler  # noqa: E402
+sys.path.insert(0, str(ROOT / "spec"))
 import mutate  # noqa: E402
 
 # The compiler's own release build, not a dated run directory: a spec suite that
@@ -45,6 +44,15 @@ import mutate  # noqa: E402
 BIN = os.environ.get(
     "CODEXRUN",
     os.path.expanduser("~/showell_repos/rust-codex-compiler/target/release/codexrun"),
+)
+# THE RUST ARM RESOLVES ITS OWN CITES. This used to import harness/bundle.py,
+# which meant the compiler under test was handed a unit assembled by a different
+# toolchain -- and a bundling bug applied identically to every arm is one no
+# comparison between them can find. Both bundlers agree on all 35 safari targets
+# byte for byte, and that agreement is the gate rather than an assumption.
+BUNDLE = os.environ.get(
+    "CODEXBUNDLE",
+    os.path.expanduser("~/showell_repos/rust-codex-compiler/target/release/bundle"),
 )
 
 
@@ -94,6 +102,8 @@ def main():
         raise SystemExit("usage: run.sh [--zig]")
     if not os.access(BIN, os.X_OK):
         raise SystemExit(f"no codexrun at {BIN}; set CODEXRUN")
+    if not os.access(BUNDLE, os.X_OK):
+        raise SystemExit(f"no bundle at {BUNDLE}; set CODEXBUNDLE")
 
     build = ROOT / "build"
     build.mkdir(exist_ok=True)
@@ -108,9 +118,20 @@ def main():
     for spec in specs:
         name = spec.stem
         mod = name.lower()
-        unit = bundler.bundle(str(spec))
-        (build / f"{mod}-unit.codex").write_text(unit)
-        out = run(build / f"{mod}-unit.codex")
+        unit_path = build / f"{mod}-unit.codex"
+        r = subprocess.run([BUNDLE, "one", str(spec), str(unit_path)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"{name}: {r.stderr.strip() or 'bundling failed'}", file=sys.stderr)
+            failed += 1
+            continue
+        for line in r.stderr.splitlines():
+            # CRLF and dead-quire complaints are upstream's and already filed;
+            # anything else the resolver says is worth seeing here.
+            if not line.startswith(("CRLF:", "DEAD QUIRE:")):
+                print(f"{name}: {line}", file=sys.stderr)
+        unit = unit_path.read_text()
+        out = run(unit_path)
 
         # The spec's own chapter is the tail; poison only that.
         head, sep, tail = unit.partition(f"Chapter: {name}\n")

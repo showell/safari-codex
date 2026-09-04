@@ -1,0 +1,32 @@
+# The fewest graded values each spec must still be checking.
+#
+# A test that carries its own answers can pass by doing NOTHING -- `grade-reals`
+# on two empty lists reports `ok 0`, and a spec whose input list an edit emptied
+# would sail through a gate that only greps for BAD. This is the floor that
+# catches that: run.sh sums the `ok N` counts and refuses if a spec has dropped
+# below its line.
+#
+# A FLOOR AND NOT A GOLD, deliberately. It is `>=`, so adding assertions never
+# churns this file and nobody is tempted to "update the expected number" as a
+# reflex when something goes red. Raise a line when a spec grows enough that the
+# old floor stopped meaning anything; that is a deliberate act and should look
+# like one in a diff.
+#
+# Seeded 2026-09-04 at each spec's then-current count.
+BikeSpec	27
+CanvasRollSpec	12
+CatStillsSpec	31
+DepthSortSpec	38
+EmojiStillsSpec	43
+FrameSpec	26
+GeomSpec	26
+LensSpec	18
+NumSpec	128
+PondSpec	25
+PoseSpec	26
+SceneLimitsSpec	3
+ScenerySpec	26
+StillsSpec	24
+TrigSpec	24
+VehicleLimitsSpec	17
+ViewYawSpec	11

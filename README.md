@@ -105,18 +105,17 @@ about fidelity:
 
 ## The unit tests: `spec/`
 
-**Run these first.** `./spec/run.sh` grades thirteen chapters in **0.47
-seconds**, of which 10 ms is interpreter. It is what to run after a compiler
+**Run these first.** `./spec/run.sh` grades seventeen chapters in **0.33
+seconds**, one process per spec. It is what to run after a compiler
 change, before anything in `judge/` -- which asks a different and much more
 expensive question: `RenderCheck` alone builds a whole frame and takes 13.5
 seconds.
 
-It is ONE Python process on purpose. A bare Python start is 35 ms against 25 ms
-of actual bundling and a 5 ms `codexrun`, so the old bash loop's three
-interpreter starts per spec WERE the runtime -- 2.1 s for thirteen, and about
-8 s projected for fifty. The budget is fifty specs inside ten seconds, since
-anything under ten is drowned out by other noise; one process puts fifty at
-roughly 1.7 s.
+It costs one process per spec, which is the floor. It began as a bash loop
+shelling out to `bundle.py` and `mutate.py` -- three interpreter starts each,
+2.1 s for thirteen specs and 8 s projected for fifty, against a budget of fifty
+inside ten seconds. `codexrun` now resolves its own cites, so bundling is a
+compiler phase rather than a process, and the mutant pass is gone.
 
 A spec is a **self-checking Codex chapter**: it carries its own expected values
 as literals and prints its own verdict, so any arm that runs Codex renders that
@@ -132,10 +131,12 @@ Three rules the files are held to, each of which caught something:
 - **Measure the tolerance by tightening it until it breaks.** `LensSpec` fails
   at 1e-10 and passes at 1.2e-10; the gate is 1e-9 and the prose says so. Five
   of `NumSpec`'s six lines are graded at exactly 0.0.
-- **Every line must be shown capable of failing.** `spec/mutate.py` runs each
-  spec a second time poisoned and every printed line must go BAD. It refuses
-  rather than skipping when a `-want` is not a list literal, which is what
-  structurally forbids a want computed from the got.
+- **A spec must not be able to pass by doing nothing.** `spec/floors.tsv` gives
+  each spec the fewest graded values it must still be checking, and the runner
+  sums the `ok N` counts and refuses below the line. It is a floor and not a
+  gold -- `>=`, so adding assertions never churns the file and nobody updates an
+  expected number as a reflex. `spec/mutate.py` is a one-off authoring tool for
+  watching a new spec fail once; it is not part of the gate.
 
 **The baked stills stay in, but held to a budget.** `CatStills` and
 `EmojiStills` are 763 KB of generated literals and they are the likeliest thing

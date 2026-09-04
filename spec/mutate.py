@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Break a spec on purpose, so run.sh can prove the spec was capable of failing.
+"""Break a spec on purpose. A ONE-OFF authoring tool, not part of any gate.
+
+    python3 spec/mutate.py spec/FooSpec.codex /tmp/mutant.codex
+
+**IT USED TO RUN ON EVERY SPEC, EVERY TIME, AND THAT WAS AN OVERREACTION.** It
+doubled the suite, needed this poisoner to explain itself twice over, and
+answered a question `spec/floors.tsv` answers in a line of arithmetic: is this
+spec still grading anything. The floor is also STRICTLY BETTER on the case that
+matters most -- deleting a whole assertion line was invisible to the mutant,
+because the remaining lines still all went BAD, and the floor catches it at
+once.
+
+What this is still good for is the moment you write a new spec and want to see
+it fail before you trust it passing. Run it by hand, look, throw it away.
 
 A self-checking spec carries its own answers, which makes it prone to the
 failure this file exists to rule out: PASSING BY DOING NOTHING. `grade-reals`

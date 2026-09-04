@@ -1,0 +1,98 @@
+Chapter: PoseSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Pose
+  cites Judge chapter Grade
+
+ Pose, whose whole risk is a copy that transposes two fields.
+
+ The chapter is a record and two functions, and it exists to cut an import cycle
+ rather than to compute anything. That makes it look like nothing worth grading.
+ It is the opposite: `with-tilt` rebuilds a NINE-FIELD record by hand, naming
+ every field on both sides, and a copy written that way fails by swapping two
+ names rather than by getting a number wrong.
+
+ SUCH A SWAP IS NEARLY INVISIBLE TO THE GAME'S OWN CHECKS. Seven of the nine
+ fields are 0.0 in `initial-rider-state`, and `yaw = s.gaze-yaw` is the identity
+ on any state where both are zero. A transposition between two zero fields
+ survives every frame the rider spends going straight, which is most of them,
+ and then appears somewhere else entirely on the first turn.
+
+ SO THE PROBE STATE BELOW HAS NINE PAIRWISE-DISTINCT VALUES, none of them zero,
+ and the replacement tilt is distinct from all nine. That is the whole design of
+ this file: under it every one of the 72 wrong field pairings changes an answer,
+ where under the initial state almost none of them do. The values are otherwise
+ arbitrary -- they are dyadic rationals so that every one is exact in binary and
+ the grading can be at 0.0.
+
+ WHERE THE EXPECTED VALUES COME FROM: the definition of a copy. `with-tilt s t`
+ must return s with tilt replaced by t and NOTHING else touched, so the want is
+ the probe's own field values with one substitution, written out. Nothing was
+ captured; there is nothing here an implementation could have told us.
+
+ We say:
+
+Section: The Probe State
+
+ Nine distinct non-zero values, so that no two fields can be confused without
+ the confusion showing.
+
+  probe : RiderState
+  probe = RiderState { segment = 7, along = 11.0, across = 2.5, yaw = 0.75, v = 3.25, tilt = 0.125, heading = 4.5, gaze-yaw = 0.375, focus = 6.75 }
+
+  new-tilt : Real
+  new-tilt = 9.5
+
+Section: Reading The Record Back
+
+ The eight Reals in declaration order, and the segment separately because it is
+ an Integer. Both are read, because a copy can carry the Reals and drop the one
+ field that is not one.
+
+  reals : RiderState -> List Real
+  reals (s) = [s.along, s.across, s.yaw, s.v, s.tilt, s.heading, s.gaze-yaw, s.focus]
+
+  seg : RiderState -> List Integer
+  seg (s) = [s.segment]
+
+Section: The Initial State
+
+ A pin rather than a derivation, and worth having for one field: `v` starts at
+ `v-base` and not at rest, which is the only non-zero value in the record and
+ the one a careless edit would zero.
+
+  init-want : List Real
+  init-want = [0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0]
+
+  init-seg-want : List Integer
+  init-seg-want = [0]
+
+Section: The Copy
+
+ The probe's own values with tilt, and only tilt, replaced.
+
+  tilt-want : List Real
+  tilt-want = [11.0, 2.5, 0.75, 3.25, 9.5, 4.5, 0.375, 6.75]
+
+  tilt-seg-want : List Integer
+  tilt-seg-want = [7]
+
+ APPLYING IT TWICE MUST EQUAL APPLYING IT ONCE, which is a different assertion
+ from the one above rather than a restatement of it. The line above compares a
+ copy against a written-out answer; this one compares two copies against each
+ other and so catches a field that is carried WRONGLY BUT CONSISTENTLY -- read
+ from the wrong source on both passes, agreeing with the want by coincidence
+ because the probe was built to make the two agree. It costs one more line.
+
+  twice-want : List Real
+  twice-want = [11.0, 2.5, 0.75, 3.25, 9.5, 4.5, 0.375, 6.75]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "p-init  " (reals initial-rider-state) init-want 0.0)
+    print-line-uni (grade-ints  "p-initsg" (seg initial-rider-state) init-seg-want)
+    print-line-uni (grade-reals "p-tilt  " (reals (with-tilt probe new-tilt)) tilt-want 0.0)
+    print-line-uni (grade-ints  "p-tiltsg" (seg (with-tilt probe new-tilt)) tilt-seg-want)
+    print-line-uni (grade-reals "p-twice " (reals (with-tilt (with-tilt probe 1.5) new-tilt)) twice-want 0.0)
+  end

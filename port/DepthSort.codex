@@ -1,4 +1,5 @@
 Chapter: DepthSort
+  cites Gpu chapter DeviceMath
   cites Foreword chapter ListUtils
 
  One pass over everything that stands up, front to back.

@@ -1,0 +1,656 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Chapter: DepthSort
+  cites Gpu chapter DeviceMath
+  cites Foreword chapter ListUtils
+
+ One pass over everything that stands up, front to back.
+
+ `Item` is the currency: a depth, a kind tag and an index back into that kind's own list.
+ Each kind is collected into its own list and merged only here, which is what makes the
+ sort one pass rather than a sort per kind. The tag is why this chapter, and not the
+ renderer, owns the enum.
+
+ We say:
+
+Section: The Currency
+
+ One order over everything that stands up off the ground, far to near, so a tree
+ occludes a rail and a rail occludes a cow by honest depth rather than by paint
+ order. This is what guard_rail's collect-then-sort design exists to feed, and why
+ its RailPoly carries a `fwd` it never draws with.
+
+  Kind =
+   | KTree
+   | KTower
+   | KCow
+   | KCat
+   | KTruck
+   | KRail
+
+  Item = record {
+    fwd : Real,
+    kind : Kind,
+    i : Integer
+  }
+
+Section: One Pass, Front to Back
+
+ THE SORT MUST BE STABLE AND THE ZIG'S IS. Its insertion loop moves a key left
+ only while the element before it is STRICTLY nearer-to-far -- `items[j-1].fwd <
+ key.fwd` -- so equal depths keep the order they were merged in. That matters more
+ here than it looks: a rail bar and its post share a corner and can land on the
+ same depth, and so can two roadside trees on opposite shoulders.
+
+ `core/Sort` EXISTS AND MUST NOT BE SUBSTITUTED HERE, which is worth saying before
+ the merge is described, because the shape of this chapter invites the swap. The
+ foreword's `sort-by : List a, (a, a -> Integer) -> List a` looks like exactly what
+ this wants and is an in-place QUICKSORT with median-of-three pivoting. Quicksort
+ swaps across equal keys; it is not stable and its chapter claims no stability.
+
+ STABILITY IS LOAD-BEARING HERE AND THE EVIDENCE IS A BUG THAT HAPPENED. Ties are
+ real -- render.zig sorts by an f32 depth and equal depths keep merge order -- and
+ PORTING_NOTES D9 records a rail post and a rail bar swapping places in a
+ 3,091-command stream, one adjacent transposition with every other command
+ identical, invisible to every per-module check because both modules were right.
+ Handing this to `sort-by` would reintroduce that class silently and only the
+ whole-frame check would ever say so. De-duplicating against the foreword is right
+ far more often than it is wrong; this is one of the times it is wrong.
+
+ THE PORT SORTS BY MERGING RATHER THAN BY INSERTING, and that is the one place in
+ this chapter where the algorithm departs from the zig on purpose. A stable merge
+ sort and a stable insertion sort produce the SAME total order -- same comparison,
+ same tie rule -- so nothing observable changes. What changes is the cost, and on
+ persistent lists the difference is not a constant factor.
+
+ Insertion sort on a mutable array shifts elements in place. On a Codex list there
+ is nothing to shift: rebuilding the tail past the insertion point allocates a list
+ per element, so ONE insert is quadratic in allocations and the whole sort is
+ cubic. Measured, it is not slow but fatal -- seven hundred items across eight
+ frames exhausted codexzig's whole 4 GiB bump heap, which never reclaims (C6). The
+ merge is quadratic in copies and comes in around a hundred megabytes.
+
+ So the rule this is an instance of: PORTING AN ALGORITHM FAITHFULLY MEANS PORTING
+ ITS ANSWER, NOT ITS COST MODEL. An in-place algorithm carried literally onto
+ persistent lists can gain a whole complexity class, and the bump heap turns that
+ into a crash rather than a wait. See PORTING_NOTES E4.
+
+  rest-from : List Item, Integer -> List Item
+  rest-from (ys) (j) =
+    if j >= list-length ys then []
+    else [list-at ys j] & rest-from ys (j + 1)
+
+ Merge two runs already in far-to-near order. `a` wins ties -- the test asks
+ whether b is STRICTLY deeper -- which is what makes the merge stable and matches
+ the zig's strict `<`.
+
+  merge-items : List Item, List Item, Integer, Integer -> List Item
+  merge-items (a) (b) (i) (j) =
+    if i >= list-length a then rest-from b j
+    else if j >= list-length b then rest-from a i
+    else if deeper-than (list-at b j).fwd (list-at a i).fwd
+      then [list-at b j] & merge-items a b i (j + 1)
+      else [list-at a i] & merge-items a b (i + 1) j
+
+ THE SORT DECLINES TO ORDER TWO DEPTHS IT CANNOT TELL APART, and that is the one
+ place this chapter's comparison is not the zig's character for character. The
+ zig's key is an f32; the port's is a Real, which is f64 in every plug. Two depths
+ that differ by less than the f32 grid are THE SAME NUMBER in the game -- its sort
+ sees a tie and keeps merge order -- while the port can see a difference and would
+ order them by it. Sorting on precision the oracle does not have is not fidelity;
+ it is the port inventing an order.
+
+ So `deeper-than` is a strict comparison with half an f32 ulp of slack, and the
+ slack is measured rather than chosen. A rail post and a rail bar in the whole
+ frame check land within 6e-8 of each other and swap without it; at 2e-8 they
+ still swap, so the gap is between a sixth and a half of an ulp. Half an ulp is
+ the largest threshold that cannot tie two depths the game holds apart, since two
+ distinct f32s differ by a whole one.
+
+ A grader that measures inversions has to use the same rule -- RenderCheck's does,
+ and its own prose says why. A property asserted at a finer resolution than the
+ sort works at reports the rule as a defect.
+
+  sort-tie : Real
+  sort-tie = 0.00000006
+
+  deeper-than : Real, Real -> Boolean
+  deeper-than (x) (y) = x - y > sort-tie * real-max (real-abs y) 1.0
+
+  sort-items : List Item -> List Item
+  sort-items (xs) =
+    if list-length xs <= 1 then xs
+    else merge-items (sort-items (list-take xs (list-length xs / 2))) (sort-items (list-drop xs (list-length xs / 2))) 0 0
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: DepthSortSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter DepthSort
+  cites Judge chapter Grade
+
+ DepthSort, graded on the two properties its docstring says are load-bearing.
+
+ THE CHAPTER ALREADY KNOWS WHAT MATTERS ABOUT IT and says so at length: the sort
+ must be STABLE, and it must DECLINE TO ORDER two depths the game cannot tell
+ apart. Both claims have a bug behind them. PORTING_NOTES D9 records a rail post
+ and a rail bar swapping places in a 3,091-command stream -- one adjacent
+ transposition, every other command identical -- and the tie slack is the fix.
+
+ NEITHER PROPERTY HAD A TEST THAT NAMED IT. The only thing grading this chapter
+ is RenderCheck, which builds a whole frame and compares the command stream, so
+ a stability regression reaches us as one transposed command a thousand lines
+ into a diff -- exactly the form the original bug arrived in, and exactly the
+ form that is hardest to read. A property worth a paragraph of prose is worth an
+ assertion that fails by name.
+
+ WHERE THE EXPECTED VALUES COME FROM. They are the ORDER ITSELF, worked out from
+ the two rules rather than from any implementation: far-to-near by depth, and
+ equal depths keep the order they were merged in. Ten items with three separate
+ groups of ties give an answer -- [3, 7, 0, 2, 6, 5, 1, 4, 8, 9] -- that a
+ correct stable sort must produce and that an UNSTABLE sort of the same list has
+ no reason to. That is the point of the ties: without them every stable and
+ unstable sort agree, and the file would grade nothing about stability at all.
+
+ THE SLACK IS GRADED FROM BOTH SIDES OF ITS OWN THRESHOLD, which is the only way
+ to assert a tolerance rather than merely benefit from one. `deeper-than` is
+ `x - y > sort-tie * max (|y|, 1)` with sort-tie 6e-8, so at y = 100 the
+ threshold is 6e-6: a pair 4e-6 apart must NOT be reordered and a pair 1e-5
+ apart MUST be. A test that only ever checked the first half would pass just as
+ well against a sort that never reorders anything.
+
+ We say:
+
+Section: The Items
+
+ Ten items, far-to-near order deliberately scrambled, with three groups sharing
+ a depth exactly. Every kind appears, so the sort is shown to carry its tag and
+ its index and not merely its depth.
+
+  mixed : List Item
+  mixed =
+    [ Item { fwd = 30.0, kind = KTree, i = 0 },
+      Item { fwd = 10.0, kind = KCow, i = 1 },
+      Item { fwd = 30.0, kind = KRail, i = 2 },
+      Item { fwd = 50.0, kind = KTower, i = 3 },
+      Item { fwd = 10.0, kind = KCat, i = 4 },
+      Item { fwd = 20.0, kind = KTruck, i = 5 },
+      Item { fwd = 30.0, kind = KTree, i = 6 },
+      Item { fwd = 40.0, kind = KRail, i = 7 },
+      Item { fwd = 10.0, kind = KCow, i = 8 },
+      Item { fwd = 5.0, kind = KCat, i = 9 } ]
+
+Section: Reading An Item Back
+
+ Three projections, because the three things an Item carries fail independently:
+ a sort can get the depths right and drop an index, or carry the index and lose
+ the tag. The kind is coded to an Integer because `show` on a constructor is not
+ something this port asks for, and an Integer index into a failure message
+ points at one item.
+
+  fwds : List Item, Integer -> List Real
+  fwds (xs) (i) =
+    if i >= list-length xs then []
+    else [(list-at xs i).fwd] & fwds xs (i + 1)
+
+  idxs : List Item, Integer -> List Integer
+  idxs (xs) (i) =
+    if i >= list-length xs then []
+    else [(list-at xs i).i] & idxs xs (i + 1)
+
+  kind-code : Kind -> Integer
+  kind-code (k) =
+   when k
+    is KTree -> 0
+    is KTower -> 1
+    is KCow -> 2
+    is KCat -> 3
+    is KTruck -> 4
+    is KRail -> 5
+
+  kinds : List Item, Integer -> List Integer
+  kinds (xs) (i) =
+    if i >= list-length xs then []
+    else [kind-code (list-at xs i).kind] & kinds xs (i + 1)
+
+Section: The Order
+
+ Far to near. Depths are exact literals and the comparison is exact, so this is
+ graded at 0.0: a tolerance here would only be somewhere for an error to hide.
+
+  order-want : List Real
+  order-want = [50.0, 40.0, 30.0, 30.0, 30.0, 20.0, 10.0, 10.0, 10.0, 5.0]
+
+Section: Stability
+
+ The three tied groups keep merge order: 0 before 2 before 6 at depth 30, and 1
+ before 4 before 8 at depth 10. This is the assertion `core/Sort` would fail --
+ the foreword's `sort-by` is a median-of-three quicksort, which swaps across
+ equal keys and whose chapter claims no stability. The chapter's prose says not
+ to substitute it; this line is what would notice if someone did.
+
+  stable-want : List Integer
+  stable-want = [3, 7, 0, 2, 6, 5, 1, 4, 8, 9]
+
+  kind-want : List Integer
+  kind-want = [1, 5, 0, 5, 0, 4, 2, 3, 2, 3]
+
+Section: The Tie Slack, From Both Sides
+
+ Four two-item lists, each holding the shallower item FIRST so that a reorder is
+ visible as [1, 0]. Two straddle the threshold at depth 100, where the relative
+ term governs and the gap is 6e-6. Two straddle it at depth 0.5, where the
+ max(|y|, 1) floor governs instead and the gap is 6e-8 regardless of how small
+ the depths get -- the arm that would go unexercised if every case sat out at
+ 100, and the arm that keeps the rule from collapsing to a bare relative test
+ near zero.
+
+  tie-near : List Item
+  tie-near = [Item { fwd = 100.0, kind = KTree, i = 0 }, Item { fwd = 100.000004, kind = KTree, i = 1 }]
+
+  tie-far : List Item
+  tie-far = [Item { fwd = 100.0, kind = KTree, i = 0 }, Item { fwd = 100.00001, kind = KTree, i = 1 }]
+
+  zero-near : List Item
+  zero-near = [Item { fwd = 0.5, kind = KTree, i = 0 }, Item { fwd = 0.50000004, kind = KTree, i = 1 }]
+
+  zero-far : List Item
+  zero-far = [Item { fwd = 0.5, kind = KTree, i = 0 }, Item { fwd = 0.5000001, kind = KTree, i = 1 }]
+
+  slack-got : List Integer
+  slack-got = (idxs (sort-items tie-near) 0) & (idxs (sort-items tie-far) 0) & (idxs (sort-items zero-near) 0) & (idxs (sort-items zero-far) 0)
+
+  slack-want : List Integer
+  slack-want = [0, 1, 1, 0, 0, 1, 1, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "d-order " (fwds (sort-items mixed) 0) order-want 0.0)
+    print-line-uni (grade-ints  "d-stable" (idxs (sort-items mixed) 0) stable-want)
+    print-line-uni (grade-ints  "d-kind  " (kinds (sort-items mixed) 0) kind-want)
+    print-line-uni (grade-ints  "d-slack " slack-got slack-want)
+  end

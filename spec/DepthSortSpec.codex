@@ -1,0 +1,148 @@
+Chapter: DepthSortSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter DepthSort
+  cites Judge chapter Grade
+
+ DepthSort, graded on the two properties its docstring says are load-bearing.
+
+ THE CHAPTER ALREADY KNOWS WHAT MATTERS ABOUT IT and says so at length: the sort
+ must be STABLE, and it must DECLINE TO ORDER two depths the game cannot tell
+ apart. Both claims have a bug behind them. PORTING_NOTES D9 records a rail post
+ and a rail bar swapping places in a 3,091-command stream -- one adjacent
+ transposition, every other command identical -- and the tie slack is the fix.
+
+ NEITHER PROPERTY HAD A TEST THAT NAMED IT. The only thing grading this chapter
+ is RenderCheck, which builds a whole frame and compares the command stream, so
+ a stability regression reaches us as one transposed command a thousand lines
+ into a diff -- exactly the form the original bug arrived in, and exactly the
+ form that is hardest to read. A property worth a paragraph of prose is worth an
+ assertion that fails by name.
+
+ WHERE THE EXPECTED VALUES COME FROM. They are the ORDER ITSELF, worked out from
+ the two rules rather than from any implementation: far-to-near by depth, and
+ equal depths keep the order they were merged in. Ten items with three separate
+ groups of ties give an answer -- [3, 7, 0, 2, 6, 5, 1, 4, 8, 9] -- that a
+ correct stable sort must produce and that an UNSTABLE sort of the same list has
+ no reason to. That is the point of the ties: without them every stable and
+ unstable sort agree, and the file would grade nothing about stability at all.
+
+ THE SLACK IS GRADED FROM BOTH SIDES OF ITS OWN THRESHOLD, which is the only way
+ to assert a tolerance rather than merely benefit from one. `deeper-than` is
+ `x - y > sort-tie * max (|y|, 1)` with sort-tie 6e-8, so at y = 100 the
+ threshold is 6e-6: a pair 4e-6 apart must NOT be reordered and a pair 1e-5
+ apart MUST be. A test that only ever checked the first half would pass just as
+ well against a sort that never reorders anything.
+
+ We say:
+
+Section: The Items
+
+ Ten items, far-to-near order deliberately scrambled, with three groups sharing
+ a depth exactly. Every kind appears, so the sort is shown to carry its tag and
+ its index and not merely its depth.
+
+  mixed : List Item
+  mixed =
+    [ Item { fwd = 30.0, kind = KTree, i = 0 },
+      Item { fwd = 10.0, kind = KCow, i = 1 },
+      Item { fwd = 30.0, kind = KRail, i = 2 },
+      Item { fwd = 50.0, kind = KTower, i = 3 },
+      Item { fwd = 10.0, kind = KCat, i = 4 },
+      Item { fwd = 20.0, kind = KTruck, i = 5 },
+      Item { fwd = 30.0, kind = KTree, i = 6 },
+      Item { fwd = 40.0, kind = KRail, i = 7 },
+      Item { fwd = 10.0, kind = KCow, i = 8 },
+      Item { fwd = 5.0, kind = KCat, i = 9 } ]
+
+Section: Reading An Item Back
+
+ Three projections, because the three things an Item carries fail independently:
+ a sort can get the depths right and drop an index, or carry the index and lose
+ the tag. The kind is coded to an Integer because `show` on a constructor is not
+ something this port asks for, and an Integer index into a failure message
+ points at one item.
+
+  fwds : List Item, Integer -> List Real
+  fwds (xs) (i) =
+    if i >= list-length xs then []
+    else [(list-at xs i).fwd] & fwds xs (i + 1)
+
+  idxs : List Item, Integer -> List Integer
+  idxs (xs) (i) =
+    if i >= list-length xs then []
+    else [(list-at xs i).i] & idxs xs (i + 1)
+
+  kind-code : Kind -> Integer
+  kind-code (k) =
+   when k
+    is KTree -> 0
+    is KTower -> 1
+    is KCow -> 2
+    is KCat -> 3
+    is KTruck -> 4
+    is KRail -> 5
+
+  kinds : List Item, Integer -> List Integer
+  kinds (xs) (i) =
+    if i >= list-length xs then []
+    else [kind-code (list-at xs i).kind] & kinds xs (i + 1)
+
+Section: The Order
+
+ Far to near. Depths are exact literals and the comparison is exact, so this is
+ graded at 0.0: a tolerance here would only be somewhere for an error to hide.
+
+  order-want : List Real
+  order-want = [50.0, 40.0, 30.0, 30.0, 30.0, 20.0, 10.0, 10.0, 10.0, 5.0]
+
+Section: Stability
+
+ The three tied groups keep merge order: 0 before 2 before 6 at depth 30, and 1
+ before 4 before 8 at depth 10. This is the assertion `core/Sort` would fail --
+ the foreword's `sort-by` is a median-of-three quicksort, which swaps across
+ equal keys and whose chapter claims no stability. The chapter's prose says not
+ to substitute it; this line is what would notice if someone did.
+
+  stable-want : List Integer
+  stable-want = [3, 7, 0, 2, 6, 5, 1, 4, 8, 9]
+
+  kind-want : List Integer
+  kind-want = [1, 5, 0, 5, 0, 4, 2, 3, 2, 3]
+
+Section: The Tie Slack, From Both Sides
+
+ Four two-item lists, each holding the shallower item FIRST so that a reorder is
+ visible as [1, 0]. Two straddle the threshold at depth 100, where the relative
+ term governs and the gap is 6e-6. Two straddle it at depth 0.5, where the
+ max(|y|, 1) floor governs instead and the gap is 6e-8 regardless of how small
+ the depths get -- the arm that would go unexercised if every case sat out at
+ 100, and the arm that keeps the rule from collapsing to a bare relative test
+ near zero.
+
+  tie-near : List Item
+  tie-near = [Item { fwd = 100.0, kind = KTree, i = 0 }, Item { fwd = 100.000004, kind = KTree, i = 1 }]
+
+  tie-far : List Item
+  tie-far = [Item { fwd = 100.0, kind = KTree, i = 0 }, Item { fwd = 100.00001, kind = KTree, i = 1 }]
+
+  zero-near : List Item
+  zero-near = [Item { fwd = 0.5, kind = KTree, i = 0 }, Item { fwd = 0.50000004, kind = KTree, i = 1 }]
+
+  zero-far : List Item
+  zero-far = [Item { fwd = 0.5, kind = KTree, i = 0 }, Item { fwd = 0.5000001, kind = KTree, i = 1 }]
+
+  slack-got : List Integer
+  slack-got = (idxs (sort-items tie-near) 0) & (idxs (sort-items tie-far) 0) & (idxs (sort-items zero-near) 0) & (idxs (sort-items zero-far) 0)
+
+  slack-want : List Integer
+  slack-want = [0, 1, 1, 0, 0, 1, 1, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "d-order " (fwds (sort-items mixed) 0) order-want 0.0)
+    print-line-uni (grade-ints  "d-stable" (idxs (sort-items mixed) 0) stable-want)
+    print-line-uni (grade-ints  "d-kind  " (kinds (sort-items mixed) 0) kind-want)
+    print-line-uni (grade-ints  "d-slack " slack-got slack-want)
+  end

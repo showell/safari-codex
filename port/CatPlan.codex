@@ -1,5 +1,4 @@
 Chapter: CatPlan
-  cites Gpu chapter DeviceMath
   cites Safari chapter Cat
   cites Safari chapter DepthSort
   cites Safari chapter Frame

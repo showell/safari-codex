@@ -1,0 +1,134 @@
+Chapter: TreesSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Trees
+  cites Judge chapter Grade
+
+ Trees: the pair-at-a-time fill, and the two things that stop it.
+
+ Nothing in judge/ grades this chapter. It reaches the frame only through World,
+ which builds every segment's trees at startup, so a fill that laid down one
+ pair too many or stopped a pair too early would arrive as a whole-frame diff.
+
+ THE FILL EMITS A PAIR AT A TIME AND THE CAP IS CHECKED TWO AT A TIME, which is
+ the zig's `n_trees + 2 <= MAX_TREES` and is why the cap can only ever be hit
+ exactly. A 5,000 m segment is graded below for precisely 96 trees -- not 95,
+ not 97 -- and a fill that checked one at a time would give 97 on some segment
+ and nothing would say so.
+
+ THE END INSET IS A BOUNDARY AND IT IS GRADED AS ONE. The walk stops when
+ `along > length - tree-end-inset`, so on a 300 m segment it stops above 215 and
+ the last pair is laid at 186. A pair at 216 would be the off-by-one, and the
+ last `along` below is what refuses it.
+
+ WHERE THE EXPECTED VALUES COME FROM: the rules in the chapter's own prose --
+ every 30 m from the 6 m inset, even index green and 1.3 times tall, odd the
+ scheme's accent, red twice everything, gold three times and about four times
+ further off the road -- worked out in doubles. The heights are the one place
+ that is not tidy: 4.5 * 1.3 is 5.8500000000000005 and the want says so rather
+ than rounding it and reaching for a tolerance.
+
+ We say:
+
+Section: The Palette And The Dimensions
+
+  colour-got : List Integer
+  colour-got = [conifer-green, conifer-gold, conifer-red, max-trees]
+
+  colour-want : List Integer
+  colour-want = [1858082, 13605400, 11680298, 96]
+
+  dim-got : List Real
+  dim-got = [small-height, big-scale, tree-spacing, tree-road-offset, tree-start-inset, tree-end-inset]
+
+  dim-want : List Real
+  dim-want = [4.5, 1.3, 30.0, 1.5, 6.0, 85.0]
+
+Section: The Accent, All Three Schemes
+
+ Five of six arms of the two lookups answer the same colour as some other arm,
+ so all three schemes are graded rather than the interesting one.
+
+  accent-got : List Integer
+  accent-got = [accent-color AllGreen, accent-color YellowGreen, accent-color RedGreen]
+
+  accent-want : List Integer
+  accent-want = [1858082, 13605400, 11680298]
+
+ Height and offset for each colour in both parities. An even tree is 1.3 times
+ the small height whatever its colour; red doubles and gold triples on top of
+ that, and only gold moves off the road.
+
+  hx-got : List Real
+  hx-got =
+    [ tree-height-for 1858082 True, tree-height-for 1858082 False,
+      tree-height-for 11680298 True, tree-height-for 11680298 False,
+      tree-height-for 13605400 True, tree-height-for 13605400 False,
+      tree-x-for 1858082, tree-x-for 11680298, tree-x-for 13605400 ]
+
+  hx-want : List Real
+  hx-want = [5.8500000000000005, 4.5, 11.700000000000001, 9.0, 17.55, 13.5, 3.5, 3.5, 8.0]
+
+Section: A Filled Segment
+
+ Three hundred metres of YellowGreen, which alternates green pairs at 3.5 m with
+ gold pairs out at 8.0 m -- the scheme that exercises both offsets.
+
+  filled : List Tree
+  filled = fill-trees YellowGreen 300.0 tree-start-inset 0 0
+
+  along-got : List Real
+  along-got = list-map (\t -> t.along) filled
+
+  along-want : List Real
+  along-want = [6.0, 6.0, 36.0, 36.0, 66.0, 66.0, 96.0, 96.0, 126.0, 126.0, 156.0, 156.0, 186.0, 186.0]
+
+ Each pair straddles the road, so the across values come in mirrored twos.
+
+  across-got : List Real
+  across-got = list-map (\t -> t.across) filled
+
+  across-want : List Real
+  across-want = [-3.5, 3.5, -8.0, 8.0, -3.5, 3.5, -8.0, 8.0, -3.5, 3.5, -8.0, 8.0, -3.5, 3.5]
+
+  colours-got : List Integer
+  colours-got = list-map (\t -> t.color) filled
+
+  colours-want : List Integer
+  colours-want = [1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082]
+
+  heights-got : List Real
+  heights-got = list-map (\t -> t.height) filled
+
+  heights-want : List Real
+  heights-want = [5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005]
+
+Section: The Two Stops
+
+ A short segment lays nothing at all -- 100 m less the 85 m end inset leaves 15,
+ and the 6 m start inset is inside it, so one pair goes down and the next is
+ refused. A 5,000 m segment hits the cap exactly.
+
+  stops-got : List Integer
+  stops-got =
+    [ list-length filled,
+      list-length (fill-trees AllGreen 100.0 tree-start-inset 0 0),
+      list-length (fill-trees AllGreen 5000.0 tree-start-inset 0 0),
+      list-length (fill-trees AllGreen 50.0 tree-start-inset 0 0) ]
+
+  stops-want : List Integer
+  stops-want = [14, 2, 96, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "tr-colour" colour-got colour-want)
+    print-line-uni (grade-reals "tr-dim   " dim-got dim-want 0.0)
+    print-line-uni (grade-ints  "tr-accent" accent-got accent-want)
+    print-line-uni (grade-reals "tr-hx    " hx-got hx-want 0.0)
+    print-line-uni (grade-reals "tr-along " along-got along-want 0.0)
+    print-line-uni (grade-reals "tr-across" across-got across-want 0.0)
+    print-line-uni (grade-ints  "tr-colours" colours-got colours-want)
+    print-line-uni (grade-reals "tr-height" heights-got heights-want 0.0)
+    print-line-uni (grade-ints  "tr-stops " stops-got stops-want)
+  end

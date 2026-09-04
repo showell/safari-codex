@@ -1,0 +1,144 @@
+Chapter: SafariCritterSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter SafariCritter
+  cites Judge chapter Grade
+
+ SafariCritter: which big animal stands at a corner, and which side it stands on.
+
+ Nothing in judge/ grades this chapter. It reaches a frame through CritterPlan
+ and the whole-frame check, where a pair placed on the wrong side of the road
+ looks like a scene that was authored that way.
+
+ THE TURN SIGN IS NEGATED AND THAT IS THE ASSERTION. The adult stands on the
+ side AWAY from the turn -- a right turn parks it LEFT -- because that is the
+ outer corner, the one the rider swings widest around and looks straight at
+ through the bend. Drop the negation and every corner animal moves to the inside
+ of its turn: still plausible, still symmetric, and wrong in a way no count and
+ no length can see. So both turn directions are graded and the signs are
+ opposite.
+
+ TWO OR ZERO AND NEVER ONE. A duck pond is a hand-drawn scene rather than an
+ emoji pair, and the terminus has no exit corner, so both contribute nothing.
+ The zig says that with an optional Species and a returned count; Codex has no
+ null, so the count is the list's own length -- which makes "never one" a claim
+ worth grading rather than a property of the type.
+
+ WHERE THE EXPECTED VALUES COME FROM: the placement rule, in doubles. The adult
+ sits at `hw + 1.5 + adult-h / 2` off centre, the baby 14 m further along at
+ centre and half the adult's height, and both face into the turn.
+
+ We say:
+
+Section: The Species Table
+
+ All six creatures, including the two that answer `no-species`. Five of the six
+ arms return something no other arm returns, and the sixth pair is the one worth
+ checking twice.
+
+  present-got : List Boolean
+  present-got = [(species-of Elephant).present, (species-of Giraffe).present, (species-of Zebra).present, (species-of Rhino).present, (species-of DuckPond).present, (species-of NoCreature).present]
+
+  present-want : List Boolean
+  present-want = [True, True, True, True, False, False]
+
+  cp-got : List Integer
+  cp-got = [(species-of Elephant).cp, (species-of Giraffe).cp, (species-of Zebra).cp, (species-of Rhino).cp, (species-of DuckPond).cp, (species-of NoCreature).cp]
+
+  cp-want : List Integer
+  cp-want = [128024, 129426, 129427, 129423, 0, 0]
+
+ The giraffe stands tallest and the rhino is deliberately about thirty percent
+ under the elephant, so it reads against the mountains instead of the sky.
+
+  height-got : List Real
+  height-got = [(species-of Elephant).adult-h, (species-of Giraffe).adult-h, (species-of Zebra).adult-h, (species-of Rhino).adult-h, (species-of DuckPond).adult-h]
+
+  height-want : List Real
+  height-want = [2.8, 4.5, 1.6, 2.2, 0.0]
+
+  dims-got : List Real
+  dims-got = [adult-rail-buffer, baby-ratio, baby-beyond]
+
+  dims-want : List Real
+  dims-want = [1.5, 0.5, 14.0]
+
+Section: The Corner Pair, Both Ways Round
+
+ Four corners: an elephant on a right turn, a giraffe on a left, a zebra on a
+ right off a wider road, a rhino on a left. The two right turns put the adult at
+ NEGATIVE across and the two left turns at positive, which is the negation.
+
+  pair-a : List Critter
+  pair-a = corner-critters Elephant 100.0 True 2.0
+
+  pair-b : List Critter
+  pair-b = corner-critters Giraffe 50.0 False 2.0
+
+  pair-c : List Critter
+  pair-c = corner-critters Zebra 10.0 True 2.5
+
+  pair-d : List Critter
+  pair-d = corner-critters Rhino 0.0 False 2.0
+
+  all-four : List Critter
+  all-four = pair-a & pair-b & pair-c & pair-d
+
+  across-got : List Real
+  across-got = list-map (\c -> c.across) all-four
+
+  across-want : List Real
+  across-want = [-4.9, 0.0, 5.75, 0.0, -4.8, 0.0, 4.6, 0.0]
+
+  along-got : List Real
+  along-got = list-map (\c -> c.along) all-four
+
+  along-want : List Real
+  along-want = [100.0, 114.0, 50.0, 64.0, 10.0, 24.0, 0.0, 14.0]
+
+  ch-got : List Real
+  ch-got = list-map (\c -> c.height) all-four
+
+  ch-want : List Real
+  ch-want = [2.8, 1.4, 4.5, 2.25, 1.6, 0.8, 2.2, 1.1]
+
+  ccp-got : List Integer
+  ccp-got = list-map (\c -> c.codepoint) all-four
+
+  ccp-want : List Integer
+  ccp-want = [128024, 128024, 129426, 129426, 129427, 129427, 129423, 129423]
+
+ Both animals face INTO the turn, so their eyes lead the rider around it -- which
+ means the flag follows the turn direction and not the side the adult stands on.
+
+  face-got : List Boolean
+  face-got = list-map (\c -> c.face-right) all-four
+
+  face-want : List Boolean
+  face-want = [True, True, False, False, True, True, False, False]
+
+Section: Two Or Zero, Never One
+
+  count-got : List Integer
+  count-got =
+    [ list-length pair-a,
+      list-length (corner-critters DuckPond 100.0 True 2.0),
+      list-length (corner-critters NoCreature 100.0 True 2.0) ]
+
+  count-want : List Integer
+  count-want = [2, 0, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-bools "sk-present" present-got present-want)
+    print-line-uni (grade-ints  "sk-cp    " cp-got cp-want)
+    print-line-uni (grade-reals "sk-height" height-got height-want 0.0)
+    print-line-uni (grade-reals "sk-dims  " dims-got dims-want 0.0)
+    print-line-uni (grade-reals "sk-across" across-got across-want 0.0)
+    print-line-uni (grade-reals "sk-along " along-got along-want 0.0)
+    print-line-uni (grade-reals "sk-ch    " ch-got ch-want 0.0)
+    print-line-uni (grade-ints  "sk-ccp   " ccp-got ccp-want)
+    print-line-uni (grade-bools "sk-face  " face-got face-want)
+    print-line-uni (grade-ints  "sk-count " count-got count-want)
+  end

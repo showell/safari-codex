@@ -1,5 +1,4 @@
 Chapter: TreePlan
-  cites Gpu chapter DeviceMath
   cites Safari chapter DepthSort
   cites Safari chapter Frame
   cites Safari chapter SceneLimits

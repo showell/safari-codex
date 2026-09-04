@@ -1,0 +1,124 @@
+Chapter: GroundSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Ground
+  cites Judge chapter Grade
+
+ Ground: a quad on the floor, and the three ways it can come to nothing.
+
+ Ground quads never enter the depth sort -- they are painted first, in walk
+ order, and everything that stands up is painted over them -- so this is a
+ pipeline of its own and nothing in judge/ grades it as one.
+
+ THE EIGHT-POINT GUARD IS THE ZIG'S FIXED BUFFER AND IT REFUSES RATHER THAN
+ TRUNCATES. A caller handing in nine points gets NOTHING, not the first eight,
+ and the chapter says why: a silently shortened ground quad would be a wrong
+ shape painted confidently. That is a decision, not an implementation detail,
+ and it is the kind that gets "simplified" by someone who reads the buffer size
+ as a limit rather than as a contract. Both sides of it are graded -- eight
+ points draw, nine draw nothing.
+
+ THE OTHER TWO WAYS TO COME TO NOTHING are the near plane and the polygon guard,
+ and they are different failures with the same result. A quad entirely behind
+ the eye is clipped to fewer than three vertices and dropped; a caller handing
+ in two points is dropped before any clipping happens. Grading both is what
+ keeps a rewrite from collapsing them into one test in the wrong place.
+
+ WHERE THE EXPECTED VALUES COME FROM: the drop is d^2 / 2R with R = 100000,
+ which is exact arithmetic and graded at 0.0; the command count and its tag come
+ from `push-poly`, which emits exactly one tag-0 command or none. The projected
+ COORDINATES are not graded here -- they are Camera's, and CameraCheck grades
+ them -- so this asserts the count of them and not their values, which is the
+ honest half of what this chapter is responsible for.
+
+ We say:
+
+Section: The Curvature Drop
+
+ A ground vertex keeps its point and hangs its height below the tangent plane.
+ The sign is the assertion: the height is NEGATIVE, because the ground falls
+ away, and a missing negation would bow the road upward into the sky.
+
+  pts-a : List RiderPt
+  pts-a =
+    [ RiderPt { right = 0.0, forward = 0.0 },
+      RiderPt { right = 3.0, forward = 10.0 },
+      RiderPt { right = -5.0, forward = 40.0 },
+      RiderPt { right = 12.5, forward = 100.0 } ]
+
+  height-got : List Real
+  height-got = list-map (\v -> v.height) (ground-verts pts-a 0)
+
+  height-want : List Real
+  height-want = [0.0, -0.000545, -0.008125, -0.05078125]
+
+ The point itself is carried through untouched.
+
+  carry-got : List Real
+  carry-got =
+    let vs = ground-verts pts-a 0
+    in [(list-at vs 1).right, (list-at vs 1).forward, (list-at vs 3).right, (list-at vs 3).forward]
+
+  carry-want : List Real
+  carry-want = [3.0, 10.0, 12.5, 100.0]
+
+Section: What Comes Out
+
+ A square ten metres on a side, well in front of the eye. One command, tag 0,
+ carrying the colour it was given and two coordinates per vertex.
+
+  quad : List RiderPt
+  quad =
+    [ RiderPt { right = -5.0, forward = 10.0 },
+      RiderPt { right = 5.0, forward = 10.0 },
+      RiderPt { right = 5.0, forward = 20.0 },
+      RiderPt { right = -5.0, forward = 20.0 } ]
+
+  behind : List RiderPt
+  behind =
+    [ RiderPt { right = -5.0, forward = -10.0 },
+      RiderPt { right = 5.0, forward = -10.0 },
+      RiderPt { right = 5.0, forward = -20.0 },
+      RiderPt { right = -5.0, forward = -20.0 } ]
+
+  two-points : List RiderPt
+  two-points = [RiderPt { right = -5.0, forward = 10.0 }, RiderPt { right = 5.0, forward = 10.0 }]
+
+  wide : Integer -> List RiderPt
+  wide (n) =
+    if n <= 0 then []
+    else [RiderPt { right = real-from-int n, forward = 10.0 + real-from-int n }] & wide (n - 1)
+
+  drawn : List RiderPt -> List DrawCmd
+  drawn (ps) = emit-ground-color ps 3112588 685.5110432362151 960.0
+
+  count-got : List Integer
+  count-got =
+    [ list-length (drawn quad),
+      list-length (drawn (wide 8)),
+      list-length (drawn (wide 9)),
+      list-length (drawn behind),
+      list-length (drawn two-points) ]
+
+  count-want : List Integer
+  count-want = [1, 1, 0, 0, 0]
+
+ The one command a good quad produces: tag 0 is a flat polygon, the colour is
+ the one handed in, and `pts` is flattened, so four vertices are eight reals.
+
+  cmd-got : List Integer
+  cmd-got =
+    let c = list-at (drawn quad) 0
+    in [c.tag, c.color, c.color2, list-length c.pts, list-length c.geom]
+
+  cmd-want : List Integer
+  cmd-want = [0, 3112588, 0, 8, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "gr-height" height-got height-want 0.0)
+    print-line-uni (grade-reals "gr-carry " carry-got carry-want 0.0)
+    print-line-uni (grade-ints  "gr-count " count-got count-want)
+    print-line-uni (grade-ints  "gr-cmd   " cmd-got cmd-want)
+  end

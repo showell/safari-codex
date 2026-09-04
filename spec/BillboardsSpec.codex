@@ -1,0 +1,126 @@
+Chapter: BillboardsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Billboards
+  cites Judge chapter Grade
+
+ Billboards: the two culls, and the THIRD state that is neither.
+
+ Every emoji animal in the safari goes through this -- cows, bulls, the pig
+ herd, the corner pair, the pond ducks -- so the placement rule is written once
+ and nothing in judge/ grades it directly.
+
+ THE THIRD STATE IS THE WHOLE POINT AND IT IS THE EASIEST TO LOSE. The zig's
+ near-plane cull is SILENT: it `continue`s without touching a counter. So a
+ placement can be neither `kept` nor `size-culled`, and a re-implementation that
+ modelled the verdict as one Boolean would collapse those two rejections into
+ one and change a counter the whole-frame check reads. The chapter's own prose
+ says so; this file is what would notice.
+
+ WHERE THE EXPECTED VALUES COME FROM: the two conditions, evaluated by hand.
+ `forward <= near` is the near cull at 0.4 m, and it is `<=`, so a placement
+ exactly ON the plane is rejected -- graded below rather than assumed.
+ `h / forward * focal < 2.0` is the size cull, which for a one-metre animal puts
+ the boundary at 685.5110432362151 / 2 = 342.75552161810754 metres. The cases at
+ 342 and 343 straddle it, a metre apart, and a test that only sampled round
+ numbers would put the boundary anywhere in a hundred-metre band and never know.
+
+ We say:
+
+Section: The Cases
+
+ Behind the rider, inside the near plane, exactly on it, just past it, three
+ depths around the size boundary, one far enough to fail it outright, a
+ zero-height animal, and a duck at 0.9 m.
+
+  fwd-in : List Real
+  fwd-in = [-5.0, 0.3, 0.4, 0.5, 300.0, 342.0, 343.0, 400.0, 10.0, 50.0]
+
+  h-in : List Real
+  h-in = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.9]
+
+  placed-at : Integer -> Placed
+  placed-at (i) =
+    let p = RiderPt { right = 2.5, forward = list-at fwd-in i }
+    in verdict p (list-at h-in i) 128004 True
+
+  placed-all : Integer -> List Placed
+  placed-all (i) =
+    if i >= list-length fwd-in then []
+    else [placed-at i] & placed-all (i + 1)
+
+Section: The Three Verdicts
+
+ `kept` and `size-culled` are graded as two independent lists, because that is
+ what makes the third state visible: the first three cases are FALSE in both,
+ and no single Boolean could say that.
+
+  kept-got : List Boolean
+  kept-got = list-map (\p -> p.kept) (placed-all 0)
+
+  kept-want : List Boolean
+  kept-want = [False, False, False, True, True, True, False, False, False, True]
+
+  culled-got : List Boolean
+  culled-got = list-map (\p -> p.size-culled) (placed-all 0)
+
+  culled-want : List Boolean
+  culled-want = [False, False, False, False, False, False, True, True, True, False]
+
+Section: What A Verdict Carries
+
+ A kept placement carries the point, the height and the tag it was given; a
+ rejected one carries `no-billboard`, which is zeros and False rather than
+ whatever the caller passed. Grading the rejected one matters: leaving the real
+ billboard in place on a rejection would pass every count above.
+
+  carried-real-got : List Real
+  carried-real-got =
+    let k = placed-at 3
+    in let n = placed-at 1
+    in [k.b.right, k.b.fwd, k.b.height, n.b.right, n.b.fwd, n.b.height]
+
+  carried-real-want : List Real
+  carried-real-want = [2.5, 0.5, 1.0, 0.0, 0.0, 0.0]
+
+  carried-int-got : List Integer
+  carried-int-got = [(placed-at 3).b.cp, (placed-at 1).b.cp]
+
+  carried-int-want : List Integer
+  carried-int-want = [128004, 0]
+
+  carried-bool-got : List Boolean
+  carried-bool-got = [(placed-at 3).b.face-right, (placed-at 1).b.face-right]
+
+  carried-bool-want : List Boolean
+  carried-bool-want = [True, False]
+
+Section: Harvesting
+
+ Four survive and three are size-culled; the other three were rejected by the
+ near plane and are counted by neither, which is the arithmetic the third state
+ exists to make possible.
+
+  harvest-got : List Integer
+  harvest-got = [list-length (kept-of (placed-all 0) 0), size-culled-of (placed-all 0) 0, list-length (placed-all 0)]
+
+  harvest-want : List Integer
+  harvest-want = [4, 3, 10]
+
+  floor-got : List Real
+  floor-got = [min-critter-px]
+
+  floor-want : List Real
+  floor-want = [2.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-bools "bb-kept " kept-got kept-want)
+    print-line-uni (grade-bools "bb-culled" culled-got culled-want)
+    print-line-uni (grade-reals "bb-carry" carried-real-got carried-real-want 0.0)
+    print-line-uni (grade-ints  "bb-cp   " carried-int-got carried-int-want)
+    print-line-uni (grade-bools "bb-face " carried-bool-got carried-bool-want)
+    print-line-uni (grade-ints  "bb-count" harvest-got harvest-want)
+    print-line-uni (grade-reals "bb-floor" floor-got floor-want 0.0)
+  end

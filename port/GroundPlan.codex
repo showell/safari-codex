@@ -1,5 +1,4 @@
 Chapter: GroundPlan
-  cites Gpu chapter DeviceMath
   cites Safari chapter Geom
   cites Safari chapter Ground
   cites Safari chapter Joint

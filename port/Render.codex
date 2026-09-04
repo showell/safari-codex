@@ -1,5 +1,4 @@
 Chapter: Render
-  cites Gpu chapter DeviceMath
   cites Safari chapter CatPlan
   cites Safari chapter CritterPlan
   cites Safari chapter DepthSort

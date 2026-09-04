@@ -1,0 +1,119 @@
+Chapter: CatStillsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter CatStills
+  cites Judge chapter Grade
+
+ CatStills: seven baked pose tables and the index that selects them.
+
+ HALF A MEGABYTE OF GENERATED LITERALS, WHICH IS THE POINT. This chapter is the
+ largest single file in the port -- 2,198 StillPt records in one list literal for
+ the rest pose alone -- and nothing about it can be wrong arithmetically. What
+ can go wrong is that an arm's front end will not swallow a list literal that
+ long, or will swallow it slowly enough to matter. A generated table nothing
+ cites is a table nothing compiles, and it is the thing in this port most likely
+ to find a limit.
+
+ THE VALUES ARE CAPTURED AND SAY SO. bake_stills.py generates this chapter from
+ the art; there is no definition to derive a want from, and the oracle for
+ whether the art is right is the blitter diff against the golden PNG. So the
+ sizes below are counted from the tables and the file's job is to notice a table
+ that changed size, emptied, or stopped compiling -- not to re-judge the drawing.
+
+ THE DISPATCH IS THE ONE PIECE OF ACTUAL CODE. `cat-polys-for` is a seven-way
+ chain of index tests with a fallback to the empty list, so every arm is graded:
+ an off-by-one in the middle of that chain returns a real pose for the wrong
+ index, which draws a cat in the wrong shape rather than failing. The fallback is
+ graded at both ends -- -1 and 7 -- because a chain like this is written with `if
+ i == 0` and a missing guard fails at exactly one end.
+
+ THE POSES ARE NOT ALL DISTINCT IN SIZE. Four of the seven have 34 polygons and
+ 1,715 points, so no count can tell coil from collapse; the first point of each
+ is what separates those four, and it is graded for exactly them.
+
+ WHAT COSTS HERE IS NAMING A TABLE, NOT WALKING ONE, and the file is shaped
+ around that measurement. A nullary binding emits as a FUNCTION -- PORTING_NOTES
+ B13, the same fact that keeps `no-grad` from existing -- so every mention of
+ `pose-rest-polys` REBUILDS all 2,198 points. Measured: one reference is 9,110
+ steps, two are 18,168, four are 36,284, exactly linear and nothing memoised.
+
+ So every table is reached ONCE, through `cat-polys-for`, which is the dispatch
+ this file has to grade anyway. Walking the whole table costs almost nothing
+ once it is built, so all seven are summed in full rather than spot-checked --
+ the cheaper version of this file was also the weaker one, and both facts came
+ out of the same measurement.
+
+ We say:
+
+Section: Counting
+
+ Everything worth knowing about one table, computed from a SINGLE reference to
+ it. Splitting these into separate lines is what made an earlier draft cost
+ three times as much: each line named the table again and rebuilt it.
+
+  pts-in : List StillPoly, Integer -> Integer
+  pts-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.pts + pts-in ps (i + 1)
+
+  grads-in : List StillPoly, Integer -> Integer
+  grads-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.grad + grads-in ps (i + 1)
+
+  facts : List StillPoly -> List Integer
+  facts (ps) = [list-length ps, pts-in ps 0, grads-in ps 0]
+
+  pose-facts : Integer -> List Integer
+  pose-facts (i) = facts (cat-polys-for i)
+
+Section: The Seven Poses, Through The Dispatch
+
+ Polygons, points and gradients for each of the seven, then both ends of the
+ fallback. Reaching them through `cat-polys-for` grades the dispatch and the
+ tables in one pass: an off-by-one in that seven-way chain returns a real pose
+ for the wrong index, which draws a cat in the wrong shape rather than failing,
+ and the counts below are what would catch it.
+
+ NO POSE CARRIES A GRADIENT. Every cat polygon is solid; the gradients in this
+ port are the bull's. That is an assertion and not an observation -- if a
+ regenerated table started carrying them, the renderer would take a path this
+ chapter has never taken.
+
+  table-got : List Integer
+  table-got = (pose-facts 0) & (pose-facts 1) & (pose-facts 2) & (pose-facts 3) & (pose-facts 4) & (pose-facts 5) & (pose-facts 6) & (pose-facts 7) & (pose-facts (0 - 1))
+
+  table-want : List Integer
+  table-want =
+    [ 46, 2198, 0,
+      46, 2198, 0,
+      47, 2197, 0,
+      34, 1715, 0,
+      34, 1715, 0,
+      34, 1715, 0,
+      34, 1715, 0,
+      0, 0, 0,
+      0, 0, 0 ]
+
+Section: Telling The Four Apart
+
+ Coil, flight, land and collapse have identical counts, so the section above
+ cannot distinguish them and a dispatch that returned one of them for all four
+ would pass it. The first point of each differs; these four cost one more
+ reference apiece and they are the only ones that need it.
+
+  first-x : Integer -> Real
+  first-x (i) = let ps = cat-polys-for i in (list-at (list-at ps 0).pts 0).x
+
+  spot-got : List Real
+  spot-got = [first-x 3, first-x 4, first-x 5, first-x 6]
+
+  spot-want : List Real
+  spot-want = [0.5062, 0.6873, 0.6467, 0.6377]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "cs-table" table-got table-want)
+    print-line-uni (grade-reals "cs-spot " spot-got spot-want 0.0)
+  end

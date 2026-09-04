@@ -130,12 +130,21 @@ Three rules the files are held to, each of which caught something:
   rather than skipping when a `-want` is not a list literal, which is what
   structurally forbids a want computed from the got.
 
-**`spec/heavy/` is out of the default path**: the two baked stills tables are
-763 KB of literals and 470,000 of the suite's 537,000 steps. They are also the
-least likely thing here to change, and if they do the honest check is an eye
-test rather than this gate -- which is why `judge/` has never had a
-`CatStillsCheck` either. `./spec/run.sh --heavy` includes them; run it when the
-baker runs. See **Stills, not frames** below.
+**The baked stills stay in, but held to a budget.** `CatStills` and
+`EmojiStills` are 763 KB of generated literals and they are the likeliest thing
+here to find a front-end limit, so they belong in the default path -- but they
+should not dominate it. What costs is NAMING a table, not walking one: a nullary
+binding emits as a function (`PORTING_NOTES` B13), so every mention of
+`pose-rest-polys` rebuilds all 2,198 of its points. Measured, one reference is
+9,110 steps, two are 18,168, four are 36,284 -- exactly linear, nothing
+memoised. So each table is reached ONCE, through the dispatch those specs have
+to grade anyway, and everything about it is computed from that single reference.
+That took the two from 470,000 steps to 163,000 while ADDING assertions.
+
+They are still the trickiest thing here, and they are deliberately out of some
+checks: `judge/` has never had a `CatStillsCheck`, because the honest oracle for
+baked art is the blitter diff and the eye test. See **Stills, not frames**
+below.
 
 ## Before the loop will run
 

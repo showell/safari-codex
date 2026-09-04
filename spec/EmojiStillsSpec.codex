@@ -1,0 +1,121 @@
+Chapter: EmojiStillsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter EmojiStills
+  cites Judge chapter Grade
+
+ EmojiStills: eight baked animal tables, selected by Unicode codepoint.
+
+ THE DISPATCH IS BY CODEPOINT AND THAT IS WHAT MAKES IT WORTH GRADING. Where
+ CatStills selects a pose by a small index, this chapter selects an animal by
+ numbers like 129414 and 128024 -- six digits apart in ways no reader checks by
+ eye, and adjacent in ways that matter: giraffe is 129426 and zebra is 129427.
+ A transposed digit or an off-by-one lands on a real animal and draws the wrong
+ one, silently, forever. All eight are graded and so is the miss.
+
+ THE BULL IS THE ONLY ANIMAL WITH GRADIENTS AND THAT IS ASSERTED, not observed.
+ Forty of its forty-three polygons carry a StillGrad; every other table in this
+ port is solid. The chapter's own prose says the bull has a stop at alpha zero --
+ a gradient fading to nothing rather than to a colour -- so it is the single
+ exerciser of the shaded path in the whole renderer. If a regenerated table lost
+ those gradients the bull would still draw, as a flat shape, and nothing else
+ would complain.
+
+ THE VALUES ARE CAPTURED AND SAY SO, as in CatStillsSpec: bake_stills.py
+ generates this from the art and the oracle for the drawing is the blitter diff.
+ What this file asks is whether the chapter compiles, loads, dispatches, and
+ still holds what it held.
+
+ WHAT COSTS HERE IS NAMING A TABLE, NOT WALKING ONE. A nullary binding emits as
+ a FUNCTION (PORTING_NOTES B13), so every mention of `bull-polys` rebuilds all
+ 2,309 of its points; measured on the cat, the cost is exactly linear in
+ references and nothing is memoised. So each table is reached ONCE, through
+ `emoji-polys-for` -- which is the dispatch this file exists to grade -- and
+ everything worth knowing about it is computed from that one reference.
+
+ We say:
+
+Section: Counting
+
+ Everything worth knowing about one table, from a SINGLE reference to it.
+
+  pts-in : List StillPoly, Integer -> Integer
+  pts-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.pts + pts-in ps (i + 1)
+
+  grads-in : List StillPoly, Integer -> Integer
+  grads-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.grad + grads-in ps (i + 1)
+
+ The first polygon's colour comes along for the ride: duck, elephant, rhino and
+ pig all have six polygons, so no count separates them and the colour is the
+ cheapest thing that does. An empty table has no first polygon, so the fallback
+ arms report a colour of zero rather than reading one.
+
+  facts : List StillPoly -> List Integer
+  facts (ps) =
+    if list-length ps == 0 then [0, 0, 0, 0]
+    else [list-length ps, pts-in ps 0, grads-in ps 0, (list-at ps 0).color]
+
+  emoji-facts : Integer -> List Integer
+  emoji-facts (cp) = facts (emoji-polys-for cp)
+
+Section: The Eight Animals, Through The Dispatch
+
+ In chapter order: duck, elephant, giraffe, zebra, rhino, bull, cow, pig. Then
+ two misses -- 129425 sits between giraffe at 129426 and rhino at 129423 and
+ belongs to neither, which is the miss a fat-fingered codepoint would actually
+ produce; 0 is the trivial one.
+
+ THE BULL CARRIES FORTY GRADIENTS AND NOTHING ELSE CARRIES ANY. It is the only
+ shaded table in the port and so the only exerciser of the renderer's shaded
+ path; if a regenerated table lost those, the bull would still draw, as a flat
+ shape, and nothing else would complain.
+
+  table-got : List Integer
+  table-got = (emoji-facts 129414) & (emoji-facts 128024) & (emoji-facts 129426) & (emoji-facts 129427) & (emoji-facts 129423) & (emoji-facts 128002) & (emoji-facts 128004) & (emoji-facts 128022) & (emoji-facts 129425) & (emoji-facts 0)
+
+  table-want : List Integer
+  table-want =
+    [ 6, 189, 0, 4493595,
+      6, 257, 0, 6513507,
+      24, 850, 0, 16745005,
+      22, 713, 0, 10197915,
+      6, 237, 0, 13882323,
+      43, 2309, 40, 4989733,
+      16, 469, 0, 10197915,
+      6, 243, 0, 16735833,
+      0, 0, 0, 0,
+      0, 0, 0, 0 ]
+
+Section: The Shaded Path
+
+ The bull's first gradient, read through the at-most-one list: its kind and its
+ two offsets. Kind 1 is linear, 2 is radial. This is the one place in the suite
+ that reaches INTO a StillGrad that came off the baker rather than one this
+ suite constructed, which is what StillsSpec does instead.
+
+  bull-grad : StillGrad
+  bull-grad = list-at (list-at bull-polys 0).grad 0
+
+  bg-int-got : List Integer
+  bg-int-got = [bull-grad.kind]
+
+  bg-int-want : List Integer
+  bg-int-want = [1]
+
+  bg-real-got : List Real
+  bg-real-got = [bull-grad.off0, bull-grad.off1]
+
+  bg-real-want : List Real
+  bg-real-want = [0.0, 1.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "es-table" table-got table-want)
+    print-line-uni (grade-ints  "es-bgi  " bg-int-got bg-int-want)
+    print-line-uni (grade-reals "es-bgr  " bg-real-got bg-real-want 0.0)
+  end

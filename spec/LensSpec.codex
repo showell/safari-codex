@@ -1,0 +1,102 @@
+Chapter: LensSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Lens
+  cites Judge chapter Grade
+
+ Lens: the base focal and the two narrowings that pull it in.
+
+ Nothing in judge/ grades this chapter. Camera has a check and Lens was split
+ out of it on 2026-09-03, taking the focal and the pull-ins with it and leaving
+ the check behind on the projection -- so the split moved code out from under
+ its own oracle, which is a thing splits do quietly and this file is the repair.
+
+ WHERE THE EXPECTED VALUES COME FROM: the definitions, in arithmetic that owes
+ the chapter nothing. The base focal is a half-width over the tangent of half the
+ field of view -- 480 / tan 35 degrees -- and the two narrowings are that number
+ times the factor each formula gives. None of it was captured. Writing the wants
+ as `focal * 0.35` would have been a tautology dressed as a test: it would pass
+ against any base focal at all, including a wrong one.
+
+ THE TOLERANCE IS MEASURED AND THE MEASUREMENT IS THE INTERESTING PART. `r-tan`
+ is `real-sin x / real-cos x` and DeviceMath's sine is a truncated Taylor series,
+ so the focal inherits that error: graded relatively, this file FAILS at 1e-10
+ and PASSES at 1.2e-10, which puts the error just over 1e-10 relative -- about
+ 7e-8 of a pixel on a 685-pixel focal. That is three hundred times smaller than
+ the 5.6e-8 absolute error TrigSpec measures at the same series' worst argument,
+ because 35 degrees is nowhere near the quadrant fold's worst point. The gate is
+ 1e-9, the next round decade above what was measured.
+
+ THE WANTS BEING TRUE VALUES IS WHAT MAKES THAT GATE SAFE IN THE RIGHT
+ DIRECTION. Upstream issue 122 asks for two more terms in the sine; if it lands,
+ these gots move TOWARD the wants rather than away, because the wants are the
+ mathematics and the error is the implementation's. A file whose wants had been
+ captured from today's output would break on that fix and read as a regression.
+
+ We say:
+Section: The Base Focal
+
+ 480 pixels of half-width over tan 35 degrees. Computed from the definition, not
+ captured: the chapter says the base focal is a half-width over the tangent of
+ half the field of view, and 960 / 2 over tan(70 / 2) is 685.5110432362151.
+
+  base-got : List Real
+  base-got = [camera-w, fov-deg, focal]
+
+  base-want : List Real
+  base-want = [960.0, 70.0, 685.5110432362151]
+
+Section: The Two Narrowings
+
+ The lean narrows as the SQUARE of the fraction, down to 0.35 of the base at
+ full lean; attention narrows LINEARLY, down to 0.61 at full gaze. Both wants
+ are the base focal times the factor the chapter's own formula gives, worked out
+ independently rather than by calling the chapter.
+
+ ATTENTION IS GRADED PAST 1.0 ON PURPOSE. The chapter says a crossing cat's
+ attention overshoots one, so 1.5 is a value the game produces and the formula
+ has no clamp: it gives 0.415 of the base, which pulls in HARDER than a full
+ gaze at 0.61 and harder than a full lean at 0.35 would if squared. A spec that
+ stopped at 1.0 would leave the only regime where gaze beats lean untested.
+
+  lean-in : List Real
+  lean-in = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+  lean-want : List Real
+  lean-want = [685.5110432362151, 657.6621571047439, 574.1154987103301, 434.8710680529739, 239.92886513267527]
+
+  gaze-in : List Real
+  gaze-in = [0.0, 0.5, 1.0, 1.5]
+
+  gaze-want : List Real
+  gaze-want = [685.5110432362151, 551.8363898051531, 418.16173637409116, 284.4870829430293]
+
+Section: The Tighter One Wins
+
+ Six pairs, chosen so that each narrowing wins some of them and the two are
+ EQUAL in one. At (0, 0) neither narrows and the two are the same number, which
+ is the case that would let a `min` written backwards still pass every other
+ line here -- so the pairs after it split three to two the other way.
+
+  cam-lean : List Real
+  cam-lean = [0.0, 1.0, 0.0, 0.5, 0.9, 0.6]
+
+  cam-gaze : List Real
+  cam-gaze = [0.0, 0.0, 1.0, 0.3, 1.4, 0.5]
+
+  cam-want : List Real
+  cam-want = [685.5110432362151, 239.92886513267527, 418.16173637409116, 574.1154987103301, 311.2220136292417, 525.1014591189407]
+
+  cam-walk : Integer -> List Real
+  cam-walk (i) =
+    if i >= list-length cam-lean then []
+    else [cam-focal (list-at cam-lean i) (list-at cam-gaze i)] & cam-walk (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-rel "l-base " base-got base-want 0.000000001)
+    print-line-uni (grade-rel "l-lean " (list-map focal-for-lean lean-in) lean-want 0.000000001)
+    print-line-uni (grade-rel "l-gaze " (list-map focal-for-gaze gaze-in) gaze-want 0.000000001)
+    print-line-uni (grade-rel "l-cam  " (cam-walk 0) cam-want 0.000000001)
+  end

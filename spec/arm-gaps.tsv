@@ -1,0 +1,12 @@
+# Specs whose zig-arm output differs for a reason that is FILED and is not ours.
+#
+#   SpecName<TAB>issue<TAB>what differs
+#
+# THE SPEC IS RIGHT AND THE ARM IS WRONG, which is why these are recorded rather
+# than fixed by loosening a tolerance. Rewriting a correct test to match a broken
+# implementation buries the defect and then defends it.
+#
+# A line here is a promise to remove it. When the issue closes, delete the line
+# and the gate goes green on its own; if it does not, we learn something.
+BikeSpec	125	Real literals are not correctly rounded, so bk-exact's written-down doubles differ by 1 ULP
+ViewYawSpec	125	as above, for vy-yaw's 0.012500000000000011

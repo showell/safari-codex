@@ -57,6 +57,25 @@ BUNDLE = os.environ.get(
 )
 
 
+# A zig-arm difference that is filed and not ours: reported, never fatal.
+KNOWN = "\0known\0"
+
+
+def arm_gaps():
+    """-> {spec name: (issue, what differs)} for known, filed zig-arm gaps."""
+    out = {}
+    f = ROOT / "spec" / "arm-gaps.tsv"
+    if not f.is_file():
+        return out
+    for line in f.read_text().splitlines():
+        line = line.split("#")[0].rstrip()
+        if not line.strip():
+            continue
+        name, issue, note = (line.split("\t") + ["", ""])[:3]
+        out[name.strip()] = (issue.strip(), note.strip())
+    return out
+
+
 def floors():
     """-> {spec name: fewest graded values it must still be checking}."""
     out = {}
@@ -106,19 +125,30 @@ def zig_arm(name, mod, out, build, spec):
     codexzig = subprocess.run([str(ROOT / "harness" / "build_codexzig.sh")],
                               capture_output=True, text=True).stdout.strip().splitlines()[-1]
     zig = os.environ.get("ZIG", os.path.expanduser("~/zig-0.16.0/zig"))
+    # THE PROGRAM COMES OUT ON STDERR AND THE DIAGNOSTICS ON STDOUT, which is
+    # backwards from every instinct and is what the bash this replaced did:
+    # `2> $mod.zig > $mod.diag`. Porting it the obvious way round broke the zig
+    # arm silently -- every spec reported "codexzig emitted no program" the
+    # first time anyone ran it again.
     with open(build / f"{mod}-unit.codex") as f:
         r = subprocess.run([codexzig], stdin=f, capture_output=True, text=True)
-    (build / f"{mod}.zig").write_text(r.stdout)
-    if "// THE PRELUDE" not in r.stdout:
+    (build / f"{mod}.zig").write_text(r.stderr)
+    (build / f"{mod}.diag").write_text(r.stdout)
+    if "// THE PRELUDE" not in r.stderr:
         return "codexzig emitted no program"
     if subprocess.run([zig, "build-exe", f"{mod}.zig"], cwd=build).returncode:
         return "zig build failed"
     z = subprocess.run([f"./{mod}"], cwd=build, capture_output=True, text=True)
     zout = (z.stdout + z.stderr).strip()
-    if zout != out:
-        return "THE ARMS DISAGREE\n  rust: " + out.replace("\n", " | ") + \
-               "\n  zig:  " + zout.replace("\n", " | ")
-    return None
+    if zout == out:
+        return None
+    known = arm_gaps().get(name)
+    if known:
+        # Recorded, filed, and not ours. Reported every run so it cannot fade
+        # into the scenery, but it does not fail the gate.
+        return KNOWN + f"zig differs -- issue {known[0]}: {known[1]}"
+    return "THE ARMS DISAGREE\n  rust: " + out.replace("\n", " | ") + \
+           "\n  zig:  " + zout.replace("\n", " | ")
 
 
 def main():
@@ -150,6 +180,9 @@ def main():
         why = check(out, floor[name])
         if why is None and want_zig:
             why = zig_arm(name, name.lower(), out, build, spec)
+        if why is not None and why.startswith(KNOWN):
+            print(f"{name:18s} rust ok; {why[len(KNOWN):]}")
+            continue
         if why is not None:
             print(f"{name}: {why}", file=sys.stderr)
             failed += 1

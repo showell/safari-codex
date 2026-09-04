@@ -73,16 +73,21 @@ def duplicate_first(src, name):
     return src[:open_at + 1] + " " + first + "," + src[open_at + 1:]
 
 
-def main():
-    src = open(sys.argv[1]).read()
+def poison(src, where=""):
+    """Return src with both poisons applied. Raises SystemExit if it cannot."""
     names = re.findall(r"^  ([a-z0-9-]+-want) : ", src, re.M)
     if not names:
-        raise SystemExit(f"{sys.argv[1]}: no `-want` bindings, so nothing here is graded")
+        raise SystemExit(f"{where}: no `-want` bindings, so nothing here is graded")
     for name in names:
         src = duplicate_first(src, name)
-    src = re.sub(r" (0\.[0-9]+)\)$", " -1.0)", src, flags=re.M)
-    open(sys.argv[2], "w").write(src)
-    print(" ".join(names))
+    return re.sub(r" (0\.[0-9]+)\)$", " -1.0)", src, flags=re.M)
 
 
-main()
+def main():
+    src = open(sys.argv[1]).read()
+    open(sys.argv[2], "w").write(poison(src, sys.argv[1]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

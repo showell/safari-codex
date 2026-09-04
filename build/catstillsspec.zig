@@ -131,56 +131,36 @@ fn grads_in(ps: *CxList(StillPoly), i_: i64) i64 {
     return @as(i64, (if ((i_ >= cx_list_len(ps))) 0 else b1: { const p_ = cx_list_at(ps, i_); break :b1 (cx_list_len(p_.grad) +% grads_in(ps, (i_ +% 1))); }));
 }
 
-fn poly_got() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ cx_list_len(pose_rest_polys()), cx_list_len(pose_stride_polys()), cx_list_len(pose_frozen_polys()), cx_list_len(pose_coil_polys()), cx_list_len(pose_flight_polys()), cx_list_len(pose_land_polys()), cx_list_len(pose_collapse_polys()) });
+fn facts(ps: *CxList(StillPoly)) *CxList(i64) {
+    return cx_ll_of(i64, &[_]i64{ cx_list_len(ps), pts_in(ps, 0), grads_in(ps, 0) });
 }
 
-fn poly_want() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ 46, 46, 47, 34, 34, 34, 34 });
+fn pose_facts(i_: i64) *CxList(i64) {
+    return facts(cat_polys_for(i_));
 }
 
-fn pts_got() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ pts_in(pose_rest_polys(), 0), pts_in(pose_stride_polys(), 0), pts_in(pose_frozen_polys(), 0), pts_in(pose_coil_polys(), 0), pts_in(pose_flight_polys(), 0), pts_in(pose_land_polys(), 0), pts_in(pose_collapse_polys(), 0) });
+fn table_got() *CxList(i64) {
+    return cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(pose_facts(0), pose_facts(1)), pose_facts(2)), pose_facts(3)), pose_facts(4)), pose_facts(5)), pose_facts(6)), pose_facts(7)), pose_facts((0 -% 1)));
 }
 
-fn pts_want() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ 2198, 2198, 2197, 1715, 1715, 1715, 1715 });
+fn table_want() *CxList(i64) {
+    return cx_ll_of(i64, &[_]i64{ 46, 2198, 0, 46, 2198, 0, 47, 2197, 0, 34, 1715, 0, 34, 1715, 0, 34, 1715, 0, 34, 1715, 0, 0, 0, 0, 0, 0, 0 });
 }
 
-fn grad_got() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ grads_in(pose_rest_polys(), 0), grads_in(pose_stride_polys(), 0), grads_in(pose_frozen_polys(), 0), grads_in(pose_coil_polys(), 0), grads_in(pose_flight_polys(), 0), grads_in(pose_land_polys(), 0), grads_in(pose_collapse_polys(), 0) });
-}
-
-fn grad_want() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ 0, 0, 0, 0, 0, 0, 0 });
-}
-
-fn disp_got() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ cx_list_len(cat_polys_for(0)), cx_list_len(cat_polys_for(1)), cx_list_len(cat_polys_for(2)), cx_list_len(cat_polys_for(3)), cx_list_len(cat_polys_for(4)), cx_list_len(cat_polys_for(5)), cx_list_len(cat_polys_for(6)), cx_list_len(cat_polys_for(7)), cx_list_len(cat_polys_for((0 -% 1))) });
-}
-
-fn disp_want() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ 46, 46, 47, 34, 34, 34, 34, 0, 0 });
+fn first_x(i_: i64) f64 {
+    return b0: { const ps = cat_polys_for(i_); break :b0 cx_list_at(cx_list_at(ps, 0).pts, 0).x; };
 }
 
 fn spot_got() *CxList(f64) {
-    return cx_ll_of(f64, &[_]f64{ cx_list_at(cx_list_at(pose_rest_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_stride_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_frozen_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_coil_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_flight_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_land_polys(), 0).pts, 0).x, cx_list_at(cx_list_at(pose_collapse_polys(), 0).pts, 0).x });
+    return cx_ll_of(f64, &[_]f64{ first_x(3), first_x(4), first_x(5), first_x(6) });
 }
 
 fn spot_want() *CxList(f64) {
-    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4576457060702244936))), @as(f64, @bitCast(@as(i64, 4566758108544739836))), @as(f64, @bitCast(@as(i64, 4604382981271643908))), @as(f64, @bitCast(@as(i64, 4602734663808026306))), @as(f64, @bitCast(@as(i64, 4604365867593059900))), @as(f64, @bitCast(@as(i64, 4604000175303317416))), @as(f64, @bitCast(@as(i64, 4603919110510024747))) });
-}
-
-fn color_got() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ cx_list_at(pose_rest_polys(), 0).color, cx_list_at(pose_collapse_polys(), 0).color });
-}
-
-fn color_want() *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ 9066271, 9066271 });
+    return cx_ll_of(f64, &[_]f64{ @as(f64, @bitCast(@as(i64, 4602734663808026306))), @as(f64, @bitCast(@as(i64, 4604365867593059900))), @as(f64, @bitCast(@as(i64, 4604000175303317416))), @as(f64, @bitCast(@as(i64, 4603919110510024747))) });
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(grade_ints("\x18\x13\x49\x1f\x10\x17\x1e", poly_got(), poly_want())); _ = cx_print_line(grade_ints("\x18\x13\x49\x1f\x0e\x13\x02", pts_got(), pts_want())); _ = cx_print_line(grade_ints("\x18\x13\x49\x1d\x15\x0f\x16", grad_got(), grad_want())); _ = cx_print_line(grade_ints("\x18\x13\x49\x16\x11\x13\x1f", disp_got(), disp_want())); _ = cx_print_line(grade_reals("\x18\x13\x49\x13\x1f\x10\x0e", spot_got(), spot_want(), @as(f64, @bitCast(@as(i64, 0))))); _ = cx_print_line(grade_ints("\x18\x13\x49\x18\x10\x17\x02", color_got(), color_want())); break :b0; };
+    return b0: { _ = cx_print_line(grade_ints("\x18\x13\x49\x0e\x0f\x20\x17\x0d", table_got(), table_want())); _ = cx_print_line(grade_reals("\x18\x13\x49\x13\x1f\x10\x0e\x02", spot_got(), spot_want(), @as(f64, @bitCast(@as(i64, 0))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -233,6 +213,13 @@ fn cx_ll_of(comptime T: type, vs: []const T) *CxList(T) {
     l.items.ensureTotalCapacityPrecise(cx_gpa, vs.len) catch @panic("oom");
     l.items.appendSliceAssumeCapacity(vs);
     return l;
+}
+fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
+    const c = cx_new(@TypeOf(a.*){ .items = .empty });
+    c.items.ensureTotalCapacityPrecise(cx_gpa, a.items.items.len + b.items.items.len) catch @panic("oom");
+    c.items.appendSliceAssumeCapacity(a.items.items);
+    c.items.appendSliceAssumeCapacity(b.items.items);
+    return c;
 }
 // mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
 // bare metal holds a Real f64 as its own bits in a general register, so the

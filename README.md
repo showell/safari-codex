@@ -105,11 +105,18 @@ about fidelity:
 
 ## The unit tests: `spec/`
 
-**Run these first.** `./spec/run.sh` grades eleven chapters in about a second
-and roughly two milliseconds of interpreter. It is what to run after a compiler
+**Run these first.** `./spec/run.sh` grades thirteen chapters in **0.47
+seconds**, of which 10 ms is interpreter. It is what to run after a compiler
 change, before anything in `judge/` -- which asks a different and much more
 expensive question: `RenderCheck` alone builds a whole frame and takes 13.5
 seconds.
+
+It is ONE Python process on purpose. A bare Python start is 35 ms against 25 ms
+of actual bundling and a 5 ms `codexrun`, so the old bash loop's three
+interpreter starts per spec WERE the runtime -- 2.1 s for thirteen, and about
+8 s projected for fifty. The budget is fifty specs inside ten seconds, since
+anything under ten is drowned out by other noise; one process puts fifty at
+roughly 1.7 s.
 
 A spec is a **self-checking Codex chapter**: it carries its own expected values
 as literals and prints its own verdict, so any arm that runs Codex renders that

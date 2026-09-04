@@ -13,11 +13,9 @@
 # passing by doing NOTHING: `grade-reals` on two empty lists reports `ok 0`, and
 # a spec whose input list was emptied by an edit would sail through a gate that
 # only greps for BAD. So every spec is run twice -- once as written, which must
-# be all ok, and once with every tolerance forced NEGATIVE, which must be all
-# BAD. `grade-reals` asks whether |got - want| exceeds the tolerance, so at -1.0
-# even an exact match exceeds it; the only way to still report ok is to be
-# comparing nothing at all. A line that survives the mutant is a line that never
-# ran.
+# be all ok, and once through spec/mutate.py, which must be all BAD. A line that
+# survives the mutant is a line that never ran. mutate.py says what it poisons
+# and why, including what the poison cannot reach.
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
@@ -39,13 +37,11 @@ for s in spec/*Spec.codex; do
     if grep -q BAD <<<"$out"; then echo "$base:"; echo "$out"; fail=1; continue; fi
     if grep -qE "ok 0$" <<<"$out"; then echo "$base: a line graded ZERO values" >&2; echo "$out"; fail=1; continue; fi
 
-    # The mutant: every tolerance forced negative, so every line must fail.
-    # `0\.[0-9]+` and not `0\.0+[0-9]+`: an EXACT seam is graded at 0.0, and the
-    # narrower pattern skipped exactly those lines -- the mutant would have
-    # passed them through unchanged and reported them as ungraded. The check
-    # that catches "green because it never ran" is worth nothing if it can
-    # itself never run.
-    sed -E 's/ (0\.[0-9]+)\)$/ -1.0)/' "$s" > "$tmp/$base.codex"
+    # The mutant. It REFUSES rather than skipping when it meets a `-want` it
+    # cannot poison, so a spec cannot quietly opt out of being falsifiable.
+    if ! python3 spec/mutate.py "$s" "$tmp/$base.codex" >/dev/null; then
+        echo "$base: cannot be mutated, so it cannot be shown to fail" >&2; fail=1; continue
+    fi
     python3 harness/bundle.py "$tmp/$base.codex" "$tmp/$mod-unit.codex" >/dev/null 2>&1
     mut="$("$BIN" "$tmp/$mod-unit.codex" 2>&1)"
     live="$(grep -c BAD <<<"$mut")"; lines="$(grep -c . <<<"$out")"

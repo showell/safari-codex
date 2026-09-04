@@ -1,0 +1,188 @@
+Chapter: NumSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Num
+  cites Judge chapter Grade
+
+ Num, on a domain far wider than any caller's.
+
+ Num is the Real primitives Codex's foreword does not have -- rounding, floor,
+ ceiling, modulo, powers of two and the exponential -- and eleven chapters reach
+ it. Every one of them calls it on its own narrow domain: a 0..255 colour
+ channel, a stride count, a step count, a whole number of degrees. A rounding
+ that is wrong on a value none of them produces is invisible to all eleven and is
+ still a trap for the twelfth. That is the entire reason this file grades a
+ domain nobody currently asks for.
+
+ WHERE THE EXPECTED VALUES COME FROM. Rounding, flooring, the ceiling, modulo and
+ the powers of two are EXACTLY DETERMINED -- ties away from zero, the greatest
+ integer not above x, x - m * floor (x / m), 2^k -- so every want below was
+ computed from that definition and is graded at tolerance 0.0. They were then
+ confirmed against zig's own @round, @floor, @mod and @exp2, which is where
+ NumGold got them; the two agree on every cell.
+
+ CONFIRMING IN THAT ORDER MATTERS, AND THIS CHAPTER HAS THE RECEIPT. Deriving the
+ round table with the OBVIOUS formula, floor (|x| + 0.5), disagrees with the two
+ hardest cells here: it answers 1 at x = 0.49999999999999994 because x + 0.5 is
+ not representable and rounds up to exactly 1.0. That is not a subtlety of the
+ table -- it is the precise bug Num's own docstring records having fixed, and
+ rederiving the table walked straight back into it. Had these values been
+ CAPTURED from a chapter carrying that bug, the capture would have written the
+ bug in as the definition of correct and this file would defend it forever.
+
+ THE EXPONENTIAL IS THE ONE THAT CANNOT BE EXACT, because it is a twelve-term
+ Taylor series against a library function and the two are not the same
+ algorithm. Its wants are zig's @exp, cross-checked against libm independently:
+ the two agree to 1.6e-16 relative across all eighteen arguments. Measured, our
+ series is worst at x = 20 -- 7.4e-16 relative, an error that belongs to the
+ range reduction and not to the series, since taking k * ln2 off x cancels and
+ ln2 here is a single f64. The gate is 1e-15, which is the next round number
+ above what was measured and NOT a number chosen because it passed.
+
+ WHAT THIS FILE ADDS OVER judge/NumCheck. It needs no probe, no gold bank and no
+ zig: the tables are here, so any arm that runs Codex renders the verdict alone.
+ And it grades `ceil-real`, which has no gold and which NumCheck therefore does
+ not test at all.
+
+ We say:
+
+Section: Rounding
+
+ Ties go AWAY FROM ZERO, which truncation does not give. The domain runs past
+ the colour channels and step counts real callers produce, out to 1048576.5,
+ and includes both signs of the largest double below a half.
+
+  round-in : List Real
+  round-in =
+    [ -255.5, -128.5, -90.0, -80.4, -70.5, -2.5,
+      -1.5, -0.5000000000000001, -0.5, -0.49999999999999994, -0.25, 0.0,
+      0.25, 0.49999999999999994, 0.5, 1.5, 2.5, 4.5,
+      14.5, 19.5, 29.5, 49.5, 70.5, 127.5,
+      128.5, 254.5, 255.0, 1048576.5 ]
+
+  round-want : List Real
+  round-want =
+    [ -256.0, -129.0, -90.0, -80.0, -71.0, -3.0,
+      -2.0, -1.0, -1.0, -0.0, -0.0, 0.0,
+      0.0, 0.0, 1.0, 2.0, 3.0, 5.0,
+      15.0, 20.0, 30.0, 50.0, 71.0, 128.0,
+      129.0, 255.0, 255.0, 1048577.0 ]
+
+Section: Flooring And The Ceiling
+
+ The greatest integer not above x. real-to-int truncates toward zero, so for a
+ negative non-integral value it lands ABOVE its argument and the floor is one
+ less; an exact integer is its own floor in both arms.
+
+  floor-in : List Real
+  floor-in =
+    [ -1000.5, -120.0, -119.5, -2.5, -2.0, -1.5,
+      -1.0, -0.5, 0.0, 0.5, 1.0, 1.5,
+      2.0, 2.5, 119.5, 120.0, 1000.5 ]
+
+  floor-want : List Real
+  floor-want =
+    [ -1001.0, -120.0, -120.0, -3.0, -2.0, -2.0,
+      -1.0, -1.0, 0.0, 0.0, 1.0, 1.0,
+      2.0, 2.0, 119.0, 120.0, 1000.0 ]
+
+ The ceiling runs the SAME domain, and deliberately so: `ceil-real` is the
+ identity -floor(-x) rather than a second rounding rule, so the points that
+ interest one interest the other, and running both over one table is what makes
+ the mirror visible. Nothing in judge/ grades this function.
+
+  ceil-want : List Real
+  ceil-want =
+    [ -1000.0, -120.0, -119.0, -2.0, -2.0, -1.0,
+      -1.0, 0.0, 0.0, 1.0, 1.0, 2.0,
+      2.0, 3.0, 120.0, 120.0, 1001.0 ]
+
+Section: Modulo
+
+ The FLOORED modulo -- the result takes the sign of the divisor -- which is what
+ zig's @mod means and is not the truncated remainder. The two agree whenever the
+ caller wraps twice, and the game's one caller does; the third divisor here is
+ NEGATIVE precisely because that is where they part company, and no caller in
+ this port goes there.
+
+ The divisor is the outer loop, so the answers run m-major.
+
+  mod-x : List Real
+  mod-x =
+    [ -1000.0, -240.0, -239.5, -120.0, -119.5, -0.5, 0.0,
+      0.5, 119.5, 120.0, 240.5, 1000.0, 3600.25 ]
+
+  mod-m : List Real
+  mod-m = [120.0, 7.5, -120.0]
+
+  mod-want : List Real
+  mod-want =
+    [ 80.0, -0.0, 0.5, -0.0, 0.5, 119.5, 0.0,
+      0.5, 119.5, 0.0, 0.5, 40.0, 0.25, 5.0,
+      -0.0, 0.5, -0.0, 0.5, 7.0, 0.0, 0.5,
+      7.0, 0.0, 0.5, 2.5, 0.25, -40.0, -0.0,
+      -119.5, -0.0, -119.5, -0.5, 0.0, -119.5, -0.5,
+      0.0, -119.5, -80.0, -119.75 ]
+
+  mod-inner : Real, List Real, Integer -> List Real
+  mod-inner (m) (xs) (j) =
+    if j >= list-length xs then []
+    else [mod-real (list-at xs j) m] & mod-inner m xs (j + 1)
+
+  mod-outer : List Real, List Real, Integer -> List Real
+  mod-outer (ms) (xs) (i) =
+    if i >= list-length ms then []
+    else (mod-inner (list-at ms i) xs 0) & mod-outer ms xs (i + 1)
+
+Section: Powers Of Two
+
+ 2^k by repeated multiplication rather than by assembling an exponent field.
+ Every step multiplies by a power of two, which is exact in binary, so these are
+ graded exactly in both directions out to 2^55 and 2^-55.
+
+  pow2-k : List Integer
+  pow2-k = [-55, -20, -8, -1, 0, 1, 8, 20, 55]
+
+  pow2-want : List Real
+  pow2-want =
+    [ 0.000000000000000027755575615628914, 0.00000095367431640625, 0.00390625,
+      0.5, 1.0, 2.0,
+      256.0, 1048576.0, 36028797018963970.0 ]
+
+Section: The Exponential
+
+ Range reduction and a twelve-term series. The argument reaches -100 because
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, and a
+ bare series is useless there. Both signs of ln2 and of half ln2 appear because
+ those are where the reduction count k changes.
+
+  exp-in : List Real
+  exp-in =
+    [ -100.0, -50.0, -20.0, -5.0,
+      -2.5, -1.0, -0.6931471805599453, -0.3465735902799727,
+      -0.34657359027997264, -0.05, 0.0, 0.05,
+      0.3465735902799727, 0.6931471805599453, 1.0, 2.5,
+      5.0, 20.0 ]
+
+  exp-want : List Real
+  exp-want =
+    [ 0.00000000000000000000000000000000000000000003720075976020836, 0.00000000000000000000019287498479639178,
+      0.000000002061153622438558, 0.006737946999085467,
+      0.0820849986238988, 0.36787944117144233,
+      0.5, 0.7071067811865475,
+      0.7071067811865475, 0.951229424500714,
+      1.0, 1.0512710963760241,
+      1.4142135623730951, 2.0,
+      2.7182818284590455, 12.182493960703473,
+      148.4131591025766, 485165195.4097903 ]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "n-round" (list-map round-real round-in) round-want 0.0)
+    print-line-uni (grade-reals "n-floor" (list-map floor-real floor-in) floor-want 0.0)
+    print-line-uni (grade-reals "n-ceil " (list-map ceil-real floor-in) ceil-want 0.0)
+    print-line-uni (grade-reals "n-mod  " (mod-outer mod-m mod-x 0) mod-want 0.0)
+    print-line-uni (grade-reals "n-pow2 " (list-map pow2-int pow2-k) pow2-want 0.0)
+    print-line-uni (grade-rel   "n-exp  " (list-map exp-real exp-in) exp-want 0.000000000000001)
+  end

@@ -103,6 +103,40 @@ about fidelity:
   (`PORTING_NOTES` E4).
 - **Take the better name where nothing pins it.**
 
+## The unit tests: `spec/`
+
+**Run these first.** `./spec/run.sh` grades eleven chapters in about a second
+and roughly two milliseconds of interpreter. It is what to run after a compiler
+change, before anything in `judge/` -- which asks a different and much more
+expensive question: `RenderCheck` alone builds a whole frame and takes 13.5
+seconds.
+
+A spec is a **self-checking Codex chapter**: it carries its own expected values
+as literals and prints its own verdict, so any arm that runs Codex renders that
+verdict alone. No gold bank, no probe, no zig. `./spec/run.sh --zig` transpiles
+and builds each one and diffs the arms; all thirteen are byte-identical today.
+
+Three rules the files are held to, each of which caught something:
+
+- **Derive, then confirm. Never capture.** `NumSpec`'s rounding table rederived
+  with the obvious `floor(|x| + 0.5)` walks straight back into the bug `Num`'s
+  docstring records fixing. A captured table would have written that bug in as
+  the definition of correct.
+- **Measure the tolerance by tightening it until it breaks.** `LensSpec` fails
+  at 1e-10 and passes at 1.2e-10; the gate is 1e-9 and the prose says so. Five
+  of `NumSpec`'s six lines are graded at exactly 0.0.
+- **Every line must be shown capable of failing.** `spec/mutate.py` runs each
+  spec a second time poisoned and every printed line must go BAD. It refuses
+  rather than skipping when a `-want` is not a list literal, which is what
+  structurally forbids a want computed from the got.
+
+**`spec/heavy/` is out of the default path**: the two baked stills tables are
+763 KB of literals and 470,000 of the suite's 537,000 steps. They are also the
+least likely thing here to change, and if they do the honest check is an eye
+test rather than this gate -- which is why `judge/` has never had a
+`CatStillsCheck` either. `./spec/run.sh --heavy` includes them; run it when the
+baker runs. See **Stills, not frames** below.
+
 ## Before the loop will run
 
 Four things must exist, and `harness/pins.py` exits rather than guess at any of

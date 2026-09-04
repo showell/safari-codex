@@ -3,6 +3,16 @@
 #
 #   ./spec/run.sh            the Rust interpreter alone -- milliseconds
 #   ./spec/run.sh --zig      also transpile and build each spec, and diff the arms
+#   ./spec/run.sh --heavy    include spec/heavy/, the baked stills
+#
+# THE STILLS ARE OUT OF THE DEFAULT PATH ON PURPOSE. spec/heavy/ holds the two
+# generated tables -- 763 KB of literals, 470,000 of the suite's 537,000 steps,
+# and most of its wall time both here and through the zig arm. They are also the
+# least likely thing in the port to change: they are baked offline from vendored
+# SVG by ops/bake_emoji, converted by harness/bake_stills.py, and regenerated
+# rather than edited. If they ever DO change, the honest check is an eye test and
+# a rethink of the method, not this gate -- which is why judge/ has never had a
+# CatStillsCheck either. Run them when the baker runs.
 #
 # A spec is a self-checking Codex chapter: it carries its own expected values as
 # literals and prints its own verdict, so any arm that runs Codex renders that
@@ -21,11 +31,19 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 BIN="${CODEXRUN:-$HOME/runs/20260904T112500Z-rust-interp-speed/rust-target/release/codexrun}"
 [ -x "$BIN" ] || { echo "no codexrun at $BIN; set CODEXRUN" >&2; exit 2; }
-zig_arm=0
-[ "${1:-}" = "--zig" ] && zig_arm=1
+zig_arm=0; heavy=0
+for a in "$@"; do
+    case "$a" in
+        --zig) zig_arm=1 ;;
+        --heavy) heavy=1 ;;
+        *) echo "usage: run.sh [--zig] [--heavy]" >&2; exit 2 ;;
+    esac
+done
+specs=(spec/*Spec.codex)
+[ "$heavy" = 1 ] && specs+=(spec/heavy/*Spec.codex)
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 fail=0; n=0
-for s in spec/*Spec.codex; do
+for s in "${specs[@]}"; do
     [ -e "$s" ] || { echo "no specs under spec/"; exit 2; }
     base="$(basename "$s" .codex)"; mod="$(echo "$base" | tr 'A-Z' 'a-z')"
     n=$((n + 1))

@@ -40,7 +40,12 @@ for s in spec/*Spec.codex; do
     if grep -qE "ok 0$" <<<"$out"; then echo "$base: a line graded ZERO values" >&2; echo "$out"; fail=1; continue; fi
 
     # The mutant: every tolerance forced negative, so every line must fail.
-    sed -E 's/ (0\.0+[0-9]+)\)$/ -1.0)/' "$s" > "$tmp/$base.codex"
+    # `0\.[0-9]+` and not `0\.0+[0-9]+`: an EXACT seam is graded at 0.0, and the
+    # narrower pattern skipped exactly those lines -- the mutant would have
+    # passed them through unchanged and reported them as ungraded. The check
+    # that catches "green because it never ran" is worth nothing if it can
+    # itself never run.
+    sed -E 's/ (0\.[0-9]+)\)$/ -1.0)/' "$s" > "$tmp/$base.codex"
     python3 harness/bundle.py "$tmp/$base.codex" "$tmp/$mod-unit.codex" >/dev/null 2>&1
     mut="$("$BIN" "$tmp/$mod-unit.codex" 2>&1)"
     live="$(grep -c BAD <<<"$mut")"; lines="$(grep -c . <<<"$out")"

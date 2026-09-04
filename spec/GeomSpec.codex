@@ -1,0 +1,128 @@
+Chapter: GeomSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Geom
+  cites Judge chapter Grade
+
+ Geom, checked against the geometry rather than against itself.
+
+ Geom is the road surface's arithmetic and it had no check of any kind: Joint,
+ GroundPlan, Render and Camera all reach it, and every one of them only ever
+ asks it about the domains that chapter happens to produce.
+
+ WHERE THE EXPECTED VALUES COME FROM, which is the whole question for a spec.
+ They are worked out from each function's DEFINITION -- the drop is
+ (right^2 + forward^2) / 2R, the rider transform is a translation and a
+ rotation, the meet of a vertical and a horizontal line is where they cross --
+ and then confirmed against what the chapter actually returns. Not the other
+ way round. Capturing the output and calling it the expectation would give a
+ file that passes forever and detects only change; these numbers would still be
+ right if every implementation in this repo were deleted.
+
+ THAT DISTINCTION IS NOT ACADEMIC HERE. `to-rider` at yaw 0.0 returns a right
+ of -3.4999998 where the geometry says exactly -3.5, because `r-cos 0.0` is
+ about 7e-8 short of 1.0 -- the defect TrigSpec measures, arriving downstream.
+ Capturing would have written that error into this file as the definition of
+ correct, and a later fix to r-cos would then have "broken" Geom. So the
+ rotation seam is graded at 1e-6, which absorbs the trig error and still
+ catches any error in Geom's own algebra, and the seams with no trig in them
+ are graded EXACTLY.
+
+ We say:
+
+Section: The Ground Drop
+
+ A gentle spherical plateau: a point at horizontal distance d drops
+ d^2 / 2R below the tangent plane, with R = 100000. Pure arithmetic, so this
+ one is exact.
+
+  gd-right : List Real
+  gd-right = [0.0, 3.0, -5.0, 12.5]
+
+  gd-forward : List Real
+  gd-forward = [0.0, 10.0, 40.0, 100.0]
+
+  gd-want : List Real
+  gd-want = [0.0, 0.000545, 0.008125, 0.05078125]
+
+  gd-walk : Integer -> List Real
+  gd-walk (i) =
+    if i >= list-length gd-right then []
+    else [ground-drop (list-at gd-right i) (list-at gd-forward i)] & gd-walk (i + 1)
+
+Section: The Rider Transform
+
+ Four points through a translation and a rotation, at yaw 0, a mild left, a
+ right and a hard left. The camera sits at along 5.0, across 0.5, half-width
+ 3.0 throughout, so `x` is measured from the left edge and the shift is 3.5.
+
+  tr-a : List Real
+  tr-a = [0.0, 12.0, 40.0, 7.5]
+
+  tr-x : List Real
+  tr-x = [0.0, 3.0, -2.0, 6.25]
+
+  tr-yaw : List Real
+  tr-yaw = [0.0, 0.35, -0.6, 1.2]
+
+  tr-want : List Real
+  tr-want =
+    [ -3.5, -5.0,
+      -2.869971008611849, 6.404160086203927,
+      15.223140686823006, 31.992280125511435,
+      -1.333613890107213, 3.4690018726015563 ]
+
+  tr-walk : Integer -> List Real
+  tr-walk (i) =
+    if i >= list-length tr-a then []
+    else let p = to-rider (list-at tr-a i) (list-at tr-x i) 5.0 0.5 (list-at tr-yaw i) 3.0
+    in [p.right, p.forward] & tr-walk (i + 1)
+
+Section: Where Two Shoulders Cross
+
+ A vertical line through the origin and a horizontal line four metres forward
+ meet at exactly (0, 4). No trig, no tolerance.
+
+  lm-want : List Real
+  lm-want = [0.0, 4.0]
+
+  lm-got : List Real
+  lm-got =
+    let q = line-meet (RiderPt { right = 0.0, forward = 0.0 }) (RiderPt { right = 0.0, forward = 1.0 }) (RiderPt { right = -2.0, forward = 4.0 }) (RiderPt { right = 3.0, forward = 4.0 })
+    in [q.right, q.forward]
+
+Section: Near-Plane Clipping
+
+ A unit square straddling the near plane at 0.4: two vertices in front, two
+ behind. Two originals survive and two crossings are cut, and the crossings
+ interpolate height as well as position -- which is the part a caller would
+ not notice being wrong, because a wrong height still draws.
+
+  poly : List Vec3
+  poly =
+    [ Vec3 { right = -1.0, forward = 2.0, height = 0.0 },
+      Vec3 { right = 1.0, forward = 2.0, height = 0.5 },
+      Vec3 { right = 1.0, forward = -1.0, height = 1.0 },
+      Vec3 { right = -1.0, forward = -1.0, height = 1.5 } ]
+
+  cn-want : List Real
+  cn-want =
+    [ -1.0, 2.0, 0.0,
+      1.0, 2.0, 0.5,
+      1.0, 0.4, 0.7666666666666666,
+      -1.0, 0.4, 0.8 ]
+
+  cn-walk : List Vec3, Integer -> List Real
+  cn-walk (vs) (i) =
+    if i >= list-length vs then []
+    else let v = list-at vs i
+    in [v.right, v.forward, v.height] & cn-walk vs (i + 1)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "g-drop " (gd-walk 0) gd-want 0.0)
+    print-line-uni (grade-reals "g-rider" (tr-walk 0) tr-want 0.000001)
+    print-line-uni (grade-reals "g-meet " lm-got lm-want 0.0)
+    print-line-uni (grade-reals "g-clip " (cn-walk (clip-near poly 0.4) 0) cn-want 0.0)
+  end

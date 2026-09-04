@@ -1,0 +1,126 @@
+Chapter: BikeSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Bike
+  cites Judge chapter Grade
+
+ Bike: one integrated step, and the halving that makes it a midpoint rule.
+
+ THE HALVING IS LOAD-BEARING AND THE CHAPTER SAYS SO. He leans first, that tilt
+ yaws the heading, and the new speed moves the position along the MID heading --
+ `s.yaw + heading-change / 2.0`. Drop the `/ 2.0` and it is an Euler step: still
+ plausible, still smooth, wrong by half a turn's worth of drift over a corner.
+ Nothing grades this chapter directly; it reaches judge/ only through a whole
+ frame, where a slow positional drift is the hardest possible thing to read.
+
+ SO THE PROBE STATE HAS A NON-ZERO YAW. With yaw at zero the mid heading is half
+ the change and an Euler step is `heading-change` -- different, so a zero-yaw
+ test does catch a dropped halving. But it catches it only through the trig,
+ where it hides behind a tolerance; with a real yaw the wrong angle is a
+ first-order error in both along and across at once. The state also carries
+ distinct non-zero values in all nine fields, for the reason PoseSpec's does:
+ this function rebuilds the whole record by hand and can fail by transposing two
+ names.
+
+ THE EXACT FIELDS ARE GRADED EXACTLY, AND THAT IS MOST OF THE STEP. Only `along`
+ and `across` pass through r-cos and r-sin; yaw, v, tilt and heading are plain
+ sums, so they are graded at 0.0 and no tolerance can hide an error in them.
+ Splitting the lines that way is what keeps the trig tolerance from becoming a
+ general amnesty over the whole record.
+
+ THREE STEPS, NOT ONE. A single step from a hand-written state cannot tell an
+ integrator from a function that returns a plausible constant, and it cannot see
+ an error that only appears once a field feeds back into itself. The second step
+ has a NEGATIVE tilt step and the third has none at all -- the coasting case,
+ where tilt and v must hold and the position must keep moving.
+
+ WHERE THE EXPECTED VALUES COME FROM: the four assignments in the chapter,
+ evaluated in IEEE-754 doubles with true sine and cosine. Nothing was captured;
+ the trig tolerance below is what admits the difference between a true cosine and
+ DeviceMath's series.
+
+ We say:
+
+Section: The Lean Limit
+
+ max-lean is 20 degrees in radians and yaw-per-tilt is the pinned coefficient
+ that turns a lean into a heading change.
+
+  limit-got : List Real
+  limit-got = [yaw-per-tilt, max-lean]
+
+  limit-want : List Real
+  limit-want = [0.1, 0.3490658503988659]
+
+Section: Three Steps
+
+  s0 : RiderState
+  s0 = RiderState { segment = 3, along = 120.5, across = 2.25, yaw = 0.375, v = 0.8, tilt = 0.125, heading = 4.5, gaze-yaw = 0.625, focus = 0.25 }
+
+  s1 : RiderState
+  s1 = simulate-rider-step s0 0.05 0.01
+
+  s2 : RiderState
+  s2 = simulate-rider-step s1 (0.0 - 0.02) 0.005
+
+  s3 : RiderState
+  s3 = simulate-rider-step s2 0.0 0.0
+
+Section: The Exact Fields
+
+ yaw, v, tilt and heading in that order, for each of the three steps. No trig
+ touches any of them.
+
+  exact-got : List Real
+  exact-got = [s1.yaw, s1.v, s1.tilt, s1.heading, s2.yaw, s2.v, s2.tilt, s2.heading, s3.yaw, s3.v, s3.tilt, s3.heading]
+
+  exact-want : List Real
+  exact-want =
+    [ 0.3925, 0.81, 0.175, 4.5175,
+      0.40800000000000003, 0.8150000000000001, 0.155, 4.533,
+      0.42350000000000004, 0.8150000000000001, 0.155, 4.548500000000001 ]
+
+ THE HEADING AND THE YAW MUST MOVE BY THE SAME DELTA, which the table above
+ asserts by construction -- 0.3925 - 0.375 and 4.5175 - 4.5 are both 0.0175 --
+ but only if a reader checks. Stated because it is the chapter's one invariant
+ that is not visible in any single number.
+
+Section: The Carried Fields
+
+ segment, gaze-yaw and focus are copied untouched. This function names all nine
+ fields on both sides, so these three are where a transposition would land
+ without changing any moving part.
+
+  carried-real-got : List Real
+  carried-real-got = [s1.gaze-yaw, s1.focus, s3.gaze-yaw, s3.focus]
+
+  carried-real-want : List Real
+  carried-real-want = [0.625, 0.25, 0.625, 0.25]
+
+  carried-int-got : List Integer
+  carried-int-got = [s1.segment, s2.segment, s3.segment]
+
+  carried-int-want : List Integer
+  carried-int-want = [3, 3, 3]
+
+Section: The Position
+
+ along and across, the only two fields the trig reaches. Graded relatively at
+ 1e-9, which is the gate LensSpec measured for the same series through a
+ different call.
+
+  pos-got : List Real
+  pos-got = [s1.along, s1.across, s2.along, s2.across, s3.along, s3.across]
+
+  pos-want : List Real
+  pos-want = [121.25108639750266, 2.5532642799382796, 122.00167174017032, 2.8708278851774045, 122.7472448817898, 3.1999869508214647]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "bk-limit" limit-got limit-want 0.0)
+    print-line-uni (grade-reals "bk-exact" exact-got exact-want 0.0)
+    print-line-uni (grade-reals "bk-carry" carried-real-got carried-real-want 0.0)
+    print-line-uni (grade-ints  "bk-seg  " carried-int-got carried-int-want)
+    print-line-uni (grade-rel   "bk-pos  " pos-got pos-want 0.000000001)
+  end

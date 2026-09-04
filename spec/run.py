@@ -44,7 +44,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # points at a snapshot grades a snapshot. CODEXRUN overrides it.
 BIN = os.environ.get(
     "CODEXRUN",
-    os.path.expanduser("~/showell_repos/rust-codex-compiler/target/release/codexrun"),
+    os.environ.get("CARGO_TARGET_DIR", os.path.expanduser("~/build/rust-target"))
+    + "/release/codexrun",
 )
 # THE RUST ARM RESOLVES ITS OWN CITES. This used to import harness/bundle.py,
 # which meant the compiler under test was handed a unit assembled by a different
@@ -53,7 +54,8 @@ BIN = os.environ.get(
 # byte for byte, and that agreement is the gate rather than an assumption.
 BUNDLE = os.environ.get(
     "CODEXBUNDLE",
-    os.path.expanduser("~/showell_repos/rust-codex-compiler/target/release/bundle"),
+    os.environ.get("CARGO_TARGET_DIR", os.path.expanduser("~/build/rust-target"))
+    + "/release/bundle",
 )
 
 

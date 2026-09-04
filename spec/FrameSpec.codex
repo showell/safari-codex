@@ -1,0 +1,171 @@
+Chapter: FrameSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Frame
+  cites Judge chapter Grade
+
+ Frame: the route walk and the coordinate change, which is the piece a different
+ screensaver would keep.
+
+ MOST OF THIS CHAPTER NEEDS NO WORLD, and finding that out is what made the file
+ cheap. `compose-down` at d = 0 returns before it touches `segs`, and a `Mapper`
+ is a six-field record this file can build directly rather than deriving from a
+ Segment -- so the rider transform and the whole behind-joint path are graded
+ against EMPTY segment and chain lists. Only `build-chain` needs a real route.
+
+ THAT MATTERS FOR COST, NOT JUST TIDINESS. `build-world` is a nullary binding,
+ so every mention of it rebuilds all nineteen segments with their trees, cows
+ and pigs -- about 350,000 steps a reference, more than the rest of this suite
+ put together. It is named ONCE here, and everything the route is asked about is
+ computed from that single reference.
+
+ THE OFF-BY-ONE IN compose-down IS THE FAILURE WORTH GRADING. The joins compose
+ backwards from d down to 1, and the segment supplying each join is the one
+ BELOW it: chain[k] leads to chain[k+1] through chain[k]'s OWN turn. Read
+ chain[k] instead and a distant segment lands rotated by its neighbour's turn --
+ which does not look like corruption, it looks like a plausible road bending the
+ wrong way. Segment 0 of this route turns 50 degrees RIGHT over 500 m and
+ segment 1 turns 70 degrees LEFT over 320 m, so the two readings disagree in
+ both magnitude and sign and the d = 1 value below separates them.
+
+ THE BEHIND-JOINT PASS IS THE OTHER ONE. The joint just behind the rider has a
+ `from` that is not on the chain -- the chain only runs forward -- so its point
+ steps FORWARD through the join with `cur-to-next`, the inverse of what every
+ other point does. Without it the pavement the rider is still crossing vanishes
+ the instant his segment index flips, and the chapter records that the tower and
+ the corner creatures each had that bug in turn. Both turn directions are graded,
+ because `cur-to-next` is not a mirror: a right turn pays a width shift a left
+ turn does not.
+
+ WHERE THE EXPECTED VALUES COME FROM: the transforms in Geom, evaluated in
+ doubles with true sine and cosine, composed in the order this chapter composes
+ them. The chain lengths come from the route's own exit-to and terminates, not
+ from running the walk.
+
+ THE TWO TOLERANCES ARE MEASURED SEPARATELY AND THEY DIFFER, WHICH IS THE
+ INTERESTING PART. `fr-at` fails at 5e-9 and passes at 1e-8; `fr-behind` fails
+ at 1e-8 and passes at 2e-8 -- twice the error, through the same Geom and the
+ same series. The difference is the ANGLE. The composed join is segment 0's 50
+ degrees; the behind pass runs 70 degrees, which is 1.22 rad against the
+ quadrant fold's worst argument at 1.571, and DeviceMath's truncated sine gets
+ worse the closer its reduced argument sits to that point. It is the mechanism
+ upstream issue 122 is about, showing up here as a factor of two between two
+ lines of the same file. The gates are 5e-8 and 1e-7, each about five times what
+ it admits, and neither is inherited from the other -- Grade's own prose says a
+ floor is calibrated per seam and never inherited, and this is that rule costing
+ two numbers instead of one.
+
+ BOTH ARE FAR LOOSER THAN LensSpec's 1e-9, and that is the same fact seen from
+ outside: 35 degrees is nowhere near the fold and its error is 1e-10.
+
+ We say:
+
+Section: The Chain Bounds
+
+ look-ahead is 7 and max-chain is 8, and the chapter keeps both because the
+ SMALLER is what actually stops the walk. That is asserted below rather than
+ left as prose: a chain from the start is SEVEN long, not eight.
+
+  bound-got : List Integer
+  bound-got = [look-ahead, max-chain]
+
+  bound-want : List Integer
+  bound-want = [7, 8]
+
+Section: The Route Walk
+
+ One reference to build-world, and every question about the route answered from
+ it. From segment 0 the look-ahead caps at 7; from 15 the terminus at 18 stops
+ it after 4; from 18 there is nowhere to go and the chain is just itself.
+
+  route-facts : List Segment -> List Integer
+  route-facts (w) = [list-length w, list-length (build-chain w 0), list-length (build-chain w 15), list-length (build-chain w 18)]
+
+  route-got : List Integer
+  route-got = route-facts build-world
+
+  route-want : List Integer
+  route-want = [19, 7, 4, 1]
+
+Section: The Pose And The Mappers
+
+ A chain mapper carries only its depth; a prev mapper carries the four fields of
+ the segment behind. Building the prev one by hand is what keeps this file off
+ the world.
+
+  pose : Pose
+  pose = Pose { along = 100.0, across = 1.0, yaw = 0.2, hw = 2.0 }
+
+  m-chain : Mapper
+  m-chain = chain-map 3
+
+  m-prev-left : Mapper
+  m-prev-left = Mapper { is-chain = False, d = 0, prev-len = 300.0, prev-angle = 1.2217304763960306, prev-right = False, prev-w = 4.0 }
+
+  m-prev-right : Mapper
+  m-prev-right = Mapper { is-chain = False, d = 0, prev-len = 300.0, prev-angle = 0.8726646259971648, prev-right = True, prev-w = 4.0 }
+
+ chain-map must set the tag and zero the four prev fields, which is the half-built
+ Mapper the zig's defaults allowed and these constructors are meant to prevent.
+
+  map-int-got : List Integer
+  map-int-got = [m-chain.d, m-prev-left.d]
+
+  map-int-want : List Integer
+  map-int-want = [3, 0]
+
+  map-real-got : List Real
+  map-real-got = [m-chain.prev-len, m-chain.prev-angle, m-chain.prev-w, m-prev-left.prev-len, m-prev-left.prev-w]
+
+  map-real-want : List Real
+  map-real-want = [0.0, 0.0, 0.0, 300.0, 4.0]
+
+  map-bool-got : List Boolean
+  map-bool-got = [m-chain.is-chain, m-chain.prev-right, m-prev-left.is-chain, m-prev-left.prev-right, m-prev-right.prev-right]
+
+  map-bool-want : List Boolean
+  map-bool-want = [True, False, False, False, True]
+
+Section: The Transform
+
+ At d = 0 there is nothing to compose and `at` is the rider transform alone, so
+ the segment and chain lists are never read and empty ones will do. At d = 1 one
+ join composes, and it must be segment 0's -- 500 m and 50 degrees right.
+
+  at-d0 : RiderPt
+  at-d0 = at [] [] pose 0 50.0 3.0
+
+  at-d1 : List Segment -> RiderPt
+  at-d1 (w) = at w (build-chain w 0) pose 1 50.0 3.0
+
+  at-got : List Real
+  at-got = let p = at-d1 build-world in [at-d0.right, at-d0.forward, p.right, p.forward]
+
+  at-want : List Real
+  at-want = [9.933466539753061, -49.00332889206208, -48.11621135085446, 431.95658232777186]
+
+Section: The Joint Behind
+
+ The inverse pass, both turn directions, through map-pt rather than by calling
+ cur-to-next directly -- the dispatch on `is-chain` is part of what is graded.
+
+  behind-got : List Real
+  behind-got =
+    let l = map-pt [] [] pose m-prev-left 50.0 3.0
+    in let r = map-pt [] [] pose m-prev-right 50.0 3.0
+    in [l.right, l.forward, r.right, r.forward]
+
+  behind-want : List Real
+  behind-want = [-194.76069932822074, -231.63435691739767, 239.9883995667414, -218.13274420105967]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "fr-bound" bound-got bound-want)
+    print-line-uni (grade-ints  "fr-route" route-got route-want)
+    print-line-uni (grade-ints  "fr-mapi " map-int-got map-int-want)
+    print-line-uni (grade-reals "fr-mapr " map-real-got map-real-want 0.0)
+    print-line-uni (grade-bools "fr-mapb " map-bool-got map-bool-want)
+    print-line-uni (grade-rel   "fr-at   " at-got at-want 0.00000005)
+    print-line-uni (grade-rel   "fr-behind" behind-got behind-want 0.0000001)
+  end

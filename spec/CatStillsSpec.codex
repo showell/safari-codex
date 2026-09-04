@@ -1,0 +1,116 @@
+Chapter: CatStillsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter CatStills
+  cites Judge chapter Grade
+
+ CatStills: seven baked pose tables and the index that selects them.
+
+ HALF A MEGABYTE OF GENERATED LITERALS, WHICH IS THE POINT. This chapter is the
+ largest single file in the port -- 2,198 StillPt records in one list literal for
+ the rest pose alone -- and nothing about it can be wrong arithmetically. What
+ can go wrong is that an arm's front end will not swallow a list literal that
+ long, or will swallow it slowly enough to matter. A generated table nothing
+ cites is a table nothing compiles, and it is the thing in this port most likely
+ to find a limit.
+
+ THE VALUES ARE CAPTURED AND SAY SO. bake_stills.py generates this chapter from
+ the art; there is no definition to derive a want from, and the oracle for
+ whether the art is right is the blitter diff against the golden PNG. So the
+ sizes below are counted from the tables and the file's job is to notice a table
+ that changed size, emptied, or stopped compiling -- not to re-judge the drawing.
+
+ THE DISPATCH IS THE ONE PIECE OF ACTUAL CODE. `cat-polys-for` is a seven-way
+ chain of index tests with a fallback to the empty list, so every arm is graded:
+ an off-by-one in the middle of that chain returns a real pose for the wrong
+ index, which draws a cat in the wrong shape rather than failing. The fallback is
+ graded at both ends -- -1 and 7 -- because a chain like this is written with `if
+ i == 0` and a missing guard fails at exactly one end.
+
+ THE POSES ARE NOT ALL DISTINCT IN SIZE, and that is why the point counts are
+ here beside the polygon counts. Four of the seven have 34 polygons and 1,715
+ points, so a dispatch that confused coil with collapse would pass a
+ polygon-count check; the first colour and the counts together are what separate
+ them, and even then two identical-sized poses differ only in coordinates. This
+ file does not claim to tell those apart -- the whole-frame check does.
+
+ We say:
+
+Section: Counting
+
+  pts-in : List StillPoly, Integer -> Integer
+  pts-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.pts + pts-in ps (i + 1)
+
+  grads-in : List StillPoly, Integer -> Integer
+  grads-in (ps) (i) =
+    if i >= list-length ps then 0
+    else let p = list-at ps i in list-length p.grad + grads-in ps (i + 1)
+
+Section: The Seven Tables
+
+ Polygon counts, in pose order: rest, stride, frozen, coil, flight, land,
+ collapse.
+
+  poly-got : List Integer
+  poly-got = [list-length pose-rest-polys, list-length pose-stride-polys, list-length pose-frozen-polys, list-length pose-coil-polys, list-length pose-flight-polys, list-length pose-land-polys, list-length pose-collapse-polys]
+
+  poly-want : List Integer
+  poly-want = [46, 46, 47, 34, 34, 34, 34]
+
+  pts-got : List Integer
+  pts-got = [pts-in pose-rest-polys 0, pts-in pose-stride-polys 0, pts-in pose-frozen-polys 0, pts-in pose-coil-polys 0, pts-in pose-flight-polys 0, pts-in pose-land-polys 0, pts-in pose-collapse-polys 0]
+
+  pts-want : List Integer
+  pts-want = [2198, 2198, 2197, 1715, 1715, 1715, 1715]
+
+ NO POSE CARRIES A GRADIENT. Every cat polygon is solid; the gradients in this
+ port are the bull's. That is an assertion and not an observation -- if a
+ regenerated table started carrying them, the renderer would take a path this
+ chapter has never taken.
+
+  grad-got : List Integer
+  grad-got = [grads-in pose-rest-polys 0, grads-in pose-stride-polys 0, grads-in pose-frozen-polys 0, grads-in pose-coil-polys 0, grads-in pose-flight-polys 0, grads-in pose-land-polys 0, grads-in pose-collapse-polys 0]
+
+  grad-want : List Integer
+  grad-want = [0, 0, 0, 0, 0, 0, 0]
+
+Section: The Dispatch
+
+ Seven valid indices and both ends of the fallback.
+
+  disp-got : List Integer
+  disp-got = [list-length (cat-polys-for 0), list-length (cat-polys-for 1), list-length (cat-polys-for 2), list-length (cat-polys-for 3), list-length (cat-polys-for 4), list-length (cat-polys-for 5), list-length (cat-polys-for 6), list-length (cat-polys-for 7), list-length (cat-polys-for (0 - 1))]
+
+  disp-want : List Integer
+  disp-want = [46, 46, 47, 34, 34, 34, 34, 0, 0]
+
+Section: Spot Values
+
+ The first polygon's colour is the same slate in every pose, and the first point
+ of each pose differs -- which is what says the seven tables are seven tables and
+ not one table selected seven times.
+
+  spot-got : List Real
+  spot-got = [(list-at (list-at pose-rest-polys 0).pts 0).x, (list-at (list-at pose-stride-polys 0).pts 0).x, (list-at (list-at pose-frozen-polys 0).pts 0).x, (list-at (list-at pose-coil-polys 0).pts 0).x, (list-at (list-at pose-flight-polys 0).pts 0).x, (list-at (list-at pose-land-polys 0).pts 0).x, (list-at (list-at pose-collapse-polys 0).pts 0).x]
+
+  spot-want : List Real
+  spot-want = [0.0092, 0.002, 0.6892, 0.5062, 0.6873, 0.6467, 0.6377]
+
+  color-got : List Integer
+  color-got = [(list-at pose-rest-polys 0).color, (list-at pose-collapse-polys 0).color]
+
+  color-want : List Integer
+  color-want = [9066271, 9066271]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "cs-poly" poly-got poly-want)
+    print-line-uni (grade-ints  "cs-pts " pts-got pts-want)
+    print-line-uni (grade-ints  "cs-grad" grad-got grad-want)
+    print-line-uni (grade-ints  "cs-disp" disp-got disp-want)
+    print-line-uni (grade-reals "cs-spot" spot-got spot-want 0.0)
+    print-line-uni (grade-ints  "cs-col " color-got color-want)
+  end

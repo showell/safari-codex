@@ -1,0 +1,39 @@
+Chapter: SceneLimitsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter SceneLimits
+  cites Judge chapter Grade
+
+ SceneLimits: three shared culls, pinned.
+
+ THE SMALLEST SPEC IN THE SUITE, AND IT IS NOT A TAUTOLOGY. The chapter is three
+ Real constants and no code, so there is no behaviour to derive and the wants are
+ the numbers themselves. What the file buys is that the chapter is COMPILED AND
+ LOADED by something -- a chapter with no callers in the bundle under test is
+ never put through the front end at all, and the failures this suite exists to
+ catch are a chapter that will not compile or syntax an arm does not accept.
+
+ It also pins the numbers, which is worth a line each: all three are read by more
+ than one population, which is the whole reason they live here rather than beside
+ the population that uses them, and a change to any of them moves several
+ chapters at once.
+
+ We say:
+
+Section: The Shared Culls
+
+ Beyond detail-dist a tree draws as flat triangles; crown-shade-dist is the depth
+ over which the crown's gradient fades to solid; scenery shorter than
+ min-scenery-px on screen is skipped.
+
+  culls-got : List Real
+  culls-got = [detail-dist, crown-shade-dist, min-scenery-px]
+
+  culls-want : List Real
+  culls-want = [200.0, 80.0, 2.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "sl-cull" culls-got culls-want 0.0)
+  end

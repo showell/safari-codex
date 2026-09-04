@@ -1,0 +1,86 @@
+Chapter: PondSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Pond
+  cites Judge chapter Grade
+
+ Pond: pure data, spot-checked, plus the one thing its prose claims and nothing
+ verifies.
+
+ THE VALUES ARE THE ART AND THEY ARE PINNED, NOT DERIVED. There is no arithmetic
+ here to work out an answer from: a pond outline is a shape somebody drew, and
+ the oracle for whether it is the RIGHT shape is PondCheck against the zig probe,
+ which reads the game module itself. This file asks a different and cheaper
+ question -- does the chapter compile, load, and still hold what it held -- and a
+ spot check answers it. Grading all nineteen points would not answer it any
+ better.
+
+ THE INVARIANT IS THE PART THAT IS NOT A PIN. The chapter says the ducks sit
+ "inside the outline", and nothing checks it. The water spans cu -31 to -1 and cv
+ 3 to 32, so every duck must fall inside that box -- a weaker claim than being
+ inside the polygon, and still one that catches a duck moved out onto the grass
+ or a sign flipped on a cu. It is derived from the outline rather than from the
+ duck list, so the two have to agree for it to pass.
+
+ THE FRAME, SO THE SIGNS READ: cv is metres BEYOND the incoming segment's end
+ edge and cu is metres across from its end-left corner, positive toward the road.
+ The pond is off to the LEFT, which is why every cu here is negative.
+
+ We say:
+
+Section: Sizes And Colours
+
+  size-got : List Integer
+  size-got = [list-length water-outline, list-length bank, list-length ducks, water-color, bank-color, duck-codepoint]
+
+  size-want : List Integer
+  size-want = [7, 6, 6, 3112588, 12759680, 129414]
+
+Section: Spot Points
+
+ The outline's near edge at cv 3, its far tip, the bank's first point, and the
+ duck height -- one value from each binding in the chapter.
+
+  spot-got : List Real
+  spot-got = [(list-at water-outline 0).cu, (list-at water-outline 0).cv, (list-at water-outline 4).cu, (list-at water-outline 4).cv, (list-at bank 0).cu, (list-at bank 0).cv, duck-height]
+
+  spot-want : List Real
+  spot-want = [-2.0, 3.0, -15.0, 32.0, -5.0, 29.0, 0.9]
+
+Section: The Ducks Are On The Water
+
+ Written as nested ifs rather than a conjunction so that nothing here depends on
+ which spelling of `and` an arm accepts; this file is partly a front-end check
+ and should not import a question it is not asking.
+
+  inside : Duck -> Boolean
+  inside (d) =
+    if d.p.cu > -1.0 then False
+    else if d.p.cu < -31.0 then False
+    else if d.p.cv < 3.0 then False
+    else if d.p.cv > 32.0 then False
+    else True
+
+  inside-got : List Boolean
+  inside-got = list-map inside ducks
+
+  inside-want : List Boolean
+  inside-want = [True, True, True, True, True, True]
+
+ The six face-right flags, which alternate in no pattern and so are the one part
+ of the duck table a careless regeneration would silently normalise.
+
+  face-got : List Boolean
+  face-got = [(list-at ducks 0).face-right, (list-at ducks 1).face-right, (list-at ducks 2).face-right, (list-at ducks 3).face-right, (list-at ducks 4).face-right, (list-at ducks 5).face-right]
+
+  face-want : List Boolean
+  face-want = [True, False, True, True, False, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "pd-size" size-got size-want)
+    print-line-uni (grade-reals "pd-spot" spot-got spot-want 0.0)
+    print-line-uni (grade-bools "pd-in  " inside-got inside-want)
+    print-line-uni (grade-bools "pd-face" face-got face-want)
+  end

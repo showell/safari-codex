@@ -1,0 +1,119 @@
+Chapter: ScenerySpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Scenery
+  cites Judge chapter Grade
+
+ Scenery: the vocabulary three populations share.
+
+ Two constants, two records, two enumerations and one predicate. The predicate is
+ the only code, and it is a six-way dispatch where five arms answer the same
+ thing -- which is exactly the shape that hides a mis-wired arm, because getting
+ five of six right by accident is easy and the sixth is the only one anybody
+ sees. So all six are graded, not just the True one.
+
+ EVERY CONSTRUCTOR IS FORCED THROUGH THE FRONT END HERE, which is most of what
+ this file is for. Scheme and Creature are pure enumerations with no arithmetic
+ anywhere near them: nothing about them can be wrong except that an arm fails to
+ accept the declaration or the `when` that reads it. A chapter of type
+ declarations is only compiled when something uses it.
+
+ THE COLLISION THE CHAPTER RECORDS IS WORTH A LINE. The constructor is `DuckPond`
+ and not `Pond` because chapters share one flat namespace inside a bundle
+ (CDX3001) and `Safari chapter Pond` is already in this port -- a collision that
+ appears only once something cites both. This spec cites Scenery and the sibling
+ PondSpec cites Pond, so the two are compiled separately and neither would find
+ it; what finds it is the game bundle, which cites both, and this note is here so
+ the next person does not "simplify" the name.
+
+ We say:
+
+Section: The Road
+
+  road-got : List Real
+  road-got = [lane-width, herd-road-offset]
+
+  road-want : List Real
+  road-want = [4.0, 10.0]
+
+Section: The Predicate, All Six Arms
+
+ DuckPond is the only True. The other five are graded because a dispatch that
+ answers True for Rhino would be invisible to any test that only asked about
+ ponds.
+
+  pond-got : List Boolean
+  pond-got = [is-pond DuckPond, is-pond NoCreature, is-pond Elephant, is-pond Giraffe, is-pond Zebra, is-pond Rhino]
+
+  pond-want : List Boolean
+  pond-want = [True, False, False, False, False, False]
+
+Section: The Enumerations
+
+ Scheme has no reader in this chapter, so one is written here. That is the point:
+ without it the three constructors are declared and never used, and a declaration
+ nothing reads is a declaration nothing compiles.
+
+  scheme-code : Scheme -> Integer
+  scheme-code (s) =
+   when s
+    is AllGreen -> 0
+    is YellowGreen -> 1
+    is RedGreen -> 2
+
+  creature-code : Creature -> Integer
+  creature-code (c) =
+   when c
+    is NoCreature -> 0
+    is Elephant -> 1
+    is Giraffe -> 2
+    is Zebra -> 3
+    is Rhino -> 4
+    is DuckPond -> 5
+
+  code-got : List Integer
+  code-got = [scheme-code AllGreen, scheme-code YellowGreen, scheme-code RedGreen, creature-code NoCreature, creature-code Elephant, creature-code Giraffe, creature-code Zebra, creature-code Rhino, creature-code DuckPond]
+
+  code-want : List Integer
+  code-want = [0, 1, 2, 0, 1, 2, 3, 4, 5]
+
+Section: The Records
+
+ A Tree and a Critter with distinct field values, so a field read from its
+ neighbour shows. The Critter is the one carrying a Boolean and an Integer
+ codepoint beside its Reals, which is the mixed-type record in this chapter.
+
+  a-tree : Tree
+  a-tree = Tree { along = 120.5, across = 3.25, color = 9066271, height = 7.75 }
+
+  a-critter : Critter
+  a-critter = Critter { along = 250.5, across = -6.5, codepoint = 128004, height = 1.375, face-right = True }
+
+  rec-reals-got : List Real
+  rec-reals-got = [a-tree.along, a-tree.across, a-tree.height, a-critter.along, a-critter.across, a-critter.height]
+
+  rec-reals-want : List Real
+  rec-reals-want = [120.5, 3.25, 7.75, 250.5, -6.5, 1.375]
+
+  rec-ints-got : List Integer
+  rec-ints-got = [a-tree.color, a-critter.codepoint]
+
+  rec-ints-want : List Integer
+  rec-ints-want = [9066271, 128004]
+
+  rec-bools-got : List Boolean
+  rec-bools-got = [a-critter.face-right]
+
+  rec-bools-want : List Boolean
+  rec-bools-want = [True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "sc-road" road-got road-want 0.0)
+    print-line-uni (grade-bools "sc-pond" pond-got pond-want)
+    print-line-uni (grade-ints  "sc-code" code-got code-want)
+    print-line-uni (grade-reals "sc-recr" rec-reals-got rec-reals-want 0.0)
+    print-line-uni (grade-ints  "sc-reci" rec-ints-got rec-ints-want)
+    print-line-uni (grade-bools "sc-recb" rec-bools-got rec-bools-want)
+  end

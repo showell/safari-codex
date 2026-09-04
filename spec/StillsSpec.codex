@@ -1,0 +1,90 @@
+Chapter: StillsSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Stills
+  cites Judge chapter Grade
+
+ Stills, which defines three records and no values at all.
+
+ THE FAILURE THIS GUARDS AGAINST IS NOT A WRONG NUMBER, IT IS A CHAPTER THAT
+ WILL NOT COMPILE. Stills is pure shape: StillPt, StillGrad and StillPoly, with
+ nothing to call and nothing to get wrong arithmetically. What can go wrong is
+ the front end -- Codex written with syntax an arm does not accept, or syntax an
+ arm accepts that the compiler under test has never seen. A chapter with no
+ bindings is never exercised by anything except a chapter that USES it, so on
+ its own it is not compiled at all.
+
+ So this file's job is to construct one of each record, with every field named,
+ and read every field back. StillGrad has FIFTEEN fields; a record literal that
+ wide is the widest thing in this port and the most likely to find a limit.
+
+ THE GRADIENT LIST IS THE OTHER THING WORTH FORCING. `grad` is a LIST OF AT MOST
+ ONE because Codex has no optional, so both states are constructible and both
+ need to be: an empty list on a solid polygon and a one-element list on a shaded
+ one. The empty case is the one a compiler is likelier to mishandle, since it is
+ an empty list literal at a record-typed element.
+
+ The values are arbitrary and distinct -- consecutive halves and small integers
+ -- so that a field read from the wrong neighbour shows up rather than matching
+ by luck. That is the same reason PoseSpec's probe carries no zeros.
+
+ We say:
+
+Section: One Of Each
+
+  pt : StillPt
+  pt = StillPt { x = 0.5, y = 1.5 }
+
+  grad : StillGrad
+  grad = StillGrad { kind = 2, rgba0 = 16711680, rgba1 = 255, off0 = 0.25, off1 = 0.75, ax = 2.5, ay = 3.5, bx = 4.5, by = 5.5, cx = 6.5, cy = 7.5, ux = 8.5, uy = 9.5, vx = 10.5, vy = 11.5 }
+
+  solid : StillPoly
+  solid = StillPoly { color = 9066271, grad = [], pts = [pt, StillPt { x = 12.5, y = 13.5 }] }
+
+  shaded : StillPoly
+  shaded = StillPoly { color = 4989733, grad = [grad], pts = [pt] }
+
+Section: Reading Every Field Back
+
+ The eleven Reals of a StillGrad in declaration order, then its four Integers,
+ then the polygon fields. Split by type because the graders are.
+
+  grad-reals-got : List Real
+  grad-reals-got = [grad.off0, grad.off1, grad.ax, grad.ay, grad.bx, grad.by, grad.cx, grad.cy, grad.ux, grad.uy, grad.vx, grad.vy]
+
+  grad-reals-want : List Real
+  grad-reals-want = [0.25, 0.75, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5]
+
+  grad-ints-got : List Integer
+  grad-ints-got = [grad.kind, grad.rgba0, grad.rgba1]
+
+  grad-ints-want : List Integer
+  grad-ints-want = [2, 16711680, 255]
+
+ The polygon: colours, the two gradient-list lengths, and the two point counts.
+ The empty grad and the one-element grad are the assertion here.
+
+  poly-ints-got : List Integer
+  poly-ints-got = [solid.color, shaded.color, list-length solid.grad, list-length shaded.grad, list-length solid.pts, list-length shaded.pts]
+
+  poly-ints-want : List Integer
+  poly-ints-want = [9066271, 4989733, 0, 1, 2, 1]
+
+ Reaching THROUGH the one-element gradient list, which is the access the
+ renderer actually performs and the one the empty-list encoding exists to make
+ possible.
+
+  reach-got : List Real
+  reach-got = [(list-at shaded.grad 0).ax, (list-at shaded.pts 0).x, (list-at solid.pts 1).y]
+
+  reach-want : List Real
+  reach-want = [2.5, 0.5, 13.5]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "s-gradr" grad-reals-got grad-reals-want 0.0)
+    print-line-uni (grade-ints  "s-gradi" grad-ints-got grad-ints-want)
+    print-line-uni (grade-ints  "s-poly " poly-ints-got poly-ints-want)
+    print-line-uni (grade-reals "s-reach" reach-got reach-want 0.0)
+  end

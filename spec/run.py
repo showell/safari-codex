@@ -166,12 +166,17 @@ def wasm_arm(name, mod, out, build, spec):
     The binary is PINNED, not built here -- see harness/build_codexwasm.sh for
     why this project stopped building its own.
     """
+    # ALWAYS RE-BUNDLE, never reuse what is on disk. This read
+    # `if not unit.is_file()` and a tamper test caught it: with the zig arm's
+    # unit already written, the wasm arm compiled THAT and reported the zig
+    # arm's tampered label as its own answer. In ordinary use the failure is
+    # quieter and worse -- edit a spec, run `--wasm` alone, and it grades the
+    # bundle from whenever the file was last written. Bundling is 4 ms.
     unit = build / f"{mod}-unit.codex"
-    if not unit.is_file():
-        r = subprocess.run([BUNDLE, "one", str(spec), str(unit)],
-                           capture_output=True, text=True)
-        if r.returncode != 0:
-            return r.stderr.strip() or "bundling failed"
+    r = subprocess.run([BUNDLE, "one", str(spec), str(unit)],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return r.stderr.strip() or "bundling failed"
     codexwasm = subprocess.run([str(ROOT / "harness" / "build_codexwasm.sh")],
                                capture_output=True, text=True)
     if codexwasm.returncode != 0:

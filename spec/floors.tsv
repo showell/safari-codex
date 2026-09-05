@@ -28,11 +28,13 @@ CritterSpec	38
 DepthSortSpec	38
 EmojiStillsSpec	43
 FrameSpec	26
+GazeSpec	51
 GeomSpec	26
 GroundPlanSpec	34
 GroundSpec	18
 GuardRailSpec	55
 HerdSpec	71
+ItemDrawSpec	30
 JointSpec	8
 LeanSearchSpec	36
 LensSpec	18
@@ -44,6 +46,7 @@ PondSpec	25
 PoseSpec	26
 RailPlanSpec	32
 RideFocalSpec	26
+RiderSpec	34
 SafariCritterSpec	63
 SceneLimitsSpec	3
 ScenerySpec	26

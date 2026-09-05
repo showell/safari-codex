@@ -1,0 +1,215 @@
+Chapter: RiderSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+  cites Safari chapter Arc
+  cites Safari chapter LeanSearch
+  cites Safari chapter Throttle
+  cites Safari chapter Gaze
+  cites Safari chapter Rider
+  cites Judge chapter Grade
+
+ Rider: one frame. Decide the controls, run the physics, then resolve the road
+ graph by POSITION.
+
+ THE THROTTLE ANSWERS THE BIKE HE IS ABOUT TO BE. `decide` picks the lean first
+ and then asks for the acceleration of the LEANED state, not the current one --
+ so a rider about to bank hard is already told to stop accelerating. Reading the
+ current tilt instead would let him power into the lean for one frame, every
+ frame, and look almost right.
+
+ THE SEAM CHANGES THE FRAME AND NOT THE BEARING. Crossing into the next segment
+ re-expresses the same physical point in the next segment's coordinates: the
+ frame-relative yaw rotates by the turn while the ABSOLUTE heading does not move
+ at all. That pair is the assertion -- a chapter turning both would have him
+ drifting off north by the sum of the route's corners, which nothing on screen
+ shows directly.
+
+ SPEED AND LEAN CARRY ACROSS AND THE GAZE DOES NOT: his eyes go back on the road
+ at a seam, but the FOCUS carries, so the lens keeps easing open instead of
+ snapping. Three fields, three different rules, all graded.
+
+ THE FINISH SNAP EXISTS BECAUSE OF A ZENO STALL, which the chapter says outright.
+ The kinematic brake would leave him a hair short of the line forever -- stopped
+ and never finished -- so inside the braking zone a crawl counts as arrival. Both
+ arms are graded: over the line, and short of it but slow.
+
+ We say:
+
+Section: Deciding
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  seg : Segment
+  seg = segment-at 0
+
+  rider : Real, Real, Real, Real -> RiderState
+  rider (along) (across) (v) (tilt) =
+    RiderState { segment = 0, along = along, across = across, yaw = 0.0, v = v,
+                 tilt = tilt, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+ The lean step takes him from where he is to what the search wants, so it is
+ bounded by the search's own bracket.
+
+  step-got : List Boolean
+  step-got =
+    let d = decide (rider 0.0 0.0 v-base 0.0) seg
+    in let held = decide (rider 0.0 0.0 v-base 0.5) seg
+    in [ real-abs d.tilt-step <= max-tilt-correction,
+         real-abs held.tilt-step <= max-tilt-correction,
+         d.accel <= a-accel + 0.000001 ]
+
+  step-want : List Boolean
+  step-want = [True, True, True]
+
+ THE ACCELERATION IS THE LEANED BIKE'S. A rider upright but about to bank past
+ the hold angle is told to stop accelerating this frame, which he would not be if
+ the throttle read his current tilt.
+
+  leaned-got : List Boolean
+  leaned-got =
+    let d = decide (rider 0.0 0.0 v-base 0.0) seg
+    in let same = get-forward-accel-decel (with-tilt (rider 0.0 0.0 v-base 0.0) (0.0 + d.tilt-step)) seg
+    in [d.accel ~0 same]
+
+  leaned-want : List Boolean
+  leaned-want = [True]
+
+Section: Crossing A Seam
+
+ The same physical point in the next segment's frame. Speed and lean carry
+ untouched; the eyes go back on the road; the focus carries.
+
+  at-seam : RiderState
+  at-seam =
+    RiderState { segment = 0, along = 499.0, across = 0.5, yaw = 0.1, v = 1.25,
+                 tilt = 0.05, heading = 0.7, gaze-yaw = 0.3, focus = 0.4 }
+
+  crossed : RiderState
+  crossed = rider-state-for-next-segment at-seam segs
+
+  carry-got : List Real
+  carry-got = [crossed.v, crossed.tilt, crossed.focus, crossed.gaze-yaw]
+
+  carry-want : List Real
+  carry-want = [1.25, 0.05, 0.4, 0.0]
+
+ THE HEADING DOES NOT MOVE AND THE YAW DOES. The crossing changes the frame, not
+ the bearing, so the absolute heading is exactly what it was and the
+ frame-relative yaw has turned by the segment's exit angle.
+
+  turn-got : List Real
+  turn-got =
+    [ crossed.heading - 0.7,
+      crossed.yaw - (0.1 - seg.exit-angle) ]
+
+  turn-want : List Real
+  turn-want = [0.0, 0.0]
+
+  index-got : List Integer
+  index-got = [crossed.segment, seg.exit-to]
+
+  index-want : List Integer
+  index-want = [1, 1]
+
+ A rider nowhere near the seam re-expresses to a point far outside the next
+ segment's lane, which is exactly how `resolve-cross` decides not to commit.
+
+  early-got : List Boolean
+  early-got =
+    let far = rider-state-for-next-segment (rider 100.0 0.0 v-base 0.0) segs
+    in [real-abs far.across >= (segment-at 1).width / 2.0]
+
+  early-want : List Boolean
+  early-want = [True]
+
+Section: Resolving By Position
+
+ He commits the moment his real point is inside the next segment, and not before.
+
+  resolve-got : List Integer
+  resolve-got =
+    [ (resolve-cross (rider 100.0 0.0 v-base 0.0) seg segs).segment,
+      (resolve-cross (rider 499.0 0.0 v-base 0.0) seg segs).segment ]
+
+  resolve-want : List Integer
+  resolve-want = [0, 1]
+
+Section: The Finish
+
+ The terminus has no segment to lead out, so he is clamped and stopped -- over the
+ line, or short of it and crawling.
+
+  last-seg : Segment
+  last-seg = segment-at 18
+
+  ended : Real, Real -> RiderState
+  ended (along) (v) =
+    finish-clamp (RiderState { segment = 0, along = along, across = 0.0, yaw = 0.0, v = v,
+                               tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }) last-seg
+
+  finish-got : List Real
+  finish-got =
+    [ (ended 300.0 0.5).along, (ended 300.0 0.5).v,
+      (ended 310.0 0.5).along, (ended 310.0 0.5).v,
+      (ended 290.0 0.05).along, (ended 290.0 0.05).v,
+      (ended 290.0 0.5).along, (ended 290.0 0.5).v,
+      (ended 100.0 0.05).along, (ended 100.0 0.05).v ]
+
+  finish-want : List Real
+  finish-want = [300.0, 0.0, 300.0, 0.0, 300.0, 0.0, 290.0, 0.5, 100.0, 0.05]
+
+ A CRAWL ONLY COUNTS INSIDE THE ZONE. At a hundred metres out the same crawl is
+ just a slow rider, which is the pair above that keeps the Zeno fix from
+ stopping him anywhere on the course.
+
+  done-got : List Boolean
+  done-got =
+    let at-end = RiderState { segment = 0, along = 300.0, across = 0.0, yaw = 0.0, v = 0.0,
+                              tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+    in let short = RiderState { segment = 0, along = 299.0, across = 0.0, yaw = 0.0, v = 0.0,
+                                tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+    in [ is-finished at-end [segment-at 18], is-finished short [segment-at 18],
+         last-seg.terminates, is-finished (rider 499.0 0.0 v-base 0.0) segs ]
+
+  done-want : List Boolean
+  done-want = [True, False, True, False]
+
+Section: One Whole Frame
+
+ The controls, the physics and the resolve, together: he moves forward, he is
+ still on the road, and nothing has gone backwards.
+
+  next : RiderState
+  next = get-next-rider-state (rider 0.0 0.0 v-base 0.0) segs
+
+  frame-got : List Boolean
+  frame-got =
+    [ next.along > 0.0,
+      next.v > 0.0,
+      next.segment == 0,
+      real-abs next.across < seg.width / 2.0,
+      next.v <= v-max ]
+
+  frame-want : List Boolean
+  frame-want = [True, True, True, True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-bools "rd-step  " step-got step-want)
+    print-line-uni (grade-bools "rd-leaned" leaned-got leaned-want)
+    print-line-uni (grade-reals "rd-carry " carry-got carry-want 0.0)
+    print-line-uni (grade-reals "rd-turn  " turn-got turn-want 0.0)
+    print-line-uni (grade-ints  "rd-index " index-got index-want)
+    print-line-uni (grade-bools "rd-early " early-got early-want)
+    print-line-uni (grade-ints  "rd-resolv" resolve-got resolve-want)
+    print-line-uni (grade-reals "rd-finish" finish-got finish-want 0.0)
+    print-line-uni (grade-bools "rd-done  " done-got done-want)
+    print-line-uni (grade-bools "rd-frame " frame-got frame-want)
+  end

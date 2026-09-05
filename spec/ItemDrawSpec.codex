@@ -1,0 +1,176 @@
+Chapter: ItemDrawSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter SceneLimits
+  cites Safari chapter TreePlan
+  cites Safari chapter TowerPlan
+  cites Safari chapter World
+  cites Safari chapter ItemDraw
+  cites Judge chapter Grade
+
+ ItemDraw: draw one collected item, whichever kind it turned out to be.
+
+ THE TREE'S DETAIL IS DECIDED BY ITS NEIGHBOURS AND NOT BY ITS DISTANCE, which is
+ the one interesting rule in the chapter. A crown is drawn as cones only if fewer
+ than four collected trees are closer than this one -- so the nearest few get the
+ expensive form however far away they all are, and a dense near cluster does not
+ cost four times as much as a sparse one. Counting distance instead would look
+ identical on a normal frame and fall apart in a grove.
+
+ THE COMPARISON IS STRICTLY CLOSER, so a tree tied with another does not count it,
+ and a tree is never closer than itself. Both matter at a boundary: four trees at
+ the same depth all see three closer, and all four get cones.
+
+ THE CROWN SHADE IS A CLAMPED RAMP over eighty metres, and both clamps are graded
+ -- behind the eye it is full and past the range it is nothing, neither of which
+ is reachable by reading the ramp alone.
+
+ We say:
+
+Section: The Distances
+
+  fixed-got : List Real
+  fixed-got = [crown-shade-dist, detail-dist]
+
+  fixed-want : List Real
+  fixed-want = [80.0, 200.0]
+
+Section: Counting What Is Closer
+
+  tree-at : Real -> TreeItem
+  tree-at (fwd) = TreeItem { right = 0.0, fwd = fwd, height = 5.85, color = 1858082 }
+
+  spread : List TreeItem
+  spread = [tree-at 10.0, tree-at 20.0, tree-at 30.0, tree-at 40.0, tree-at 50.0]
+
+  count-got : List Integer
+  count-got =
+    [ closer-count spread 10.0 0,
+      closer-count spread 30.0 0,
+      closer-count spread 50.0 0,
+      closer-count spread 60.0 0,
+      closer-count spread 5.0 0,
+      closer-count [] 10.0 0 ]
+
+  count-want : List Integer
+  count-want = [0, 2, 4, 5, 0, 6 - 6]
+
+ TIES DO NOT COUNT. Four trees at one depth each see three closer than
+ themselves -- no, none: the test is strict, so each sees zero and all four are
+ drawn in detail. That is the case a `<=` would break, and it is exactly a
+ roadside pair at the same along.
+
+  tied : List TreeItem
+  tied = [tree-at 20.0, tree-at 20.0, tree-at 20.0, tree-at 20.0]
+
+  tie-got : List Integer
+  tie-got = [closer-count tied 20.0 0, closer-count tied 20.1 0, closer-count tied 19.9 0]
+
+  tie-want : List Integer
+  tie-want = [0, 4, 0]
+
+Section: The Crown Shade
+
+ A ramp from full at the eye to nothing at eighty metres, clamped at both ends.
+
+  shade-got : List Real
+  shade-got =
+    [ crown-shade-of 0.0,
+      crown-shade-of 20.0,
+      crown-shade-of 40.0,
+      crown-shade-of 80.0,
+      crown-shade-of 200.0,
+      crown-shade-of (0.0 - 50.0) ]
+
+  shade-want : List Real
+  shade-want = [1.0, 0.75, 0.5, 0.0, 0.0, 1.0]
+
+Section: A Tower's Base
+
+ The four corners are re-derived from the yaw at draw time rather than carried,
+ which is why the collector kept the recipe. Four of them, whatever the yaw.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  a-tower : TowerItem
+  a-tower = TowerItem { map = chain-map 0, a0 = 200.0, x0 = 22.0, yaw = 0.0, fwd = 200.0, off = 0.0 }
+
+  base-got : List Integer
+  base-got =
+    [ list-length (tower-base segs chain origin a-tower 0),
+      list-length (tower-base segs chain origin (TowerItem { map = chain-map 0, a0 = 200.0, x0 = 22.0, yaw = 1.0, fwd = 200.0, off = 0.0 }) 0) ]
+
+  base-want : List Integer
+  base-want = [4, 4]
+
+ At zero yaw the square is axis-aligned and six metres each way, so its corners
+ straddle the tower's centre in both axes. The rider is on the centre line, so
+ the across values come out relative to him.
+
+  corner-got : List Real
+  corner-got =
+    let b = tower-base segs chain origin a-tower 0
+    in [ (list-at b 0).forward, (list-at b 2).forward,
+         (list-at b 0).right, (list-at b 1).right ]
+
+  corner-want : List Real
+  corner-want = [194.0, 206.0, 14.0, 26.0]
+
+Section: Drawing One
+
+ A tower a long way off still draws; one behind the eye draws nothing, because
+ every rod is near-clipped away.
+
+  drawn : Real -> Integer
+  drawn (a0) =
+    list-length (draw-one-tower segs chain origin
+      (TowerItem { map = chain-map 0, a0 = a0, x0 = 22.0, yaw = 0.0, fwd = a0, off = 0.0 }) 500.0 0.0)
+
+  tower-got : List Boolean
+  tower-got = [drawn 200.0 > 0, drawn 1000.0 > 0, drawn (0.0 - 100.0) == 0]
+
+  tower-want : List Boolean
+  tower-want = [True, True, True]
+
+ THE FOUR NEAREST GET CONES AND THE FIFTH GETS FLAT TIERS -- and the two forms
+ emit the SAME NUMBER of commands, one per tier plus the trunk, which is why the
+ count cannot tell them apart. What differs is the shape: a flat tier is a
+ triangle at its simplest, while a cone tier is the convex hull of a sixteen-point
+ ring and carries more. The inequality is the assertion; the exact vertex count of
+ a hull is the hull's business and TreeSpec grades it.
+
+  cluster : List TreeItem
+  cluster = [tree-at 10.0, tree-at 11.0, tree-at 12.0, tree-at 13.0, tree-at 14.0]
+
+  tree-got : List Boolean
+  tree-got =
+    let near = draw-one-tree cluster 0 500.0
+    in let far = draw-one-tree cluster 4 500.0
+    in let near-tier = list-length (list-at near 1).pts
+    in let far-tier = list-length (list-at far 1).pts
+    in [list-length near > 0, list-length far > 0, near-tier > far-tier, far-tier >= 6]
+
+  tree-want : List Boolean
+  tree-want = [True, True, True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "id-fixed " fixed-got fixed-want 0.0)
+    print-line-uni (grade-ints  "id-count " count-got count-want)
+    print-line-uni (grade-ints  "id-tie   " tie-got tie-want)
+    print-line-uni (grade-reals "id-shade " shade-got shade-want 0.0)
+    print-line-uni (grade-ints  "id-base  " base-got base-want)
+    print-line-uni (grade-reals "id-corner" corner-got corner-want 0.0001)
+    print-line-uni (grade-bools "id-tower " tower-got tower-want)
+    print-line-uni (grade-bools "id-tree  " tree-got tree-want)
+  end

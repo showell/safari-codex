@@ -1,0 +1,234 @@
+Chapter: GazeSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Pigs
+  cites Safari chapter World
+  cites Safari chapter Gaze
+  cites Judge chapter Grade
+
+ Gaze: whether the rider is looking at the pigs, where his head is turning, and
+ how narrow the lens has gone because of it.
+
+ FOUR SEPARATE REASONS NOT TO LOOK, and they are graded one at a time because
+ each is a different refusal reaching the same answer. The leg has no distraction
+ herd; his eyes are already off the road into a corner; the pig is further than
+ he looks; or it is so close beside him that the bearing has swung past the
+ release angle. A chapter collapsing any two of them would still show a rider
+ who mostly looks at the right moments.
+
+ THE LAST ONE IS THE INTERESTING ONE. He releases the pig not by distance but by
+ ANGLE -- once it is more than thirty-five degrees off his heading he faces front
+ again, which is what makes him turn back as he draws level rather than at some
+ written-down range. On a four-hundred-metre leg the pig sits at 342 and twelve
+ metres off the road, so at 200 he is looking and at 341 he is not, and nothing
+ between those changed except the geometry.
+
+ THE HEAD SWIVELS TOWARD AND DRIFTS BACK, at different rates and by different
+ rules. Toward the pig is a fixed rate clamped both ways; back to the road is
+ proportional, so it lingers and then decelerates, with the last sliver SNAPPED
+ to zero rather than approached forever. All three behaviours are graded.
+
+ THE FOCUS HOLDS ITS PEAK while the head is turned and eases only once he is
+ straight, which is why it is a max against its own previous value rather than a
+ function of the angle alone.
+
+ We say:
+
+Section: The Constants
+
+  fixed-got : List Real
+  fixed-got =
+    [ gaze-look-dist, focus-decay, pig-gaze-speed, pig-gaze-settle-dist,
+      gaze-release-angle / deg, gaze-swivel-rate / deg, gaze-return-rate / deg,
+      gaze-return-snap / deg, eyes-on-road-yaw / deg, gaze-return-ease ]
+
+  fixed-want : List Real
+  fixed-want = [150.0, 0.0012, 0.2, 25.0, 35.0, 4.0, 0.2, 0.02, 6.0, 0.05]
+
+  smooth-got : List Real
+  smooth-got = [smoothstep 0.0, smoothstep 0.5, smoothstep 1.0, gaze-focus 0.5]
+
+  smooth-want : List Real
+  smooth-want = [0.0, 0.5, 1.0, 0.5]
+
+Section: Looking Or Not
+
+ Segment 2 is a distraction leg; segment 0 is not. The pig sits at 342 along and
+ twelve metres off the road.
+
+  plain : Segment
+  plain = segment-at 0
+
+  distracting : Segment
+  distracting = segment-at 2
+
+  rider : Real, Real -> RiderState
+  rider (along) (yaw) =
+    RiderState { segment = 2, along = along, across = 0.0, yaw = yaw, v = v-base,
+                 tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+  legs-got : List Boolean
+  legs-got = [plain.pigs-distract, distracting.pigs-distract]
+
+  legs-want : List Boolean
+  legs-want = [False, True]
+
+ The four refusals, then the case that looks.
+
+  looking-got : List Boolean
+  looking-got =
+    [ (pig-ahead (rider 200.0 0.0) plain).looking,
+      (pig-ahead (rider 200.0 (10.0 * deg)) distracting).looking,
+      (pig-ahead (rider 100.0 0.0) distracting).looking,
+      (pig-ahead (rider 341.0 0.0) distracting).looking,
+      (pig-ahead (rider 200.0 0.0) distracting).looking,
+      no-look.looking ]
+
+  looking-want : List Boolean
+  looking-want = [False, False, False, False, True, False]
+
+ Looking carries the distance to the pig, and not looking carries a zero rather
+ than a stale one.
+
+  dist-got : List Real
+  dist-got =
+    [ (pig-ahead (rider 200.0 0.0) distracting).dist,
+      (pig-ahead (rider 100.0 0.0) distracting).dist,
+      no-look.dist ]
+
+  dist-want : List Real
+  dist-want = [142.0, 0.0, 0.0]
+
+ THE WANT IS A BEARING AND NOT A FIXED ANGLE, so his gaze tracks the pig as he
+ creeps past it -- and it is a LITERAL zero when he has no interest, which is
+ what lets the swivel test it bitwise.
+
+  want-got : List Boolean
+  want-got =
+    let far = desired-gaze (rider 200.0 0.0) distracting
+    in let near = desired-gaze (rider 320.0 0.0) distracting
+    in [far > 0.0, near > far, desired-gaze (rider 200.0 0.0) plain ~0 0.0]
+
+  want-want : List Boolean
+  want-want = [True, True, True]
+
+Section: The Swivel
+
+ Toward the pig at a fixed rate, clamped both ways, so a large want moves the
+ head exactly one step.
+
+  head : Real, Real -> RiderState
+  head (gaze-yaw) (along) =
+    RiderState { segment = 2, along = along, across = 0.0, yaw = 0.0, v = v-base,
+                 tilt = 0.0, heading = 0.0, gaze-yaw = gaze-yaw, focus = 0.0 }
+
+  swivel-got : List Real
+  swivel-got =
+    [ next-gaze-yaw (head 0.0 200.0) 1.0 - gaze-swivel-rate,
+      next-gaze-yaw (head 0.0 200.0) (0.0 - 1.0) + gaze-swivel-rate,
+      next-gaze-yaw (head 0.0 200.0) (gaze-swivel-rate / 2.0) - gaze-swivel-rate / 2.0 ]
+
+  swivel-want : List Real
+  swivel-want = [0.0, 0.0, 0.0]
+
+ Back to the road is PROPORTIONAL and capped, so it lingers at a large angle and
+ decelerates as it straightens -- and the last sliver is snapped to zero rather
+ than approached forever.
+
+  return-got : List Boolean
+  return-got =
+    let big = next-gaze-yaw (head (30.0 * deg) 200.0) 0.0
+    in let small = next-gaze-yaw (head (2.0 * deg) 200.0) 0.0
+    in [ big < 30.0 * deg, big > 0.0, small < 2.0 * deg, small > 0.0,
+         30.0 * deg - big > 2.0 * deg - small ]
+
+  return-want : List Boolean
+  return-want = [True, True, True, True, True]
+
+  snap-got : List Real
+  snap-got =
+    [ next-gaze-yaw (head gaze-return-snap 200.0) 0.0,
+      next-gaze-yaw (head (0.0 - gaze-return-snap) 200.0) 0.0,
+      next-gaze-yaw (head 0.0 200.0) 0.0 ]
+
+  snap-want : List Real
+  snap-want = [0.0, 0.0, 0.0]
+
+Section: The Focus
+
+ It rises with the turn and HOLDS its peak, so a head coming back does not take
+ the lens with it; only a fully straight head lets it ease, and it never goes
+ below zero.
+
+  focused : Real, Real -> RiderState
+  focused (focus) (gaze-yaw) =
+    RiderState { segment = 2, along = 200.0, across = 0.0, yaw = 0.0, v = v-base,
+                 tilt = 0.0, heading = 0.0, gaze-yaw = gaze-yaw, focus = focus }
+
+  focus-got : List Boolean
+  focus-got =
+    let rising = next-focus (focused 0.0 (20.0 * deg)) (20.0 * deg)
+    in let held = next-focus (focused 0.9 (1.0 * deg)) (1.0 * deg)
+    in let easing = next-focus (focused 0.9 0.0) 0.0
+    in [rising > 0.0, held >= 0.9, easing < 0.9, easing > 0.0]
+
+  focus-want : List Boolean
+  focus-want = [True, True, True, True]
+
+ A straight head at zero focus stays at zero rather than going negative, and a
+ head turned past the release angle saturates at one.
+
+  focus-ends-got : List Real
+  focus-ends-got =
+    [ next-focus (focused 0.0 0.0) 0.0,
+      next-focus (focused 0.0 (90.0 * deg)) (90.0 * deg) ]
+
+  focus-ends-want : List Real
+  focus-ends-want = [0.0, 1.0]
+
+Section: The Gawk Gate
+
+ He is not gawking until he has NOTICED the pigs, and from then on he is -- so
+ the gate is a position and not the same test as looking.
+
+  gawk-got : List Boolean
+  gawk-got =
+    [ gawk-engaged (rider 200.0 0.0) plain,
+      gawk-engaged (rider 100.0 0.0) distracting,
+      gawk-engaged (rider 200.0 0.0) distracting,
+      gawk-engaged (rider 341.0 0.0) distracting ]
+
+  gawk-want : List Boolean
+  gawk-want = [False, False, True, True]
+
+ THE GATE OUTLASTS THE LOOK, which is the pair worth having side by side: at 341
+ he has long since faced front again and he is still gawking, because the brake
+ holds him slow past the pig rather than releasing when his head does.
+
+  outlast-got : List Boolean
+  outlast-got =
+    let looks = (pig-ahead (rider 341.0 0.0) distracting).looking
+    in [looks == False, gawk-engaged (rider 341.0 0.0) distracting]
+
+  outlast-want : List Boolean
+  outlast-want = [True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "gz-fixed " fixed-got fixed-want 0.000000000001)
+    print-line-uni (grade-reals "gz-smooth" smooth-got smooth-want 0.0)
+    print-line-uni (grade-bools "gz-legs  " legs-got legs-want)
+    print-line-uni (grade-bools "gz-look  " looking-got looking-want)
+    print-line-uni (grade-reals "gz-dist  " dist-got dist-want 0.0)
+    print-line-uni (grade-bools "gz-want  " want-got want-want)
+    print-line-uni (grade-reals "gz-swivel" swivel-got swivel-want 0.0)
+    print-line-uni (grade-bools "gz-return" return-got return-want)
+    print-line-uni (grade-reals "gz-snap  " snap-got snap-want 0.0)
+    print-line-uni (grade-bools "gz-focus " focus-got focus-want)
+    print-line-uni (grade-reals "gz-fends " focus-ends-got focus-ends-want 0.0)
+    print-line-uni (grade-bools "gz-gawk  " gawk-got gawk-want)
+    print-line-uni (grade-bools "gz-outlst" outlast-got outlast-want)
+  end

@@ -10,3 +10,4 @@
 # and the gate goes green on its own; if it does not, we learn something.
 BikeSpec	125	Real literals are not correctly rounded, so bk-exact's written-down doubles differ by 1 ULP
 ViewYawSpec	125	as above, for vy-yaw's 0.012500000000000011
+TreesSpec	125	as above, for tr-hx's 11.700000000000001 -- one ULP LOW, while 5.8500000000000005 beside it in the same list is right

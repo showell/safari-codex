@@ -1,0 +1,613 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: Scenery
+
+ The vocabulary the roadside populations share: what a tree is, what a critter
+ is, which colour scheme a segment runs, which big animal stands at its exit --
+ and the two distances everything beside the road is measured from.
+
+ Split out of World on 2026-09-03. It exists because `Trees`, `Herd` and `Pigs`
+ each build their own population and all three need the same words for it: a
+ pig and a cow are both a `Critter`, and both stand `herd-road-offset` off a
+ road `lane-width` wide. Nothing here generates anything.
+
+ We say:
+
+Section: The Road
+
+  lane-width : Real
+  lane-width = 4.0
+
+ Longer segments stand their own tower halfway down.
+
+  herd-road-offset : Real
+  herd-road-offset = 10.0
+
+Section: Schemes and Creatures
+
+  Scheme =
+   | AllGreen
+   | YellowGreen
+   | RedGreen
+
+ The big animal parked at a segment's EXIT corner. Elephant is the unmarked
+ default; the rest are the rare departures. DuckPond is a hand-drawn scene rather
+ than an emoji pair, and NoCreature is the terminus, which has no exit corner.
+
+ The constructor is DuckPond rather than Pond because chapters share one flat
+ namespace inside a bundle (CDX3001) and `Safari chapter Pond` is already in this
+ port -- a collision that would only appear once something cited both.
+
+
+  Creature =
+   | NoCreature
+   | Elephant
+   | Giraffe
+   | Zebra
+   | Rhino
+   | DuckPond
+
+Section: What Stands Beside the Road
+
+  Tree = record {
+    along : Real,
+    across : Real,
+    color : Integer,
+    height : Real
+  }
+
+ A roadside animal: an emoji billboard at along and across-from-centre.
+
+
+  Critter = record {
+    along : Real,
+    across : Real,
+    codepoint : Integer,
+    height : Real,
+    face-right : Boolean
+  }
+
+ A pond is a Creature that is not an animal, which the ground walk asks about to
+ place water and the collection asks about to place ducks.
+
+  is-pond : Creature -> Boolean
+  is-pond (c) =
+   when c
+    is DuckPond -> True
+    is NoCreature -> False
+    is Elephant -> False
+    is Giraffe -> False
+    is Zebra -> False
+    is Rhino -> False
+
+Chapter: Trees
+  cites Safari chapter Scenery
+
+ The conifer rows: their colours, their spacing, and the pair-at-a-time fill
+ that lays them down the length of a segment.
+
+ Split out of World on 2026-09-03, and the split moved the palette with it. The
+ three conifer colours sat under a heading called `Palette and Dimensions` and
+ were reachable only through `fill-trees` -- so they were never a palette, they
+ were the tree colours, and they belong here.
+
+ We say:
+
+Section: Colours
+
+  conifer-green : Integer
+  conifer-green = 1858082
+
+  conifer-gold : Integer
+  conifer-gold = 13605400
+
+  conifer-red : Integer
+  conifer-red = 11680298
+
+Section: Dimensions
+
+  small-height : Real
+  small-height = 4.5
+
+  big-scale : Real
+  big-scale = 1.3
+
+ Metres between trees, and this is FIXED where the TypeScript fixes the COUNT --
+ so density, and the speed illusion it creates, is uniform across segments.
+
+
+  tree-spacing : Real
+  tree-spacing = 30.0
+
+  tree-road-offset : Real
+  tree-road-offset = 1.5
+
+  tree-start-inset : Real
+  tree-start-inset = 6.0
+
+  tree-end-inset : Real
+  tree-end-inset = 85.0
+
+  max-trees : Integer
+  max-trees = 96
+
+Section: Filling a Segment
+
+  accent-color : Scheme -> Integer
+  accent-color (s) =
+   when s
+    is YellowGreen -> conifer-gold
+    is RedGreen -> conifer-red
+    is AllGreen -> conifer-green
+
+ Conifers every tree-spacing metres from the start inset to the end-clear zone.
+ Even index is green and 1.3 times tall, odd is the scheme's accent. Red trees are
+ twice everything; gold three times and set about four times further off the road.
+
+ The pair is emitted together, so the cap is checked two at a time exactly as the
+ zig's `n_trees + 2 <= MAX_TREES` does.
+
+
+  tree-height-for : Integer, Boolean -> Real
+  tree-height-for (color) (even) =
+    let base = if even then small-height * big-scale else small-height
+    in if color == conifer-red then base * 2.0 else (if color == conifer-gold then base * 3.0 else base)
+
+  tree-x-for : Integer -> Real
+  tree-x-for (color) =
+    if color == conifer-gold then lane-width / 2.0 + 4.0 * tree-road-offset
+    else lane-width / 2.0 + tree-road-offset
+
+  fill-trees : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees (scheme) (length) (along) (k) (n) =
+    if along > length - tree-end-inset then []
+    else if n + 2 > max-trees then []
+    else fill-trees-pair scheme length along k n
+
+  fill-trees-pair : Scheme, Real, Real, Integer, Integer -> List Tree
+  fill-trees-pair (scheme) (length) (along) (k) (n) =
+    let even = k - ((k / 2) * 2) == 0
+    in let color = if even then conifer-green else accent-color scheme
+    in let height = tree-height-for color even
+    in let x = tree-x-for color
+    in [Tree { along = along, across = 0.0 - x, color = color, height = height }, Tree { along = along, across = x, color = color, height = height }] & fill-trees scheme length (along + tree-spacing) (k + 1) (n + 2)
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: TreesSpec
+  cites Foreword chapter Console
+  cites Foreword chapter ListUtils
+  cites Safari chapter Trees
+  cites Judge chapter Grade
+
+ Trees: the pair-at-a-time fill, and the two things that stop it.
+
+ Nothing in judge/ grades this chapter. It reaches the frame only through World,
+ which builds every segment's trees at startup, so a fill that laid down one
+ pair too many or stopped a pair too early would arrive as a whole-frame diff.
+
+ THE FILL EMITS A PAIR AT A TIME AND THE CAP IS CHECKED TWO AT A TIME, which is
+ the zig's `n_trees + 2 <= MAX_TREES` and is why the cap can only ever be hit
+ exactly. A 5,000 m segment is graded below for precisely 96 trees -- not 95,
+ not 97 -- and a fill that checked one at a time would give 97 on some segment
+ and nothing would say so.
+
+ THE END INSET IS A BOUNDARY AND IT IS GRADED AS ONE. The walk stops when
+ `along > length - tree-end-inset`, so on a 300 m segment it stops above 215 and
+ the last pair is laid at 186. A pair at 216 would be the off-by-one, and the
+ last `along` below is what refuses it.
+
+ WHERE THE EXPECTED VALUES COME FROM: the rules in the chapter's own prose --
+ every 30 m from the 6 m inset, even index green and 1.3 times tall, odd the
+ scheme's accent, red twice everything, gold three times and about four times
+ further off the road -- worked out in doubles. The heights are the one place
+ that is not tidy: 4.5 * 1.3 is 5.8500000000000005 and the want says so rather
+ than rounding it and reaching for a tolerance.
+
+ We say:
+
+Section: The Palette And The Dimensions
+
+  colour-got : List Integer
+  colour-got = [conifer-green, conifer-gold, conifer-red, max-trees]
+
+  colour-want : List Integer
+  colour-want = [1858082, 13605400, 11680298, 96]
+
+  dim-got : List Real
+  dim-got = [small-height, big-scale, tree-spacing, tree-road-offset, tree-start-inset, tree-end-inset]
+
+  dim-want : List Real
+  dim-want = [4.5, 1.3, 30.0, 1.5, 6.0, 85.0]
+
+Section: The Accent, All Three Schemes
+
+ Five of six arms of the two lookups answer the same colour as some other arm,
+ so all three schemes are graded rather than the interesting one.
+
+  accent-got : List Integer
+  accent-got = [accent-color AllGreen, accent-color YellowGreen, accent-color RedGreen]
+
+  accent-want : List Integer
+  accent-want = [1858082, 13605400, 11680298]
+
+ Height and offset for each colour in both parities. An even tree is 1.3 times
+ the small height whatever its colour; red doubles and gold triples on top of
+ that, and only gold moves off the road.
+
+  hx-got : List Real
+  hx-got =
+    [ tree-height-for 1858082 True, tree-height-for 1858082 False,
+      tree-height-for 11680298 True, tree-height-for 11680298 False,
+      tree-height-for 13605400 True, tree-height-for 13605400 False,
+      tree-x-for 1858082, tree-x-for 11680298, tree-x-for 13605400 ]
+
+  hx-want : List Real
+  hx-want = [5.8500000000000005, 4.5, 11.700000000000001, 9.0, 17.55, 13.5, 3.5, 3.5, 8.0]
+
+Section: A Filled Segment
+
+ Three hundred metres of YellowGreen, which alternates green pairs at 3.5 m with
+ gold pairs out at 8.0 m -- the scheme that exercises both offsets.
+
+  filled : List Tree
+  filled = fill-trees YellowGreen 300.0 tree-start-inset 0 0
+
+  along-got : List Real
+  along-got = list-map (\t -> t.along) filled
+
+  along-want : List Real
+  along-want = [6.0, 6.0, 36.0, 36.0, 66.0, 66.0, 96.0, 96.0, 126.0, 126.0, 156.0, 156.0, 186.0, 186.0]
+
+ Each pair straddles the road, so the across values come in mirrored twos.
+
+  across-got : List Real
+  across-got = list-map (\t -> t.across) filled
+
+  across-want : List Real
+  across-want = [-3.5, 3.5, -8.0, 8.0, -3.5, 3.5, -8.0, 8.0, -3.5, 3.5, -8.0, 8.0, -3.5, 3.5]
+
+  colours-got : List Integer
+  colours-got = list-map (\t -> t.color) filled
+
+  colours-want : List Integer
+  colours-want = [1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082, 13605400, 13605400, 1858082, 1858082]
+
+  heights-got : List Real
+  heights-got = list-map (\t -> t.height) filled
+
+  heights-want : List Real
+  heights-want = [5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005, 13.5, 13.5, 5.8500000000000005, 5.8500000000000005]
+
+Section: The Two Stops
+
+ A short segment lays nothing at all -- 100 m less the 85 m end inset leaves 15,
+ and the 6 m start inset is inside it, so one pair goes down and the next is
+ refused. A 5,000 m segment hits the cap exactly.
+
+  stops-got : List Integer
+  stops-got =
+    [ list-length filled,
+      list-length (fill-trees AllGreen 100.0 tree-start-inset 0 0),
+      list-length (fill-trees AllGreen 5000.0 tree-start-inset 0 0),
+      list-length (fill-trees AllGreen 50.0 tree-start-inset 0 0) ]
+
+  stops-want : List Integer
+  stops-want = [14, 2, 96, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "tr-colour" colour-got colour-want)
+    print-line-uni (grade-reals "tr-dim   " dim-got dim-want 0.0)
+    print-line-uni (grade-ints  "tr-accent" accent-got accent-want)
+    print-line-uni (grade-reals "tr-hx    " hx-got hx-want 0.0)
+    print-line-uni (grade-reals "tr-along " along-got along-want 0.0)
+    print-line-uni (grade-reals "tr-across" across-got across-want 0.0)
+    print-line-uni (grade-ints  "tr-colours" colours-got colours-want)
+    print-line-uni (grade-reals "tr-height" heights-got heights-want 0.0)
+    print-line-uni (grade-ints  "tr-stops " stops-got stops-want)
+  end

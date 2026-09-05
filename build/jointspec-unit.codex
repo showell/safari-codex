@@ -1742,96 +1742,35 @@ Section: Mappers
       else let p = cur-to-next a x m.prev-len m.prev-angle m.prev-right m.prev-w
         in to-rider p.a p.x pose.along pose.across pose.yaw pose.hw
 
-Chapter: Pose
-
- The rider's state, and nothing else.
-
- THIS CHAPTER EXISTS TO CUT A CYCLE. In the zig, rider.zig imports gaze.zig for the
- gawk brake and the gaze step, and gaze.zig imports rider.zig for the state type --
- a mutual import zig permits and Codex cites do not. The cycle has to be cut
- somewhere, and the honest place is the thing they actually share: the record.
- Neither module's LOGIC moves, so this is a packaging adaptation and not a change
- of behaviour, in the same family as Camera threading view-w because Codex has no
- mutable global.
-
- A port of the RiderState in wasm/rider.zig.
-
- We say:
-
-Section: State
-
- `yaw` is the heading against the CURRENT segment -- frame-relative, which is what
- the road geometry reads -- and is reset into each new segment's frame at a
- crossing.
-
- `heading` is the bike's ABSOLUTE world heading, integrated continuously and left
- untouched by the crossing. The backdrop reads this one, so the horizon turns
- exactly as much as the bike does rather than jumping when the frame changes.
-
- `gaze-yaw` and `focus` are the distracted rider, and both are VIEW-ONLY: an extra
- camera yaw toward the roadside pigs, and the camera's focus-narrowing progress as
- he gawks. They are advanced after the bike has moved.
-
-  RiderState = record {
-    segment : Integer,
-    along : Real,
-    across : Real,
-    yaw : Real,
-    v : Real,
-    tilt : Real,
-    heading : Real,
-    gaze-yaw : Real,
-    focus : Real
-  }
-
-  v-base : Real
-  v-base = 0.3
-
-  initial-rider-state : RiderState
-  initial-rider-state =
-    RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = v-base, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
-
- `with-tilt` is here for the same reason the record is: two chapters need it and
- neither may cite the other. LeanSearch builds a hypothetical rider to project an
- arc from, and Rider builds the leaned rider the throttle answers.
-
-  with-tilt : RiderState, Real -> RiderState
-  with-tilt (s) (t) =
-    RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
-
-Chapter: ViewYaw
-  cites Safari chapter Frame
-  cites Safari chapter Pose
+Chapter: Joint
+  cites Safari chapter Geom
   cites Safari chapter World
-  cites Foreword chapter ListUtils
+  cites Safari chapter Frame
 
- WHICH WAY HE IS LOOKING, which is not quite where the bike points.
-
- The extra camera yaw on top of his heading: the distracted gaze toward the pigs plus a
- subtle head-turn into a lean. It swings the WHOLE view, so it folds into the scene pose
- and the backdrop heading alike -- `pose-for` and `heading-for` are the two places that
- fold happens, and everything that draws goes through one of them.
+ The three points a corner hangs off, and the only geometry the road surface and
+ the things standing on it both need. `GroundPlan` reaches it for the corner
+ pavement and `Render` for the guard rail, so it belongs to neither.
 
  We say:
 
-Section: Where He Is Looking
+Section: The Outer Shoulders
 
- The extra camera yaw on top of his heading: the distracted gaze toward the pigs
- plus a subtle head-turn into a lean. It swings the WHOLE view, so it folds into
- the scene pose and the backdrop heading alike.
+ Both the corner pavement and the guard rail hang off the same three points: each
+ segment's OUTER shoulder at the join, and the apex Q where the two extended
+ shoulders cross. Which edge is outer flips with the turn -- a right turn's outer
+ edge is the left one.
 
-  head-yaw-frac : Real
-  head-yaw-frac = 0.15
+  outer-cu : Boolean, Real -> Real
+  outer-cu (exit-right) (wd) = if exit-right then 0.0 else wd
 
-  view-yaw-for : RiderState -> Real
-  view-yaw-for (s) = s.gaze-yaw + head-yaw-frac * s.tilt
+ Q is found by extending each shoulder one metre past the join and intersecting
+ the two lines. A real turn has a non-zero angle, so they are never parallel.
 
-  heading-for : RiderState -> Real
-  heading-for (s) = s.heading + view-yaw-for s
-
-  pose-for : List Segment, RiderState -> Pose
-  pose-for (w) (s) =
-    Pose { along = s.along, across = s.across, yaw = s.yaw + view-yaw-for s, hw = (list-at w s.segment).width / 2.0 }
+  joint-apex : List Segment, List Integer, Pose, Mapper, Mapper, Real, Real, Real, Boolean -> RiderPt
+  joint-apex (segs) (ch) (pose) (from-map) (to-map) (from-len) (from-w) (to-w) (exit-right) =
+    let fcu = outer-cu exit-right from-w
+    in let tx = outer-cu exit-right to-w
+    in line-meet (map-pt segs ch pose from-map from-len fcu) (map-pt segs ch pose from-map (from-len + 1.0) fcu) (map-pt segs ch pose to-map 0.0 tx) (map-pt segs ch pose to-map 1.0 tx)
 
 Chapter: Grade
 
@@ -2007,94 +1946,87 @@ Section: Judging Booleans
         in if i < 0 then name & " ok " & show (list-length got)
            else name & " BAD at " & show i
 
-Chapter: ViewYawSpec
+Chapter: JointSpec
   cites Foreword chapter Console
-  cites Foreword chapter ListUtils
-  cites Safari chapter ViewYaw
+  cites Safari chapter Joint
   cites Judge chapter Grade
 
- ViewYaw: the extra camera yaw on top of the bike's heading.
+ Joint: the three points a corner hangs off.
 
- Two lines of arithmetic that swing the WHOLE view -- the distracted gaze toward
- the pigs plus a subtle head-turn into the lean -- and everything that draws goes
- through one of them. Nothing in judge/ grades the chapter directly; it is
- covered only where a whole frame is compared, which is the most expensive place
- to learn that a coefficient moved.
+ Both the corner pavement and the guard rail hang off the same apex, so
+ GroundPlan and Render reach this and neither owns it -- and nothing in judge/
+ grades it directly. A wrong apex is a corner whose pavement and whose rail
+ disagree with each other by the same amount, which reads as a slightly odd
+ corner rather than as a fault.
 
- WHERE THE EXPECTED VALUES COME FROM: `gaze-yaw + 0.15 * tilt`, evaluated in
- IEEE-754 doubles. Not in decimal -- and that distinction earns its keep on the
- fourth case. 0.15 is not representable in binary, so `0.125 + 0.15 * (-0.75)`
- is 0.012500000000000011 and not 0.0125. The want below carries that value.
- Writing the tidy decimal and reaching for a tolerance to cover the difference
- would have hidden a real property of the chapter behind a fudge; the arithmetic
- is exact, it is just not the arithmetic base ten suggests, so every line here
- is graded at 0.0.
+ WHICH EDGE IS OUTER FLIPS WITH THE TURN, and `outer-cu` is two lines with
+ nothing to hide behind: a right turn's outer edge is the LEFT one, at cu 0, and
+ a left turn's is the right one, at the road's width. Both arms are graded,
+ because a function that answered `0.0` unconditionally would satisfy half of
+ any test that only turned one way.
 
- THE STATES COVER BOTH SIGNS OF BOTH INPUTS, because the fold is a sum and a sum
- is where a sign error survives: a `-` for a `+` on the gaze term is invisible
- whenever the gaze is zero, and the rider spends most of a straight there.
+ THE APEX IS FOUND BY EXTENDING EACH SHOULDER A METRE PAST THE JOIN AND
+ INTERSECTING, and the one-metre extension is the part worth grading rather than
+ assuming: it exists only to give each shoulder a direction, so its length must
+ not reach the answer. Both cases below are computed with it and would be the
+ same at any other extension -- which is what makes the intersection an
+ intersection rather than an endpoint.
 
- WHAT THIS FILE DOES NOT GRADE, said plainly rather than left to be discovered.
- `pose-for` needs a `List Segment`, and a Segment carries trees, cows, pigs and
- a Cat -- building one here would be more fixture than test, and building the
- real world would put the whole of World under a spec that is about two lines of
- addition. Its only content beyond the fold graded below is
- `(list-at w s.segment).width / 2.0`, and the whole-frame check covers that.
+ THE APEX IS BEHIND THE RIDER IN BOTH CASES, at forward about -100, and that is
+ correct rather than alarming: the joint here is the one the rider has just
+ crossed, a hundred metres back down a 300 m segment. A test that only accepted
+ a positive forward would have called both of these wrong.
+
+ WHERE THE EXPECTED VALUES COME FROM: `cur-to-next` for the shoulder behind,
+ `to-rider` for the current one, and `line-meet` on the two, in doubles with true
+ sine and cosine.
+
+ THE TOLERANCE IS MEASURED: this fails at 5e-9 relative and passes at 1e-8, so
+ the error sits between, and the gate is 1e-7 -- the next round decade above it.
+ That is looser than FrameSpec's 5e-8 through the same trig, and the extra comes
+ from what this composes on top: a frame change, then a line fit, then a division
+ whose denominator is a difference of two products and so cancels.
 
  We say:
 
-Section: The Rider States
+Section: Which Edge Is Outer
 
- Five states: at rest, a right lean with gaze, a left gaze with a right lean,
- the mixed-sign case, and a pure lean with no gaze at all.
+  outer-got : List Real
+  outer-got = [outer-cu True 4.0, outer-cu False 4.0, outer-cu True 7.5, outer-cu False 7.5]
 
-  s0 : RiderState
-  s0 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+  outer-want : List Real
+  outer-want = [0.0, 4.0, 0.0, 7.5]
 
-  s1 : RiderState
-  s1 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.125, heading = 4.5, gaze-yaw = 0.375, focus = 0.0 }
+Section: The Apex
 
-  s2 : RiderState
-  s2 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 0.5, heading = 1.0, gaze-yaw = -0.25, focus = 0.0 }
+ The rider sits 100 m along a 300 m segment, a metre off centre, looking 0.2 rad
+ off the road, on a 4 m road. The joint behind him turns 50 degrees right in one
+ case and 70 degrees left in the other.
 
-  s3 : RiderState
-  s3 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = -0.75, heading = -2.0, gaze-yaw = 0.125, focus = 0.0 }
+  pose : Pose
+  pose = Pose { along = 100.0, across = 1.0, yaw = 0.2, hw = 2.0 }
 
-  s4 : RiderState
-  s4 = RiderState { segment = 0, along = 0.0, across = 0.0, yaw = 0.0, v = 0.3, tilt = 1.25, heading = 0.5, gaze-yaw = 0.0, focus = 0.0 }
+  behind-right : Mapper
+  behind-right = Mapper { is-chain = False, d = 0, prev-len = 300.0, prev-angle = 0.8726646259971648, prev-right = True, prev-w = 4.0 }
 
-Section: The Fold
+  behind-left : Mapper
+  behind-left = Mapper { is-chain = False, d = 0, prev-len = 300.0, prev-angle = 1.2217304763960306, prev-right = False, prev-w = 4.0 }
 
- head-yaw-frac is 0.15, and it is pinned: it is the only tunable in the chapter
- and the one thing a passing edit would reach for.
+  here : Mapper
+  here = chain-map 0
 
-  frac-got : List Real
-  frac-got = [head-yaw-frac]
+  apex-got : List Real
+  apex-got =
+    let r = joint-apex [] [] pose behind-right here 300.0 4.0 4.0 True
+    in let l = joint-apex [] [] pose behind-left here 300.0 4.0 4.0 False
+    in [r.right, r.forward, l.right, l.forward]
 
-  frac-want : List Real
-  frac-want = [0.15]
-
-  yaw-got : List Real
-  yaw-got = [view-yaw-for s0, view-yaw-for s1, view-yaw-for s2, view-yaw-for s3, view-yaw-for s4]
-
-  yaw-want : List Real
-  yaw-want = [0.0, 0.39375, -0.175, 0.012500000000000011, 0.1875]
-
- heading-for adds the absolute world heading on top, so it is the view yaw again
- plus one term. Grading it separately catches the case where the two lines were
- collapsed into one and the heading dropped -- which would leave the horizon
- still and the scene turning.
-
-  head-got : List Real
-  head-got = [heading-for s0, heading-for s1, heading-for s2, heading-for s3, heading-for s4]
-
-  head-want : List Real
-  head-want = [0.0, 4.89375, 0.825, -1.9875, 0.6875]
+  apex-want : List Real
+  apex-want = [17.297297467543466, -100.43071597950589, 21.403438709482494, -100.55298847633645]
 
 Section: Entry
 
   opening : [Console] Nothing = act
-    print-line-uni (grade-reals "vy-frac" frac-got frac-want 0.0)
-    print-line-uni (grade-reals "vy-yaw " yaw-got yaw-want 0.0)
-    print-line-uni (grade-reals "vy-head" head-got head-want 0.0)
+    print-line-uni (grade-reals "jt-outer" outer-got outer-want 0.0)
+    print-line-uni (grade-rel   "jt-apex " apex-got apex-want 0.0000001)
   end

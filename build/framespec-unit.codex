@@ -1186,7 +1186,6 @@ Section: Filling a Segment
 Chapter: Herd
   cites Safari chapter Scenery
   cites Safari chapter Trees
-  cites Safari chapter Num
   cites Safari chapter Trig
 
  The cow herd, split out of World on 2026-09-03.
@@ -1272,7 +1271,6 @@ Section: The Cow Herd
 
 Chapter: Pigs
   cites Safari chapter Scenery
-  cites Safari chapter Num
   cites Safari chapter Trig
 
  The pigs, split out of World on 2026-09-03: the deep distraction block the
@@ -1386,7 +1384,6 @@ Chapter: World
   cites Foreword chapter Maybe
   cites Foreword chapter ListUtils
   cites Gpu chapter DeviceMath
-  cites Safari chapter Num
   cites Safari chapter Trig
   cites Safari chapter Cat
   cites Safari chapter Scenery

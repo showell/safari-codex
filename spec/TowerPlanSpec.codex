@@ -1,0 +1,197 @@
+Chapter: TowerPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter Tower
+  cites Safari chapter World
+  cites Safari chapter DepthSort
+  cites Safari chapter TowerPlan
+  cites Judge chapter Grade
+
+ TowerPlan: which lattice masts are worth showing, and which segment each one
+ belongs to.
+
+ A SEGMENT CAN CARRY TWO TOWERS AND MOST CARRY ONE. Every segment has an exit
+ tower beyond its far end; a LONG one also gets a mid-tower halfway along and on
+ the other side of the road. Grading the counts on a chain with no long segment
+ and again on one with a long segment is what separates the two rules -- a
+ chapter that gave every segment both would agree with this everywhere except the
+ count.
+
+ THE TWO TOWERS ON ONE SEGMENT MUST NOT BLINK IN STEP, which is why the mid-tower
+ is keyed at its segment index PLUS SIXTY rather than at its index. Sixty is half
+ the beacon period, so the pair are in exact antiphase -- and grading the two
+ offsets is what says the key is different at all. A chapter keying both on the
+ segment would put two beacons on one stretch of road flashing together.
+
+ THE TOWER JUST BEHIND HIM IS THE ONE THE CHAIN CANNOT REACH. The chain starts at
+ the rider's current segment and only runs forward, so the previous segment's
+ exit tower -- which is still in view over his shoulder on a corner -- is added
+ separately, through the mapper that steps FORWARD across the join instead of
+ back. It appears only when there is a previous segment.
+
+ We say:
+
+Section: The Constants
+
+  fixed-got : List Real
+  fixed-got = [tower-beyond, tower-right, seg-tower-left]
+
+  fixed-want : List Real
+  fixed-want = [160.0, 20.0, 100.0]
+
+  cap-got : List Integer
+  cap-got = [max-vis-towers]
+
+  cap-want : List Integer
+  cap-want = [16]
+
+Section: One Tower Per Segment
+
+ The route's first three segments are all under the mid-tower length, so each
+ contributes exactly one.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  short-got : List Integer
+  short-got =
+    [ list-length (walk-towers segs chain origin 0),
+      list-length (seg-towers segs chain origin 0),
+      list-length (seg-mid-tower segs chain origin 0),
+      list-length (all-towers segs chain origin 0) ]
+
+  short-want : List Integer
+  short-want = [3, 1, 0, 3]
+
+  mid-flags-got : List Boolean
+  mid-flags-got =
+    [ (list-at segs 0).has-mid-tower, (list-at segs 1).has-mid-tower, (list-at segs 2).has-mid-tower ]
+
+  mid-flags-want : List Boolean
+  mid-flags-want = [False, False, False]
+
+ The exit tower stands a hundred and sixty metres beyond its segment's end and
+ twenty out from the lane edge, in that segment's own frame.
+
+  where-got : List Real
+  where-got =
+    let t = list-at (seg-towers segs chain origin 0) 0
+    in let u = list-at (seg-towers segs chain origin 1) 0
+    in [t.a0, t.x0, u.a0, u.x0]
+
+  where-want : List Real
+  where-want = [660.0, 22.0, 480.0, 22.0]
+
+Section: Two On A Long One
+
+ Segment 6 is twelve hundred metres and carries a mid-tower as well: one beyond
+ its end, one halfway along and on the OTHER side of the road.
+
+  long-segs : List Segment
+  long-segs = [segment-at 6]
+
+  long-got : List Integer
+  long-got =
+    [ list-length (walk-towers long-segs [0] origin 0),
+      list-length (seg-mid-tower long-segs [0] origin 0) ]
+
+  long-want : List Integer
+  long-want = [2, 1]
+
+  long-where-got : List Real
+  long-where-got =
+    let ts = walk-towers long-segs [0] origin 0
+    in [ (list-at ts 0).a0, (list-at ts 0).x0,
+         (list-at ts 1).a0, (list-at ts 1).x0,
+         (list-at ts 0).yaw, (list-at ts 1).yaw ]
+
+  long-where-want : List Real
+  long-where-want = [1360.0, 22.0, 600.0, -98.0, 0.5235987750000001, 0.0]
+
+Section: The Beacon Keys
+
+ The exit tower is keyed on its segment; the mid-tower on that plus sixty, which
+ is half the blink period -- so the pair on one segment are in antiphase and
+ never flash together.
+
+  key-got : List Real
+  key-got =
+    let ts = walk-towers long-segs [0] origin 0
+    in [ (list-at ts 0).off, (list-at ts 1).off,
+         beacon-offset-for 0, beacon-offset-for 60 ]
+
+  key-want : List Real
+  key-want = [0.0, 60.0, 0.0, 60.0]
+
+ Three different segments get three different offsets, which is the whole point
+ of a stride coprime to the period.
+
+  spread-got : List Real
+  spread-got =
+    let ts = walk-towers segs chain origin 0
+    in [(list-at ts 0).off, (list-at ts 1).off, (list-at ts 2).off]
+
+  spread-want : List Real
+  spread-want = [0.0, 37.0, 74.0]
+
+Section: Behind And Beyond
+
+ The previous segment's tower is added only when there is one, and it is an
+ addition to the walk rather than part of it.
+
+  behind-got : List Integer
+  behind-got =
+    [ list-length (all-towers segs chain origin 0),
+      list-length (all-towers segs chain origin 1),
+      list-length (all-towers segs chain origin 2),
+      list-length (behind-tower segs chain origin 0) ]
+
+  behind-want : List Integer
+  behind-want = [3, 4, 4, 1]
+
+ A tower whose base centre is at or behind the near plane is not collected at
+ all -- it sorts by that centre, so there would be nothing to sort it by.
+
+  cull-got : List Integer
+  cull-got =
+    [ list-length (walk-towers segs chain (Pose { along = 5000.0, across = 0.0, yaw = 0.0, hw = 2.0 }) 0),
+      list-length (walk-towers segs [] origin 0) ]
+
+  cull-want : List Integer
+  cull-want = [0, 0]
+
+Section: Into the Frame
+
+  items-got : List Integer
+  items-got =
+    let ts = walk-towers segs chain origin 0
+    in let its = tower-items ts 0
+    in [list-length its, (list-at its 0).i, (list-at its 2).i, list-length (tower-items [] 0)]
+
+  items-want : List Integer
+  items-want = [3, 0, 2, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tl-fixed " fixed-got fixed-want 0.0)
+    print-line-uni (grade-ints  "tl-cap   " cap-got cap-want)
+    print-line-uni (grade-ints  "tl-short " short-got short-want)
+    print-line-uni (grade-bools "tl-mid   " mid-flags-got mid-flags-want)
+    print-line-uni (grade-reals "tl-where " where-got where-want 0.0)
+    print-line-uni (grade-ints  "tl-long  " long-got long-want)
+    print-line-uni (grade-reals "tl-lwhere" long-where-got long-where-want 0.000000000001)
+    print-line-uni (grade-reals "tl-key   " key-got key-want 0.0)
+    print-line-uni (grade-reals "tl-spread" spread-got spread-want 0.0)
+    print-line-uni (grade-ints  "tl-behind" behind-got behind-want)
+    print-line-uni (grade-ints  "tl-cull  " cull-got cull-want)
+    print-line-uni (grade-ints  "tl-items " items-got items-want)
+  end

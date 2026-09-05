@@ -1,0 +1,174 @@
+Chapter: GroundPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Ground
+  cites Safari chapter World
+  cites Safari chapter GroundPlan
+  cites Judge chapter Grade
+
+ GroundPlan: the pavement, cut into chunks along each segment and stitched across
+ each joint.
+
+ THE CHUNK COUNT IS A CEILING FLOORED AT ONE, and both halves are graded. Codex's
+ foreword has a floor and no ceiling, so the chapter writes `ceil x = -floor(-x)`
+ rather than inventing a second rounding rule -- which means a length that lands
+ exactly on a chunk boundary must give exactly that many chunks and not one more.
+ A segment shorter than a chunk still gets one, and so does a length of zero,
+ which is what stops a division by the count.
+
+ EACH SLICE IS CUT BY INDEX AND NOT ACCUMULATED. `a0` is `len * i / n` and `a1`
+ is `len * (i+1) / n`, so the last slice ends exactly on the segment end however
+ many chunks there are. Adding a chunk at a time would drift, and the drift shows
+ up as a seam at the far end of a long segment rather than anywhere near the
+ rider. The first slice's near edge and the last slice's far edge are graded
+ against the segment itself.
+
+ THE FORWARDS CARRY THE GAME'S COSINE. `to-rider` multiplies the along
+ difference by `r-cos` of the rider's yaw, which is 0.999999943741051 at zero
+ rather than 1, so a point twenty-five metres ahead reads 24.99999859. Graded a
+ step out from that; the ACROSS values are exact, because the sine of zero is
+ exactly zero.
+
+ We say:
+
+Section: The Chunking
+
+  fixed-got : List Real
+  fixed-got = [road-chunk, entry-road-dist]
+
+  fixed-want : List Real
+  fixed-want = [25.0, 40.0]
+
+  colour-got : List Integer
+  colour-got = [road-color]
+
+  colour-want : List Integer
+  colour-want = [3421500]
+
+ On a boundary it is exact; just past one it rolls over; below one chunk and at
+ zero it is still one.
+
+  chunks-got : List Integer
+  chunks-got =
+    [ chunks-for 25.0, chunks-for 25.1, chunks-for 50.0, chunks-for 49.9,
+      chunks-for 1.0, chunks-for 0.0, chunks-for 500.0, chunks-for 320.0,
+      chunks-for 1200.0 ]
+
+  chunks-want : List Integer
+  chunks-want = [1, 2, 2, 2, 1, 1, 20, 13, 48]
+
+Section: One Slice
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+ Four corners, walked near-left, near-right, far-right, far-left -- so the quad
+ closes rather than crossing itself.
+
+  quad : List RiderPt
+  quad = slice-quad segs chain origin 0 0 20 500.0 4.0
+
+  quad-shape-got : List Integer
+  quad-shape-got = [list-length quad, list-length (slice-quad segs chain origin 0 19 20 500.0 4.0)]
+
+  quad-shape-want : List Integer
+  quad-shape-want = [4, 4]
+
+ The across values are exact: the lane is four metres wide and the rider sits on
+ its centre line, so its edges are two either side of him.
+
+  across-got : List Real
+  across-got =
+    [ (list-at quad 0).right, (list-at quad 1).right,
+      (list-at quad 2).right, (list-at quad 3).right ]
+
+  across-want : List Real
+  across-want = [-2.0, 2.0, 2.0, -2.0]
+
+ The first slice starts at the rider and runs one twentieth of five hundred
+ metres; the last ends exactly on the segment's end.
+
+  along-got : List Real
+  along-got =
+    let last = slice-quad segs chain origin 0 19 20 500.0 4.0
+    in [ (list-at quad 0).forward, (list-at quad 3).forward,
+         (list-at last 0).forward, (list-at last 3).forward ]
+
+  along-want : List Real
+  along-want = [0.0, 25.0, 475.0, 500.0]
+
+ CONSECUTIVE SLICES SHARE AN EDGE EXACTLY, which is what makes the strip read as
+ one road. Slice i's far edge is slice i+1's near edge, and that holds because
+ both are computed from the index rather than accumulated.
+
+  seam-got : List Real
+  seam-got =
+    let a = slice-quad segs chain origin 0 3 20 500.0 4.0
+    in let b = slice-quad segs chain origin 0 4 20 500.0 4.0
+    in [ (list-at a 3).forward - (list-at b 0).forward,
+         (list-at a 2).forward - (list-at b 1).forward,
+         (list-at a 3).right - (list-at b 0).right ]
+
+  seam-want : List Real
+  seam-want = [0.0, 0.0, 0.0]
+
+Section: The Strip
+
+ One command per chunk that survives the near clip, and the count never exceeds
+ the chunk count.
+
+  strip : List DrawCmd
+  strip = seg-road segs chain origin 0 500.0 960.0
+
+  strip-got : List Boolean
+  strip-got =
+    [ list-length strip > 0,
+      list-length strip <= chunks-for 500.0,
+      list-length (seg-road segs chain (Pose { along = 5000.0, across = 0.0, yaw = 0.0, hw = 2.0 }) 0 500.0 960.0) == 0 ]
+
+  strip-want : List Boolean
+  strip-want = [True, True, True]
+
+ Every command is a flat polygon in the road colour, with four vertices flattened
+ to eight reals -- or fewer, where the near plane clipped one.
+
+  cmd-got : List Integer
+  cmd-got =
+    let c = list-at strip (list-length strip - 1)
+    in [c.tag, c.color, c.color2, list-length c.geom]
+
+  cmd-want : List Integer
+  cmd-want = [0, 3421500, 0, 0]
+
+  points-got : List Boolean
+  points-got =
+    let c = list-at strip (list-length strip - 1)
+    in [list-length c.pts >= 6, list-length c.pts <= 10]
+
+  points-want : List Boolean
+  points-want = [True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "gp-fixed " fixed-got fixed-want 0.0)
+    print-line-uni (grade-ints  "gp-colour" colour-got colour-want)
+    print-line-uni (grade-ints  "gp-chunks" chunks-got chunks-want)
+    print-line-uni (grade-ints  "gp-shape " quad-shape-got quad-shape-want)
+    print-line-uni (grade-reals "gp-across" across-got across-want 0.0001)
+    print-line-uni (grade-reals "gp-along " along-got along-want 0.0001)
+    print-line-uni (grade-reals "gp-seam  " seam-got seam-want 0.0)
+    print-line-uni (grade-bools "gp-strip " strip-got strip-want)
+    print-line-uni (grade-ints  "gp-cmd   " cmd-got cmd-want)
+    print-line-uni (grade-bools "gp-points" points-got points-want)
+  end

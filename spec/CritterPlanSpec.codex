@@ -1,0 +1,203 @@
+Chapter: CritterPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter Critter
+  cites Safari chapter Pond
+  cites Safari chapter SafariCritter
+  cites Safari chapter World
+  cites Safari chapter DepthSort
+  cites Safari chapter CritterPlan
+  cites Judge chapter Grade
+
+ CritterPlan: which animals are close enough to be worth placing, and in what
+ order they go into the sort.
+
+ TWO REACHES, AND THEY ARE DIFFERENT NUMBERS ON PURPOSE. Farm animals stop being
+ collected three chain segments out; the corner pair and the ducks carry to five.
+ A herd is many small billboards and a corner creature is one large one, so the
+ far herd is not worth the walk while the far elephant still is. Grading both
+ cutoffs from either side is what says there are two rules -- a single reach
+ would agree with this everywhere except at chain entries three and four.
+
+ A DUCK IS AUTHORED IN THE CORNER FRAME AND MAPS RAW, with no half-width shift,
+ which the chapter calls out as the thing easy to get wrong: its `cu` is the
+ bottom-left across directly, so the pond's negative `cu` sits left of the LEFT
+ EDGE rather than left of the centre line. Getting it wrong slides the whole pond
+ half a lane and still looks like a pond. Here it shows up as ducks appearing at
+ all only where the exit creature is one.
+
+ EVERY GRADED ELEMENT IS COMPLETE ON ITS OWN LINE, and that is not a style
+ choice. Inside a list literal a trailing binary operator does NOT continue onto
+ the next line: `a\n  - b` parses as two elements and `a\n  >= b` reports `if` on
+ an integer. Both cost a red line here. Where an expression will not fit, it goes
+ into a `let` above the list.
+
+ THE FILL ORDER IS THE ZIG'S: farm animals, then the corner pair, then the ducks.
+ The sort that follows is stable, so equal depths keep this order and it is part
+ of the answer rather than a convenience.
+
+ We say:
+
+Section: The Reaches
+
+  reach-got : List Integer
+  reach-got = [farm-seg-reach, safari-seg-reach]
+
+  reach-want : List Integer
+  reach-want = [3, 5]
+
+Section: The Chain
+
+ Six segments, so both cutoffs fall inside it.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2, segment-at 3, segment-at 4, segment-at 5]
+
+  chain : List Integer
+  chain = [0, 1, 2, 3, 4, 5]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  farm-at : Integer -> Integer
+  farm-at (d) = list-length (seg-farm segs chain origin d 2.0)
+
+  safari-at : Integer -> Integer
+  safari-at (d) = list-length (seg-safari segs chain origin d 2.0)
+
+ The farm stops at three and the corner pair carries to five, so entries three
+ and four are exactly where the two rules disagree.
+
+  cutoff-got : List Boolean
+  cutoff-got =
+    [ farm-at 0 > 0,
+      farm-at 2 > 0,
+      farm-at 3 == 0,
+      farm-at 4 == 0,
+      farm-at 5 == 0,
+      safari-at 3 > 0,
+      safari-at 4 > 0,
+      safari-at 5 == 0 ]
+
+  cutoff-want : List Boolean
+  cutoff-want = [True, True, True, True, True, True, True, True]
+
+ THE TERMINUS HAS NO EXIT CORNER, so it contributes no corner pair however close
+ it is -- a separate refusal from running out of reach, and it reaches the same
+ empty list.
+
+  term-got : List Integer
+  term-got = [list-length (seg-safari [segment-at 18] [0] origin 0 2.0)]
+
+  term-want : List Integer
+  term-want = [0]
+
+  term-flag-got : List Boolean
+  term-flag-got = [list-length (seg-safari [segment-at 0] [0] origin 0 2.0) > 0]
+
+  term-flag-want : List Boolean
+  term-flag-want = [True]
+
+Section: The Ducks
+
+ Only a segment whose exit creature is a pond has any, and segment 12 is the one
+ that does.
+
+  duck-count : Integer -> Integer
+  duck-count (i) = list-length (seg-ducks [segment-at i] [0] origin 0)
+
+  duck-got : List Boolean
+  duck-got =
+    [ duck-count 12 > 0,
+      duck-count 0 == 0,
+      duck-count 4 == 0,
+      duck-count 18 == 0 ]
+
+  duck-want : List Boolean
+  duck-want = [True, True, True, True]
+
+ Beyond the safari reach there are none even on the pond segment, which is the
+ same cutoff the corner pair takes.
+
+  duck-reach-got : List Integer
+  duck-reach-got =
+    [ list-length (seg-ducks segs chain origin 5),
+      list-length (seg-ducks [segment-at 12] [0] origin 0) ]
+
+  duck-reach-want : List Integer
+  duck-reach-want = [0, 6]
+
+Section: The Fill Order
+
+ One chain segment contributes its farm animals, then its corner pair, then its
+ ducks -- so the total is the three pieces and the pieces come out in that order.
+
+  order-got : List Integer
+  order-got =
+    let d0 = list-length (seg-billboards segs chain origin 0)
+    in let f0 = farm-at 0
+    in let s0 = safari-at 0
+    in let k0 = list-length (seg-ducks segs chain origin 0)
+    in [d0 - (f0 + s0 + k0)]
+
+  order-want : List Integer
+  order-want = [0]
+
+ The whole walk is the segments' contributions concatenated, and a chain with
+ nothing in it contributes nothing.
+
+  one-seg : List Segment
+  one-seg = [segment-at 0]
+
+  walk-got : List Integer
+  walk-got =
+    [ list-length (walk-billboards segs [] origin 0),
+      list-length (walk-billboards one-seg [0] origin 0) - list-length (seg-billboards one-seg [0] origin 0),
+      list-length (walk-billboards segs chain origin 6) ]
+
+  walk-want : List Integer
+  walk-want = [0, 0, 0]
+
+ It grows as the chain does: a longer chain collects at least what a shorter one
+ did, because every entry only adds.
+
+  grow-got : List Boolean
+  grow-got =
+    let a = list-length (walk-billboards segs chain origin 0)
+    in let b = list-length (walk-billboards segs chain origin 1)
+    in let c = list-length (walk-billboards segs chain origin 2)
+    in [a >= b, b >= c]
+
+  grow-want : List Boolean
+  grow-want = [True, True]
+
+Section: Behind Him
+
+ The previous segment's animals are still in view over his shoulder on a corner,
+ and the chain cannot reach them -- it starts where he is and only runs forward.
+
+  behind-got : List Boolean
+  behind-got =
+    [ list-length (behind-billboards segs chain origin 0) >= 0,
+      list-length (behind-ducks segs chain origin (segment-at 12)) > 0,
+      list-length (behind-ducks segs chain origin (segment-at 0)) == 0 ]
+
+  behind-want : List Boolean
+  behind-want = [True, True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "cn-reach " reach-got reach-want)
+    print-line-uni (grade-bools "cn-cutoff" cutoff-got cutoff-want)
+    print-line-uni (grade-ints  "cn-term  " term-got term-want)
+    print-line-uni (grade-bools "cn-tflag " term-flag-got term-flag-want)
+    print-line-uni (grade-bools "cn-duck  " duck-got duck-want)
+    print-line-uni (grade-ints  "cn-dreach" duck-reach-got duck-reach-want)
+    print-line-uni (grade-ints  "cn-order " order-got order-want)
+    print-line-uni (grade-ints  "cn-walk  " walk-got walk-want)
+    print-line-uni (grade-bools "cn-grow  " grow-got grow-want)
+    print-line-uni (grade-bools "cn-behind" behind-got behind-want)
+  end

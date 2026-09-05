@@ -23,11 +23,13 @@ CatDrawSpec	42
 CatPlanSpec	28
 CatSpec	103
 CatStillsSpec	31
+CritterPlanSpec	27
 CritterSpec	38
 DepthSortSpec	38
 EmojiStillsSpec	43
 FrameSpec	26
 GeomSpec	26
+GroundPlanSpec	34
 GroundSpec	18
 GuardRailSpec	55
 HerdSpec	71
@@ -48,6 +50,7 @@ ScenerySpec	26
 SkySpec	45
 StillsSpec	24
 ThrottleSpec	36
+TowerPlanSpec	40
 TowerSpec	91
 TreePlanSpec	29
 TreeSpec	113

@@ -1,0 +1,106 @@
+Chapter: CameraSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Judge chapter Grade
+
+ Camera: one perspective divide, and the list form of it.
+
+ THE WHOLE CHAPTER IS TWO DEFINITIONS AND TWO CONSTANTS, and every value below
+ is chosen so the divide is exact -- a forward that divides the abscissa evenly
+ and a height that differs from the eye by a whole number of metres. Nothing here
+ needs a tolerance.
+
+ THE EYE IS AT 1.2 AND THE SCREEN IS 600 TALL, and those are the two numbers a
+ caller cannot pass in. Everything else is an argument: the focal comes from the
+ lens and the view width from the frame, which is what keeps this chapter
+ independent of both. Grading a point at exactly eye height is what pins the
+ subtraction -- a chapter that read the eye as 0 puts the horizon at the top of
+ the screen and every other test still passes.
+
+ THE SIGNS ARE OPPOSITE AND THAT IS THE ASSERTION. Screen x grows with `right`
+ and screen y SHRINKS with height, because the screen counts down from the top
+ while the world counts up from the ground. Both directions are graded.
+
+ We say:
+
+Section: The Divide
+
+ A focal of 800 and a 960-wide view, so the centre line is 480 and a point one
+ forward-unit to the right lands a focal away from it.
+
+  at : Real, Real, Real -> ScreenPt
+  at (right) (forward) (height) =
+    project (Vec3 { right = right, forward = forward, height = height }) 800.0 960.0
+
+  x-got : List Real
+  x-got =
+    [ (at 0.0 10.0 1.2).x,
+      (at 10.0 10.0 1.2).x,
+      (at (0.0 - 5.0) 10.0 1.2).x,
+      (at 10.0 5.0 1.2).x ]
+
+  x-want : List Real
+  x-want = [480.0, 1280.0, 80.0, 2080.0]
+
+ Height first: a point at the eye is on the horizon, one above it is higher up
+ the screen -- a SMALLER y -- and one below is lower.
+
+  y-got : List Real
+  y-got =
+    [ (at 0.0 10.0 1.2).y,
+      (at 0.0 10.0 11.2).y,
+      (at 0.0 10.0 6.2).y,
+      (at 0.0 10.0 0.2).y,
+      (at 0.0 4.0 3.2).y ]
+
+  y-want : List Real
+  y-want = [300.0, -500.0, -100.0, 380.0, -100.0]
+
+ Distance is the divide, so the same world offset shrinks as it recedes: at
+ twice the forward, half the displacement.
+
+  depth-got : List Real
+  depth-got =
+    [ (at 4.0 4.0 1.2).x, (at 4.0 8.0 1.2).x, (at 4.0 16.0 1.2).x,
+      (at 0.0 4.0 5.2).y, (at 0.0 8.0 5.2).y, (at 0.0 16.0 5.2).y ]
+
+  depth-want : List Real
+  depth-want = [1280.0, 880.0, 680.0, -500.0, -100.0, 100.0]
+
+  fixed-got : List Real
+  fixed-got = [camera-h, eye-h]
+
+  fixed-want : List Real
+  fixed-want = [600.0, 1.2]
+
+Section: The List Form
+
+ `project` in a loop, in order, and an empty list projects to nothing.
+
+  three : List Vec3
+  three =
+    [ Vec3 { right = 0.0, forward = 10.0, height = 1.2 },
+      Vec3 { right = 10.0, forward = 10.0, height = 1.2 },
+      Vec3 { right = 0.0, forward = 10.0, height = 11.2 } ]
+
+  all-got : List Real
+  all-got =
+    let sp = project-all three 800.0 960.0 0
+    in [ real-from-int (list-length sp),
+         (list-at sp 0).x, (list-at sp 1).x, (list-at sp 2).y,
+         real-from-int (list-length (project-all [] 800.0 960.0 0)) ]
+
+  all-want : List Real
+  all-want = [3.0, 480.0, 1280.0, -500.0, 0.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "cm-x    " x-got x-want 0.0)
+    print-line-uni (grade-reals "cm-y    " y-got y-want 0.0)
+    print-line-uni (grade-reals "cm-depth" depth-got depth-want 0.0)
+    print-line-uni (grade-reals "cm-fixed" fixed-got fixed-want 0.0)
+    print-line-uni (grade-reals "cm-all  " all-got all-want 0.0)
+  end

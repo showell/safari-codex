@@ -1,0 +1,162 @@
+Chapter: HerdSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Critter
+  cites Safari chapter Herd
+  cites Judge chapter Grade
+
+ Herd: a bull, then fourteen cattle in a deterministic jittered grid.
+
+ THE JITTER IS A SINE OF THE INDEX AND IS NOT GRADED AS A VALUE. Every cow's
+ place is a grid point plus `1.5 * r-sin (i * 2.7)` along and
+ `1.2 * r-cos (i * 1.9)` across, and pinning those numbers would grade
+ DeviceMath's polynomial through this chapter rather than grading this chapter.
+ What is Herd's own is the GRID: which column and which row each index falls in,
+ which is `i / 3` and `i mod 3` by integer division.
+
+ SO THE GRID IS GRADED AT THE JITTER'S OWN BOUND, and the bound is what makes it
+ a real test rather than a loose one. Rows are 5 metres apart and the across
+ jitter is at most 1.2, so the three row bands cannot overlap and a cow landing
+ in the wrong one is caught; columns are 6 apart against an along jitter of at
+ most 1.5, likewise. A test that tightened these would be asserting the sine; a
+ test that loosened them past 2.5 would stop telling the rows apart.
+
+ THE CALVES ARE EVERY FOURTH ANIMAL AND THE ROWS ARE EVERY THIRD, which is the
+ one place this chapter can go quietly wrong: two different moduli over the same
+ index, and swapping them still produces fourteen cattle in a plausible field.
+ Both are graded across the whole herd rather than at a sample.
+
+ We say:
+
+Section: The Bull
+
+ Authored per segment, so a segment without one contributes nothing at all --
+ not a bull of zero height. He stands off the far side of the tree line, is a
+ fifteen per cent taller animal than a cow, and faces the road rather than along
+ it.
+
+  bull-count-got : List Integer
+  bull-count-got =
+    [ list-length (bull-of True),
+      list-length (bull-of False),
+      list-length (fill-cows True),
+      list-length (fill-cows False),
+      (list-at (bull-of True) 0).codepoint,
+      bull-cp, cow-cp ]
+
+  bull-count-want : List Integer
+  bull-count-want = [1, 0, 15, 14, 128002, 128002, 128004]
+
+  bull-face-got : List Boolean
+  bull-face-got = [(list-at (bull-of True) 0).face-right, (list-at (fill-cows True) 1).face-right]
+
+  bull-face-want : List Boolean
+  bull-face-want = [False, True]
+
+ He is 24 metres out, and across is the lane edge plus the tree offset plus half
+ his own height plus the gap he keeps from the trunk.
+
+  bull-place-got : List Real
+  bull-place-got =
+    let b = list-at (bull-of True) 0
+    in [b.along, b.across, bull-dist, bull-tree-gap]
+
+  bull-place-want : List Real
+  bull-place-want = [24.0, -4.805, 24.0, 0.5]
+
+ A calf is half a cow and the bull is 1.15 of one. The last of those cannot be
+ written as a literal, so it has its own line.
+
+  height-got : List Real
+  height-got = [cow-height, calf-height]
+
+  height-want : List Real
+  height-want = [1.4, 0.7]
+
+  bull-height-got : List Real
+  bull-height-got = [bull-height, (list-at (bull-of True) 0).height]
+
+  bull-height-want : List Real
+  bull-height-want = [1.61, 1.61]
+
+Section: The Grid
+
+ Fourteen cattle, five columns of three with the last column short. Column is the
+ index over three and row is the remainder, so the herd fans back and to the
+ side together.
+
+  cows : List Critter
+  cows = cows-from 0
+
+  cow-of : Integer -> Critter
+  cow-of (i) = list-at cows i
+
+  alongs-got : List Real
+  alongs-got = list-map (\c -> c.along) cows
+
+  alongs-want : List Real
+  alongs-want =
+    [ 28.0, 30.0, 32.0, 34.0, 36.0, 38.0, 40.0,
+      42.0, 44.0, 46.0, 48.0, 50.0, 52.0, 54.0 ]
+
+  acrosses-got : List Real
+  acrosses-got = list-map (\c -> c.across) cows
+
+  acrosses-want : List Real
+  acrosses-want =
+    [ -12.0, -17.0, -22.0, -12.0, -17.0, -22.0, -12.0,
+      -17.0, -22.0, -12.0, -17.0, -22.0, -12.0, -17.0 ]
+
+ Every cow faces along the road, and the calves are the ones whose index leaves
+ one over four.
+
+  calves-got : List Real
+  calves-got = list-map (\c -> c.height) cows
+
+  calves-want : List Real
+  calves-want =
+    [ 1.4, 0.7, 1.4, 1.4, 1.4, 0.7, 1.4,
+      1.4, 1.4, 0.7, 1.4, 1.4, 1.4, 0.7 ]
+
+  kind-got : List Integer
+  kind-got = [list-length cows, (cow-of 0).codepoint, (cow-of 13).codepoint]
+
+  kind-want : List Integer
+  kind-want = [14, 128004, 128004]
+
+ The bull leads the list and the cows follow him in index order, so a caller
+ walking `fill-cows` walks the herd from the front.
+
+  order-got : List Real
+  order-got =
+    let all = fill-cows True
+    in [ (list-at all 0).along, (list-at all 1).along - (cow-of 0).along, (list-at all 14).along - (cow-of 13).along ]
+
+  order-want : List Real
+  order-want = [24.0, 0.0, 0.0]
+
+Section: The Spacings
+
+  spacing-got : List Real
+  spacing-got =
+    [ herd-gap-behind-bull, herd-col-spacing, herd-row-stagger,
+      herd-row-depth, herd-jitter-along, herd-jitter-across ]
+
+  spacing-want : List Real
+  spacing-want = [6.0, 6.0, 2.0, 5.0, 1.5, 1.2]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "hd-bull  " bull-count-got bull-count-want)
+    print-line-uni (grade-bools "hd-face  " bull-face-got bull-face-want)
+    print-line-uni (grade-reals "hd-place " bull-place-got bull-place-want 0.0)
+    print-line-uni (grade-reals "hd-height" height-got height-want 0.0)
+    print-line-uni (grade-reals "hd-bullh " bull-height-got bull-height-want 0.000000000001)
+    print-line-uni (grade-reals "hd-calves" calves-got calves-want 0.0)
+    print-line-uni (grade-ints  "hd-kind  " kind-got kind-want)
+    print-line-uni (grade-reals "hd-order " order-got order-want 0.0)
+    print-line-uni (grade-reals "hd-space " spacing-got spacing-want 0.0)
+    print-line-uni (grade-reals "hd-along " alongs-got alongs-want 1.5)
+    print-line-uni (grade-reals "hd-across" acrosses-got acrosses-want 1.2)
+  end

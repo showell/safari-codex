@@ -1,0 +1,236 @@
+Chapter: ThrottleSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+  cites Safari chapter Arc
+  cites Safari chapter Throttle
+  cites Judge chapter Grade
+
+ Throttle: how much the rider speeds up or slows down this frame, decided by a
+ chain of gates that can only ever take MORE away.
+
+ EVERY GATE IS A MINIMUM AND THAT IS THE SHAPE OF THE WHOLE CHAPTER. The corner
+ brake, the pig gate and the shoulder brake each answer `min(their own, what came
+ in)`, so a gate that does not apply is the identity and no ordering between them
+ can matter. Grading each one in isolation with a large incoming acceleration and
+ again with a small one is what says so -- a gate written as an assignment
+ instead of a minimum passes the first and fails the second.
+
+ THE CAT GATE IS THE ONE EXCEPTION AND IT IS NOT A MINIMUM. It zeroes a POSITIVE
+ acceleration and leaves a negative one alone, because the rider stops closing on
+ the cat but never brakes for it -- coasting in slows his approach, so he reaches
+ the last segment later and there is more sunset. A min would have him braking.
+
+ THE SPEED CLAMP RUNS LAST AND IS NOT AN ACCELERATION AT ALL: it clamps the
+ resulting SPEED and the answer is the difference. So a rider already at the
+ maximum gets zero however much acceleration the gates allowed, which is graded.
+
+ We say:
+
+Section: The Constants
+
+  fixed-got : List Real
+  fixed-got = [tilt-hold, brake-decay, tilt-hold / deg]
+
+  fixed-want : List Real
+  fixed-want = [0.03490658503988659, 20.0, 2.0]
+
+Section: The Rider
+
+  seg : Segment
+  seg = segment-at 0
+
+  rider-at : Real, Real, Real, Real -> RiderState
+  rider-at (across) (along) (v) (tilt) =
+    RiderState { segment = 0, along = along, across = across, yaw = 0.0, v = v,
+                 tilt = tilt, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+  rider : Real, Real, Real -> RiderState
+  rider (along) (v) (tilt) = rider-at 0.0 along v tilt
+
+Section: The Corner Brake
+
+ A corner far off asks for a gentle slowing; one already reached asks for nothing
+ at all rather than dividing by a distance of zero.
+
+  corner-got : List Real
+  corner-got =
+    [ corner-brake (rider 498.4 0.3 0.0) seg 0.222 0.01,
+      corner-brake (rider 600.0 0.3 0.0) seg 0.222 0.01,
+      corner-brake (rider 0.0 0.3 0.0) seg 0.222 (0.0 - 5.0) ]
+
+  corner-want : List Real
+  corner-want = [0.0, 0.0, -5.0]
+
+ It is a MINIMUM: an incoming acceleration already lower than the corner's is
+ kept, and one higher is replaced. Both directions on the same corner.
+
+  corner-min-got : List Boolean
+  corner-min-got =
+    [ corner-brake (rider 0.0 0.3 0.0) seg 0.222 0.01 <= 0.01,
+      corner-brake (rider 0.0 0.3 0.0) seg 0.222 (0.0 - 5.0) <= (0.0 - 5.0),
+      corner-brake (rider 0.0 2.0 0.0) seg 0.222 0.01 < corner-brake (rider 0.0 0.3 0.0) seg 0.222 0.01 ]
+
+  corner-min-want : List Boolean
+  corner-min-want = [True, True, True]
+
+Section: The Cat Gate
+
+ Segment 0 has no cat, so the gate is the identity whatever comes in. Segment 1
+ does, and inside the danger window it zeroes a positive acceleration and leaves
+ a negative one exactly as it was.
+
+  cat-seg : Segment
+  cat-seg = segment-at 1
+
+  cat-got : List Real
+  cat-got =
+    [ cat-gate (rider 0.0 0.3 0.0) seg 0.01,
+      cat-gate (rider 0.0 0.3 0.0) seg (0.0 - 5.0),
+      cat-gate (rider 120.0 0.3 0.0) cat-seg 0.01,
+      cat-gate (rider 120.0 0.3 0.0) cat-seg (0.0 - 5.0),
+      cat-gate (rider 0.0 0.3 0.0) cat-seg 0.01 ]
+
+  cat-want : List Real
+  cat-want = [0.01, -5.0, 0.0, -5.0, 0.01]
+
+Section: Staying On The Road
+
+ Three outcomes, two of which are a departure.
+
+  outcome : Shoulder -> ArcOutcome
+  outcome (sh) =
+    ArcOutcome { shoulder = sh, forward = 10.0, crossed = False, end-across = 0.0, frames = 40.0 }
+
+  road-got : List Boolean
+  road-got =
+    [ stayed-on-road (outcome ShoulderNone),
+      stayed-on-road (outcome ShoulderLeft),
+      stayed-on-road (outcome ShoulderRight) ]
+
+  road-want : List Boolean
+  road-want = [True, False, False]
+
+ THE FURTHER OFF THE SHOULDER, THE GENTLER THE BRAKE, and the decay is what makes
+ a distant one almost free. A departure forty frames away asks for far less than
+ one two frames away, and both ask for a slowing rather than a speeding.
+
+  soon : ArcOutcome
+  soon = ArcOutcome { shoulder = ShoulderLeft, forward = 10.0, crossed = False, end-across = 0.0, frames = 2.0 }
+
+  brake-got : List Boolean
+  brake-got =
+    let far = shoulder-brake-at (rider 0.0 1.0 0.0) (outcome ShoulderLeft) 0.01
+    in let near-off = shoulder-brake-at (rider 0.0 1.0 0.0) soon 0.01
+    in let already = shoulder-brake-at (rider 0.0 1.0 0.0) (outcome ShoulderLeft) (0.0 - 9.0)
+    in [far < 0.0, far > near-off, already < (0.0 - 8.999)]
+
+  brake-want : List Boolean
+  brake-want = [True, True, True]
+
+ A frame count of zero does not divide by zero: the denominator is floored at one.
+
+  zero-frames-got : List Boolean
+  zero-frames-got =
+    [ shoulder-brake-at (rider 0.0 1.0 0.0)
+        (ArcOutcome { shoulder = ShoulderLeft, forward = 0.0, crossed = False, end-across = 0.0, frames = 0.0 }) 0.01 < 0.0 ]
+
+  zero-frames-want : List Boolean
+  zero-frames-want = [True]
+
+Section: The Speed Clamp
+
+ It clamps the SPEED, not the acceleration: never above the maximum, never below
+ zero, and never below the corner's entry speed while approaching one.
+
+  clamp-got : List Real
+  clamp-got =
+    [ clamp-v (rider 0.0 0.3 0.0) seg 0.222 1.0 False,
+      clamp-v (rider 0.0 0.3 0.0) seg 0.222 3.0 False,
+      clamp-v (rider 0.0 0.3 0.0) seg 0.222 (0.0 - 1.0) False,
+      clamp-v (rider 0.0 0.3 0.0) seg 0.222 0.1 True,
+      clamp-v (rider 0.0 0.3 0.0) seg 0.222 0.5 True,
+      clamp-v (rider 0.0 0.3 0.0) seg 0.222 0.1 False ]
+
+  clamp-want : List Real
+  clamp-want = [1.0, 2.5, 0.0, 0.222, 0.5, 0.1]
+
+Section: The Whole Decision
+
+ Straight, upright, far from the corner and nothing to look at: the plain
+ acceleration. The answer is a DIFFERENCE of speeds rather than the acceleration
+ itself -- `clamp-v ... (v + a) - v` -- so it carries one subtraction's rounding
+ and is graded a step out from it.
+
+  decide : Real, Real, Real -> Real
+  decide (along) (v) (tilt) = get-forward-accel-decel (rider along v tilt) seg
+
+  whole-got : List Real
+  whole-got =
+    [ decide 0.0 0.3 0.0,
+      decide 0.0 v-max 0.0,
+      decide 0.0 0.0 0.0 ]
+
+  whole-want : List Real
+  whole-want = [0.01, 0.0, 0.01]
+
+ LEANING PAST THE HOLD ANGLE STOPS HIM ACCELERATING, which is the one gate above
+ that is not a brake -- it sets the starting acceleration to zero rather than
+ taking a minimum, and it is symmetric in the sign of the lean.
+
+ TO SEE THE GATE ALONE, THE SHOULDER BRAKE HAS TO BE OUT OF THE WAY, and the
+ chapter's own bounds-widening is how -- with a subtlety that cost a wrong guess.
+ `project-arc` widens the road to wherever the rider ALREADY IS, which means the
+ bound sits exactly on him: a rider a hundred metres off centre leaves on the
+ very next frame if he drifts further out. He has to lean back TOWARD the road,
+ and then the widened bound is a hundred metres behind him and nothing he does in
+ twenty-five metres of progress can reach it.
+
+ So these lean left from far right. The hold angle is symmetric in the sign, so
+ it gates them exactly as it would a right-hand lean: at it and past it he gets
+ nothing, under it the plain acceleration.
+
+  wide : Real -> Real
+  wide (tilt) = get-forward-accel-decel (rider-at 100.0 0.0 0.3 tilt) seg
+
+  tilt-got : List Real
+  tilt-got = [wide (0.0 - 0.001), wide (0.0 - tilt-hold), wide (0.0 - tilt-hold - 0.5)]
+
+  tilt-want : List Real
+  tilt-want = [0.01, 0.0, 0.0]
+
+ A LEAN UNDER THE HOLD ANGLE CAN STILL BE BRAKED, and finding that out is what
+ the gates composing means. Just under two degrees is not enough to stop him
+ accelerating, but it IS enough to walk him off a four-metre lane inside the
+ two-thousand-frame horizon -- so the shoulder brake takes over and the answer is
+ a slowing, not the plain acceleration. A tenth of that lean leaves him on the
+ road and he accelerates normally.
+
+  compose-got : List Boolean
+  compose-got =
+    [ decide 0.0 0.3 (tilt-hold - 0.001) < 0.0,
+      decide 0.0 0.3 0.001 > 0.0,
+      decide 0.0 0.3 (0.0 - (tilt-hold - 0.001)) < 0.0 ]
+
+  compose-want : List Boolean
+  compose-want = [True, True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "th-fixed " fixed-got fixed-want 0.000000000001)
+    print-line-uni (grade-reals "th-corner" corner-got corner-want 0.0)
+    print-line-uni (grade-bools "th-cmin  " corner-min-got corner-min-want)
+    print-line-uni (grade-reals "th-cat   " cat-got cat-want 0.0)
+    print-line-uni (grade-bools "th-road  " road-got road-want)
+    print-line-uni (grade-bools "th-brake " brake-got brake-want)
+    print-line-uni (grade-bools "th-zero  " zero-frames-got zero-frames-want)
+    print-line-uni (grade-reals "th-clamp " clamp-got clamp-want 0.0)
+    print-line-uni (grade-reals "th-whole " whole-got whole-want 0.000000000001)
+    print-line-uni (grade-reals "th-tilt  " tilt-got tilt-want 0.000000000001)
+    print-line-uni (grade-bools "th-comp  " compose-got compose-want)
+  end

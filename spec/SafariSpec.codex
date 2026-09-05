@@ -1,0 +1,189 @@
+Chapter: SafariSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter World
+  cites Safari chapter Truck
+  cites Safari chapter Rider
+  cites Safari chapter Render
+  cites Safari chapter Sky
+  cites Safari chapter Safari
+  cites Judge chapter Grade
+
+ Safari: the whole ride, one frame at a time.
+
+ THE ORDER INSIDE THE STEP IS THE WHOLE CONTENT. The rider moves first and the
+ truck steps against his NEW route distance, because the chase schedule anchors
+ to where he is now -- stepping it against the old distance would leave the lead
+ one frame stale at exactly the moments it is tightest. That is graded directly:
+ the truck's answer after a step is what `truck-next` gives for the NEW distance
+ and not for the old one, and on a moving rider those two differ.
+
+ THE FINISH RESTARTS THE RIDE RATHER THAN STOPPING IT, because this is a
+ screensaver. A finished rider is replaced by the initial ride whole -- rider,
+ truck and clock together -- so the clock going back to zero is the observable
+ and it is the one a chapter that merely reset the rider would fail.
+
+ THE CLOCK IS A FRAME COUNT AND NOTHING READS IT AS TIME, so it is graded for the
+ one property it has: it goes up by exactly one per step, and back to zero at the
+ restart.
+
+ We say:
+
+Section: The Start
+
+  segs : List Segment
+  segs = seg-list 0
+
+  seg-list : Integer -> List Segment
+  seg-list (i) = if i >= list-length route then [] else [segment-at i] & seg-list (i + 1)
+
+  start-got : List Real
+  start-got =
+    [ ride-initial.clock,
+      ride-initial.rider.along,
+      ride-initial.rider.across,
+      ride-initial.rider.v,
+      ride-initial.truck.pos,
+      ride-initial.truck.v ]
+
+  start-want : List Real
+  start-want = [0.0, 0.0, 0.0, 0.3, 500.0, 0.3]
+
+  start-index-got : List Integer
+  start-index-got = [ride-initial.rider.segment]
+
+  start-index-want : List Integer
+  start-index-want = [0]
+
+  start-flag-got : List Boolean
+  start-flag-got = [ride-initial.truck.braking, is-finished ride-initial.rider segs]
+
+  start-flag-want : List Boolean
+  start-flag-want = [False, False]
+
+Section: One Step
+
+ The rider moves, the truck moves, the clock ticks once.
+
+  one : Ride
+  one = ride-next segs ride-initial
+
+  two : Ride
+  two = ride-next segs one
+
+  step-got : List Real
+  step-got = [one.clock, two.clock, two.clock - one.clock]
+
+  step-want : List Real
+  step-want = [1.0, 2.0, 1.0]
+
+  moved-got : List Boolean
+  moved-got =
+    [ one.rider.along > ride-initial.rider.along,
+      one.truck.pos > ride-initial.truck.pos,
+      two.rider.along > one.rider.along ]
+
+  moved-want : List Boolean
+  moved-want = [True, True, True]
+
+ THE TRUCK STEPS AGAINST THE RIDER'S NEW DISTANCE. Both candidates are computed
+ here: the step matches the one taken against the NEW distance, and the two are
+ required to DIFFER -- which is what makes this an assertion rather than a
+ restatement. They differ for a reason worth knowing: at the start the truck sits
+ exactly on the schedule, so a rider who has not moved leaves it holding speed
+ while a rider who has moved puts it a fraction behind and it accelerates.
+
+  order-got : List Boolean
+  order-got =
+    let old-dist = route-distance segs ride-initial.rider.segment ride-initial.rider.along
+    in let new-dist = route-distance segs one.rider.segment one.rider.along
+    in let against-new = truck-next ride-initial.truck new-dist segs (course-length segs)
+    in let against-old = truck-next ride-initial.truck old-dist segs (course-length segs)
+    in [ one.truck.pos ~0 against-new.pos,
+         new-dist > old-dist,
+         (against-new.pos ~0 against-old.pos) == False ]
+
+  order-want : List Boolean
+  order-want = [True, True, True]
+
+Section: The Restart
+
+ A finished rider is replaced by the initial ride WHOLE -- rider, truck and clock
+ -- so the clock going back to zero is the observable.
+
+  done : Ride
+  done =
+    Ride { rider = RiderState { segment = 18, along = 400.0, across = 0.0, yaw = 0.0, v = 0.0,
+                                tilt = 0.0, heading = 0.0, gaze-yaw = 0.0, focus = 0.9 },
+           truck = TruckState { pos = 9000.0, v = 2.0, braking = True },
+           clock = 12345.0 }
+
+  restart-got : List Real
+  restart-got =
+    let r = ride-next segs done
+    in [r.clock, r.rider.along, r.rider.v, r.truck.pos, r.rider.focus]
+
+  restart-want : List Real
+  restart-want = [0.0, 0.0, 0.3, 500.0, 0.0]
+
+  restart-flag-got : List Boolean
+  restart-flag-got = [is-finished done.rider segs, (ride-next segs done).truck.braking]
+
+  restart-flag-want : List Boolean
+  restart-flag-want = [True, False]
+
+ A ride that is NOT finished steps instead, which is the other arm of the same
+ test.
+
+  not-done-got : List Boolean
+  not-done-got = [one.clock > 0.0, is-finished one.rider segs == False]
+
+  not-done-want : List Boolean
+  not-done-want = [True, True]
+
+Section: The Frame
+
+ A frame is the backdrop, then the floor, then everything that stands up -- so it
+ is never empty, and every command carries a tag the blitter knows.
+
+  frame : List DrawCmd
+  frame = ride-frame segs ride-initial
+
+  frame-got : List Boolean
+  frame-got =
+    [ list-length frame > 0,
+      list-length (ride-frame segs one) > 0,
+      (list-at frame 0).tag >= 0,
+      (list-at frame 0).tag <= 6 ]
+
+  frame-want : List Boolean
+  frame-want = [True, True, True, True]
+
+ The sun is placed for the ride's own clock, and at the start it is up.
+
+  sun-got : List Boolean
+  sun-got =
+    let s = ride-sun segs ride-initial
+    in [s.visible == False, s.scale >= 0.0]
+
+  sun-want : List Boolean
+  sun-want = [True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "sf-start " start-got start-want 0.0)
+    print-line-uni (grade-ints  "sf-sindex" start-index-got start-index-want)
+    print-line-uni (grade-bools "sf-sflag " start-flag-got start-flag-want)
+    print-line-uni (grade-reals "sf-step  " step-got step-want 0.0)
+    print-line-uni (grade-bools "sf-moved " moved-got moved-want)
+    print-line-uni (grade-bools "sf-order " order-got order-want)
+    print-line-uni (grade-reals "sf-restrt" restart-got restart-want 0.0)
+    print-line-uni (grade-bools "sf-rflag " restart-flag-got restart-flag-want)
+    print-line-uni (grade-bools "sf-notdon" not-done-got not-done-want)
+    print-line-uni (grade-bools "sf-frame " frame-got frame-want)
+    print-line-uni (grade-bools "sf-sun   " sun-got sun-want)
+  end

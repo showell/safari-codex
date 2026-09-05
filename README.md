@@ -5,10 +5,15 @@ port of a Zig original and that port is finished and eye-tested; what it is now
 is a real application in the language, and the most demanding customer the Codex
 toolchain has.
 
-It is also a four-arm oracle. Running one program four ways -- through the zig
-plug, through the compiler's own x86-64 emitter under QEMU, and through two
-independent roads to wasm -- has found more defects in the toolchain than any
-other thing in this ecosystem. `WASM_FINDINGS.md` is the record.
+It is also an oracle, twice over. `judge/` runs one program four ways -- through
+the zig plug, through the compiler's own x86-64 emitter under QEMU, and through
+two independent roads to wasm -- and compares all of them to the real game.
+`spec/` runs every chapter three ways and compares those to each other. Between
+them they have found more defects in the toolchain than any other thing in this
+ecosystem. `WASM_FINDINGS.md` and `FINDINGS.md` are the record.
+
+**Start with `spec/`.** It covers all 54 chapters, needs no probe and no gold,
+and answers in seconds where `judge/` answers in minutes.
 
 **Fidelity to the Zig original is no longer a constraint.** It was, for as long
 as it took to establish that the port was faithful without anyone having to
@@ -105,69 +110,114 @@ about fidelity:
 
 ## The unit tests: `spec/`
 
-**Run these first.** `./spec/run.sh` grades seventeen chapters in **0.33
-seconds**, one process per spec. It is what to run after a compiler
-change, before anything in `judge/` -- which asks a different and much more
-expensive question: `RenderCheck` alone builds a whole frame and takes 13.5
-seconds.
+**Run these first, and they cover every chapter.** `./spec/run.sh` grades all 54
+of `port/`'s chapters against their own written-down answers, in seconds, one
+process per spec. It is what to run after a compiler change, before anything in
+`judge/` -- which asks a different and much more expensive question.
 
-It costs one process per spec, which is the floor. It began as a bash loop
-shelling out to `bundle.py` and `mutate.py` -- three interpreter starts each,
-2.1 s for thirteen specs and 8 s projected for fifty, against a budget of fifty
-inside ten seconds. `codexrun` now resolves its own cites, so bundling is a
-compiler phase rather than a process, and the mutant pass is gone.
+The counts and the timings are printed by the run and written into a
+PROVENANCE by `./spec/arms.py`; they are not repeated here, because a number in
+a README is a number nobody re-measures.
 
 A spec is a **self-checking Codex chapter**: it carries its own expected values
 as literals and prints its own verdict, so any arm that runs Codex renders that
-verdict alone. No gold bank, no probe, no zig. `./spec/run.sh --zig` transpiles
-and builds each one and diffs the arms; all thirteen are byte-identical today.
+verdict alone. No gold bank, no probe, no zig.
 
-Three rules the files are held to, each of which caught something:
+    ./spec/run.sh            the Rust interpreter alone -- the edit loop
+    ./spec/run.sh --zig      also transpile each spec to zig and diff the arms
+    ./spec/run.sh --wasm     also emit each spec as wasm and diff the arms
+    ./spec/run.sh --arms     all three, writing into build/
+    ./spec/arms.py           all three in a sandbox, with one PROVENANCE
+
+**THESE ARE THREE DIFFERENT ARMS FROM THE FOUR ABOVE, and the difference is the
+point.** `judge/` compares the port to the GAME through a zig probe. `spec/`
+compares three independent compilations of the same Codex text to each other: a
+Rust tree walker that shares nothing with either compiler, `Codex -> zig`, and
+`Codex -> IR -> plugs/wasm`, which never sees zig. A value all three agree on has
+been computed three ways from one source.
+
+`spec/arms.py` is the one to run when the answer has to survive being read next
+week. It puts every intermediate in a sandbox nobody edits and writes a single
+PROVENANCE naming all four pinned trees by commit, every binary by path and
+size, and the versions of zig, wasmtime and node -- with a `+DIRTY` marker on
+any tree that had uncommitted changes, because such a tree's sha describes
+something that is not what ran. It builds nothing; every binary is resolved by
+the harness script that owns it, and each of those refuses rather than building.
+
+**It is a coffee-break run and must stay one.** If it ever passes ten minutes,
+cut the zig arm's per-spec link rather than the coverage.
+
+Four rules the files are held to, each of which caught something:
 
 - **Derive, then confirm. Never capture.** `NumSpec`'s rounding table rederived
   with the obvious `floor(|x| + 0.5)` walks straight back into the bug `Num`'s
   docstring records fixing. A captured table would have written that bug in as
   the definition of correct.
-- **Measure the tolerance by tightening it until it breaks.** `LensSpec` fails
-  at 1e-10 and passes at 1.2e-10; the gate is 1e-9 and the prose says so. Five
-  of `NumSpec`'s six lines are graded at exactly 0.0.
+- **Measure the tolerance by tightening it until it breaks**, and say what it
+  had to admit. Most lines grade at exactly 0.0; where one does not, the prose
+  beside it says which polynomial's accuracy it is carrying.
+- **Grade what the chapter decides, not what it delegates.** A drawing chapter's
+  projected coordinates belong to `Camera` and to the checks in `judge/`; its
+  own arithmetic and its own ordering are what a spec takes.
 - **A spec must not be able to pass by doing nothing.** `spec/floors.tsv` gives
   each spec the fewest graded values it must still be checking, and the runner
   sums the `ok N` counts and refuses below the line. It is a floor and not a
-  gold -- `>=`, so adding assertions never churns the file and nobody updates an
-  expected number as a reflex. `spec/mutate.py` is a one-off authoring tool for
-  watching a new spec fail once; it is not part of the gate.
+  gold -- `>=`, so adding assertions never churns the file. `spec/mutate.py` is
+  a one-off authoring tool for watching a new spec fail once; it is not part of
+  the gate and should not become part of it again.
+
+**`spec/arm-gaps.tsv` is where a filed disagreement lives.** A spec whose zig or
+wasm answer differs for a reason already reported upstream is named there with
+its issue number, reported every run, and not fatal. The spec keeps its 0.0
+tolerance: rewriting a correct test to match a broken implementation buries the
+defect and then defends it. A line there is a promise to remove it.
+
+**Two hazards that cost red lines and will cost more.** Codex refuses a bare
+`==` between Reals (CDX2085 -- say `~` or `~0`) and refuses an application whose
+arguments continue onto the next line (CDX1070 -- bind it with a `let`). The
+Rust interpreter accepts both. So a spec can be green on the fast path and stop
+the zig arm emitting at all, which is exactly what the three-arm run is for.
 
 **The baked stills stay in, but held to a budget.** `CatStills` and
-`EmojiStills` are 763 KB of generated literals and they are the likeliest thing
-here to find a front-end limit, so they belong in the default path -- but they
-should not dominate it. What costs is NAMING a table, not walking one: a nullary
-binding emits as a function (`PORTING_NOTES` B13), so every mention of
-`pose-rest-polys` rebuilds all 2,198 of its points. Measured, one reference is
-9,110 steps, two are 18,168, four are 36,284 -- exactly linear, nothing
-memoised. So each table is reached ONCE, through the dispatch those specs have
-to grade anyway, and everything about it is computed from that single reference.
-That took the two from 470,000 steps to 163,000 while ADDING assertions.
+`EmojiStills` are hundreds of KB of generated literals and they are the likeliest
+thing here to find a front-end limit, so they belong in the default path -- but
+they should not dominate it. What costs is NAMING a table, not walking one: a
+nullary binding emits as a function (`PORTING_NOTES` B13), so every mention of
+`pose-rest-polys` rebuilds all of its points, linearly and unmemoised. So each
+table is reached ONCE, through the dispatch those specs have to grade anyway.
 
 They are still the trickiest thing here, and they are deliberately out of some
 checks: `judge/` has never had a `CatStillsCheck`, because the honest oracle for
-baked art is the blitter diff and the eye test. See **Stills, not frames**
-below.
+baked art is the blitter diff and the eye test. See **Stills, not frames** below.
 
 ## Before the loop will run
 
-Four things must exist, and `harness/pins.py` exits rather than guess at any of
-them. It is the authority; this list only tells you they exist.
+**`pins.tsv` is the authority and it names three trees.** It is a file rather
+than a default inside a Python module because things that are not Python read it
+-- `spec/run.sh`, `harness/build_codexzig.sh`, `harness/build_codexwasm.sh` and
+`spec/arms.py` all resolve their pin from it.
 
-    SAFARI_COBBLESTONE   the Codex checkout the port compiles against
-    CODEXZIG_TREE        the transpiler's worktree
-    ZIG                  the zig binary, and the version is pinned
-    SAFARI_LADDER        for ring_compile and codex_vm
+    cobblestone   the Codex checkout the port compiles against
+    codexzig      the zig transpiler's worktree
+    codexwasm     the wasm transpiler's worktree
 
-`PROVENANCE.md` says what each is pinned to and why. **`./harness/run.sh` calls
-`build_codexzig.sh` on a cold checkout**, which is a multi-minute build through
-QEMU guests -- the "no guest" promise below is about the sweep, not the first
-one.
+Each is a worktree on its own branch so that work happening next door cannot
+rebuild it under us. `PROVENANCE.md` says what each holds and why.
+
+**THIS PROJECT BUILDS NEITHER TRANSPILER AND SHOULD NOT.**
+`harness/build_codex{zig,wasm}.sh` resolve the pin, check the binary's
+fingerprint against its tree, print the path, and REFUSE if it is stale --
+building belongs to the project that owns it. `harness/build_codexwasm.sh`
+carries the three reasons this changed; the short version is that
+codex-zig-transpiler and codex-wasm-transpiler each end in a fixed point, which
+is a stronger claim about a binary than this project could make about one it
+assembled out of parts.
+
+Two more things must exist and are not pins: `ZIG` (the version is pinned) and
+`SAFARI_LADDER`, which `harness/metal.py` and `harness/bundle.py` still use for
+`ring_compile` and `codex_vm`. **The ladder is deprecated**, and it has already
+moved `ast/` to `src/` under this project once; expect the next move not to
+announce itself either.
 
 ## The loop
 

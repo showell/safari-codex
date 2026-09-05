@@ -45,9 +45,11 @@ PigsSpec	86
 PondSpec	25
 PoseSpec	26
 RailPlanSpec	32
+RenderSpec	27
 RideFocalSpec	26
 RiderSpec	34
 SafariCritterSpec	63
+SafariSpec	33
 SceneLimitsSpec	3
 ScenerySpec	26
 SkySpec	45

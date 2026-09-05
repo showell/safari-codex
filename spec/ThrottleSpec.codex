@@ -134,10 +134,17 @@ Section: Staying On The Road
 
  A frame count of zero does not divide by zero: the denominator is floored at one.
 
+ THE OUTCOME IS BOUND ABOVE THE LIST AND NOT WRITTEN INLINE. An application whose
+ arguments continue onto the next line is CDX1070 -- Cobblestone refuses it and
+ our interpreter does not, so it ran green here and stopped the zig arm emitting
+ at all. Same family as the `==` between Reals in RideFocalSpec: the gap is in
+ our front end, and the three-arm run is what surfaces it.
+
+  instant : ArcOutcome
+  instant = ArcOutcome { shoulder = ShoulderLeft, forward = 0.0, crossed = False, end-across = 0.0, frames = 0.0 }
+
   zero-frames-got : List Boolean
-  zero-frames-got =
-    [ shoulder-brake-at (rider 0.0 1.0 0.0)
-        (ArcOutcome { shoulder = ShoulderLeft, forward = 0.0, crossed = False, end-across = 0.0, frames = 0.0 }) 0.01 < 0.0 ]
+  zero-frames-got = [shoulder-brake-at (rider 0.0 1.0 0.0) instant 0.01 < 0.0]
 
   zero-frames-want : List Boolean
   zero-frames-want = [True]

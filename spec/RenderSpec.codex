@@ -1,0 +1,186 @@
+Chapter: RenderSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Frame
+  cites Safari chapter SceneLimits
+  cites Safari chapter TreePlan
+  cites Safari chapter TowerPlan
+  cites Safari chapter CritterPlan
+  cites Safari chapter CatPlan
+  cites Safari chapter RailPlan
+  cites Safari chapter TruckPlan
+  cites Safari chapter DepthSort
+  cites Safari chapter World
+  cites Safari chapter Render
+  cites Judge chapter Grade
+
+ Render: one frame's collection -- every kind gathered, capped, and merged into a
+ single depth order.
+
+ THE MERGE ORDER IS THE ZIG'S ARRAY ORDER and the sort is stable, so it is also
+ the order equal depths come out in: trees, towers, billboards, cats, the truck,
+ then the rails. That is why `order`'s length must be the six lists' lengths
+ summed -- nothing is dropped at the merge and nothing is added.
+
+ EVERY KIND IS CAPPED SEPARATELY, and the caps are the zig's fixed arrays. On this
+ route none of them is reached, which the chapter's own prose says; grading that
+ the collection is UNDER each cap is the honest claim, because a spec asserting
+ the caps fire would be asserting something the route cannot produce.
+
+ THE TWO CULL COUNTS ARE DIFFERENT MEASUREMENTS AND ARE BOTH REPORTED. `cull-seg`
+ is how many animals were never placed because their segment was out of the farm
+ reach -- a count taken from the route, without projecting anything. `cull-size`
+ is how many were placed and then found too small. A chapter reporting one number
+ for both would lose the distinction between "too far to bother with" and "close
+ enough to try and not worth drawing".
+
+ We say:
+
+Section: The Frame
+
+ THE WHOLE ROUTE, because `collect` builds its own chain by following `exit-to`
+ and those are ROUTE indices -- a short list runs off the end at the first
+ segment whose exit points past it.
+
+  segs : List Segment
+  segs = seg-list 0
+
+  seg-list : Integer -> List Segment
+  seg-list (i) = if i >= list-length route then [] else [segment-at i] & seg-list (i + 1)
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  frame : Collected
+  frame = collect segs 0 origin 500.0 0.0 v-base 500.0
+
+  prev-got : List Integer
+  prev-got = [prev-index 0, prev-index 1, prev-index 5]
+
+  prev-want : List Integer
+  prev-want = [0, 0, 4]
+
+Section: Nothing Is Lost At The Merge
+
+ The depth order is exactly the six collections concatenated and sorted, so its
+ length is their lengths summed -- with the truck counting one if it is present
+ and none if it is not.
+
+  merge-got : List Integer
+  merge-got =
+    let n = list-length frame.order
+    in let parts = list-length (tree-items frame.trees 0) + list-length (tower-items frame.towers 0)
+    in let more = list-length (cow-items frame.cows 0) + list-length (cat-items frame.cats 0)
+    in let rest = list-length (truck-items frame.truck) + list-length (rail-items frame.rails 0)
+    in [n - (parts + more + rest)]
+
+  merge-want : List Integer
+  merge-want = [0]
+
+ It is a real frame: there is something of most kinds in it.
+
+  present-got : List Boolean
+  present-got =
+    [ list-length frame.trees > 0,
+      list-length frame.towers > 0,
+      list-length frame.cows > 0,
+      list-length frame.rails > 0,
+      list-length frame.order > 0 ]
+
+  present-want : List Boolean
+  present-want = [True, True, True, True, True]
+
+Section: Under Every Cap
+
+ The caps are the zig's fixed arrays and this route reaches none of them, so what
+ is graded is that the collection stays under each -- not that a cap fires.
+
+  cap-got : List Boolean
+  cap-got =
+    [ list-length frame.trees <= max-vis-trees,
+      list-length frame.towers <= max-vis-towers,
+      list-length frame.cows <= max-vis-critters,
+      list-length frame.cats <= max-vis-cats ]
+
+  cap-want : List Boolean
+  cap-want = [True, True, True, True]
+
+  cap-values-got : List Integer
+  cap-values-got = [max-vis-trees, max-vis-towers, max-vis-cats]
+
+  cap-values-want : List Integer
+  cap-values-want = [640, 16, 8]
+
+Section: The Depth Order
+
+ Far to near, so every item is at least as deep as the one after it -- to the
+ sort's own resolution, which declines to order two depths the game cannot tell
+ apart.
+
+  descending : List Item, Integer -> Boolean
+  descending (xs) (i) =
+    if i + 1 >= list-length xs then True
+    else if deeper-than (list-at xs (i + 1)).fwd (list-at xs i).fwd then False
+    else descending xs (i + 1)
+
+  sorted-got : List Boolean
+  sorted-got = [descending frame.order 0, descending [] 0]
+
+  sorted-want : List Boolean
+  sorted-want = [True, True]
+
+Section: The Two Culls
+
+ One is counted off the route without projecting anything; the other needs the
+ placement. They are different numbers about different things.
+
+  cull-got : List Boolean
+  cull-got =
+    [ frame.cull-seg >= 0,
+      frame.cull-size >= 0,
+      frame.cull-seg > 0 ]
+
+  cull-want : List Boolean
+  cull-want = [True, True, True]
+
+ The segment cull is exactly the animals on the chain entries past the farm
+ reach, and it is arithmetic over the route rather than anything the frame did.
+
+  seg-cull-got : List Integer
+  seg-cull-got =
+    let a = seg-cull-count segs [0, 1, 2, 3, 4, 5] 3
+    in let b = list-length (list-at segs 3).cows + list-length (list-at segs 3).pigs
+    in [ a - b,
+         seg-cull-count segs [0, 1, 2, 3, 4, 5] 0,
+         seg-cull-count segs [0, 1, 2, 3, 4, 5] 2,
+         walk-seg-cull segs [] 0 ]
+
+  seg-cull-want : List Integer
+  seg-cull-want = [0, 0, 0, 0]
+
+ A shorter chain culls less, because there are fewer entries past the reach.
+
+  shrink-got : List Boolean
+  shrink-got =
+    let long = walk-seg-cull segs [0, 1, 2, 3, 4, 5] 0
+    in let short = walk-seg-cull segs [0, 1, 2] 0
+    in [long > short, short == 0]
+
+  shrink-want : List Boolean
+  shrink-want = [True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "rn-prev  " prev-got prev-want)
+    print-line-uni (grade-ints  "rn-merge " merge-got merge-want)
+    print-line-uni (grade-bools "rn-presnt" present-got present-want)
+    print-line-uni (grade-bools "rn-cap   " cap-got cap-want)
+    print-line-uni (grade-ints  "rn-caps  " cap-values-got cap-values-want)
+    print-line-uni (grade-bools "rn-sorted" sorted-got sorted-want)
+    print-line-uni (grade-bools "rn-cull  " cull-got cull-want)
+    print-line-uni (grade-ints  "rn-segcul" seg-cull-got seg-cull-want)
+    print-line-uni (grade-bools "rn-shrink" shrink-got shrink-want)
+  end

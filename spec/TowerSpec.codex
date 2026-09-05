@@ -1,0 +1,240 @@
+Chapter: TowerSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tower
+  cites Judge chapter Grade
+
+ Tower: an eighty-metre lattice mast, its blinking beacon, and the near-clip that
+ keeps a rod straddling the eye plane from flinging a quad across the viewport.
+
+ THE NEAR CLIP IS THE PART THAT EARNS A TEST. `bar3d` has four cases -- both ends
+ in front, either one behind, both behind -- and only the last emits nothing.
+ Getting the one-behind cases wrong does not fail quietly: the rod is drawn to a
+ point behind the eye, which projects to the far side of the screen. Both single
+ cases are graded, and the cut point is placed so the near plane lands exactly
+ halfway along the segment.
+
+ THE BLINK PHASES ARE COPRIME AND THAT IS THE ASSERTION. Successive towers are
+ offset by 37 frames into a 120-frame period; 37 and 120 share no factor, so the
+ first several land on distinct offsets rather than pulsing together. Grading the
+ sequence is what says the coprimality is real -- a stride of 40 would look just
+ as deliberate and put every third tower in unison.
+
+ THE SQUARE SHRINKS TO A POINT AT THE APEX, which is why `corner-at` is a lerp
+ from the base corner to the centre rather than a scale about the axis. At the
+ top all four corners are the same point, and that is graded: an implementation
+ scaling the half-width instead would agree everywhere except there.
+
+ TWO LINES GO THROUGH `r-cos` AND CARRY ITS ACCURACY, NOT A ROUNDING ONE. The
+ game's cosine is a fidelity polynomial good to about 7e-8, which TrigSpec
+ measures -- `r-cos 0.0` is 0.999999943741051, not 1. So the beacon's brightness
+ is out by 2.8e-8 at the ends of its cycle and the yawed square by 3.4e-7 at six
+ metres, both measured here rather than assumed, and both graded one step rounded
+ out. Every other line in this spec is exact.
+
+ We say:
+
+Section: Dimensions
+
+  dims-got : List Real
+  dims-got = [tower-height, tower-half, stage-height, rod-half, rod-w, earth-radius, beacon-radius, beacon-period]
+
+  dims-want : List Real
+  dims-want = [80.0, 6.0, 20.0, 0.12, 0.24, 20000.0, 3.0, 120.0]
+
+  fixed-got : List Integer
+  fixed-got = [brace-stages, tower-metal, beacon-color]
+
+  fixed-want : List Integer
+  fixed-want = [2, 10133672, 16723942]
+
+Section: The Beacon Clock
+
+ Thirty-seven frames apart into a hundred and twenty, so ten towers land on ten
+ different offsets and the sequence only returns to zero at the hundred and
+ twentieth.
+
+  offsets-got : List Real
+  offsets-got =
+    [ beacon-offset-for 0, beacon-offset-for 1, beacon-offset-for 2, beacon-offset-for 3,
+      beacon-offset-for 4, beacon-offset-for 5, beacon-offset-for 10, beacon-offset-for 120 ]
+
+  offsets-want : List Real
+  offsets-want = [0.0, 37.0, 74.0, 111.0, 28.0, 65.0, 10.0, 0.0]
+
+ Dark at the ends of the cycle, full in the middle, half at the quarters -- and
+ the wrap holds for a phase past the period and for a NEGATIVE one, which the
+ clock produces on reverse.
+
+  bright-got : List Real
+  bright-got =
+    [ beacon-brightness 0.0, beacon-brightness 60.0, beacon-brightness 30.0,
+      beacon-brightness 90.0, beacon-brightness 120.0, beacon-brightness 180.0,
+      beacon-brightness (0.0 - 60.0), beacon-brightness (0.0 - 120.0) ]
+
+  bright-want : List Real
+  bright-want = [0.0, 1.0, 0.5, 0.5, 0.0, 1.0, 1.0, 0.0]
+
+Section: The Square
+
+ Four corners in half-base units, walked so consecutive ones share an edge.
+
+  corner-got : List Real
+  corner-got =
+    [ corner-u 0, corner-u 1, corner-u 2, corner-u 3,
+      corner-v 0, corner-v 1, corner-v 2, corner-v 3 ]
+
+  corner-want : List Real
+  corner-want = [-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0]
+
+ At zero yaw the square is axis-aligned: `u` moves across and `v` moves along, six
+ metres each way from the centre.
+
+  ax-of : Integer -> List Real
+  ax-of (k) =
+    let p = base-corner-ax k 100.0 0.0 0.0
+    in [p.a, p.x]
+
+  ax-got : List Real
+  ax-got = ax-of 0 & ax-of 1 & ax-of 2 & ax-of 3
+
+  ax-want : List Real
+  ax-want = [94.0, -6.0, 94.0, 6.0, 106.0, 6.0, 106.0, -6.0]
+
+Section: The Taper
+
+ The cross-section is a lerp from the base corner to the centre by height over
+ eighty, so at the apex all four corners meet. The ground drop is subtracted from
+ the height, which is what sinks a far tower toward the horizon.
+
+  base4 : List RiderPt
+  base4 =
+    [ RiderPt { right = -6.0, forward = 94.0 },
+      RiderPt { right = 6.0, forward = 94.0 },
+      RiderPt { right = 6.0, forward = 106.0 },
+      RiderPt { right = -6.0, forward = 106.0 } ]
+
+  centre : RiderPt
+  centre = RiderPt { right = 0.0, forward = 100.0 }
+
+  at-h : Integer, Real -> List Real
+  at-h (k) (h) =
+    let v = corner-at base4 centre k h 1.0
+    in [v.right, v.forward, v.height]
+
+  taper-got : List Real
+  taper-got = at-h 0 0.0 & at-h 0 40.0 & at-h 0 80.0 & at-h 2 40.0 & at-h 2 80.0
+
+  taper-want : List Real
+  taper-want =
+    [ -6.0, 94.0, -1.0,
+      -3.0, 97.0, 39.0,
+      0.0, 100.0, 79.0,
+      3.0, 103.0, 39.0,
+      0.0, 100.0, 79.0 ]
+
+ The bulge is quadratic in the distance and much stronger than the road's: two
+ hundred metres out is a whole metre down.
+
+  drop-got : List Real
+  drop-got =
+    [ tower-ground-drop (RiderPt { right = 0.0, forward = 200.0 }),
+      tower-ground-drop (RiderPt { right = 100.0, forward = 100.0 }),
+      tower-ground-drop (RiderPt { right = 0.0, forward = 0.0 }) ]
+
+  drop-want : List Real
+  drop-want = [1.0, 0.5, 0.0]
+
+  lerp-got : List Real
+  lerp-got =
+    let a = Vec3 { right = 0.0, forward = 10.0, height = 20.0 }
+    in let b = Vec3 { right = 8.0, forward = 30.0, height = 0.0 }
+    in let m = lerp3v a b 0.25
+    in [m.right, m.forward, m.height]
+
+  lerp-want : List Real
+  lerp-want = [2.0, 15.0, 15.0]
+
+Section: The Rods
+
+ A thick screen line is a quad: the offset is the segment's normal, scaled to half
+ the width. A three-four-five run makes it exact.
+
+  bar-got : List Real
+  bar-got = (list-at (bar (ScreenPt { x = 0.0, y = 0.0 }) (ScreenPt { x = 30.0, y = 40.0 }) 10.0) 0).pts
+
+  bar-want : List Real
+  bar-want = [-4.0, 3.0, 26.0, 43.0, 34.0, 37.0, 4.0, -3.0]
+
+ A rod of no length has no normal, and the fallback gives it a zero offset rather
+ than dividing by zero. It still emits -- four coincident points, which the
+ blitter draws as nothing.
+
+  degenerate-got : List Real
+  degenerate-got =
+    let d = bar (ScreenPt { x = 5.0, y = 6.0 }) (ScreenPt { x = 5.0, y = 6.0 }) 10.0
+    in [real-from-int (list-length d)] & (list-at d 0).pts
+
+  degenerate-want : List Real
+  degenerate-want = [1.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0]
+
+ Rod width in pixels is the projected size of a metre at that depth, so it halves
+ as the depth doubles.
+
+  width-got : List Real
+  width-got = [rod-px 10.0 500.0 960.0, rod-px 25.0 500.0 960.0, rod-px 50.0 500.0 960.0]
+
+  width-want : List Real
+  width-want = [12.0, 4.8, 2.4]
+
+Section: The Near Clip
+
+ Four cases. The two with one end behind are the ones that matter: the segment is
+ pulled to the plane rather than drawn to a point behind the eye.
+
+  v3 : Real, Real, Real -> Vec3
+  v3 (r) (f) (h) = Vec3 { right = r, forward = f, height = h }
+
+  clip-count-got : List Integer
+  clip-count-got =
+    [ list-length (bar3d (v3 0.0 10.0 0.0) (v3 1.0 20.0 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.0 0.0) (v3 0.0 0.8 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.8 0.0) (v3 0.0 0.0 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.0 0.0) (v3 0.0 0.2 0.0) 4.0 500.0 960.0) ]
+
+  clip-count-want : List Integer
+  clip-count-want = [1, 1, 1, 0]
+
+ The cut lands where the segment crosses the plane: from zero forward to eight
+ tenths, the near plane at four tenths is exactly halfway, so every coordinate is
+ the midpoint.
+
+  cut-got : List Real
+  cut-got =
+    let c = bar3d-cut (v3 0.0 0.0 10.0) (v3 8.0 0.8 30.0)
+    in [c.right, c.forward, c.height]
+
+  cut-want : List Real
+  cut-want = [4.0, 0.4, 20.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tw-dims  " dims-got dims-want 0.0)
+    print-line-uni (grade-ints  "tw-fixed " fixed-got fixed-want)
+    print-line-uni (grade-reals "tw-offset" offsets-got offsets-want 0.0)
+    print-line-uni (grade-reals "tw-bright" bright-got bright-want 0.0000001)
+    print-line-uni (grade-reals "tw-corner" corner-got corner-want 0.0)
+    print-line-uni (grade-reals "tw-ax    " ax-got ax-want 0.000001)
+    print-line-uni (grade-reals "tw-taper " taper-got taper-want 0.0)
+    print-line-uni (grade-reals "tw-drop  " drop-got drop-want 0.0)
+    print-line-uni (grade-reals "tw-lerp  " lerp-got lerp-want 0.0)
+    print-line-uni (grade-reals "tw-bar   " bar-got bar-want 0.0)
+    print-line-uni (grade-reals "tw-degen " degenerate-got degenerate-want 0.0)
+    print-line-uni (grade-reals "tw-width " width-got width-want 0.0)
+    print-line-uni (grade-ints  "tw-clip  " clip-count-got clip-count-want)
+    print-line-uni (grade-reals "tw-cut   " cut-got cut-want 0.0)
+  end

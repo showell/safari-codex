@@ -1,0 +1,187 @@
+Chapter: RideFocalSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter Cat
+  cites Safari chapter Gaze
+  cites Safari chapter Lens
+  cites Safari chapter World
+  cites Safari chapter RideFocal
+  cites Judge chapter Grade
+
+ RideFocal: how far the lens has pulled in this frame, which is a minimum over
+ two independent distractions.
+
+ THE DEEPER OF THE TWO WINS, and that is the whole chapter. Leaning into a corner
+ narrows the lens; watching a crossing cat or gawking at roadside pigs narrows it
+ too; `cam-focal` takes the smaller. So a rider doing both is no more distracted
+ than the worse of them -- not the sum, which is what an implementation adding
+ them would give, and which would run the focal off the bottom on a corner with
+ a cat in it.
+
+ THE LEAN FRACTION CLAMPS AT ONE. The route never banks past `max-lean`, so a
+ tilt beyond it is out of range rather than a further pull-in -- and the clamp is
+ graded by asking for twice the maximum and requiring the same answer.
+
+ UNDISTRACTED IS THE BASE FOCAL EXACTLY, with no tolerance: both ramps are
+ `focal * (1.0 - k * 0.0)`, and multiplying by one is exact. That is worth
+ grading at 0.0 because it is the identity the whole lens rests on -- a frame
+ with nothing happening must look through the design focal and not merely near
+ it.
+
+ THE CAT'S ATTENTION IS ZERO WHERE THERE IS NO CAT, and it is read from the
+ segment the rider is ON rather than from the chain, so a segment without one
+ contributes nothing however close the rider is to the next segment's cat.
+
+ We say:
+
+Section: The Chain
+
+ Segment 0 has no cat; segment 1 does.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  rider : Integer, Real, Real, Real -> RiderState
+  rider (segment) (along) (tilt) (focus) =
+    RiderState { segment = segment, along = along, across = 0.0, yaw = 0.0, v = v-base,
+                 tilt = tilt, heading = 0.0, gaze-yaw = 0.0, focus = focus }
+
+  has-cat-got : List Boolean
+  has-cat-got = [(list-at segs 0).has-cat, (list-at segs 1).has-cat]
+
+  has-cat-want : List Boolean
+  has-cat-want = [False, True]
+
+Section: Nothing Happening
+
+ No lean, no cat, no gaze: the base focal, exactly.
+
+  idle-got : List Real
+  idle-got =
+    [ ride-focal segs (rider 0 0.0 0.0 0.0) - focal,
+      cat-attention segs (rider 0 0.0 0.0 0.0),
+      gaze-focus 0.0,
+      cam-focal 0.0 0.0 - focal ]
+
+  idle-want : List Real
+  idle-want = [0.0, 0.0, 0.0, 0.0]
+
+Section: The Lean
+
+ More lean is a narrower lens, and past the maximum it stops narrowing.
+
+  leaned : Real -> Real
+  leaned (tilt) = ride-focal segs (rider 0 0.0 tilt 0.0)
+
+  lean-got : List Boolean
+  lean-got =
+    [ leaned (max-lean / 2.0) < leaned 0.0,
+      leaned max-lean < leaned (max-lean / 2.0),
+      leaned (0.0 - max-lean) < leaned 0.0,
+      leaned 0.0 <= focal ]
+
+  lean-want : List Boolean
+  lean-want = [True, True, True, True]
+
+ The sign of the lean does not matter -- he is as distracted leaning either way --
+ and beyond the maximum nothing more happens.
+
+  clamp-got : List Real
+  clamp-got =
+    [ leaned max-lean - leaned (0.0 - max-lean),
+      leaned (max-lean * 2.0) - leaned max-lean,
+      leaned (max-lean * 10.0) - leaned max-lean ]
+
+  clamp-want : List Real
+  clamp-want = [0.0, 0.0, 0.0]
+
+Section: The Distraction
+
+ A cat the rider is closing on narrows the lens; the same rider on a segment with
+ no cat is not distracted at all. Both are at the same along -- only the flag
+ differs, which is the point.
+
+ HE HAS TO BE WITHIN THE CROSSING WINDOW TO BE DISTRACTED, and at the base speed
+ that window is short: `cross-t` clamps to zero beyond `cross-frames * v`, which
+ is 11.4 metres past the buffer. Segment 1's cat sits at 128, so a rider at the
+ segment's start is nowhere near caring about it -- graded here too, because a
+ chapter that started the pull-in on sight would fail exactly that line.
+
+  cat-got : List Boolean
+  cat-got =
+    [ cat-attention segs (rider 1 120.0 0.0 0.0) > 0.0,
+      cat-attention segs (rider 1 0.0 0.0 0.0) > 0.0,
+      cat-attention segs (rider 0 120.0 0.0 0.0) > 0.0,
+      ride-focal segs (rider 1 120.0 0.0 0.0) < ride-focal segs (rider 0 120.0 0.0 0.0) ]
+
+  cat-want : List Boolean
+  cat-want = [True, False, False, True]
+
+ A gaze narrows it too, on its own clock, and a full gaze is a deeper pull than
+ no gaze.
+
+  gaze-got : List Boolean
+  gaze-got =
+    [ ride-focal segs (rider 0 0.0 0.0 1.0) < ride-focal segs (rider 0 0.0 0.0 0.0),
+      ride-focal segs (rider 0 0.0 0.0 1.0) < ride-focal segs (rider 0 0.0 0.0 0.5),
+      gaze-focus 1.0 > gaze-focus 0.0 ]
+
+  gaze-want : List Boolean
+  gaze-want = [True, True, True]
+
+Section: The Minimum
+
+ THE TWO DISTRACTIONS DO NOT ADD. A rider leaning hard AND gawking answers
+ exactly the deeper of the two -- so combining them changes nothing when one
+ already dominates, which is what says this is a min and not a sum.
+
+ THE COMPARISON IS `~0` AND WRITING `==` COST A RED ARM. Codex refuses a bare
+ equality between Reals (CDX2085) and makes the caller say which it meant; this
+ wants the bitwise one, because the claim is that the answer IS one of the two
+ operands rather than close to one. The Rust interpreter ACCEPTED the `==` and
+ the zig arm refused to emit at all -- which is the three-arm setup earning its
+ keep, and a gap in our own front end rather than in the port.
+
+  both : Real
+  both = ride-focal segs (rider 0 0.0 max-lean 1.0)
+
+  lean-only : Real
+  lean-only = ride-focal segs (rider 0 0.0 max-lean 0.0)
+
+  gaze-only : Real
+  gaze-only = ride-focal segs (rider 0 0.0 0.0 1.0)
+
+  min-got : List Boolean
+  min-got =
+    [ both <= lean-only,
+      both <= gaze-only,
+      both ~0 real-min lean-only gaze-only,
+      lean-only + gaze-only > both ]
+
+  min-want : List Boolean
+  min-want = [True, True, True, True]
+
+ And the same statement as arithmetic, at 0.0: the answer IS one of the two, not
+ something between them.
+
+  is-one-got : List Real
+  is-one-got = [both - real-min lean-only gaze-only, cam-focal 1.0 0.0 - lean-only]
+
+  is-one-want : List Real
+  is-one-want = [0.0, 0.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-bools "rf-hascat" has-cat-got has-cat-want)
+    print-line-uni (grade-reals "rf-idle  " idle-got idle-want 0.0)
+    print-line-uni (grade-bools "rf-lean  " lean-got lean-want)
+    print-line-uni (grade-reals "rf-clamp " clamp-got clamp-want 0.0)
+    print-line-uni (grade-bools "rf-cat   " cat-got cat-want)
+    print-line-uni (grade-bools "rf-gaze  " gaze-got gaze-want)
+    print-line-uni (grade-bools "rf-min   " min-got min-want)
+    print-line-uni (grade-reals "rf-isone " is-one-got is-one-want 0.0)
+  end

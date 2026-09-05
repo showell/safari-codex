@@ -1,0 +1,166 @@
+Chapter: LeanSearchSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter World
+  cites Safari chapter Arc
+  cites Safari chapter LeanSearch
+  cites Judge chapter Grade
+
+ LeanSearch: bisect for the lean that puts the rider where he wants to be, by
+ projecting a whole arc at each candidate.
+
+ THE TARGET IS AN ASYMPTOTE AND NOT THE CENTRE LINE, which is the design decision
+ this chapter turns on. He aims at a FRACTION of his current offset, so he
+ converges on the middle without ever committing to a lean that overshoots it.
+ Aiming at zero instead would be the obvious thing and would weave.
+
+ DEAD CENTRE GETS A SIGNED EPSILON, because a target of exactly zero has no side
+ to lean toward. The sign comes off the offset he already has, and `>= 0`
+ means a rider at exactly zero leans one particular way rather than neither --
+ graded from both sides of the boundary, since a `>` there would flip it.
+
+ THE SEARCH IS TWELVE BISECTIONS OF A TWO-DEGREE BRACKET, so what can be asserted
+ without re-deriving the arc is the bracket and its width: the answer is inside
+ [tilt - 1 degree, tilt + 1 degree] and the twelve halvings have narrowed the
+ interval to under a thousandth of a degree. That is the honest claim -- the
+ VALUE it converges on is `project-arc`'s answer, and ArcSpec grades that.
+
+ We say:
+
+Section: The Target
+
+ Beyond the epsilon he aims at three tenths of his offset; inside it he takes the
+ epsilon itself, signed.
+
+  target-got : List Real
+  target-got =
+    [ lean-target 0.5, lean-target (0.0 - 0.5),
+      lean-target 2.0, lean-target (0.0 - 2.0),
+      lean-target 0.04, lean-target (0.0 - 0.04),
+      lean-target 0.0, lean-target 0.039, lean-target (0.0 - 0.039) ]
+
+  target-want : List Real
+  target-want =
+    [ 0.15, -0.15, 0.6, -0.6, 0.012, -0.012, 0.04, 0.04, -0.04 ]
+
+ The target always points the way he is already off, and never past the middle:
+ a rider to the right is sent to a smaller positive offset, never to a negative
+ one.
+
+  side-got : List Boolean
+  side-got =
+    [ lean-target 2.0 > 0.0, lean-target 2.0 < 2.0,
+      lean-target (0.0 - 2.0) < 0.0, lean-target (0.0 - 2.0) > (0.0 - 2.0),
+      lean-target 0.0 > 0.0 ]
+
+  side-want : List Boolean
+  side-want = [True, True, True, True, True]
+
+  tuning-got : List Real
+  tuning-got = [asymptote-tuning, center-lane-epsilon, max-tilt-correction]
+
+  tuning-want : List Real
+  tuning-want = [0.3, 0.04, 0.017453292519943295]
+
+  iters-got : List Integer
+  iters-got = [lean-search-iters]
+
+  iters-want : List Integer
+  iters-want = [12]
+
+Section: Reading An Arc
+
+ The two shoulders answer without looking at anything else -- off the left means
+ lean further right, off the right means do not -- and only the no-shoulder case
+ consults the target. That short-circuit is the assertion: an outcome that left
+ the road answers the same whatever its end-across says.
+
+  outcome : Shoulder, Real -> ArcOutcome
+  outcome (sh) (end-across) =
+    ArcOutcome { shoulder = sh, forward = 10.0, crossed = False, end-across = end-across, frames = 100.0 }
+
+  read-got : List Boolean
+  read-got =
+    [ want-more-right (outcome ShoulderLeft 99.0) 0.5,
+      want-more-right (outcome ShoulderLeft (0.0 - 99.0)) 0.5,
+      want-more-right (outcome ShoulderRight 99.0) 0.5,
+      want-more-right (outcome ShoulderRight (0.0 - 99.0)) 0.5,
+      want-more-right (outcome ShoulderNone 0.4) 0.5,
+      want-more-right (outcome ShoulderNone 0.6) 0.5,
+      want-more-right (outcome ShoulderNone 0.5) 0.5 ]
+
+  read-want : List Boolean
+  read-want = [True, True, False, False, True, False, False]
+
+Section: The Search
+
+  seg : Segment
+  seg = segment-at 0
+
+  rider : Real, Real -> RiderState
+  rider (across) (tilt) =
+    RiderState { segment = 0, along = 0.0, across = across, yaw = 0.0, v = v-base,
+                 tilt = tilt, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+ Whatever it converges on is inside the bracket it was given, which is one degree
+ either side of the lean he is already holding.
+
+  centred : Real
+  centred = best-tilt-correction (rider 0.0 0.0) seg
+
+  offset : Real
+  offset = best-tilt-correction (rider 1.0 0.0) seg
+
+  held : Real
+  held = best-tilt-correction (rider 0.0 0.5) seg
+
+  bracket-got : List Boolean
+  bracket-got =
+    [ centred >= 0.0 - max-tilt-correction, centred <= max-tilt-correction,
+      offset >= 0.0 - max-tilt-correction, offset <= max-tilt-correction,
+      held >= 0.5 - max-tilt-correction, held <= 0.5 + max-tilt-correction ]
+
+  bracket-want : List Boolean
+  bracket-want = [True, True, True, True, True, True]
+
+ THE BRACKET IS CENTRED ON THE LEAN HE IS HOLDING, not on zero, so a rider
+ already leaning half a radian gets an answer near a half rather than near
+ nothing. That is what makes it a CORRECTION.
+
+  centred-on-got : List Boolean
+  centred-on-got =
+    [ real-abs (held - 0.5) <= max-tilt-correction,
+      real-abs centred <= max-tilt-correction,
+      held > centred ]
+
+  centred-on-want : List Boolean
+  centred-on-want = [True, True, True]
+
+ Twelve halvings of a two-degree bracket leave an interval under a thousandth of
+ a degree, so the answer is determined to far finer than any lean the rider can
+ see -- and calling it twice gives the same number, since nothing here is
+ stateful.
+
+  stable-got : List Real
+  stable-got =
+    [ best-tilt-correction (rider 1.0 0.0) seg - offset,
+      best-tilt-correction (rider 0.0 0.5) seg - held ]
+
+  stable-want : List Real
+  stable-want = [0.0, 0.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "ls-target" target-got target-want 0.0)
+    print-line-uni (grade-bools "ls-side  " side-got side-want)
+    print-line-uni (grade-reals "ls-tuning" tuning-got tuning-want 0.0)
+    print-line-uni (grade-ints  "ls-iters " iters-got iters-want)
+    print-line-uni (grade-bools "ls-read  " read-got read-want)
+    print-line-uni (grade-bools "ls-brackt" bracket-got bracket-want)
+    print-line-uni (grade-bools "ls-centre" centred-on-got centred-on-want)
+    print-line-uni (grade-reals "ls-stable" stable-got stable-want 0.0)
+  end

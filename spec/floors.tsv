@@ -13,6 +13,7 @@
 # like one in a diff.
 #
 # Seeded 2026-09-04 at each spec's then-current count.
+ArcSpec	41
 BikeSpec	27
 BillboardsSpec	34
 BlitSpec	92
@@ -30,6 +31,7 @@ GroundSpec	18
 GuardRailSpec	55
 HerdSpec	71
 JointSpec	8
+LeanSearchSpec	36
 LensSpec	18
 MountainsSpec	61
 NumSpec	128
@@ -38,6 +40,7 @@ PigsSpec	86
 PondSpec	25
 PoseSpec	26
 RailPlanSpec	32
+RideFocalSpec	26
 SafariCritterSpec	63
 SceneLimitsSpec	3
 ScenerySpec	26

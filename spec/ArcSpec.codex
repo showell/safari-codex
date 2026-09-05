@@ -1,0 +1,205 @@
+Chapter: ArcSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Pose
+  cites Safari chapter Bike
+  cites Safari chapter World
+  cites Safari chapter Arc
+  cites Judge chapter Grade
+
+ Arc: run the bike's physics forward from where the rider is and report where he
+ would leave the road, if he would.
+
+ IT IS A SIMULATION WITH FOUR WAYS OUT and each one answers a different record.
+ He runs off the left shoulder, off the right, far enough forward to be safe, or
+ the loop runs out of steps. The first two are the answer the shoulder brake
+ acts on; the last two are both "no shoulder" and are NOT the same event, which
+ is why `frames` is the placeholder in both and `forward` is not.
+
+ THE PLACEHOLDER IS GRADED AS A VALUE. `no-frames` is 1e9, and the chapter says
+ outright it is what the zig stores rather than a number anyone reads -- the
+ brake only looks at `frames` when the shoulder is not none. Grading it is what
+ keeps a rewrite from "tidying" it to zero, which would read as a rider leaving
+ the road on frame nought.
+
+ A RIDER WITH NO LEAN GOES EXACTLY STRAIGHT, which is what makes this gradeable
+ at 0.0 without a tolerance anywhere. `simulate-rider-step` moves him by
+ `v * r-sin mid`, and with no tilt the mid-heading is zero and the sine of zero
+ is EXACTLY zero -- an odd polynomial at the origin -- so his across never
+ changes at all. His along creeps by `v * r-cos 0`, which is not exact, but the
+ forward answer is clamped to `min-forward-progress` before it is reported.
+
+ THE BOUNDS WIDEN TO WHERE HE ALREADY IS, and that is the case worth having: a
+ rider outside the inset is not instantly judged to have left the road. Graded
+ with a rider three metres off centre on a four-metre lane, which is well past
+ the 1.95 inset and still not a departure.
+
+ We say:
+
+Section: The Constants
+
+  fixed-got : List Real
+  fixed-got = [no-frames, straighten-margin, min-forward-progress]
+
+  fixed-want : List Real
+  fixed-want = [1000000000.0, 0.05, 25.0]
+
+  steps-got : List Integer
+  steps-got = [turn-danger-steps]
+
+  steps-want : List Integer
+  steps-want = [2000]
+
+Section: Riding It Out
+
+  seg : Segment
+  seg = segment-at 0
+
+  rider : Real, Real, Real -> RiderState
+  rider (across) (tilt) (v) =
+    RiderState { segment = 0, along = 0.0, across = across, yaw = 0.0, v = v,
+                 tilt = tilt, heading = 0.0, gaze-yaw = 0.0, focus = 0.0 }
+
+  side : ArcOutcome -> Integer
+  side (o) =
+    when o.shoulder
+     is ShoulderLeft -> -1
+     is ShoulderNone -> 0
+     is ShoulderRight -> 1
+
+ Straight down the middle at the base speed: he never leaves, and the run stops
+ the moment he is twenty-five metres clear rather than after two thousand steps.
+
+  straight : ArcOutcome
+  straight = project-arc (rider 0.0 0.0 v-base) seg
+
+  straight-got : List Real
+  straight-got = [straight.forward, straight.end-across, straight.frames]
+
+  straight-want : List Real
+  straight-want = [25.0, 0.0, 1000000000.0]
+
+ Off centre and still straight: the bounds widened to where he is, so three
+ metres out on a four-metre lane is not a departure.
+
+  wide : ArcOutcome
+  wide = project-arc (rider 3.0 0.0 v-base) seg
+
+  wide-got : List Real
+  wide-got = [wide.forward, wide.end-across, wide.frames]
+
+  wide-want : List Real
+  wide-want = [25.0, 3.0, 1000000000.0]
+
+ A rider going nowhere makes no forward progress and never leaves either, so the
+ loop runs out of steps -- a different way to reach the same shoulder and a
+ different `forward`.
+
+  stopped : ArcOutcome
+  stopped = project-arc (rider 0.0 0.0 0.0) seg
+
+  stopped-got : List Real
+  stopped-got = [stopped.forward, stopped.end-across, stopped.frames]
+
+  stopped-want : List Real
+  stopped-want = [0.0, 0.0, 1000000000.0]
+
+  none-got : List Integer
+  none-got = [side straight, side wide, side stopped]
+
+  none-want : List Integer
+  none-want = [0, 0, 0]
+
+  crossed-got : List Boolean
+  crossed-got = [straight.crossed, wide.crossed, stopped.crossed]
+
+  crossed-want : List Boolean
+  crossed-want = [False, False, False]
+
+Section: Leaving It
+
+ A lean tips the heading and the heading walks him sideways. The sign of the
+ tilt is the sign of the shoulder he leaves by, and both are graded -- a
+ chapter that lost the sign would still report a departure every time.
+
+  leaning : ArcOutcome
+  leaning = project-arc (rider 0.0 0.2 v-base) seg
+
+  other-way : ArcOutcome
+  other-way = project-arc (rider 0.0 (0.0 - 0.2) v-base) seg
+
+  leaving-got : List Integer
+  leaving-got = [side leaning, side other-way]
+
+  leaving-want : List Integer
+  leaving-want = [1, -1]
+
+ A departure reports the frame it happened on rather than the placeholder, and
+ it is inside the step budget. Its forward is clamped at the same
+ twenty-five-metre ceiling a safe run reports.
+
+  left-got : List Boolean
+  left-got =
+    [ leaning.frames < no-frames,
+      leaning.frames < real-from-int turn-danger-steps,
+      leaning.frames > 0.0,
+      leaning.forward <= min-forward-progress,
+      leaning.end-across > 0.0,
+      other-way.end-across < 0.0,
+      other-way.frames < no-frames ]
+
+  left-want : List Boolean
+  left-want = [True, True, True, True, True, True, True]
+
+ The two leans are mirror images, so they leave on the same frame by opposite
+ sides -- a stronger statement than either one alone, and it needs no number
+ written down. The frame and the across mirror EXACTLY, because the sine is odd
+ to the last bit at these arguments; the forward does not, because the cosine's
+ polynomial is not exactly even and the along accumulates it once per frame.
+
+  mirror-got : List Real
+  mirror-got =
+    [ leaning.frames - other-way.frames,
+      leaning.end-across + other-way.end-across ]
+
+  mirror-want : List Real
+  mirror-want = [0.0, 0.0]
+
+  mirror-fwd-got : List Real
+  mirror-fwd-got = [leaning.forward - other-way.forward]
+
+  mirror-fwd-want : List Real
+  mirror-fwd-want = [0.0]
+
+Section: One Step
+
+ The physics underneath, on its own: no lean means no turn, so the across is
+ untouched and the yaw and heading do not move. The lean-to-yaw ratio is a tenth.
+
+  step-got : List Real
+  step-got =
+    let a = simulate-rider-step (rider 0.0 0.0 v-base) 0.0 0.0
+    in let b = simulate-rider-step (rider 0.0 0.0 v-base) 0.5 0.25
+    in [ a.across, a.yaw, a.heading, a.tilt, a.v,
+         b.tilt, b.v, b.yaw, b.heading, yaw-per-tilt ]
+
+  step-want : List Real
+  step-want = [0.0, 0.0, 0.0, 0.0, 0.3, 0.5, 0.55, 0.05, 0.05, 0.1]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "ar-fixed " fixed-got fixed-want 0.0)
+    print-line-uni (grade-ints  "ar-steps " steps-got steps-want)
+    print-line-uni (grade-reals "ar-straig" straight-got straight-want 0.0)
+    print-line-uni (grade-reals "ar-wide  " wide-got wide-want 0.0)
+    print-line-uni (grade-reals "ar-stop  " stopped-got stopped-want 0.0)
+    print-line-uni (grade-ints  "ar-none  " none-got none-want)
+    print-line-uni (grade-bools "ar-cross " crossed-got crossed-want)
+    print-line-uni (grade-ints  "ar-side  " leaving-got leaving-want)
+    print-line-uni (grade-bools "ar-left  " left-got left-want)
+    print-line-uni (grade-reals "ar-mirror" mirror-got mirror-want 0.0)
+    print-line-uni (grade-reals "ar-mfwd  " mirror-fwd-got mirror-fwd-want 0.000001)
+    print-line-uni (grade-reals "ar-step  " step-got step-want 0.0)
+  end

@@ -1,0 +1,1619 @@
+Chapter: ListUtils
+
+ We say:
+
+Section: Construction
+  list-zeros : Integer -> List Integer
+  list-zeros (n) = list-zeros-loop n 0 []
+
+  list-zeros-loop : Integer, Integer, List Integer -> List Integer
+  list-zeros-loop (n) (i) (acc) =
+    if i >= n then acc
+    else list-zeros-loop n (i + 1) (list-push acc 0)
+
+Section: Slicing
+  list-tail : List a -> List a
+  list-tail (xs) = list-tail-loop xs 1 (list-length xs) []
+
+  list-tail-loop : List a, Integer, Integer, List a -> List a
+  list-tail-loop (xs) (i) (len) (acc) =
+    if i >= len then acc
+    else list-tail-loop xs (i + 1) len (list-push acc (list-at xs i))
+
+Section: Slicing (extended)
+
+  list-take : List a, Integer -> List a
+  list-take (xs) (n) = list-take-loop xs 0 (if n > list-length xs then list-length xs else n) []
+
+  list-take-loop : List a, Integer, Integer, List a -> List a
+  list-take-loop (xs) (i) (n) (acc) =
+    if i >= n then acc
+    else list-take-loop xs (i + 1) n (list-push acc (list-at xs i))
+
+  list-drop : List a, Integer -> List a
+  list-drop (xs) (n) = list-tail-loop xs (if n > list-length xs then list-length xs else n) (list-length xs) []
+
+Section: Map and Fold
+
+  list-map : (a -> [e] b), List a -> [e] List b
+  list-map (f) (xs) = map-list f xs
+
+  map-list : (a -> [e] b), List a -> [e] List b
+  map-list (f) (xs) =
+   map-list-loop f xs 0 (list-length xs) []
+
+  map-list-loop : (a -> [e] b), List a, Integer, Integer, List b -> [e] List b
+  map-list-loop (f) (xs) (i) (len) (acc) =
+   if i == len then acc
+   else map-list-loop f xs (i + 1) len (list-push acc (f (list-at xs i)))
+
+  fold-list : (b, a -> [e] b), b, List a -> [e] b
+  fold-list (f) (z) (xs) =
+   fold-list-loop f z xs 0 (list-length xs)
+
+  fold-list-loop : (b, a -> [e] b), b, List a, Integer, Integer -> [e] b
+  fold-list-loop (f) (z) (xs) (i) (len) =
+   if i == len then z
+   else fold-list-loop f (f z (list-at xs i)) xs (i + 1) len
+
+Section: Filter and Search
+
+  list-filter : List a, (a -> [e] Boolean) -> [e] List a
+  list-filter (xs) (pred) =
+    list-filter-loop xs pred 0 (list-length xs) []
+
+  list-filter-loop : List a, (a -> [e] Boolean), Integer, Integer, List a -> [e] List a
+  list-filter-loop (xs) (pred) (i) (len) (acc) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if pred x then list-filter-loop xs pred (i + 1) len (list-push acc x)
+    else list-filter-loop xs pred (i + 1) len acc
+
+  list-contains : List a, (a -> Boolean) -> Boolean
+  list-contains (xs) (pred) =
+    list-contains-loop xs pred 0 (list-length xs)
+
+  list-contains-loop : List a, (a -> Boolean), Integer, Integer -> Boolean
+  list-contains-loop (xs) (pred) (i) (len) =
+    if i >= len then False
+    else if pred (list-at xs i) then True
+    else list-contains-loop xs pred (i + 1) len
+
+  list-remove : List a, (a -> Boolean) -> List a
+  list-remove (xs) (pred) =
+    list-remove-loop xs pred 0 (list-length xs) [] False
+
+  list-remove-loop : List a, (a -> Boolean), Integer, Integer, List a, Boolean -> List a
+  list-remove-loop (xs) (pred) (i) (len) (acc) (found) =
+    if i >= len then acc
+    else let x = list-at xs i
+    in if found then list-remove-loop xs pred (i + 1) len (list-push acc x) True
+    else if pred x then list-remove-loop xs pred (i + 1) len acc True
+    else list-remove-loop xs pred (i + 1) len (list-push acc x) False
+
+Page 1
+
+Chapter: Tuple
+
+Section: Definitions
+
+  Tup2 (a) (b) =
+    | MkTup2 (a) (b)
+
+  Tup3 (a) (b) (c) =
+    | MkTup3 (a) (b) (c)
+
+  Tup4 (a) (b) (c) (d) =
+    | MkTup4 (a) (b) (c) (d)
+
+  Tup5 (a) (b) (c) (d) (e) =
+    | MkTup5 (a) (b) (c) (d) (e)
+
+  pair-first : (a, b) -> a
+  pair-first (p) =
+   let (x, y) = p in x
+
+  pair-second : (a, b) -> b
+  pair-second (p) =
+   let (x, y) = p in y
+
+Page 1
+
+Chapter: Console
+
+ We say:
+
+Section: Definitions
+
+  effect Console where
+    print-line-uni : Text -> [Console.Write] Nothing
+    read-line  : [Console.Read] Text
+
+Page 1
+
+Chapter: DeviceMath
+
+ We say:
+
+Section: Clamps and Selection
+
+  real-min : Real, Real -> Real
+  real-min (a) (b) = if a < b then a else b
+
+  real-max : Real, Real -> Real
+  real-max (a) (b) = if a > b then a else b
+
+  real-abs : Real -> Real
+  real-abs (x) = if x < 0.0 then 0.0 - x else x
+
+Section: Square Root
+
+  real-sqrt : Real -> Real
+  real-sqrt (x) =
+    if x <= 0.0 then 0.0
+    else dm-sqrt-scaled x 1.0 700
+
+  dm-sqrt-scaled : Real, Real, Integer -> Real
+  dm-sqrt-scaled (x) (s) (fuel) =
+    if fuel <= 0 then s * dm-sqrt-core x
+    else if x >= 4.0 then dm-sqrt-scaled (x / 4.0) (s * 2.0) (fuel - 1)
+    else if x < 0.25 then dm-sqrt-scaled (x * 4.0) (s * 0.5) (fuel - 1)
+    else s * dm-sqrt-core x
+
+  dm-sqrt-core : Real -> Real
+  dm-sqrt-core (r) =
+    let g0 = (r + 1.0) * 0.5
+    in let g1 = (g0 + r / g0) * 0.5
+    in let g2 = (g1 + r / g1) * 0.5
+    in let g3 = (g2 + r / g2) * 0.5
+    in let g4 = (g3 + r / g3) * 0.5
+    in (g4 + r / g4) * 0.5
+
+Section: Sine and Cosine
+
+  dm-two-pi : Real
+  dm-two-pi = 6.283185307179586
+
+  dm-pi : Real
+  dm-pi = 3.141592653589793
+
+  dm-half-pi : Real
+  dm-half-pi = 1.570796326794897
+
+  dm-reduce : Real -> Real
+  dm-reduce (x) =
+    let k = real-from-int (real-to-int (x / dm-two-pi))
+    in let r = x - k * dm-two-pi
+    in if r > dm-pi then r - dm-two-pi
+       else if r < 0.0 - dm-pi then r + dm-two-pi
+       else r
+
+  dm-fold-quadrant : Real -> Real
+  dm-fold-quadrant (r) =
+    if r > dm-half-pi then dm-pi - r
+    else if r < 0.0 - dm-half-pi then 0.0 - dm-pi - r
+    else r
+
+  dm-sin-poly : Real -> Real
+  dm-sin-poly (r) =
+    let r2 = r * r
+    in let r3 = r2 * r
+    in let r5 = r3 * r2
+    in let r7 = r5 * r2
+    in let r9 = r7 * r2
+    in let r11 = r9 * r2
+    in r - r3 / 6.0 + r5 / 120.0 - r7 / 5040.0 + r9 / 362880.0 - r11 / 39916800.0
+
+  real-sin : Real -> Real
+  real-sin (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce x))
+
+  real-cos : Real -> Real
+  real-cos (x) = dm-sin-poly (dm-fold-quadrant (dm-reduce (x + dm-half-pi)))
+
+Section: Arc Tangent
+
+ The inverse of the pair above, and the one this chapter was missing. Nothing in
+ the foreword answered an arc tangent at Real: Math chapter Cordic and Math
+ chapter Geodesic both have one, and both are integer milliradian routines whose
+ output cannot be fed back into real-sin.
+
+ THE ARGUMENT IS HALVED BEFORE THE SERIES, WHICH IS THE WHOLE METHOD. The Taylor
+ series for the arc tangent converges hopelessly near |t| = 1 -- that is where
+ its terms stop shrinking -- and |t| near 1 is exactly what a caller taking the
+ angle of a diagonal hands it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically instead. Four applications take |t| <= 1
+ down to 0.0492: the angle is at most pi/4, so a sixteenth of it is at most
+ 0.0490874 and its tangent is 0.0491258. Six terms there are good to 1.1e-17,
+ and the sixteen the result is multiplied back by cannot undo that.
+
+ Above |t| = 1 the reciprocal identity folds the argument back into range first,
+ so the series never sees a value it handles badly.
+
+ ACCURACY: worst absolute error 6.7e-16 radians, 4 ULP, against zig 0.16.0
+ std.math.atan. The series truncation above is not what bounds it. dm-half-pi
+ parses 2 ulp above pi/2, an error of 4.4e-16, and that flows into every
+ |t| > 1 result and into real-atan2's x = 0 arms, so the constant dominates the
+ method by five orders.
+
+  dm-atan-half-step : Real -> Real
+  dm-atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  dm-atan-halve : Real, Integer -> Real
+  dm-atan-halve (t) (n) =
+    if n <= 0 then t
+    else dm-atan-halve (dm-atan-half-step t) (n - 1)
+
+  dm-atan-series : Real -> Real
+  dm-atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by two to the fourth.
+
+  dm-atan-core : Real -> Real
+  dm-atan-core (t) = 16.0 * dm-atan-series (dm-atan-halve t 4)
+
+  real-atan : Real -> Real
+  real-atan (t) =
+    if t > 1.0 then dm-half-pi - dm-atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - dm-half-pi) - dm-atan-core (1.0 / t)
+    else dm-atan-core t
+
+ A caller that divides its two coordinates and calls real-atan has folded two
+ quadrants onto one and cannot get them back; real-atan2 branches before it
+ divides.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what a caller comparing against zig's std.math.atan2 will expect
+ of two positive zeroes. It diverges from that reference on a NEGATIVE zero:
+ -0.0 >= 0.0 is true, so real-atan2 (-0.0) (-1.0) answers +pi where zig answers
+ -pi, and real-atan2 (-0.0) (1.0) answers +0.0 where zig answers -0.0.
+
+  real-atan2 : Real, Real -> Real
+  real-atan2 (y) (x) =
+    if x > 0.0 then real-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then real-atan (y / x) + dm-pi else real-atan (y / x) - dm-pi)
+    else if y > 0.0 then dm-half-pi
+    else if y < 0.0 then 0.0 - dm-half-pi
+    else 0.0
+
+Chapter: Trig
+  cites Gpu chapter DeviceMath
+
+ Sine, cosine, tangent and arc tangent in Real.
+
+ THE STAND-IN IS RETIRED. This chapter used to carry its own sine and cosine --
+ the same reduction, quadrant fold and 11th-order Taylor polynomial DeviceMath
+ has -- because DeviceMath's dm-reduce calls real-from-int and the zig plug had no
+ emitter for it. That emitter landed (PLUG_WORK, 2026-08-29), so `r-sin` and
+ `r-cos` are now DeviceMath's, and the duplicate implementation is gone.
+
+ THREE CONSTANTS SURVIVED THAT CLEANUP AND SHOULD NOT HAVE. `pi`, `two-pi` and
+ `half-pi` were written out here digit for digit while `dm-pi`, `dm-two-pi` and
+ `dm-half-pi` sat in the chapter this one already cites, identical to the last
+ place. They are aliases now. A retired implementation with its constants left
+ behind is the easy half of de-duplicating, and it is worth naming because the
+ prose above had already claimed the job was done.
+
+ THE NAMES STAY AND THE IMPLEMENTATION DOES NOT, which is the whole change. Nine
+ chapters call `r-sin`, `r-cos` or `r-tan`, and none of them should have to know
+ whether the sine underneath is the foreword's or the port's -- that was the point
+ of the names. What they buy now is one place to look and one place that already
+ cites DeviceMath, rather than nine new cites for a rename.
+
+ RETIRING IT MOVED NUMBERS, and that was the reason it waited rather than being
+ tidied away with the rest. The old `wrap` subtracted two-pi in a bounded loop;
+ dm-reduce divides and converts back through the integers, so the two disagree in
+ the last bits and every angle in the game runs through one of them. See the
+ tolerance note in README and D10.
+
+ We say:
+
+Section: Constants
+
+  pi : Real
+  pi = dm-pi
+
+  two-pi : Real
+  two-pi = dm-two-pi
+
+  half-pi : Real
+  half-pi = dm-half-pi
+
+  deg : Real
+  deg = 0.017453292519943295
+
+Section: Angle Wrapping
+
+  wrap : Real, Integer -> Real
+  wrap (x) (fuel) =
+    if fuel <= 0 then x
+    else if x > pi then wrap (x - two-pi) (fuel - 1)
+    else if x < 0.0 - pi then wrap (x + two-pi) (fuel - 1)
+    else x
+
+Section: Sine and Cosine
+
+ `wrap` OUTLIVED THE SINE IT WAS WRITTEN FOR, and it turns out not to have been
+ part of the stand-in at all. mountains.zig and sky.zig each carry their own
+ `wrap` -- normalising a bearing difference into the half-open turn around zero --
+ and both are ported through this one. It reads as an angle utility now rather
+ than as an argument reduction, which is what those two callers always wanted;
+ what it is NOT any more is anything sine depends on.
+
+ The fuel is the zig's own shape: mountains.zig's wrap is a bounded `while`, not a
+ modulo, for exactly the same reason.
+
+  r-sin : Real -> Real
+  r-sin (x) = real-sin x
+
+  r-cos : Real -> Real
+  r-cos (x) = real-cos x
+
+ DeviceMath has no tangent, so this one is still the port's -- and it is the
+ obvious quotient rather than anything clever, exactly as it was.
+
+  r-tan : Real -> Real
+  r-tan (x) = real-sin x / real-cos x
+
+Section: Arc Tangent
+
+ THIS ONE IS NOT A STAND-IN. `Gpu chapter DeviceMath` has no atan at all -- its
+ whole surface is min, max, abs, sqrt, sin and cos -- and the foreword's other
+ arc tangents (Math chapter Cordic, Math chapter Geodesic) are INTEGER milli-unit
+ routines, one of which is recorded in PORTING_NOTES A4 as four times less
+ accurate than it claims. So a Real atan is a gap in Codex's foreword rather than
+ a hole in the zig plug, and it does not go away when the rest of this chapter is
+ retired in favour of DeviceMath.
+
+ The method is argument HALVING, not a Taylor series applied directly: the series
+ for atan converges hopelessly slowly near |t| = 1, which is exactly where the
+ mountains sample it. The half-angle identity
+
+     atan t = 2 * atan (t / (1 + sqrt (1 + t*t)))
+
+ shrinks the argument geometrically, so four applications take |t| <= 1 down to
+ about 0.06, where a six-term series is good to roughly 1e-14 and the sixteen it
+ is multiplied back by cannot undo that. Above |t| = 1 the reciprocal identity
+ folds it back into range first; the screen's outer columns at a pulled-in focal
+ do reach |t| near 3, so that branch is live and not defensive.
+
+  atan-half-step : Real -> Real
+  atan-half-step (t) = t / (1.0 + real-sqrt (1.0 + t * t))
+
+  atan-halve : Real, Integer -> Real
+  atan-halve (t) (n) =
+    if n <= 0 then t
+    else atan-halve (atan-half-step t) (n - 1)
+
+  atan-series : Real -> Real
+  atan-series (u) =
+    let u2 = u * u
+    in let u3 = u2 * u
+    in let u5 = u3 * u2
+    in let u7 = u5 * u2
+    in let u9 = u7 * u2
+    in let u11 = u9 * u2
+    in u - u3 / 3.0 + u5 / 5.0 - u7 / 7.0 + u9 / 9.0 - u11 / 11.0
+
+ Four halvings, so the series result is scaled back by 2^4.
+
+  atan-core : Real -> Real
+  atan-core (t) = 16.0 * atan-series (atan-halve t 4)
+
+  r-atan : Real -> Real
+  r-atan (t) =
+    if t > 1.0 then half-pi - atan-core (1.0 / t)
+    else if t < 0.0 - 1.0 then (0.0 - half-pi) - atan-core (1.0 / t)
+    else atan-core t
+
+ The TWO-argument arc tangent, which is not a convenience wrapper: it is the one
+ that knows which quadrant the point is in, and gaze.zig needs that because the
+ pig it is aiming at can be behind the rider as well as ahead. Dividing first and
+ calling r-atan would fold two quadrants onto one.
+
+ The x = 0 arms are exact rather than a limit, and the y = 0, x = 0 case answers
+ zero, which is what std.math.atan2 does with two positive zeros.
+
+  r-atan2 : Real, Real -> Real
+  r-atan2 (y) (x) =
+    if x > 0.0 then r-atan (y / x)
+    else if x < 0.0 then (if y >= 0.0 then r-atan (y / x) + pi else r-atan (y / x) - pi)
+    else if y > 0.0 then half-pi
+    else if y < 0.0 then 0.0 - half-pi
+    else 0.0
+
+ Zig's std.math.sign, which answers zero AT zero rather than picking a side.
+
+  r-sign : Real -> Real
+  r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
+
+Chapter: Geom
+  cites Safari chapter Trig
+
+ Pure rider-relative geometry: the coordinate types, the world-to-rider transform,
+ the ground curvature, and near-plane clipping. No projection -- that is Camera --
+ no drawing, no allocation. The math leaf the rest of the camera stands on.
+
+ A port of wasm/geom.zig.
+
+ We say:
+
+Section: Coordinates
+
+ A ground-plane point measured FROM THE RIDER: how far forward, down his look
+ axis, and how far to his right. The fundamental coordinate of the whole scene.
+
+  RiderPt = record {
+    right : Real,
+    forward : Real
+  }
+
+ A rider-relative vertex carrying a height off the ground -- what the road quads
+ and raised structures clip and project as.
+
+  Vec3 = record {
+    right : Real,
+    forward : Real,
+    height : Real
+  }
+
+ A point in a segment's bottom-left frame: `a` along, `x` across-from-left.
+
+  AX = record {
+    a : Real,
+    x : Real
+  }
+
+Section: Ground
+
+ The local ground is a gentle spherical plateau: a point drops this far below the
+ rider's tangent plane at horizontal distance d, so the road bends toward a finite
+ horizon instead of a vanishing point at infinity. Larger radius = gentler.
+
+  ground-radius : Real
+  ground-radius = 100000.0
+
+  ground-drop : Real, Real -> Real
+  ground-drop (right) (forward) = (right * right + forward * forward) / (2.0 * ground-radius)
+
+Section: The Rider Transform
+
+ to-rider maps a point in a segment's bottom-left frame -- `a` along the segment,
+ `x` across from its LEFT edge -- into the rider's frame, given his pose along and
+ across the segment's centre line and his look angle `yaw`. His pose is
+ centre-relative, so the half-width `hw` shifts x to from-the-left.
+
+  to-rider : Real, Real, Real, Real, Real, Real -> RiderPt
+  to-rider (a) (x) (cam-along) (cam-across) (yaw) (hw) =
+    let d-a = a - cam-along
+    in let d-x = x - (cam-across + hw)
+    in let c = r-cos yaw
+    in let s = r-sin yaw
+    in RiderPt { forward = d-a * c + d-x * s, right = (0.0 - d-a) * s + d-x * c }
+
+Section: The Frame Fusion
+
+ next-to-cur maps a point from the NEXT segment's bottom-left frame into the
+ CURRENT segment's, across the join. LEFT and RIGHT are NOT mirror images: a left
+ turn fuses on the end-left edge, where the origin is the inner corner; a right
+ turn fuses on the end-right edge and pays a width shift. `turns-right` is the
+ turn direction.
+
+  next-to-cur : Real, Real, Real, Real, Boolean, Real -> AX
+  next-to-cur (a-b) (x-b) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then AX { a = a-b * c - x-b * s + width * s + seg-len, x = x-b * c + a-b * s + width * (1.0 - c) }
+      else AX { a = a-b * c + x-b * s + seg-len, x = x-b * c - a-b * s }
+
+ cur-to-next is the inverse: a point in the CURRENT segment's frame expressed in
+ the NEXT segment's, across the same join. Used to draw the joint just BEHIND the
+ rider, so the pavement he is still crossing does not vanish.
+
+  cur-to-next : Real, Real, Real, Real, Boolean, Real -> AX
+  cur-to-next (a) (x) (seg-len) (theta) (turns-right) (width) =
+    let c = r-cos theta
+    in let s = r-sin theta
+    in if turns-right
+      then let a0 = a - seg-len - width * s
+        in let x0 = x - width * (1.0 - c)
+        in AX { a = a0 * c + x0 * s, x = (0.0 - a0) * s + x0 * c }
+      else let a0 = a - seg-len
+        in AX { a = a0 * c - x * s, x = a0 * s + x * c }
+
+Section: Line Intersection
+
+ line-meet returns where two infinite lines cross in the rider frame: line A
+ through a0 toward a1, line B through b0 toward b1. Used for the corner's outer
+ apex, where the two segments' outer shoulders meet. A real turn has a non-zero
+ angle, so the lines are never parallel.
+
+  line-meet : RiderPt, RiderPt, RiderPt, RiderPt -> RiderPt
+  line-meet (a0) (a1) (b0) (b1) =
+    let dax = a1.right - a0.right
+    in let daf = a1.forward - a0.forward
+    in let dbx = b1.right - b0.right
+    in let dbf = b1.forward - b0.forward
+    in let t = ((b0.right - a0.right) * dbf - (b0.forward - a0.forward) * dbx) / (dax * dbf - daf * dbx)
+    in RiderPt { right = a0.right + t * dax, forward = a0.forward + t * daf }
+
+Section: Near-Plane Clipping
+
+ Clip a rider-frame polygon against the near plane at `near` metres forward, so no
+ vertex sits behind the eye where the perspective divide would fling it across the
+ screen. Fewer than 3 vertices out means the caller skips the polygon.
+
+ The zig writes into a caller-supplied `out` slice and returns a count; this
+ returns the list, which is the same thing without the buffer. The wrap-around
+ edge is the reason the index walks to the length and reads (i + 1) modulo it: the
+ polygon is closed, so the last vertex pairs with the first.
+
+ `near` lived in Camera until 2026-09-03, declared under its Lens section and
+ read by nothing in that chapter. Four callers carried it from there to
+ `clip-near` here, into a parameter of the same name. It is the near plane and
+ the near plane is this section's business.
+
+  near : Real
+  near = 0.4
+
+  clip-cross : Vec3, Vec3, Real -> List Vec3
+  clip-cross (a) (b) (near) =
+    let f = (near - a.forward) / (b.forward - a.forward)
+    in [Vec3 { right = a.right + f * (b.right - a.right), forward = near, height = a.height + f * (b.height - a.height) }]
+
+  both-sides : Boolean, Boolean -> Boolean
+  both-sides (a-in) (b-in) = if a-in then b-in else (if b-in then False else True)
+
+  clip-near-edge : List Vec3, Real, Integer -> List Vec3
+  clip-near-edge (poly) (near) (i) =
+    let n = list-length poly
+    in if i >= n then []
+    else let a = list-at poly i
+    in let b = list-at poly ((i + 1) - (((i + 1) / n) * n))
+    in let a-in = a.forward >= near
+    in let b-in = b.forward >= near
+    in let kept = if a-in then [a] else []
+    in let crossed = if both-sides a-in b-in then [] else clip-cross a b near
+    in kept & crossed & clip-near-edge poly near (i + 1)
+
+  clip-near : List Vec3, Real -> List Vec3
+  clip-near (poly) (near) = clip-near-edge poly near 0
+
+Chapter: Camera
+  cites Safari chapter Geom
+
+ The perspective projection: a rider-relative ground point at a height becomes a
+ screen pixel. Owns the eye height and the screen height. Owns no lens and no
+ near plane. Pure; no drawing, no allocation.
+
+ A port of wasm/camera.zig, and no longer the shape of it. On 2026-09-03 the
+ lens moved to `Safari chapter Lens` and the near plane to `Safari chapter
+ Geom`, because this chapter never read either: `project` is handed a focal,
+ and the near plane was carried by four callers straight into Geom's clipping.
+ Fidelity to the zig file boundaries is not a constraint here; agreement
+ between the arms is, and it is untouched by which chapter a definition sits in.
+
+ We say:
+
+Section: Projection
+
+  camera-h : Real
+  camera-h = 600.0
+
+  eye-h : Real
+  eye-h = 1.2
+
+  ScreenPt = record {
+    x : Real,
+    y : Real
+  }
+
+ The perspective divide is by forward, so callers must clip to the near plane
+ first -- forward is then never near zero. `cf` is the live camera focal, which
+ the caller gets from `cam-focal`; passing it rather than reading it is what
+ keeps this chapter independent of the lens.
+
+  project : Vec3, Real, Real -> ScreenPt
+  project (p) (cf) (view-w) =
+    ScreenPt {
+      x = view-w / 2.0 + (p.right / p.forward) * cf,
+      y = camera-h / 2.0 - ((p.height - eye-h) / p.forward) * cf
+    }
+
+ The list form. It lived in `Safari chapter GuardRail` until 2026-09-03, which
+ is where the first caller happened to be; Render and TruckDraw read it from
+ there too, so a rail chapter was on the cite line of everything that projects
+ a polygon. It is `project` in a loop and it belongs beside it.
+
+  project-all : List Vec3, Real, Real, Integer -> List ScreenPt
+  project-all (ps) (cf) (view-w) (i) =
+    if i >= list-length ps then []
+    else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
+
+Chapter: Paint
+  cites Safari chapter Camera
+
+ The seam to JS: a draw command in wasm/paint.zig's wire.
+
+ The zig writes each command into a fixed pre-sized buffer in linear memory and
+ hands the browser a byte length. The port is pure, so it RETURNS commands and the
+ wasm shim does the writing -- the same split NOTES calls seam 3, and the reason
+ one grader serves every module: a frame is a flat list either way.
+
+ The wire:
+
+   tag 0   [0][color][nPoints][x f32][y f32]...
+   tag 1   [1][color][strength f32][nPoints][x f32][y f32]...
+   tag 3   [3][color][x f32][y f32][r f32][alpha f32]
+   tag 4   [4][rgbaCentre][rgbaEdge][cx][cy][r][nPoints][x][y]...
+   tag 5   [5][rgba0][rgba1][off0][off1][ax][ay][bx][by][nPoints][x][y]...
+   tag 6   [6][rgba0][rgba1][off0][off1][cx][cy][ux][uy][vx][vy][nPoints][x][y]...
+
+ TAG 2 IS NOT HERE AND IS ON THE WIRE. This chapter emits what `wasm/paint.zig`
+ emits and nothing else, because that is what nine checks in judge/ grade. The
+ shim runs `Safari chapter Blit`'s `blit-expand` over the finished list before
+ writing it, and that pass turns every tag 1 into a tag 0 or a
+
+   tag 2   [2][edgeColor][middleColor][x0 f32][x1 f32][nPoints][x f32][y f32]...
+
+ -- a polygon under a symmetric three-stop gradient across [x0, x1], colours
+ already computed. So tag 1 is what this chapter produces and tag 2 is what the
+ browser receives, and no reader of this file should go looking for a tag 1 in
+ `web/blitter.js`.
+
+ tag 0 is a solid fill; tag 1 is a horizontal round gradient -- dark edge, bright
+ centre, dark edge across the polygon's x-extent -- with a per-polygon strength
+ that lets crown shading fade to flat with distance instead of popping. strength
+ rides on every command so the record has one shape; tag 0 ignores it, exactly as
+ the blitter does.
+
+ Coordinates are SCREEN pixels here and still Real. They narrow to f32 in the
+ shim, at the buffer, which is the only place the game's width is load-bearing.
+
+ We say:
+
+Section: Commands
+
+  DrawCmd = record {
+    tag : Integer,
+    color : Integer,
+    color2 : Integer,
+    strength : Real,
+    geom : List Real,
+    pts : List Real
+  }
+
+ TWO FIELDS THE GRADIENT TAGS FORCED, and taking them changed the record's rule
+ for the better. `pts` is now ALWAYS the polygon and `geom` is always the
+ command's own parameters -- a beacon's centre and radius, a gradient's stops and
+ axes. Before, the beacon smuggled its x, y and r through `pts`, which meant `pts`
+ sometimes held points and sometimes did not, and every reader had to know which.
+ Now one rule covers every tag.
+
+ `color2` is the second stop. Tags 0, 1 and 3 leave it zero and leave `geom` empty
+ or short; nothing reads a field its tag does not define.
+
+  flatten-screen : List ScreenPt, Integer -> List Real
+  flatten-screen (ps) (i) =
+    if i >= list-length ps then []
+    else let p = list-at ps i
+    in [p.x, p.y] & flatten-screen ps (i + 1)
+
+  push-poly : Integer, List ScreenPt -> List DrawCmd
+  push-poly (color) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 0, color = color, color2 = 0, strength = 0.0, geom = [], pts = flatten-screen ps 0 }]
+
+ pushRoundPoly drops a polygon with fewer than three points rather than emitting
+ a degenerate one; push-poly is given the same guard so the two agree.
+
+  push-round-poly : Integer, Real, List ScreenPt -> List DrawCmd
+  push-round-poly (color) (strength) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 1, color = color, color2 = 0, strength = strength, geom = [], pts = flatten-screen ps 0 }]
+
+ THE BEACON IS NOT A POLYGON, and it is the first command here that is not. It is
+ a disc -- a centre, a radius and an alpha -- and the blitter draws a true arc for
+ it. It gets its own tag because unlike every other command it is NOT OPAQUE, and
+ the colour word on the solid path carries no alpha to say so.
+
+ It still fits the one DrawCmd shape, which is the point of that shape. The
+ record's prose already argues that strength rides on every command so there is
+ one record rather than two; the same argument carries the disc. `strength` is the
+ alpha the blitter composites at, and `pts` holds x, y and r -- three Reals where a
+ polygon holds an even number of them. The shim branches on the tag when it
+ writes, exactly as paint.zig's own pushBeacon does.
+
+  push-beacon : Integer, Real, Real, Real, Real -> List DrawCmd
+  push-beacon (color) (x) (y) (r) (alpha) =
+    [DrawCmd { tag = 3, color = color, color2 = 0, strength = alpha, geom = [x, y, r], pts = [] }]
+
+Section: The Gradient Fills
+
+ Three more tags, all polygons with a gradient instead of a flat colour, and all
+ three carry TWO colours in 0xAARRGGBB rather than the 0xRRGGBB the solid path
+ uses -- because these composite, and the alpha is what makes a headlight beam a
+ beam rather than a white wedge.
+
+ Tag 4 is a RADIAL fill from a centre out to a radius: the truck's headlight beams
+ and their glow. Tags 5 and 6 are 2-stop gradients with explicit stop offsets --
+ 5 linear along an axis, 6 radial through an ELLIPSE given by two axis vectors --
+ and they are the bull's shading panels, the one animal whose art is the Fluent
+ Color variant rather than the Flat one.
+
+ All three drop a polygon with fewer than three points, exactly as the solid path
+ does and for the same reason.
+
+  push-grad-poly : Integer, Integer, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-grad-poly (rgba-center) (rgba-edge) (cx) (cy) (r) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 4, color = rgba-center, color2 = rgba-edge, strength = 0.0, geom = [cx, cy, r], pts = flatten-screen ps 0 }]
+
+  push-linear-grad-poly : Integer, Integer, Real, Real, Real, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-linear-grad-poly (rgba0) (rgba1) (off0) (off1) (ax) (ay) (bx) (by) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 5, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, ax, ay, bx, by], pts = flatten-screen ps 0 }]
+
+  push-radial-grad-poly : Integer, Integer, Real, Real, Real, Real, Real, Real, Real, Real, List ScreenPt -> List DrawCmd
+  push-radial-grad-poly (rgba0) (rgba1) (off0) (off1) (cx) (cy) (ux) (uy) (vx) (vy) (ps) =
+    if list-length ps < 3 then []
+    else [DrawCmd { tag = 6, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, cx, cy, ux, uy, vx, vy], pts = flatten-screen ps 0 }]
+
+Chapter: Num
+
+ The Real primitives Codex's foreword does not have.
+
+ `Gpu chapter DeviceMath` is the only Real chapter in the foreword and its whole
+ surface is min, max, abs, sqrt, sin and cos. There is no rounding, no floor and
+ no modulo, and the foreword's other numeric chapters -- Cordic, Easing, Color,
+ GameCamera, Numeric -- are all INTEGER milli-units, so they answer a different
+ question. Everything here is a gap upstream rather than a hole in the zig plug,
+ and unlike `Safari chapter Trig` none of it is a stand-in for something that
+ already exists.
+
+ EVERY FUNCTION HERE NEEDS real-to-int, so none of it could have been written
+ before 2026-08-29 -- see plugs-backlog row 2.03. That is the honest reason
+ this chapter did not exist earlier: the port had no way to reach the integers
+ at all.
+
+ We say:
+
+Section: Rounding
+
+ Zig's @round goes to nearest and ties AWAY FROM ZERO, which truncation does not
+ give. TRUNCATE FIRST AND THEN LOOK AT WHAT IS LEFT: real-to-int already truncates
+ toward zero, `x - t` is exact for every x this converter accepts, and a leftover
+ of half or more in either direction is precisely the away-from-zero tie. One rule
+ covers both signs, which is why there is no sign branch here any more.
+
+ ADDING THE HALF FIRST IS THE VERSION THAT WAS WRONG, and NumCheck is what found
+ it. `real-to-int (x + 0.5)` answers 1 for x = 0.49999999999999994 -- the largest
+ double below a half -- because x + 0.5 is not representable and rounds UP to
+ exactly 1.0, and the mirrored form answered -1 at -0.49999999999999994 where zig
+ answers -0. Every caller in the game rounds a 0..255 colour channel, a stride
+ count, a step count or a whole number of degrees, so not one of them could see
+ it; a round that is wrong on a value none of today's callers produces is a trap
+ for the next caller, and that is the whole reason this chapter is graded on a
+ domain wider than its callers'.
+
+  round-real : Real -> Real
+  round-real (x) =
+    let t = real-from-int (real-to-int x)
+    in let f = x - t
+    in if f >= 0.5 then t + 1.0 else if f <= 0.0 - 0.5 then t - 1.0 else t
+
+ real-to-int truncates toward zero, so for a negative non-integral value it lands
+ ABOVE its argument and floor is one less. An exact integer is its own floor in
+ both arms, which is why the test is `>` and not `>=`.
+
+  floor-real : Real -> Real
+  floor-real (x) =
+    let t = real-from-int (real-to-int x)
+    in if t > x then t - 1.0 else t
+
+Section: Modulo
+
+ Zig's @mod is the FLOORED modulo -- its result takes the sign of the divisor --
+ and that is not the truncated remainder. Floored is x - m * floor (x / m), and
+ this is the faithful reading of what tower.zig asks for.
+
+ BUT THE ONE CALLER CANNOT TELL THE DIFFERENCE, and that is worth stating rather
+ than implying coverage this does not have. tower.zig writes
+
+     @mod(@mod(phase, P) + P, P)
+
+ which looks like belt and braces over an operator that is already non-negative,
+ and is in fact exactly what makes the two semantics AGREE. Floored gives m in
+ [0, P) directly and the second pass is a no-op. Truncated gives r in (-P, P);
+ adding P lands in (0, 2P); the second pass takes P off again when it overflowed
+ and leaves it alone when it did not -- and r + P is precisely floored's answer
+ whenever r was negative. So the double form is semantics-agnostic by
+ construction.
+
+ MEASURED, not reasoned about after the fact: replacing this with the truncated
+ remainder leaves TowerCheck entirely green, including its negative-phase case.
+ An earlier draft of this note claimed tower.zig "relies on" the floored form and
+ that the two "disagree there". Both were wrong, and the red test said so.
+
+ Floored stays because it is what @mod means and the next caller may not wrap its
+ argument twice. But nothing in this port grades the choice today.
+
+  mod-real : Real, Real -> Real
+  mod-real (x) (m) = x - m * floor-real (x / m)
+
+Section: The Exponential
+
+ rider.zig's shoulder brake decays as exp(-n / 20) over up to 2000 frames, so the
+ argument reaches -100 and a bare Taylor series is useless there. The standard
+ reduction: take k as the nearest integer to x / ln 2, so the remainder r is
+ within half a ln 2 of zero, sum the series there, and scale by 2^k.
+
+ THIS NEEDS real-to-int TWICE OVER -- once to round k, once to count the doublings
+ -- so like everything else here it could not have been written before the
+ conversion emitters landed.
+
+  ln2 : Real
+  ln2 = 0.6931471805599453
+
+ TWELVE TERMS OVER |r| <= 0.347 LEAVE A REMAINDER OF 1.7e-16, NOT THE 1e-17 THIS
+ NOTE CLAIMED BEFORE IT WAS MEASURED. r^13/13! at r = ln2/2 is 1.671e-16, which is
+ an arithmetic fact nobody had worked out. NumCheck now measures the whole chapter
+ end to end against zig's @exp over eighteen arguments: the worst RELATIVE error is
+ 8.5e-16, at x = 20, and the gate is 1e-15 because the stream reddens at 8e-16.
+
+ AND IT IS THE REDUCTION, NOT THE SERIES, THAT SETS THAT NUMBER. The three
+ arguments small enough to need no reduction at all -- -0.05, 0 and 0.05 -- come
+ out EXACT; every nonzero error in the table belongs to a reduced case. Taking
+ k * ln2 off x cancels, and `ln2` here is one f64 where a library keeps a hi/lo
+ pair for exactly this reason. Splitting it is the fix if it ever matters:
+ rider.zig consumes the answer in f32, where 8.5e-16 is nine orders below the last
+ bit it can hold, so today it does not.
+
+ WRITING A BOUND NOBODY CHECKED IS THE DEFECT THIS PORT IS SENDING UPSTREAM.
+ FINDINGS.md item 2 is `Math chapter Cordic` claiming ~0.1% and delivering 0.45%,
+ with a test that never calls a Cordic function. The claim above was 17x out for
+ the same reason -- it was reasoned about rather than run -- and it is corrected
+ here rather than left standing while we mail someone else's.
+
+  exp-poly : Real -> Real
+  exp-poly (r) =
+    let t1 = r
+    in let t2 = t1 * r / 2.0
+    in let t3 = t2 * r / 3.0
+    in let t4 = t3 * r / 4.0
+    in let t5 = t4 * r / 5.0
+    in let t6 = t5 * r / 6.0
+    in let t7 = t6 * r / 7.0
+    in let t8 = t7 * r / 8.0
+    in let t9 = t8 * r / 9.0
+    in let t10 = t9 * r / 10.0
+    in let t11 = t10 * r / 11.0
+    in let t12 = t11 * r / 12.0
+    in 1.0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+
+ 2^k by repeated multiplication rather than by assembling an exponent field: the
+ bit-level route would need real-to-bits, which this arm still has no emitter for,
+ and k is small enough here that the loop is exact anyway -- every step multiplies
+ by a power of two, which is exact in binary until it underflows.
+
+  pow2-up : Integer, Real -> Real
+  pow2-up (k) (acc) = if k <= 0 then acc else pow2-up (k - 1) (acc * 2.0)
+
+  pow2-down : Integer, Real -> Real
+  pow2-down (k) (acc) = if k >= 0 then acc else pow2-down (k + 1) (acc * 0.5)
+
+  pow2-int : Integer -> Real
+  pow2-int (k) = if k >= 0 then pow2-up k 1.0 else pow2-down k 1.0
+
+  exp-real : Real -> Real
+  exp-real (x) =
+    let k = real-to-int (round-real (x / ln2))
+    in exp-poly (x - real-from-int k * ln2) * pow2-int k
+
+ Codex's foreword has a floor and no ceiling, so this is the identity
+ ceil x = -floor(-x) rather than a second rounding rule. It was Render's until
+ 2026-09-03, where it sliced the road strip; nothing about it is a road.
+
+  ceil-real : Real -> Real
+  ceil-real (x) = 0.0 - floor-real (0.0 - x)
+
+Chapter: Tower
+  cites Gpu chapter DeviceMath
+  cites Safari chapter Num
+  cites Safari chapter Trig
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Foreword chapter ListUtils
+
+ The radio tower beyond each intersection: a tall square-base lattice pyramid of
+ metal rods tapering to an apex with a pink beacon. The owner places it; this
+ chapter only renders.
+
+ A port of wasm/tower.zig.
+
+ THIS IS THE FLAT FORM ONLY -- the four faces drawn as a billboard lattice, which
+ is what the TypeScript draws beyond its far distance. The zig diverges from the
+ TypeScript in ONE way and the port keeps the divergence: every rod stays a 3D
+ segment and is near-clipped BEFORE projecting, rather than interpolating points
+ that are already on screen. The TypeScript could skip that because it only used
+ the flat path for far towers, where nothing straddles the eye plane; here the
+ flat path runs at all distances, so a tower you pass close would otherwise streak
+ a rod clear across the viewport.
+
+ The apex beacon BLINKS on the step clock, as a pure function of it, so it freezes
+ on pause and runs backwards on reverse -- which is why the phase can be negative
+ and why the modulo has to be the floored one.
+
+ We say:
+
+Section: Dimensions
+
+  tower-height : Real
+  tower-height = 80.0
+
+ Half the twelve-metre square base edge.
+
+  tower-half : Real
+  tower-half = 6.0
+
+ A cross-beam ring every this many metres, and X-braces on the bottom two stages.
+
+  stage-height : Real
+  stage-height = 20.0
+
+  brace-stages : Integer
+  brace-stages = 2
+
+  rod-half : Real
+  rod-half = 0.12
+
+  rod-w : Real
+  rod-w = rod-half * 2.0
+
+  tower-metal : Integer
+  tower-metal = 10133672
+
+ A local ground bulge, stronger than the road's, so a far tower sinks until its
+ base meets the horizon.
+
+  earth-radius : Real
+  earth-radius = 20000.0
+
+  beacon-radius : Real
+  beacon-radius = 3.0
+
+  beacon-color : Integer
+  beacon-color = 16723942
+
+ Frames for a full invisible-to-bright-to-invisible blink.
+
+  beacon-period : Real
+  beacon-period = 120.0
+
+Section: The Beacon Clock
+
+ Spread each tower's blink phase so they do not pulse in unison: 37 is coprime to
+ the 120-frame period, so successive owners land on distinct offsets.
+
+  beacon-offset-for : Integer -> Real
+  beacon-offset-for (n) = real-from-int ((n * 37) - (((n * 37) / 120) * 120))
+
+ Brightness is 0 at the cycle ends and 1 in the middle.
+
+ THE DOUBLE MODULO IS THE ZIG'S AND IS KEPT. `@mod` is already non-negative for a
+ positive divisor, so `@mod(@mod(p, P) + P, P)` is belt and braces -- but the port
+ is a port, and a phase really can be negative here because the clock runs
+ backwards on reverse.
+
+  beacon-brightness : Real -> Real
+  beacon-brightness (phase) =
+    let wrapped = mod-real (mod-real phase beacon-period + beacon-period) beacon-period
+    in (1.0 - r-cos (2.0 * pi * wrapped / beacon-period)) / 2.0
+
+Section: The Square
+
+ The four base corners in half-base units, before the yaw.
+
+  corner-u : Integer -> Real
+  corner-u (k) = if k == 0 then 0.0 - 1.0 else if k == 1 then 1.0 else if k == 2 then 1.0 else 0.0 - 1.0
+
+  corner-v : Integer -> Real
+  corner-v (k) = if k == 0 then 0.0 - 1.0 else if k == 1 then 0.0 - 1.0 else if k == 2 then 1.0 else 1.0
+
+ Base corner k in the owning segment's bottom-left frame, given the tower's base
+ centre and yaw. The caller maps it into the rider frame. At the apex the square
+ shrinks to a point at the centre, so the apex needs no helper.
+
+  base-corner-ax : Integer, Real, Real, Real -> AX
+  base-corner-ax (k) (a0) (x0) (yaw) =
+    let du = corner-u k * tower-half
+    in let dv = corner-v k * tower-half
+    in let cy = r-cos yaw
+    in let sy = r-sin yaw
+    in AX { a = a0 + (du * sy + dv * cy), x = x0 + (du * cy - dv * sy) }
+
+Section: Geometry
+
+  tower-ground-drop : RiderPt -> Real
+  tower-ground-drop (p) = (p.right * p.right + p.forward * p.forward) / (2.0 * earth-radius)
+
+  lerp3v : Vec3, Vec3, Real -> Vec3
+  lerp3v (a) (b) (t) =
+    Vec3 {
+      right = a.right + (b.right - a.right) * t,
+      forward = a.forward + (b.forward - a.forward) * t,
+      height = a.height + (b.height - a.height) * t
+    }
+
+ Cross-section corner k at world height h, lowered by the ground drop. The square
+ shrinks linearly toward the apex at the centre, so it is a base-to-centre lerp by
+ h over the height. The corner stays a 3D point so each rod can be near-clipped
+ before projecting.
+
+  corner-at : List RiderPt, RiderPt, Integer, Real, Real -> Vec3
+  corner-at (base) (center) (k) (h) (drop) =
+    let t = h / tower-height
+    in let bk = list-at base k
+    in Vec3 { right = bk.right + (center.right - bk.right) * t, forward = bk.forward + (center.forward - bk.forward) * t, height = h - drop }
+
+Section: Rods
+
+ A thick screen-space line as a filled quad of width wpx.
+
+  bar : ScreenPt, ScreenPt, Real -> List DrawCmd
+  bar (a) (b) (wpx) =
+    let dx = b.x - a.x
+    in let dy = b.y - a.y
+    in let raw = real-sqrt (dx * dx + dy * dy)
+    in let len = if raw < 0.0001 then 1.0 else raw
+    in rod-quad a b ((0.0 - dy) / len * wpx / 2.0) (dx / len * wpx / 2.0)
+
+ NAMED FOR ITS SECTION RATHER THAN ITS SHAPE, and the rename was forced by the
+ bare-metal arm: `bar-quad` is also GuardRail's, and Codex chapters share one flat
+ namespace. Each chapter sees its own definition so both compiled and ran
+ correctly -- but a mention in a chapter that defines NEITHER resolves by the
+ order the build globs files, which is not a property anything should rely on.
+ The seed diagnoses it (CDX3006); the zig arm says nothing.
+
+  rod-quad : ScreenPt, ScreenPt, Real, Real -> List DrawCmd
+  rod-quad (a) (b) (ox) (oy) =
+    push-poly tower-metal [ScreenPt { x = a.x + ox, y = a.y + oy }, ScreenPt { x = b.x + ox, y = b.y + oy }, ScreenPt { x = b.x - ox, y = b.y - oy }, ScreenPt { x = a.x - ox, y = a.y - oy }]
+
+ One rod, near-clipped: a 3D segment clipped to the near plane before projecting,
+ so a rod straddling the eye plane cannot fling a quad across the viewport. Both
+ ends behind means skip; one behind means pull it to the plane.
+
+  bar3d : Vec3, Vec3, Real, Real, Real -> List DrawCmd
+  bar3d (a) (b) (wpx) (cf) (view-w) =
+    let a-in = a.forward >= near
+    in let b-in = b.forward >= near
+    in if a-in then (if b-in then bar3d-draw a b wpx cf view-w else bar3d-draw a (bar3d-cut a b) wpx cf view-w)
+       else (if b-in then bar3d-draw (bar3d-cut a b) b wpx cf view-w else [])
+
+  bar3d-cut : Vec3, Vec3 -> Vec3
+  bar3d-cut (a) (b) = lerp3v a b ((near - a.forward) / (b.forward - a.forward))
+
+  bar3d-draw : Vec3, Vec3, Real, Real, Real -> List DrawCmd
+  bar3d-draw (a) (b) (wpx) (cf) (view-w) =
+    bar (project a cf view-w) (project b cf view-w) wpx
+
+Section: The Tower
+
+ Rod width in pixels at this depth, from two ground points one metre apart.
+
+  rod-px : Real, Real, Real -> Real
+  rod-px (forward) (cf) (view-w) =
+    let p1 = project (Vec3 { right = 1.0, forward = forward, height = 0.0 }) cf view-w
+    in let p0 = project (Vec3 { right = 0.0, forward = forward, height = 0.0 }) cf view-w
+    in rod-w * (p1.x - p0.x)
+
+
+  tower-legs : List RiderPt, RiderPt, Vec3, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  tower-legs (base) (center) (apex) (clip-h) (drop) (wpx) (cf) (view-w) (k) =
+    if k >= 4 then []
+    else (bar3d (corner-at base center k clip-h drop) apex wpx cf view-w) & tower-legs base center apex clip-h drop wpx cf view-w (k + 1)
+
+ Cross-beam rings at 20, 40 and 60, above the drop.
+
+  ring-at : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  ring-at (base) (center) (h) (drop) (wpx) (cf) (view-w) (k) =
+    if k >= 4 then []
+    else (bar3d (corner-at base center k h drop) (corner-at base center ((k + 1) - (((k + 1) / 4) * 4)) h drop) wpx cf view-w) & ring-at base center h drop wpx cf view-w (k + 1)
+
+  rings : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Real -> List DrawCmd
+  rings (base) (center) (h) (clip-h) (drop) (wpx) (cf) (view-w) =
+    if h >= tower-height then []
+    else (if h <= clip-h then [] else ring-at base center h drop wpx cf view-w 0) & rings base center (h + stage-height) clip-h drop wpx cf view-w
+
+ X-braces on the bottom stages, each diagonal clipped at the drop height.
+
+  brace-at : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  brace-at (base) (center) (lo) (hi) (f) (drop) (wpx) (cf) (view-w) (k) =
+    if k >= 4 then []
+    else brace-pair base center lo hi f drop wpx cf view-w k
+
+  brace-pair : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  brace-pair (base) (center) (lo) (hi) (f) (drop) (wpx) (cf) (view-w) (k) =
+    let j = (k + 1) - (((k + 1) / 4) * 4)
+    in let kj = bar3d (lerp3v (corner-at base center k lo drop) (corner-at base center j hi drop) f) (corner-at base center j hi drop) wpx cf view-w
+    in let jk = bar3d (lerp3v (corner-at base center j lo drop) (corner-at base center k hi drop) f) (corner-at base center k hi drop) wpx cf view-w
+    in kj & jk & brace-at base center lo hi f drop wpx cf view-w (k + 1)
+
+  braces : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  braces (base) (center) (clip-h) (drop) (wpx) (cf) (view-w) (stage) =
+    if stage >= brace-stages then []
+    else brace-stage base center clip-h drop wpx cf view-w stage
+
+  brace-stage : List RiderPt, RiderPt, Real, Real, Real, Real, Real, Integer -> List DrawCmd
+  brace-stage (base) (center) (clip-h) (drop) (wpx) (cf) (view-w) (stage) =
+    let lo = real-from-int stage * stage-height
+    in let hi = lo + stage-height
+    in let rest = braces base center clip-h drop wpx cf view-w (stage + 1)
+    in if hi <= clip-h then rest
+       else (brace-at base center lo hi ((real-max lo clip-h - lo) / stage-height) drop wpx cf view-w 0) & rest
+
+ The apex beacon: a pink disc whose SIZE scales with distance but whose BRIGHTNESS
+ is the blink alpha -- a depthless glow composited over whatever is behind. Skips
+ the invisible part of the cycle, and a sub-pixel disc.
+
+  draw-beacon : ScreenPt, Real, Real, Real, Real -> List DrawCmd
+  draw-beacon (apex-s) (forward) (cf) (view-w) (bright) =
+    if bright < 0.02 then []
+    else beacon-disc apex-s forward cf view-w bright
+
+  beacon-disc : ScreenPt, Real, Real, Real, Real -> List DrawCmd
+  beacon-disc (apex-s) (forward) (cf) (view-w) (bright) =
+    let p1 = project (Vec3 { right = 1.0, forward = forward, height = 0.0 }) cf view-w
+    in let p0 = project (Vec3 { right = 0.0, forward = forward, height = 0.0 }) cf view-w
+    in let r = beacon-radius * (p1.x - p0.x)
+    in if r < 0.5 then [] else push-beacon beacon-color apex-s.x apex-s.y r bright
+
+ Render a tower given its four base corners and base centre already mapped into
+ the rider frame. Sinks it by the local ground drop; a tower sunk past its own
+ height is below the horizon and is not drawn at all.
+
+  draw-flat : List RiderPt, RiderPt, Real, Real, Real -> List DrawCmd
+  draw-flat (base) (center) (cf) (view-w) (beacon-phase) =
+    if center.forward < near then []
+    else draw-flat-body base center cf view-w beacon-phase (tower-ground-drop center)
+
+  draw-flat-body : List RiderPt, RiderPt, Real, Real, Real, Real -> List DrawCmd
+  draw-flat-body (base) (center) (cf) (view-w) (beacon-phase) (drop) =
+    if drop >= tower-height then []
+    else draw-flat-rods base center cf view-w beacon-phase drop
+
+  draw-flat-rods : List RiderPt, RiderPt, Real, Real, Real, Real -> List DrawCmd
+  draw-flat-rods (base) (center) (cf) (view-w) (beacon-phase) (drop) =
+    let apex = Vec3 { right = center.right, forward = center.forward, height = tower-height - drop }
+    in let wpx = rod-px center.forward cf view-w
+    in let l = tower-legs base center apex drop drop wpx cf view-w 0
+    in let r = rings base center stage-height drop drop wpx cf view-w
+    in let x = braces base center drop drop wpx cf view-w 0
+    in let b = draw-beacon (project apex cf view-w) center.forward cf view-w (beacon-brightness beacon-phase)
+    in l & r & x & b
+
+Chapter: Grade
+
+ The reusable grader: compare a flattened list of values against gold and say
+ WHERE the first disagreement is.
+
+ Every seam in this port reduces to the same shape -- a list of Reals, a list of
+ Integers, a list of Booleans -- so one grader serves pond, the camera, and later
+ the draw-command buffer, which is itself a flat list. Flattening at the seam is
+ what makes that true.
+
+ The judge is built out of nothing it judges: g-abs duplicates real-abs on
+ purpose. DeviceMath's own accuracy test records why -- when its judge called the
+ chapter under test, collapsing that chapter left every cell reading ok.
+
+ A failure names the INDEX, not just BAD. `show` on a Real is refused by the zig
+ plug, which needs a __real_to_text it does not have, so a Real cannot be printed
+ to say what it was; an Integer index can, and it points at one value instead of
+ at a whole seam. When real-to-int lands, this is the chapter that grows a
+ scaled-integer dump and the tolerance argument goes away.
+
+ We say:
+
+Section: Judging Reals
+
+  g-abs : Real -> Real
+  g-abs (x) = if x < 0.0 then 0.0 - x else x
+
+ A NaN USED TO PASS EVERY GATE IN THIS CHAPTER, silently, and it is worth saying
+ exactly how. Each grader below asks "is |got - want| GREATER THAN the tolerance".
+ Subtract a NaN and the difference is a NaN; `g-abs` of a NaN is a NaN, because
+ `NaN < 0.0` is false and the else arm hands it back; and `NaN > tol` is false, so
+ the value is not flagged and the walk moves on. Infinity was always caught --
+ `inf - want` is `inf`, which does exceed any tolerance -- but a NaN is invisible
+ to a comparison-based gate BY CONSTRUCTION, and there were tens of thousands of
+ Reals a run passing through gates shaped exactly like this.
+
+ IT WAS ALSO UNDETECTABLE UNTIL 2026-08-30. `show` on a Real is refused by the zig
+ plug, and a NaN is the one value that does not equal itself, so no comparison and
+ no printing available to this chapter could see one. `real-to-bits` is what
+ changed: it landed in the zig plug that day (plugs-backlog 2.07) and a bit pattern
+ does not care whether the value has an equal.
+
+ THE TEST IS ONE MASK AND ONE COMPARISON. Clear the sign bit and every finite
+ double is below #7FF0000000000000; positive infinity IS that number and every NaN
+ is above it. So one gate catches both, and it is exact rather than approximate.
+
+  g-finite : Real -> Boolean
+  g-finite (x) = bit-and (real-to-bits x) #7FFFFFFFFFFFFFFF < #7FF0000000000000
+
+  first-real-diff : List Real, List Real, Real, Integer -> Integer
+  first-real-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (if g-abs (list-at got i - list-at want i) > tol then i
+       else first-real-diff got want tol (i + 1))
+    else i
+
+  grade-reals : Text, List Real, List Real, Real -> Text
+  grade-reals (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-real-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Reals Relatively
+
+ A RELATIVE tolerance, scaled by the larger of 1 and the wanted magnitude -- the
+ form DeviceMath's own accuracy test uses. Computed values need it: the port
+ works in Real (f64) while the game computes in f32, so a projected pixel and a
+ focal length disagree in proportion to their size, not by a fixed amount. An
+ absolute tolerance that passes a 0.9 duck height would wave through a 4-pixel
+ error on a 685-pixel focal.
+
+  g-max : Real, Real -> Real
+  g-max (a) (b) = if a > b then a else b
+
+  first-rel-diff : List Real, List Real, Real, Integer -> Integer
+  first-rel-diff (got) (want) (tol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > tol * g-max 1.0 (g-abs w) then i
+       else first-rel-diff got want tol (i + 1))
+    else i
+
+  grade-rel : Text, List Real, List Real, Real -> Text
+  grade-rel (name) (got) (want) (tol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-rel-diff got want tol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Section: Judging Cancelled Coordinates
+
+ A MIXED tolerance: an absolute floor plus a relative term, which is the only form
+ that fits a value produced by cancellation. Neither half works alone, and both
+ failures were measured rather than guessed.
+
+ IT IS NAMED FOR THE FAILURE MODE, NOT THE UNIT, and `grade-px` keeps its name
+ because screen pixels were the first seam to need it and most of its callers are
+ still projections. RenderCheck grades rider-frame METRES with it: `at` composes a
+ point down a kilometre of chain and returns one a metre or two off the rider's
+ nose, which is the same small-difference-of-two-large-numbers this gate exists
+ for, in a different unit. The FLOOR is what changes with the unit -- a thousandth
+ of a pixel on a canvas, an f32 ulp at the range a chain reaches -- and D5's rule
+ is that it is calibrated per seam and never inherited.
+
+ A RELATIVE gate fails near the horizon. A screen y is 300 minus a term of about
+ the same size, so a y of 20.6 is a small difference of two large numbers and
+ cancellation amplifies f32's relative error by the ratio between them -- fifteen
+ times epsilon on the first cone tier of a near tree.
+
+ An ABSOLUTE gate fails far off screen. Projecting a point 37 m to the side at the
+ 0.4 m near plane puts x at about -62929, where one f32 ulp is already 0.0075 px --
+ seven times a thousandth-of-a-pixel floor, before any port is involved.
+
+ The floor governs coordinates near zero and on the canvas; the relative term
+ governs the far-off-screen ones the near plane throws out. At a hundred pixels the
+ gate is about a thousandth of a pixel, which is the precision worth asserting.
+
+  grade-px : Text, List Real, List Real, Real, Real -> Text
+  grade-px (name) (got) (want) (atol) (rtol) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-px-diff got want atol rtol 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+  first-px-diff : List Real, List Real, Real, Real, Integer -> Integer
+  first-px-diff (got) (want) (atol) (rtol) (i) =
+    if i >= list-length got then 0 - 1
+    else if g-finite (list-at got i) then
+      (let w = list-at want i
+       in if g-abs (list-at got i - w) > atol + rtol * g-abs w then i
+       else first-px-diff got want atol rtol (i + 1))
+    else i
+
+Section: Judging Integers
+
+  first-int-diff : List Integer, List Integer, Integer -> Integer
+  first-int-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if list-at got i /= list-at want i then i
+    else first-int-diff got want (i + 1)
+
+  grade-ints : Text, List Integer, List Integer -> Text
+  grade-ints (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-int-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i & " got " & show (list-at got i) & " want " & show (list-at want i)
+
+Section: Judging Booleans
+
+  bool-eq : Boolean, Boolean -> Boolean
+  bool-eq (a) (b) = if a then b else if b then False else True
+
+  first-bool-diff : List Boolean, List Boolean, Integer -> Integer
+  first-bool-diff (got) (want) (i) =
+    if i >= list-length got then 0 - 1
+    else if bool-eq (list-at got i) (list-at want i) then first-bool-diff got want (i + 1)
+    else i
+
+  grade-bools : Text, List Boolean, List Boolean -> Text
+  grade-bools (name) (got) (want) =
+    if list-length got /= list-length want
+      then name & " BAD length " & show (list-length got) & " want " & show (list-length want)
+      else let i = first-bool-diff got want 0
+        in if i < 0 then name & " ok " & show (list-length got)
+           else name & " BAD at " & show i
+
+Chapter: TowerSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tower
+  cites Judge chapter Grade
+
+ Tower: an eighty-metre lattice mast, its blinking beacon, and the near-clip that
+ keeps a rod straddling the eye plane from flinging a quad across the viewport.
+
+ THE NEAR CLIP IS THE PART THAT EARNS A TEST. `bar3d` has four cases -- both ends
+ in front, either one behind, both behind -- and only the last emits nothing.
+ Getting the one-behind cases wrong does not fail quietly: the rod is drawn to a
+ point behind the eye, which projects to the far side of the screen. Both single
+ cases are graded, and the cut point is placed so the near plane lands exactly
+ halfway along the segment.
+
+ THE BLINK PHASES ARE COPRIME AND THAT IS THE ASSERTION. Successive towers are
+ offset by 37 frames into a 120-frame period; 37 and 120 share no factor, so the
+ first several land on distinct offsets rather than pulsing together. Grading the
+ sequence is what says the coprimality is real -- a stride of 40 would look just
+ as deliberate and put every third tower in unison.
+
+ THE SQUARE SHRINKS TO A POINT AT THE APEX, which is why `corner-at` is a lerp
+ from the base corner to the centre rather than a scale about the axis. At the
+ top all four corners are the same point, and that is graded: an implementation
+ scaling the half-width instead would agree everywhere except there.
+
+ TWO LINES GO THROUGH `r-cos` AND CARRY ITS ACCURACY, NOT A ROUNDING ONE. The
+ game's cosine is a fidelity polynomial good to about 7e-8, which TrigSpec
+ measures -- `r-cos 0.0` is 0.999999943741051, not 1. So the beacon's brightness
+ is out by 2.8e-8 at the ends of its cycle and the yawed square by 3.4e-7 at six
+ metres, both measured here rather than assumed, and both graded one step rounded
+ out. Every other line in this spec is exact.
+
+ We say:
+
+Section: Dimensions
+
+  dims-got : List Real
+  dims-got = [tower-height, tower-half, stage-height, rod-half, rod-w, earth-radius, beacon-radius, beacon-period]
+
+  dims-want : List Real
+  dims-want = [80.0, 6.0, 20.0, 0.12, 0.24, 20000.0, 3.0, 120.0]
+
+  fixed-got : List Integer
+  fixed-got = [brace-stages, tower-metal, beacon-color]
+
+  fixed-want : List Integer
+  fixed-want = [2, 10133672, 16723942]
+
+Section: The Beacon Clock
+
+ Thirty-seven frames apart into a hundred and twenty, so ten towers land on ten
+ different offsets and the sequence only returns to zero at the hundred and
+ twentieth.
+
+  offsets-got : List Real
+  offsets-got =
+    [ beacon-offset-for 0, beacon-offset-for 1, beacon-offset-for 2, beacon-offset-for 3,
+      beacon-offset-for 4, beacon-offset-for 5, beacon-offset-for 10, beacon-offset-for 120 ]
+
+  offsets-want : List Real
+  offsets-want = [0.0, 37.0, 74.0, 111.0, 28.0, 65.0, 10.0, 0.0]
+
+ Dark at the ends of the cycle, full in the middle, half at the quarters -- and
+ the wrap holds for a phase past the period and for a NEGATIVE one, which the
+ clock produces on reverse.
+
+  bright-got : List Real
+  bright-got =
+    [ beacon-brightness 0.0, beacon-brightness 60.0, beacon-brightness 30.0,
+      beacon-brightness 90.0, beacon-brightness 120.0, beacon-brightness 180.0,
+      beacon-brightness (0.0 - 60.0), beacon-brightness (0.0 - 120.0) ]
+
+  bright-want : List Real
+  bright-want = [0.0, 1.0, 0.5, 0.5, 0.0, 1.0, 1.0, 0.0]
+
+Section: The Square
+
+ Four corners in half-base units, walked so consecutive ones share an edge.
+
+  corner-got : List Real
+  corner-got =
+    [ corner-u 0, corner-u 1, corner-u 2, corner-u 3,
+      corner-v 0, corner-v 1, corner-v 2, corner-v 3 ]
+
+  corner-want : List Real
+  corner-want = [-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0]
+
+ At zero yaw the square is axis-aligned: `u` moves across and `v` moves along, six
+ metres each way from the centre.
+
+  ax-of : Integer -> List Real
+  ax-of (k) =
+    let p = base-corner-ax k 100.0 0.0 0.0
+    in [p.a, p.x]
+
+  ax-got : List Real
+  ax-got = ax-of 0 & ax-of 1 & ax-of 2 & ax-of 3
+
+  ax-want : List Real
+  ax-want = [94.0, -6.0, 94.0, 6.0, 106.0, 6.0, 106.0, -6.0]
+
+Section: The Taper
+
+ The cross-section is a lerp from the base corner to the centre by height over
+ eighty, so at the apex all four corners meet. The ground drop is subtracted from
+ the height, which is what sinks a far tower toward the horizon.
+
+  base4 : List RiderPt
+  base4 =
+    [ RiderPt { right = -6.0, forward = 94.0 },
+      RiderPt { right = 6.0, forward = 94.0 },
+      RiderPt { right = 6.0, forward = 106.0 },
+      RiderPt { right = -6.0, forward = 106.0 } ]
+
+  centre : RiderPt
+  centre = RiderPt { right = 0.0, forward = 100.0 }
+
+  at-h : Integer, Real -> List Real
+  at-h (k) (h) =
+    let v = corner-at base4 centre k h 1.0
+    in [v.right, v.forward, v.height]
+
+  taper-got : List Real
+  taper-got = at-h 0 0.0 & at-h 0 40.0 & at-h 0 80.0 & at-h 2 40.0 & at-h 2 80.0
+
+  taper-want : List Real
+  taper-want =
+    [ -6.0, 94.0, -1.0,
+      -3.0, 97.0, 39.0,
+      0.0, 100.0, 79.0,
+      3.0, 103.0, 39.0,
+      0.0, 100.0, 79.0 ]
+
+ The bulge is quadratic in the distance and much stronger than the road's: two
+ hundred metres out is a whole metre down.
+
+  drop-got : List Real
+  drop-got =
+    [ tower-ground-drop (RiderPt { right = 0.0, forward = 200.0 }),
+      tower-ground-drop (RiderPt { right = 100.0, forward = 100.0 }),
+      tower-ground-drop (RiderPt { right = 0.0, forward = 0.0 }) ]
+
+  drop-want : List Real
+  drop-want = [1.0, 0.5, 0.0]
+
+  lerp-got : List Real
+  lerp-got =
+    let a = Vec3 { right = 0.0, forward = 10.0, height = 20.0 }
+    in let b = Vec3 { right = 8.0, forward = 30.0, height = 0.0 }
+    in let m = lerp3v a b 0.25
+    in [m.right, m.forward, m.height]
+
+  lerp-want : List Real
+  lerp-want = [2.0, 15.0, 15.0]
+
+Section: The Rods
+
+ A thick screen line is a quad: the offset is the segment's normal, scaled to half
+ the width. A three-four-five run makes it exact.
+
+  bar-got : List Real
+  bar-got = (list-at (bar (ScreenPt { x = 0.0, y = 0.0 }) (ScreenPt { x = 30.0, y = 40.0 }) 10.0) 0).pts
+
+  bar-want : List Real
+  bar-want = [-4.0, 3.0, 26.0, 43.0, 34.0, 37.0, 4.0, -3.0]
+
+ A rod of no length has no normal, and the fallback gives it a zero offset rather
+ than dividing by zero. It still emits -- four coincident points, which the
+ blitter draws as nothing.
+
+  degenerate-got : List Real
+  degenerate-got =
+    let d = bar (ScreenPt { x = 5.0, y = 6.0 }) (ScreenPt { x = 5.0, y = 6.0 }) 10.0
+    in [real-from-int (list-length d)] & (list-at d 0).pts
+
+  degenerate-want : List Real
+  degenerate-want = [1.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0]
+
+ Rod width in pixels is the projected size of a metre at that depth, so it halves
+ as the depth doubles.
+
+  width-got : List Real
+  width-got = [rod-px 10.0 500.0 960.0, rod-px 25.0 500.0 960.0, rod-px 50.0 500.0 960.0]
+
+  width-want : List Real
+  width-want = [12.0, 4.8, 2.4]
+
+Section: The Near Clip
+
+ Four cases. The two with one end behind are the ones that matter: the segment is
+ pulled to the plane rather than drawn to a point behind the eye.
+
+  v3 : Real, Real, Real -> Vec3
+  v3 (r) (f) (h) = Vec3 { right = r, forward = f, height = h }
+
+  clip-count-got : List Integer
+  clip-count-got =
+    [ list-length (bar3d (v3 0.0 10.0 0.0) (v3 1.0 20.0 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.0 0.0) (v3 0.0 0.8 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.8 0.0) (v3 0.0 0.0 0.0) 4.0 500.0 960.0),
+      list-length (bar3d (v3 0.0 0.0 0.0) (v3 0.0 0.2 0.0) 4.0 500.0 960.0) ]
+
+  clip-count-want : List Integer
+  clip-count-want = [1, 1, 1, 0]
+
+ The cut lands where the segment crosses the plane: from zero forward to eight
+ tenths, the near plane at four tenths is exactly halfway, so every coordinate is
+ the midpoint.
+
+  cut-got : List Real
+  cut-got =
+    let c = bar3d-cut (v3 0.0 0.0 10.0) (v3 8.0 0.8 30.0)
+    in [c.right, c.forward, c.height]
+
+  cut-want : List Real
+  cut-want = [4.0, 0.4, 20.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tw-dims  " dims-got dims-want 0.0)
+    print-line-uni (grade-ints  "tw-fixed " fixed-got fixed-want)
+    print-line-uni (grade-reals "tw-offset" offsets-got offsets-want 0.0)
+    print-line-uni (grade-reals "tw-bright" bright-got bright-want 0.0000001)
+    print-line-uni (grade-reals "tw-corner" corner-got corner-want 0.0)
+    print-line-uni (grade-reals "tw-ax    " ax-got ax-want 0.000001)
+    print-line-uni (grade-reals "tw-taper " taper-got taper-want 0.0)
+    print-line-uni (grade-reals "tw-drop  " drop-got drop-want 0.0)
+    print-line-uni (grade-reals "tw-lerp  " lerp-got lerp-want 0.0)
+    print-line-uni (grade-reals "tw-bar   " bar-got bar-want 0.0)
+    print-line-uni (grade-reals "tw-degen " degenerate-got degenerate-want 0.0)
+    print-line-uni (grade-reals "tw-width " width-got width-want 0.0)
+    print-line-uni (grade-ints  "tw-clip  " clip-count-got clip-count-want)
+    print-line-uni (grade-reals "tw-cut   " cut-got cut-want 0.0)
+  end

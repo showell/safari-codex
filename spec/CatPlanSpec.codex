@@ -1,0 +1,161 @@
+Chapter: CatPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter Cat
+  cites Safari chapter World
+  cites Safari chapter DepthSort
+  cites Safari chapter CatPlan
+  cites Judge chapter Grade
+
+ CatPlan: find the segments that have a cat, clock its crossing from the rider's
+ gap, and place the still.
+
+ THE GAP IS THE PART WORTH GRADING AND IT RUNS BACKWARDS. `chain-gap` is how far
+ the rider is from the START of chain entry d, so at d = 0 it is MINUS his
+ along -- he is past it -- and each further entry adds the length of the one
+ BELOW it. Off by one there reads a segment's own length instead of its
+ predecessor's, which is the same class of mistake `at`'s prose warns about and
+ does not look like corruption: the cat is simply clocked from the wrong place.
+
+ EVERY SEGMENT CARRIES A WELL-FORMED CAT and only some segments have one, which
+ World's spec grades from the other side. Here it is the gate that matters: a
+ chapter reading the cat without checking `has-cat` would place three cats on a
+ three-segment chain and none of them would look wrong on screen.
+
+ THE CAT CULLS ON THE LIVE FOCAL AND AT THE NEAR PLANE, AND NOWHERE ELSE. The
+ chapter's prose argues the point -- it is a flat billboard at one depth, so it
+ slides off to the left as the rider passes rather than streaking across the
+ viewport, and culling it earlier would vanish the collapsed cat exactly as he
+ reaches it. Both culls are graded and no third one is.
+
+ We say:
+
+Section: The Chain
+
+ The route's first three segments; segment 1 is the one with a cat.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  has-got : List Boolean
+  has-got = [(list-at segs 0).has-cat, (list-at segs 1).has-cat, (list-at segs 2).has-cat]
+
+  has-want : List Boolean
+  has-want = [False, True, False]
+
+Section: The Gap
+
+ Minus the rider's along at the head of the chain, then each entry adds the
+ length of the one below it: 500 for the first step and 320 for the second.
+
+  gap-got : List Real
+  gap-got =
+    [ chain-gap segs chain 0.0 0, chain-gap segs chain 0.0 1, chain-gap segs chain 0.0 2,
+      chain-gap segs chain 120.0 0, chain-gap segs chain 120.0 1, chain-gap segs chain 120.0 2 ]
+
+  gap-want : List Real
+  gap-want = [0.0, 500.0, 820.0, -120.0, 380.0, 700.0]
+
+Section: The Walk
+
+ One cat on this chain, and it comes from entry 1. The rider rides up segment 0
+ toward it; `riding a` puts him a metres along and clocks him from there, so the
+ pose and the gap stay consistent.
+
+  riding : Real -> List CatItem
+  riding (a) =
+    walk-cats segs chain (Pose { along = a, across = 0.0, yaw = 0.0, hw = 2.0 }) 500.0 a 1.0 0
+
+  seen : List CatItem
+  seen = riding 300.0
+
+  count-got : List Integer
+  count-got =
+    [ list-length seen,
+      list-length (seg-cat segs chain origin 0 500.0 0.0 1.0),
+      list-length (seg-cat segs chain origin 2 500.0 0.0 1.0),
+      max-vis-cats ]
+
+  count-want : List Integer
+  count-want = [1, 0, 0, 8]
+
+ It is the chapter's own height, and the still is the resting pose because the
+ crossing has not started.
+
+  place-got : List Real
+  place-got = [(list-at seen 0).height, (list-at seen 0).lift]
+
+  place-want : List Real
+  place-want = [1.7, 0.0]
+
+  pose-got : List Integer
+  pose-got = [(list-at seen 0).pose-idx]
+
+  pose-want : List Integer
+  pose-want = [0]
+
+ THE CAT IS FIXED AND THE RIDER MOVES, so with no yaw two things follow that are
+ worth more than any single coordinate. Its depth falls one metre per metre he
+ rides -- the sine of his yaw is exactly zero, so `forward` is the along
+ difference alone -- and its `right` does not move AT ALL, for the same reason.
+ A composition that leaked the rider's along into the across would still put the
+ cat somewhere plausible on every frame.
+
+  closing-got : List Real
+  closing-got =
+    let a = (list-at (riding 200.0) 0).fwd
+    in let b = (list-at (riding 300.0) 0).fwd
+    in let c = (list-at (riding 400.0) 0).fwd
+    in [b - a, c - b, (list-at (riding 300.0) 0).right - (list-at (riding 200.0) 0).right]
+
+  closing-want : List Real
+  closing-want = [-100.0, -100.0, 0.0]
+
+ THE TWO CULLS SIT AT OPPOSITE ENDS OF THE SAME RIDE. From the start of the route
+ the cat is over four hundred metres off and under two pixels; a hundred metres
+ past it, it is behind the near plane. In between it is drawn, which is what makes
+ these two refusals and not one.
+
+  cull-got : List Integer
+  cull-got =
+    [ list-length (riding 0.0),
+      list-length (riding 200.0),
+      list-length (riding 500.0),
+      list-length (riding 600.0),
+      list-length (walk-cats segs [] origin 500.0 0.0 1.0 0),
+      list-length (walk-cats segs [0] origin 500.0 0.0 1.0 0) ]
+
+  cull-want : List Integer
+  cull-want = [0, 1, 1, 0, 0, 0]
+
+Section: Into the Frame
+
+  items-got : List Integer
+  items-got =
+    [ list-length (cat-items seen 0),
+      list-length (cat-items [] 0),
+      (list-at (cat-items seen 0) 0).i ]
+
+  items-want : List Integer
+  items-want = [1, 0, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-bools "cp-has   " has-got has-want)
+    print-line-uni (grade-reals "cp-gap   " gap-got gap-want 0.0)
+    print-line-uni (grade-ints  "cp-count " count-got count-want)
+    print-line-uni (grade-reals "cp-place " place-got place-want 0.0)
+    print-line-uni (grade-ints  "cp-pose  " pose-got pose-want)
+    print-line-uni (grade-reals "cp-close " closing-got closing-want 0.0001)
+    print-line-uni (grade-ints  "cp-cull  " cull-got cull-want)
+    print-line-uni (grade-ints  "cp-items " items-got items-want)
+  end

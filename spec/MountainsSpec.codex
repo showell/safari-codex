@@ -1,0 +1,223 @@
+Chapter: MountainsSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Lens
+  cites Safari chapter Sky
+  cites Safari chapter Mountains
+  cites Judge chapter Grade
+
+ Mountains: the backdrop's palette, the two ranges' envelopes, and the snowline
+ that only the tall ridge gets.
+
+ THE COLOURS ARE INTEGERS AND ARE GRADED EXACTLY; the ridge heights are sums of
+ cosines and are graded where their answers are structural rather than numeric.
+ That split is deliberate. `range-at` is a smooth function of bearing and pinning
+ a sample of it would grade the game's cosine again -- but it answers EXACTLY
+ ZERO outside its half-width, and that boundary is this chapter's own decision.
+
+ THE ROCK DIMS AND THE SNOW LERPS, and they are different operations on purpose:
+ the rock scales every channel by one factor so it deepens, while the snow
+ interpolates toward a separate night colour. Grading both at dusk 0 and dusk 1
+ is what says the rock stays BELOW the snow rather than crossing it -- at full
+ night the rock is 3028296 and the snow 4609128, and a rock that merely lerped
+ toward the same target would pass a midpoint check and fail here.
+
+ THE SNOWLINE IS CLAMPED AT BOTH ENDS. Ridge below the threshold gets no snow at
+ all and the line sits at the threshold; ridge at the range's peak gets the full
+ dip. Both clamps are exact because they are the clamp values themselves, not the
+ interpolation between them.
+
+ We say:
+
+Section: The Palette
+
+  palette-got : List Integer
+  palette-got = [rock, rock-west, land]
+
+  palette-want : List Integer
+  palette-want = [5991055, 3752799, 4886339]
+
+ `chan` answers a REAL, not an Integer -- it is the multiplier's operand, so it
+ comes out ready to scale rather than needing a conversion at every use.
+
+  chan-got : List Real
+  chan-got = [chan rock 16, chan rock 8, chan rock 0, chan 16777215 16, chan 0 0]
+
+  chan-want : List Real
+  chan-want = [91.0, 106.0, 143.0, 255.0, 0.0]
+
+ At full day nothing is dimmed at all, so the answer is the colour itself -- the
+ identity a scaling that forgot its `1.0 -` would fail.
+
+  dim-got : List Integer
+  dim-got =
+    [ dimmed rock 0.0, dimmed rock-west 0.0, dimmed land 0.0,
+      dimmed rock 1.0, dimmed rock-west 1.0, dimmed land 1.0,
+      dimmed rock 0.5 ]
+
+  dim-want : List Integer
+  dim-want = [5991055, 3752799, 4886339, 3028296, 1909296, 2443298, 4477035]
+
+ The snow interpolates to its own night colour, so at full night it is BRIGHTER
+ than the dimmed rock rather than darker.
+
+  snow-got : List Integer
+  snow-got = [snow-color 0.0, snow-color 1.0, snow-color 0.5, pack snow-day, pack snow-night]
+
+  snow-want : List Integer
+  snow-want = [15660024, 4609128, 10134704, 15660024, 4609128]
+
+  night-order-got : List Boolean
+  night-order-got = [snow-color 1.0 > dimmed rock 1.0, snow-color 0.0 > dimmed rock 0.0]
+
+  night-order-want : List Boolean
+  night-order-want = [True, True]
+
+Section: The Ranges
+
+ A range tapers to nothing at its half-width and is exactly zero beyond it, so
+ there is open sky at the edges rather than a seam. The north range is 0.95 wide
+ and the west one 0.72, measured from their own centres.
+
+ THE WEST RANGE IS PROBED AT 0.8 AND NOT AT ITS EDGE, and that is not timidity.
+ Its centre is -2.0416, so `centre - 0.72` does not land on the edge exactly:
+ the subtraction and the wrap that follows leave t at -0.9999999999999997, which
+ is INSIDE. The north range's centre is 0.0 and its edge is reachable, so that is
+ where the boundary itself is graded.
+
+  north-edge-got : List Real
+  north-edge-got =
+    [ north-range 0.95, north-range 1.0, north-range 2.0,
+      north-range (0.0 - 0.95), north-range (0.0 - 3.0) ]
+
+  north-edge-want : List Real
+  north-edge-want = [0.0, 0.0, 0.0, 0.0, 0.0]
+
+  west-edge-got : List Real
+  west-edge-got =
+    [ west-range (west-range-bearing + 0.8),
+      west-range (west-range-bearing - 0.8),
+      west-range 0.0,
+      west-range 1.5 ]
+
+  west-edge-want : List Real
+  west-edge-want = [0.0, 0.0, 0.0, 0.0]
+
+ Inside its span a range is positive, and the north one reaches its peak at its
+ own centre -- so a sample there is above the snow threshold where the edges are
+ not.
+
+  inside-got : List Boolean
+  inside-got =
+    [ north-range 0.0 > 0.0,
+      north-range 0.94 > 0.0,
+      north-range 0.0 > snow-threshold,
+      north-range 0.9 > snow-threshold,
+      west-range west-range-bearing > 0.0 ]
+
+  inside-want : List Boolean
+  inside-want = [True, True, True, False, True]
+
+  shape-got : List Real
+  shape-got = [west-range-bearing, snow-threshold, snow-dip, col-step, roll-margin, rock-night-dim]
+
+  shape-want : List Real
+  shape-want = [-2.0416, 124.0, 10.0, 2.0, 200.0, 0.5]
+
+Section: The Snowline
+
+ Below the threshold the line sits AT the threshold -- no snow, and no dip either.
+ At the range's own peak the fraction saturates and the line takes the whole dip.
+
+  snowline-got : List Real
+  snowline-got = [snowline-at 0.9 snow-peak-height, snowline-at 2.0 snow-peak-height]
+
+  snowline-want : List Real
+  snowline-want = [124.0, 124.0]
+
+ At the centre the ridge is near its tallest, so the line has taken nearly the
+ whole dip -- but NOT all of it, because the peak is a maximum over samples and
+ need not sit at bearing zero. Bracketing is the honest assertion: the line is
+ below the threshold and no more than a dip below it, and never outside that
+ band anywhere.
+
+  band-got : List Boolean
+  band-got =
+    [ snowline-at 0.0 snow-peak-height < snow-threshold,
+      snowline-at 0.0 snow-peak-height > snow-threshold - snow-dip,
+      snowline-at 0.5 snow-peak-height <= snow-threshold,
+      snowline-at 0.5 snow-peak-height >= snow-threshold - snow-dip ]
+
+  band-want : List Boolean
+  band-want = [True, True, True, True]
+
+ The peak the dip is normalised against is the north range's tallest sample, and
+ it is comfortably above the threshold -- otherwise the fraction would divide by
+ something near zero.
+
+  peak-got : List Boolean
+  peak-got = [snow-peak-height > snow-threshold, snow-peak-height < 150.0]
+
+  peak-want : List Boolean
+  peak-want = [True, True]
+
+Section: Columns And The Crest
+
+ A screen column maps to a bearing through the live focal, and the centre column
+ is the heading itself whatever the focal is.
+
+  bearing-got : List Real
+  bearing-got =
+    [ bearing-at 480.0 0.0 500.0 960.0,
+      bearing-at 480.0 1.25 500.0 960.0,
+      bearing-at 480.0 1.25 100.0 960.0 ]
+
+  bearing-want : List Real
+  bearing-want = [0.0, 1.25, 1.25]
+
+ A column left of centre is at a smaller bearing than one to the right, and a
+ narrower focal spreads the same columns over a wider span.
+
+  spread-got : List Boolean
+  spread-got =
+    [ bearing-at 0.0 0.0 500.0 960.0 < bearing-at 480.0 0.0 500.0 960.0,
+      bearing-at 480.0 0.0 500.0 960.0 < bearing-at 960.0 0.0 500.0 960.0,
+      bearing-at 960.0 0.0 100.0 960.0 > bearing-at 960.0 0.0 500.0 960.0 ]
+
+  spread-want : List Boolean
+  spread-want = [True, True, True]
+
+ The crest is the tallest of the two ranges and the land, so it is never below
+ the land alone -- and out where both ranges are zero it IS the land.
+
+  crest-got : List Boolean
+  crest-got =
+    [ horizon-crest-px 0.0 >= ground-base 0.0,
+      horizon-crest-px 2.0 >= ground-base 2.0,
+      horizon-crest-px 0.0 >= north-range 0.0,
+      sun-behind-mountains 0.0,
+      sun-behind-mountains 6000.0 ]
+
+  crest-want : List Boolean
+  crest-want = [True, True, True, False, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "mt-pal   " palette-got palette-want)
+    print-line-uni (grade-reals "mt-chan  " chan-got chan-want 0.0)
+    print-line-uni (grade-ints  "mt-dim   " dim-got dim-want)
+    print-line-uni (grade-ints  "mt-snow  " snow-got snow-want)
+    print-line-uni (grade-bools "mt-order " night-order-got night-order-want)
+    print-line-uni (grade-reals "mt-north " north-edge-got north-edge-want 0.0)
+    print-line-uni (grade-reals "mt-west  " west-edge-got west-edge-want 0.0)
+    print-line-uni (grade-bools "mt-inside" inside-got inside-want)
+    print-line-uni (grade-reals "mt-shape " shape-got shape-want 0.0)
+    print-line-uni (grade-reals "mt-snowln" snowline-got snowline-want 0.0)
+    print-line-uni (grade-bools "mt-band  " band-got band-want)
+    print-line-uni (grade-bools "mt-peak  " peak-got peak-want)
+    print-line-uni (grade-reals "mt-bear  " bearing-got bearing-want 0.0)
+    print-line-uni (grade-bools "mt-spread" spread-got spread-want)
+    print-line-uni (grade-bools "mt-crest " crest-got crest-want)
+  end

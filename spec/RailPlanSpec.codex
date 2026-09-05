@@ -1,0 +1,144 @@
+Chapter: RailPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter GuardRail
+  cites Safari chapter World
+  cites Safari chapter RailPlan
+  cites Judge chapter Grade
+
+ RailPlan: the path a guard rail takes around a corner, sampled a metre at a
+ time.
+
+ THE SAMPLING RULE IS THE WHOLE OF WHAT IS GRADED HERE. A leg is walked in whole
+ steps of about a metre, and `leg-steps` is where that "about" is decided:
+ round the distance, then floor the result at ONE. Both halves matter and they
+ fail differently -- without the rounding a 1.6-metre leg gets one step and bends
+ visibly; without the floor a leg shorter than half a metre gets ZERO steps, and
+ dividing by that is how a rail becomes a NaN rather than a short rail.
+
+ THE POINTS RUN FROM THE FIRST STEP TO THE LAST, NOT FROM THE START. `push-leg`
+ begins at index 1, so the point it was given is NOT re-emitted -- the previous
+ leg already ended there. That is what lets the corner path be four pieces
+ concatenated without a doubled vertex at each seam, and a doubled vertex would
+ give GuardRail a zero-length post with no run direction. The count is the
+ assertion: n steps produce exactly n points and the last one is the destination.
+
+ We say:
+
+Section: How Many Steps
+
+ Round to the nearest whole metre, and never fewer than one.
+
+  steps-got : List Integer
+  steps-got =
+    [ leg-steps 0.0, leg-steps 0.4, leg-steps 0.5, leg-steps 1.0,
+      leg-steps 1.4, leg-steps 1.5, leg-steps 2.5, leg-steps 10.0,
+      leg-steps 49.6, leg-steps 50.0 ]
+
+  steps-want : List Integer
+  steps-want = [1, 1, 1, 1, 1, 2, 3, 10, 50, 50]
+
+Section: Walking A Leg
+
+ Ten metres straight ahead in ten steps: ten points, one per metre, the last of
+ them the destination and the start NOT among them.
+
+  origin-pt : RiderPt
+  origin-pt = RiderPt { right = 0.0, forward = 0.0 }
+
+  straight : List RiderPt
+  straight = push-leg origin-pt (RiderPt { right = 0.0, forward = 10.0 })
+
+  straight-got : List Real
+  straight-got =
+    [ real-from-int (list-length straight),
+      (list-at straight 0).forward, (list-at straight 4).forward, (list-at straight 9).forward,
+      (list-at straight 0).right, (list-at straight 9).right ]
+
+  straight-want : List Real
+  straight-want = [10.0, 1.0, 5.0, 10.0, 0.0, 0.0]
+
+ A three-four-five diagonal, so the fifty steps land on whole tenths and the last
+ point is exactly the corner it was aimed at.
+
+  diagonal : List RiderPt
+  diagonal = push-leg origin-pt (RiderPt { right = 30.0, forward = 40.0 })
+
+  diagonal-got : List Real
+  diagonal-got =
+    [ real-from-int (list-length diagonal),
+      (list-at diagonal 49).right, (list-at diagonal 49).forward,
+      (list-at diagonal 24).right, (list-at diagonal 24).forward ]
+
+  diagonal-want : List Real
+  diagonal-want = [50.0, 30.0, 40.0, 15.0, 20.0]
+
+ A leg of no length still emits its destination, once. That is the floor doing
+ its job: zero steps would divide by zero and put a NaN in the path.
+
+  degenerate-got : List Real
+  degenerate-got =
+    let d = push-leg (RiderPt { right = 3.0, forward = 4.0 }) (RiderPt { right = 3.0, forward = 4.0 })
+    in [ real-from-int (list-length d), (list-at d 0).right, (list-at d 0).forward ]
+
+  degenerate-want : List Real
+  degenerate-want = [1.0, 3.0, 4.0]
+
+ Asked from index 0 rather than 1, the same walk carries the starting point too,
+ so it is one longer. That is the difference `push-leg` exists to make.
+
+  from-zero-got : List Real
+  from-zero-got =
+    let z = leg-points origin-pt 0.0 10.0 10 0
+    in [ real-from-int (list-length z), (list-at z 0).forward, (list-at z 10).forward ]
+
+  from-zero-want : List Real
+  from-zero-want = [11.0, 0.0, 10.0]
+
+Section: The Run Out
+
+ The rail runs ten metres past each corner along the outer edge, one point per
+ metre, counting from the corner itself -- so eleven points, not ten.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  runout-got : List Integer
+  runout-got =
+    [ rail-runout,
+      list-length (rail-run-out segs chain origin (chain-map 0) 4.0 0),
+      list-length (rail-run-up segs chain origin (chain-map 0) 500.0 4.0 rail-runout) ]
+
+  runout-want : List Integer
+  runout-want = [10, 11, 11]
+
+ The run-up counts DOWN to the end edge, so its last point is the corner and the
+ first leg starts from there rather than doubling it.
+
+  runup-got : List Real
+  runup-got =
+    let u = rail-run-up segs chain origin (chain-map 0) 500.0 4.0 rail-runout
+    in [ (list-at u 0).forward, (list-at u 10).forward ]
+
+  runup-want : List Real
+  runup-want = [490.0, 500.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "rp-steps " steps-got steps-want)
+    print-line-uni (grade-reals "rp-straig" straight-got straight-want 0.0)
+    print-line-uni (grade-reals "rp-diag  " diagonal-got diagonal-want 0.0)
+    print-line-uni (grade-reals "rp-degen " degenerate-got degenerate-want 0.0)
+    print-line-uni (grade-reals "rp-zero  " from-zero-got from-zero-want 0.0)
+    print-line-uni (grade-ints  "rp-runout" runout-got runout-want)
+    print-line-uni (grade-reals "rp-runup " runup-got runup-want 0.0001)
+  end

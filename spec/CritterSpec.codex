@@ -1,0 +1,180 @@
+Chapter: CritterSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Stills
+  cites Safari chapter EmojiStills
+  cites Safari chapter Critter
+  cites Judge chapter Grade
+
+ Critter: a roadside animal as a baked-polygon billboard.
+
+ A POINT AND A VECTOR MAP DIFFERENTLY, and the chapter's own prose says that is
+ the one thing here easy to get wrong. A gradient's linear endpoints and its
+ radial CENTRE are points and translate to the feet anchor; its radial AXES are
+ vectors and only scale and flip. Mapping an axis as a point anchors the ellipse's
+ shape to the animal's feet, which looks like a shading bug and is a coordinate
+ one. Both mappings are graded on the same inputs so the difference IS the test:
+ the two answers differ by exactly the anchor.
+
+ THE HEIGHT IS IN PIXELS, WHICH IS THE WHOLE TRICK. Project the feet, project a
+ point `height` metres above them, and the gap is how tall the animal is on this
+ frame -- so perspective is applied once, to a scalar, and every unit-frame
+ coordinate then scales by that one number. A two-metre animal a thousand metres
+ off through a focal of 500 is exactly one pixel tall, which is also the boundary
+ of the sub-pixel bail.
+
+ UNDER A PIXEL IT DRAWS NOTHING, and the test is a strict `< 1.0`, so an animal
+ exactly one pixel tall is still drawn. Both sides are graded, because a `<=`
+ there would silently drop the whole far rank of a herd.
+
+ THE ART IS BAKED FACING LEFT, so an animal facing right mirrors in x -- and the
+ mirror is a MINUS ONE rather than a flag threaded through every mapping. That is
+ why `facing` answers a Real.
+
+ We say:
+
+Section: Facing
+
+  facing-got : List Real
+  facing-got = [facing True, facing False]
+
+  facing-want : List Real
+  facing-want = [-1.0, 1.0]
+
+Section: Points And Vectors
+
+ The anchor is the feet: 100 across, 200 down the screen. The animal is 50 pixels
+ tall, so a unit-frame coordinate of a half is 25 pixels -- to the right in x and
+ UP in y, which is why y subtracts.
+
+  feet : ScreenPt
+  feet = ScreenPt { x = 100.0, y = 200.0 }
+
+  point-got : List Real
+  point-got =
+    let a = map-p feet 1.0 50.0 0.5 0.4
+    in let b = map-p feet (0.0 - 1.0) 50.0 0.5 0.4
+    in let c = map-p feet 1.0 50.0 0.0 0.0
+    in [a.x, a.y, b.x, b.y, c.x, c.y]
+
+  point-want : List Real
+  point-want = [125.0, 180.0, 75.0, 180.0, 100.0, 200.0]
+
+ The same numbers as a VECTOR: the scale and the mirror apply, the anchor does
+ not. So a vector at the origin stays at the origin where a point lands on the
+ feet.
+
+  vector-got : List Real
+  vector-got =
+    let a = map-v 1.0 50.0 0.5 0.4
+    in let b = map-v (0.0 - 1.0) 50.0 0.5 0.4
+    in let c = map-v 1.0 50.0 0.0 0.0
+    in [a.x, a.y, b.x, b.y, c.x, c.y]
+
+  vector-want : List Real
+  vector-want = [25.0, -20.0, -25.0, -20.0, 0.0, 0.0]
+
+ The difference between the two IS the anchor, on every input.
+
+  anchor-got : List Real
+  anchor-got =
+    let p = map-p feet 1.0 50.0 0.5 0.4
+    in let v = map-v 1.0 50.0 0.5 0.4
+    in [p.x - v.x, p.y - v.y]
+
+  anchor-want : List Real
+  anchor-want = [100.0, 200.0]
+
+ A whole polygon maps point by point, in order.
+
+  mapped-got : List Real
+  mapped-got =
+    let ps = mapped-pts feet 1.0 50.0 [StillPt { x = 0.0, y = 0.0 }, StillPt { x = 0.5, y = 0.4 }, StillPt { x = 1.0, y = 1.0 }] 0
+    in [ real-from-int (list-length ps),
+         (list-at ps 0).x, (list-at ps 0).y,
+         (list-at ps 1).x, (list-at ps 1).y,
+         (list-at ps 2).x, (list-at ps 2).y ]
+
+  mapped-want : List Real
+  mapped-want = [3.0, 100.0, 200.0, 125.0, 180.0, 150.0, 150.0]
+
+Section: The Buffer Guard
+
+ The zig's screen buffer holds 512 points and a longer polygon is SKIPPED rather
+ than truncated, for the same reason `emit-ground` refuses its ninth point: a
+ silently shortened polygon is a wrong shape drawn confidently.
+
+  many : Integer -> List StillPt
+  many (n) = if n <= 0 then [] else [StillPt { x = 0.0, y = 0.0 }] & many (n - 1)
+
+  flat-poly : Integer -> StillPoly
+  flat-poly (n) = StillPoly { color = 7, grad = [], pts = many n }
+
+  guard-got : List Integer
+  guard-got =
+    [ max-critter-pts,
+      list-length (critter-poly feet 1.0 50.0 (flat-poly 3)),
+      list-length (critter-poly feet 1.0 50.0 (flat-poly 512)),
+      list-length (critter-poly feet 1.0 50.0 (flat-poly 513)),
+      list-length (critter-poly feet 1.0 50.0 (flat-poly 2)) ]
+
+  guard-want : List Integer
+  guard-want = [512, 1, 1, 0, 0]
+
+ A polygon with no gradient is a flat fill, and it keeps its colour.
+
+  solid-got : List Integer
+  solid-got =
+    let c = list-at (critter-poly feet 1.0 50.0 (flat-poly 3)) 0
+    in [c.tag, c.color, list-length c.pts]
+
+  solid-want : List Integer
+  solid-want = [0, 7, 6]
+
+Section: Drawing One
+
+ The pixel height is the projected gap between the feet and the top, so a
+ two-metre animal a thousand metres off through a focal of 500 is exactly one
+ pixel -- the boundary, and it still draws. Twice as far and it is half a pixel
+ and draws nothing at all.
+
+  drawn : Real, Real -> Integer
+  drawn (forward) (height) = list-length (critter-draw 0.0 forward height 128024 False 500.0 960.0)
+
+  size-got : List Integer
+  size-got =
+    [ drawn 1000.0 2.0,
+      drawn 2000.0 2.0,
+      drawn 1000.0 1.9,
+      drawn 100.0 2.0 ]
+
+  size-want : List Integer
+  size-want = [6, 0, 0, 6]
+
+ An unknown codepoint has no art, so it emits nothing however big it is.
+
+  unknown-got : List Integer
+  unknown-got =
+    [ list-length (emoji-polys-for 1),
+      list-length (critter-draw 0.0 100.0 2.0 1 False 500.0 960.0),
+      list-length (emoji-polys-for 128024) ]
+
+  unknown-want : List Integer
+  unknown-want = [0, 0, 6]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "cr-facing" facing-got facing-want 0.0)
+    print-line-uni (grade-reals "cr-point " point-got point-want 0.0)
+    print-line-uni (grade-reals "cr-vector" vector-got vector-want 0.0)
+    print-line-uni (grade-reals "cr-anchor" anchor-got anchor-want 0.0)
+    print-line-uni (grade-reals "cr-mapped" mapped-got mapped-want 0.0)
+    print-line-uni (grade-ints  "cr-guard " guard-got guard-want)
+    print-line-uni (grade-ints  "cr-solid " solid-got solid-want)
+    print-line-uni (grade-ints  "cr-size  " size-got size-want)
+    print-line-uni (grade-ints  "cr-unknwn" unknown-got unknown-want)
+  end

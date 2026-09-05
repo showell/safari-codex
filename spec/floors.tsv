@@ -18,8 +18,10 @@ BillboardsSpec	34
 BlitSpec	92
 CameraSpec	22
 CanvasRollSpec	12
+CatPlanSpec	28
 CatSpec	103
 CatStillsSpec	31
+CritterSpec	38
 DepthSortSpec	38
 EmojiStillsSpec	43
 FrameSpec	26
@@ -29,11 +31,13 @@ GuardRailSpec	55
 HerdSpec	71
 JointSpec	8
 LensSpec	18
+MountainsSpec	61
 NumSpec	128
 PaintSpec	86
 PigsSpec	86
 PondSpec	25
 PoseSpec	26
+RailPlanSpec	32
 SafariCritterSpec	63
 SceneLimitsSpec	3
 ScenerySpec	26

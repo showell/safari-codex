@@ -14,24 +14,26 @@
 #
 # Seeded 2026-09-04 at each spec's then-current count.
 BikeSpec	27
+BillboardsSpec	34
 CanvasRollSpec	12
+CatSpec	103
 CatStillsSpec	31
 DepthSortSpec	38
 EmojiStillsSpec	43
 FrameSpec	26
 GeomSpec	26
+GroundSpec	18
+JointSpec	8
 LensSpec	18
 NumSpec	128
 PondSpec	25
 PoseSpec	26
+SafariCritterSpec	63
 SceneLimitsSpec	3
 ScenerySpec	26
 StillsSpec	24
+TreesSpec	82
 TrigSpec	24
+TruckDrawSpec	62
 VehicleLimitsSpec	17
 ViewYawSpec	11
-BillboardsSpec	34
-TreesSpec	82
-SafariCritterSpec	63
-JointSpec	8
-GroundSpec	18

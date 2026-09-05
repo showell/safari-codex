@@ -1,0 +1,249 @@
+Chapter: TruckDrawSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter TruckDraw
+  cites Judge chapter Grade
+
+ TruckDraw: the box the whole truck is measured from, the axles hung off it, and
+ the face sort that decides what paints over what.
+
+ WHAT THIS GRADES AND WHAT IT DOES NOT. Every vertex of the truck goes through
+ `at` and then drops by the ground curve, so a projected coordinate is Camera's
+ answer and Render's frame, and TruckCheck already grades those against the game.
+ What is TruckDraw's OWN is the arithmetic above the projection -- where the
+ faces are in the body frame -- and the ordering below it. Both are reachable
+ with no segment, no pose and no camera, which is why they are here rather than
+ in a check that needs all three.
+
+ THE SORT IS THE PART WORTH A TEST. It is a stable merge far-to-near over a
+ comparison that DECLINES to order two depths the game cannot tell apart, and
+ those are two separate properties that a rewrite can break one at a time. A
+ plain `>` still passes a test that only asks for descending order; it fails the
+ tie cases below. And an epsilon grown "to be safe" still passes the tie cases;
+ it fails the 0.01 case beside them. Both directions are graded.
+
+ WHERE THE EXPECTED VALUES COME FROM: the chapter's own arithmetic, worked
+ through by hand. `truck-box` is four sums off a centre and two off a half-width,
+ `truck-axles` is three abscissas and a pair gap, and the sort's answers are the
+ build order the merge is defined to preserve. Nothing here was read off a run.
+
+ THE CENTRE IS 0.0 AND 40.0 AND NEITHER IS ARBITRARY. Every value both produce
+ needs at most five significant digits, so every literal below is one both arms
+ convert to the same double. A centre of 100.0 puts `truck-axles` at
+ 97.99999999999999 and 102.00000000000001 -- seventeen digits, which is where
+ Codex's decimal conversion stops being correctly rounded (upstream issue 125),
+ and this spec would then fail on the zig arm for a reason that has nothing to do
+ with the truck. Grading at 0.0 tolerance means choosing inputs whose answers are
+ short, and that is a constraint on the test rather than on the chapter.
+
+ We say:
+
+Section: The Box
+
+ `truck-box` places the trailer rear, the trailer front, the cab nose and the
+ roof break along the road, and the two sides across it. The truck is 8.4 long
+ and 2.4 wide, so the rear sits 4.2 behind the centre and each side 1.2 off the
+ half-width; the cab adds 3.5 past the trailer front and its roof breaks three
+ tenths of the way along that.
+
+  box-at : Real, Real -> List Real
+  box-at (c) (hw) =
+    let b = truck-box c hw
+    in [b.a0, b.a1, b.a2, b.a-roof, b.xl, b.xr]
+
+  box-got : List Real
+  box-got = box-at 0.0 0.0 & box-at 40.0 2.0
+
+  box-want : List Real
+  box-want =
+    [ -4.2, 4.2, 7.7, 5.25, -1.2, 1.2,
+      35.8, 44.2, 47.7, 45.25, 0.8, 3.2 ]
+
+ The two heights the box does not carry, because nothing varies them: a tire is
+ half a metre, the trailer floor clears a tire and a bit, and the cab floor sits
+ on the axle line.
+
+  bottom-got : List Real
+  bottom-got = [tire-radius, trailer-bottom, cab-bottom, truck-height, truck-width, truck-length]
+
+  bottom-want : List Real
+  bottom-want = [0.5, 1.12, 0.5, 3.6, 2.4, 8.4]
+
+Section: The Axles
+
+ Five a side: a tandem pair inset 1.6 from each trailer end and straddling a 1.2
+ gap, then one under the cab at 0.55 of the cab's length. The order is the order
+ the tires are built in, and the tires join the face sort, so it is part of the
+ answer rather than a convenience.
+
+  axles-got : List Real
+  axles-got = truck-axles (truck-box 0.0 0.0) & truck-axles (truck-box 40.0 2.0)
+
+  axles-want : List Real
+  axles-want = [-3.2, -2.0, 2.0, 3.2, 6.125, 36.8, 38.0, 42.0, 43.2, 46.125]
+
+  axle-count-got : List Integer
+  axle-count-got = [list-length (truck-axles (truck-box 0.0 0.0))]
+
+  axle-count-want : List Integer
+  axle-count-want = [5]
+
+Section: A Face
+
+ A face carries its colour, its polygon, and the MEAN depth it sorts by --
+ computed once here where the zig recomputes it inside its comparison. The mean
+ is over the vertices, so a three-vertex face and a four-vertex face are both
+ divided by their own count.
+
+  v3 : Real -> Vec3
+  v3 (f) = Vec3 { right = 0.0, forward = f, height = 0.0 }
+
+  quad-face : TruckFace
+  quad-face = truck-face 1846886 [v3 10.0, v3 20.0, v3 30.0, v3 40.0]
+
+  tri-face : TruckFace
+  tri-face = truck-face 1381658 [v3 1.0, v3 2.0, v3 6.0]
+
+  face-got : List Real
+  face-got = [quad-face.fwd, tri-face.fwd]
+
+  face-want : List Real
+  face-want = [25.0, 3.0]
+
+ The colour and the polygon are carried through untouched.
+
+  face-carry-got : List Integer
+  face-carry-got = [quad-face.color, list-length quad-face.v, tri-face.color, list-length tri-face.v]
+
+  face-carry-want : List Integer
+  face-carry-want = [1846886, 4, 1381658, 3]
+
+Section: The Sort
+
+ Far to near, and STABLE: two faces the comparison cannot separate stay in the
+ order they were built. Colours stand in for identity here so the order can be
+ read off directly.
+
+  mark : Integer, Real -> TruckFace
+  mark (c) (f) = TruckFace { color = c, fwd = f, v = [] }
+
+  colours-of : List TruckFace, Integer -> List Integer
+  colours-of (fs) (i) =
+    if i >= list-length fs then []
+    else [(list-at fs i).color] & colours-of fs (i + 1)
+
+ Three faces at exactly the same depth, interleaved with two others. The 30s come
+ out first and in build order; nothing about their depths distinguishes them.
+
+  tied : List TruckFace
+  tied = [mark 1 30.0, mark 2 10.0, mark 3 30.0, mark 4 20.0, mark 5 30.0]
+
+  tied-got : List Integer
+  tied-got = colours-of (sort-faces tied) 0
+
+  tied-want : List Integer
+  tied-want = [1, 3, 5, 4, 2]
+
+ THE SLACK, FROM BOTH SIDES. At a depth of 20 the comparison's threshold is 1.2
+ microns of depth -- half an f32 ulp there -- so face 2 is a millionth deeper
+ than face 1 and must NOT be ordered ahead of it, while face 3 is a hundredth
+ deeper and must be. A plain strict `>` swaps 1 and 2; an epsilon large enough to
+ be comfortable swallows 3.
+
+  slack : List TruckFace
+  slack = [mark 1 20.0, mark 2 20.000001, mark 3 20.01, mark 4 19.0]
+
+  slack-got : List Integer
+  slack-got = colours-of (sort-faces slack) 0
+
+  slack-want : List Integer
+  slack-want = [3, 1, 2, 4]
+
+ A sort of nothing and a sort of one are the merge's base case.
+
+  small-got : List Integer
+  small-got =
+    [ list-length (sort-faces []),
+      list-length (sort-faces [mark 7 1.0]),
+      (list-at (sort-faces [mark 7 1.0]) 0).color ]
+
+  small-want : List Integer
+  small-want = [0, 1, 7]
+
+Section: The Halo
+
+ Screen-space arithmetic, with no projection in it: the panel's centre is the
+ mean of its four corners, the radius is the FARTHEST of them, and the gradient
+ reaches 3.2 times that so the fill covers every vertex.
+
+  sp : Real, Real -> ScreenPt
+  sp (x) (y) = ScreenPt { x = x, y = y }
+
+  panel : List ScreenPt
+  panel = [sp 3.0 4.0, sp 6.0 8.0, sp 0.0 0.0, sp 7.0 4.0]
+
+  halo-got : List Real
+  halo-got =
+    let cx = sum-x panel 0 / 4.0
+    in let cy = sum-y panel 0 / 4.0
+    in [ sum-x panel 0, sum-y panel 0, cx, cy,
+         pt-dist (sp 3.0 4.0) (sp 0.0 0.0),
+         max-radius panel (sp 0.0 0.0) 0,
+         max-radius panel (sp 0.0 0.0) 0 * 3.2 ]
+
+  halo-want : List Real
+  halo-want = [16.0, 16.0, 4.0, 4.0, 5.0, 10.0, 32.0]
+
+ Sixteen points on the circle, which is `glow-sides` and not a written-down 16.
+
+  circle-count-got : List Integer
+  circle-count-got = [list-length (glow-circle 0.0 0.0 10.0 0), glow-sides, tire-sides]
+
+  circle-count-want : List Integer
+  circle-count-want = [16, 16, 16]
+
+Section: Behind The Eye
+
+ Neither gradient shape is clipped; both are dropped whole the moment any corner
+ reaches the near plane. The plane is at 0.4 and the test is `<=`, so a vertex
+ sitting exactly on it counts as behind.
+
+  behind-got : List Boolean
+  behind-got =
+    [ any-behind [v3 10.0, v3 20.0, v3 30.0] 0,
+      any-behind [v3 10.0, v3 0.2, v3 30.0] 0,
+      any-behind [v3 10.0, v3 0.4, v3 30.0] 0,
+      any-behind [v3 0.41] 0,
+      any-behind [] 0 ]
+
+  behind-want : List Boolean
+  behind-want = [False, True, True, False, False]
+
+ The midpoint of two body points, which is where a lamp sits on a panel edge.
+
+  mid-got : List Real
+  mid-got =
+    let m = mid-vec (Vec3 { right = 1.0, forward = 2.0, height = 3.0 }) (Vec3 { right = 5.0, forward = 8.0, height = 11.0 })
+    in [m.right, m.forward, m.height]
+
+  mid-want : List Real
+  mid-want = [3.0, 5.0, 7.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "td-box   " box-got box-want 0.0)
+    print-line-uni (grade-reals "td-bottom" bottom-got bottom-want 0.0)
+    print-line-uni (grade-reals "td-axles " axles-got axles-want 0.0)
+    print-line-uni (grade-ints  "td-naxle " axle-count-got axle-count-want)
+    print-line-uni (grade-reals "td-face  " face-got face-want 0.0)
+    print-line-uni (grade-ints  "td-carry " face-carry-got face-carry-want)
+    print-line-uni (grade-ints  "td-tied  " tied-got tied-want)
+    print-line-uni (grade-ints  "td-slack " slack-got slack-want)
+    print-line-uni (grade-ints  "td-small " small-got small-want)
+    print-line-uni (grade-reals "td-halo  " halo-got halo-want 0.0)
+    print-line-uni (grade-ints  "td-circle" circle-count-got circle-count-want)
+    print-line-uni (grade-bools "td-behind" behind-got behind-want)
+  end

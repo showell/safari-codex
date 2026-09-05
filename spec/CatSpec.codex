@@ -1,0 +1,286 @@
+Chapter: CatSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Trig
+  cites Safari chapter Cat
+  cites Judge chapter Grade
+
+ Cat: where the cat is put, the clock its crossing runs on, and the three-phase
+ state machine that says which still to show.
+
+ THE WHOLE CHAPTER IS REACHABLE WITH NOTHING ELSE HELD. It is arithmetic over
+ five constants and has no dependencies, which the chapter's own docstring says
+ -- so unlike most of the port there is no frame, no camera and no segment to
+ stand up first, and every branch below can be hit by choosing a gap.
+
+ THE PHASES ARE PICKED BY SOLVING FOR THE GAP, not by feeding in a step. `step`
+ is `cross-t gap v * cross-frames`, and at v = 1 that reduces ON PAPER to
+ `41 - gap`: the clock runs backwards as the rider closes.
+
+ IT DOES NOT REDUCE THAT WAY IN ARITHMETIC, and finding out cost two red lines.
+ `step` is `(1 - e / 38) * 38`, which is not `38 - e` in floating point: a gap of
+ 31 gives 10.000000000000002 and lands in the FREEZE, one part in 10^16 past the
+ boundary the algebra puts it exactly on. So the phase boundaries are not probed
+ through `cat-state` at all -- a test that pins which side of a knife edge the
+ rounding falls on is testing the rounding. `cat-state` is asked only which
+ branch it takes for gaps comfortably inside each phase, and the phase functions
+ are driven DIRECTLY by a step, where the input is exact and the answer is the
+ chapter's own arithmetic rather than a quotient's residue.
+
+ WHERE THE EXPECTED VALUES COME FROM: worked by hand from the arithmetic each
+ definition states. `cross-frames` is 10 + 24 + 4; `mid-across` is 0.48 * 1.7;
+ the smoothstep at a half is a half by inspection; the pose thresholds are read
+ off `leap-pose-for`'s four branches. Nothing was read off a run.
+
+ TWO GRADE LINES ARE AT 1e-12 AND THE REASON IS NOT THE ARITHMETIC. `end-across`
+ is -3.4899999999999998 and the airborne lateral is 0.27774999999999994 --
+ seventeen significant digits, which is past the point where Codex's decimal
+ conversion is correctly rounded (upstream issue 125), so writing them down as
+ literals would make this spec fail on the zig arm for a reason that has nothing
+ to do with the cat. The values are exact; it is the LITERAL that cannot be
+ written. Everything whose answer is short is graded at 0.0.
+
+ The lane half-width is 2.0 because that is the figure the chapter's own prose
+ works through -- mid-across 0.816 to end-across -3.490, a span of 4.306 -- and
+ agreeing with the documented example is worth more than convenient digits.
+
+ We say:
+
+Section: Placement
+
+ The waiting spot is beyond the roadside tree and clear of it; the head-centre
+ anchor puts the cat's head on the lane; the far side puts a hind paw barely onto
+ the left grass.
+
+  the-cat : Cat
+  the-cat = cat-make 2.0 1.0 100.0
+
+  make-got : List Real
+  make-got = [the-cat.along, the-cat.start-across, the-cat.mid-across, the-cat.height]
+
+  make-want : List Real
+  make-want = [102.0, 4.5, 0.816, 1.7]
+
+  make-wide-got : List Real
+  make-wide-got = [the-cat.end-across, the-cat.mid-across - the-cat.end-across]
+
+  make-wide-want : List Real
+  make-wide-want = [-3.49, 4.306]
+
+  dims-got : List Real
+  dims-got = [cat-height, cat-along, cat-road-gap, cat-beyond-tree, cat-head-x, land-hind-reach, grass-toehold]
+
+  dims-want : List Real
+  dims-want = [1.7, 105.0, 1.5, 2.0, -0.48, 1.19, 0.3]
+
+Section: The Crossing Window
+
+ Ten frames to enter the road, twenty-four frozen in the headlight, four to
+ escape. The rider's throttle gate reads the total, so it is a value and not a
+ comment.
+
+  window-got : List Real
+  window-got = [enters-road-steps, frozen-steps, escapes-steps, cross-frames, road-buffer]
+
+  window-want : List Real
+  window-want = [10.0, 24.0, 4.0, 38.0, 3.0]
+
+ In danger means still ahead, past the buffer, AND inside the window. The
+ comparison is `<=`, so a cat exactly a window away still counts; a cat at or
+ behind the buffer does not count at all, because he is already clear.
+
+  danger-got : List Boolean
+  danger-got =
+    [ cat-in-danger 41.0 1.0,
+      cat-in-danger 42.0 1.0,
+      cat-in-danger 3.0 1.0,
+      cat-in-danger 2.0 1.0,
+      cat-in-danger 41.0 0.0,
+      cat-in-danger 22.0 1.0 ]
+
+  danger-want : List Boolean
+  danger-want = [True, False, False, False, False, True]
+
+Section: The Crossing Clock
+
+ Progress runs 0 at first sight to 1 when the rider reaches the buffer, and it
+ clamps at both ends. A stopped rider is never making progress, which is the
+ `v <= 0.000001` arm -- and note it answers 0 and not 1, so a paused game holds
+ the cat at the start of its crossing rather than at the end.
+
+  t-got : List Real
+  t-got =
+    [ cross-t 41.0 1.0,
+      cross-t 22.0 1.0,
+      cross-t 3.0 1.0,
+      cross-t 2.0 1.0,
+      cross-t 100.0 1.0,
+      cross-t 41.0 0.0,
+      clamp01 (0.0 - 0.5), clamp01 0.25, clamp01 1.5,
+      lerp 2.0 6.0 0.25, lerp 2.0 6.0 0.0, lerp 2.0 6.0 1.0 ]
+
+  t-want : List Real
+  t-want = [0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.25, 1.0, 3.0, 2.0, 6.0]
+
+Section: The Rider's Attention
+
+ The lens narrows as he watches and eases back once he is past. The two halves
+ run on different clocks, and the seam between them is the buffer: at the buffer
+ exactly, attention is at its peak.
+
+  focus-got : List Real
+  focus-got =
+    [ cat-smoothstep 0.0, cat-smoothstep 0.5, cat-smoothstep 1.0,
+      cat-focus 41.0 1.0,
+      cat-focus 22.0 1.0,
+      cat-focus 3.0 1.0,
+      cat-focus (0.0 - 38.5) 1.0,
+      cat-focus (0.0 - 80.0) 1.0,
+      cat-focus 22.0 0.0,
+      focus-peak, focus-ramp-down ]
+
+  focus-want : List Real
+  focus-want = [0.0, 0.5, 1.0, 0.0, 0.9, 1.8, 0.9, 0.0, 0.0, 1.8, 83.0]
+
+Section: The Gait
+
+ A whole number of leg cycles over the walk, so the legs start and end at rest.
+ The cycle count is the walk length over the stride, rounded and floored at one --
+ and it is the COUNT that is asserted here, by dividing the phase back out, since
+ the angle itself is a multiple of an irrational.
+
+  cycles-got : List Real
+  cycles-got =
+    [ gait 0.0 10.0,
+      gait 1.0 10.0 / two-pi,
+      gait 0.5 10.0 / two-pi,
+      gait 1.0 20.0 / two-pi,
+      gait 1.0 3.0 / two-pi,
+      gait 1.0 0.0 / two-pi,
+      stride-steps ]
+
+  cycles-want : List Real
+  cycles-want = [0.0, 2.0, 1.0, 4.0, 1.0, 1.0, 5.0]
+
+Section: The Stills
+
+ Seven pose indices, and the four the leap runs through in order. The thresholds
+ are the assertion: each boundary value belongs to the branch ABOVE it, because
+ every test is a strict `<`.
+
+  pose-got : List Integer
+  pose-got =
+    [ pose-rest, pose-stride, pose-frozen, pose-coil, pose-flight, pose-land, pose-collapse,
+      leap-pose-for 0.0, leap-pose-for 0.19, leap-pose-for 0.2,
+      leap-pose-for 0.69, leap-pose-for 0.7,
+      leap-pose-for 0.94, leap-pose-for 0.95, leap-pose-for 1.0 ]
+
+  pose-want : List Integer
+  pose-want = [0, 1, 2, 3, 4, 5, 6, 3, 3, 4, 4, 5, 5, 6, 6]
+
+Section: The Three Phases
+
+ Which branch, for gaps well inside each phase. Every step below is exact -- 0,
+ 9.5, 11, 34, 34.5, 35, 37, 38 -- so the answers do not turn on the rounding the
+ header describes, and the two entering cases differ in POSE rather than phase
+ because the gait has turned over between them.
+
+  phase-of : Real -> CatState
+  phase-of (gap) = cat-state the-cat gap 1.0
+
+  which-got : List Integer
+  which-got =
+    [ (phase-of 41.0).pose-idx,
+      (phase-of 31.5).pose-idx,
+      (phase-of 30.0).pose-idx,
+      (phase-of 7.0).pose-idx,
+      (phase-of 6.5).pose-idx,
+      (phase-of 6.0).pose-idx,
+      (phase-of 4.0).pose-idx,
+      (phase-of 3.0).pose-idx ]
+
+  which-want : List Integer
+  which-want = [0, 0, 2, 2, 3, 4, 5, 6]
+
+ ENTERING, driven by the step. He walks from the waiting spot to the lane centre
+ in a straight line, and the still snaps with the gait: two leg cycles over ten
+ frames, so an eighth of the way in the sine is at its peak and he is mid-stride,
+ three eighths in it is at its trough and he is at rest. At the very start the
+ sine is exactly zero -- an odd polynomial at zero -- and the test is a strict
+ `> 0`, so he is at rest there too.
+
+ THE QUARTER POINTS ARE CHOSEN AND THE HALVES ARE AVOIDED. At p = 0.5 the angle
+ is a full turn and the sine is whatever a polynomial makes of 2 pi, a number
+ near zero of either sign; which pose that picks is not something this chapter
+ decides and not something a test should pin.
+
+  walking : Real -> CatState
+  walking (step) = cat-entering the-cat step
+
+  entering-got : List Real
+  entering-got =
+    [ (walking 0.0).across, (walking 1.25).across, (walking 3.75).across,
+      (walking 6.25).across, (walking 8.75).across,
+      (walking 0.0).lift, (walking 8.75).lift ]
+
+  entering-want : List Real
+  entering-want = [4.5, 4.0395, 3.1185, 2.1975, 1.2765, 0.0, 0.0]
+
+  stride-got : List Integer
+  stride-got =
+    [ (walking 0.0).pose-idx, (walking 1.25).pose-idx, (walking 3.75).pose-idx,
+      (walking 6.25).pose-idx, (walking 8.75).pose-idx ]
+
+  stride-want : List Integer
+  stride-want = [0, 1, 0, 1, 0]
+
+ FROZEN in the headlight: the still does not move and neither does he.
+
+  frozen-got : List Real
+  frozen-got = [(phase-of 30.0).across, (phase-of 7.0).across, (phase-of 30.0).lift]
+
+  frozen-want : List Real
+  frozen-want = [0.816, 0.816, 0.0]
+
+ THE LEAP. Under one escape-step he is coiled and still planted on the near side;
+ one to three he is over the road; past three he is down on the far side. The lift
+ is a low parabola, zero at both ends, so the coil and the collapse are both flat.
+
+  leap-got : List Real
+  leap-got =
+    [ (phase-of 6.5).across, (phase-of 6.5).lift,
+      (phase-of 6.0).across, (phase-of 6.0).lift,
+      pow075 0.0, pow075 1.0, pow075 0.0625,
+      leap-height ]
+
+  leap-want : List Real
+  leap-want = [0.816, 0.0, 0.816, 0.0, 0.0, 1.0, 0.125, 0.18]
+
+ Mid-flight, where the front-loading actually shows. Both of these are exact and
+ neither can be written down: see the note at the top.
+
+  flight-got : List Real
+  flight-got = [(phase-of 5.875).across, (phase-of 5.875).lift, (phase-of 4.0).across]
+
+  flight-want : List Real
+  flight-want = [0.27775, 0.0421875, -3.49]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "ct-make  " make-got make-want 0.0)
+    print-line-uni (grade-reals "ct-dims  " dims-got dims-want 0.0)
+    print-line-uni (grade-reals "ct-window" window-got window-want 0.0)
+    print-line-uni (grade-bools "ct-danger" danger-got danger-want)
+    print-line-uni (grade-reals "ct-clock " t-got t-want 0.0)
+    print-line-uni (grade-reals "ct-focus " focus-got focus-want 0.0)
+    print-line-uni (grade-reals "ct-gait  " cycles-got cycles-want 0.0)
+    print-line-uni (grade-ints  "ct-pose  " pose-got pose-want)
+    print-line-uni (grade-ints  "ct-which " which-got which-want)
+    print-line-uni (grade-reals "ct-enter " entering-got entering-want 0.0)
+    print-line-uni (grade-ints  "ct-stride" stride-got stride-want)
+    print-line-uni (grade-reals "ct-frozen" frozen-got frozen-want 0.0)
+    print-line-uni (grade-reals "ct-leap  " leap-got leap-want 0.0)
+    print-line-uni (grade-reals "ct-wide  " make-wide-got make-wide-want 0.000000000001)
+    print-line-uni (grade-reals "ct-flight" flight-got flight-want 0.000000000001)
+  end

@@ -1,0 +1,165 @@
+Chapter: PaintSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Judge chapter Grade
+
+ Paint: the six commands that go on the wire, and the one rule that shapes them.
+
+ THE RULE IS THE TEST. `pts` is ALWAYS the polygon and `geom` is ALWAYS the
+ command's own parameters -- a beacon's centre and radius, a gradient's stops and
+ axes. The chapter's docstring records that it was not always so: the beacon used
+ to smuggle its x, y and r through `pts`, which meant a reader had to know the tag
+ before it knew whether `pts` held points. Every tag below is graded on both
+ fields, so a regression to the old arrangement fails here rather than in a
+ blitter.
+
+ THE THREE-POINT GUARD IS ON ALL SIX AND IS GRADED ON ALL SIX. A polygon with
+ fewer than three points is DROPPED, not emitted degenerate, and the count is
+ zero rather than one command with a short `pts`. The beacon is the exception and
+ it is the interesting one: it is a disc and not a polygon, so it has no guard at
+ all and emits from an empty point list.
+
+ EVERY GRADED NUMBER IS A TAG, A COLOUR, A LENGTH OR A COORDINATE HANDED IN.
+ Nothing in this chapter computes anything -- it is a record constructor and a
+ flattener -- so there is no arithmetic to derive and nothing needs a tolerance.
+
+ We say:
+
+Section: The Points
+
+ `flatten-screen` interleaves x and y, so n points become 2n reals in order.
+
+  sp : Real, Real -> ScreenPt
+  sp (x) (y) = ScreenPt { x = x, y = y }
+
+  tri : List ScreenPt
+  tri = [sp 1.0 2.0, sp 3.0 4.0, sp 5.0 6.0]
+
+  two : List ScreenPt
+  two = [sp 1.0 2.0, sp 3.0 4.0]
+
+  flat-got : List Real
+  flat-got = flatten-screen tri 0 & flatten-screen [] 0
+
+  flat-want : List Real
+  flat-want = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+Section: The Guard
+
+ Three is enough and two is not, on every polygon tag. The beacon is not a
+ polygon and always emits.
+
+  count-got : List Integer
+  count-got =
+    [ list-length (push-poly 7 tri),
+      list-length (push-poly 7 two),
+      list-length (push-poly 7 []),
+      list-length (push-round-poly 7 0.5 tri),
+      list-length (push-round-poly 7 0.5 two),
+      list-length (push-grad-poly 7 8 0.0 0.0 1.0 tri),
+      list-length (push-grad-poly 7 8 0.0 0.0 1.0 two),
+      list-length (push-linear-grad-poly 7 8 0.0 1.0 0.0 0.0 1.0 1.0 tri),
+      list-length (push-linear-grad-poly 7 8 0.0 1.0 0.0 0.0 1.0 1.0 two),
+      list-length (push-radial-grad-poly 7 8 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0 tri),
+      list-length (push-radial-grad-poly 7 8 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0 two),
+      list-length (push-beacon 7 1.0 2.0 3.0 0.5) ]
+
+  count-want : List Integer
+  count-want = [1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+
+Section: The Six Tags
+
+ Tag, first colour, second colour, how many reals in `geom`, how many in `pts`.
+ Tags 0, 1 and 3 leave `color2` at zero; only the gradients carry a second stop.
+
+  shape-of : List DrawCmd -> List Integer
+  shape-of (cs) =
+    let c = list-at cs 0
+    in [c.tag, c.color, c.color2, list-length c.geom, list-length c.pts]
+
+  solid : List DrawCmd
+  solid = push-poly 111 tri
+
+  round : List DrawCmd
+  round = push-round-poly 222 0.75 tri
+
+  beacon : List DrawCmd
+  beacon = push-beacon 333 10.0 20.0 30.0 0.25
+
+  radial4 : List DrawCmd
+  radial4 = push-grad-poly 444 445 10.0 20.0 30.0 tri
+
+  linear5 : List DrawCmd
+  linear5 = push-linear-grad-poly 555 556 0.25 0.75 1.0 2.0 3.0 4.0 tri
+
+  radial6 : List DrawCmd
+  radial6 = push-radial-grad-poly 666 667 0.25 0.75 1.0 2.0 3.0 4.0 5.0 6.0 tri
+
+  tags-got : List Integer
+  tags-got =
+    shape-of solid & shape-of round & shape-of beacon
+      & shape-of radial4 & shape-of linear5 & shape-of radial6
+
+  tags-want : List Integer
+  tags-want =
+    [ 0, 111, 0, 0, 6,
+      1, 222, 0, 0, 6,
+      3, 333, 0, 3, 0,
+      4, 444, 445, 3, 6,
+      5, 555, 556, 6, 6,
+      6, 666, 667, 8, 6 ]
+
+Section: What Rides Where
+
+ `strength` is the round polygon's fade and the beacon's ALPHA, and it is zero on
+ everything else -- one record shape, and each tag reading only the fields it
+ defines.
+
+  strength-got : List Real
+  strength-got =
+    [ (list-at solid 0).strength,
+      (list-at round 0).strength,
+      (list-at beacon 0).strength,
+      (list-at radial4 0).strength,
+      (list-at linear5 0).strength,
+      (list-at radial6 0).strength ]
+
+  strength-want : List Real
+  strength-want = [0.0, 0.75, 0.25, 0.0, 0.0, 0.0]
+
+ The beacon's centre and radius are in `geom` and its `pts` is empty. Tag 4 puts
+ its centre and radius in `geom` and the polygon in `pts` -- which is the pair the
+ old arrangement could not tell apart.
+
+  geom-got : List Real
+  geom-got =
+    (list-at beacon 0).geom & (list-at radial4 0).geom
+      & (list-at linear5 0).geom & (list-at radial6 0).geom
+
+  geom-want : List Real
+  geom-want =
+    [ 10.0, 20.0, 30.0,
+      10.0, 20.0, 30.0,
+      0.25, 0.75, 1.0, 2.0, 3.0, 4.0,
+      0.25, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 ]
+
+ And `pts` is the flattened polygon on every tag that has one.
+
+  pts-got : List Real
+  pts-got = (list-at solid 0).pts & (list-at radial6 0).pts & (list-at beacon 0).pts
+
+  pts-want : List Real
+  pts-want = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "pa-flat  " flat-got flat-want 0.0)
+    print-line-uni (grade-ints  "pa-guard " count-got count-want)
+    print-line-uni (grade-ints  "pa-tags  " tags-got tags-want)
+    print-line-uni (grade-reals "pa-streng" strength-got strength-want 0.0)
+    print-line-uni (grade-reals "pa-geom  " geom-got geom-want 0.0)
+    print-line-uni (grade-reals "pa-pts   " pts-got pts-want 0.0)
+  end

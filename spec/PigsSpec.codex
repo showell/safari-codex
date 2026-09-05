@@ -1,0 +1,163 @@
+Chapter: PigsSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Critter
+  cites Safari chapter Pigs
+  cites Judge chapter Grade
+
+ Pigs: the one the rider gawks at, the seven-by-seven herd behind it, and the two
+ straight ranks that are not worth gawking at.
+
+ THREE POPULATIONS AND THEY ARE NOT INTERCHANGEABLE. `gaze-pig` is a single
+ animal placed so the head-turn always aims at a pig that is actually drawn;
+ `fill-pig-herd` is forty-nine on a sheared grid; `fill-pig-row` is ten in two
+ straight ranks with NO jitter at all. Their counts and their shapes are what
+ tell them apart, and a chapter that fed the gaze at a herd pig would still draw
+ the same field.
+
+ THE ROWS ARE GRADED AT THE JITTER'S BOUND, as in HerdSpec, and here the along
+ axis is the tighter of the two: columns are 4 metres apart against a jitter of
+ at most 1.2, so the bands are 1.6 clear. Across is 6 apart against 1.0. The row
+ shear -- each row is 6 further along as well as 6 further off -- is what slants
+ the herd's sides, and it shows up as the whole along band moving with the row.
+
+ THE STRAIGHT RANKS CARRY NO SINE, so they are graded at 0.0. That is worth
+ having beside the herd: it is the same chapter placing animals, and the one
+ population where every coordinate is exact.
+
+ A route length of 1000 puts the base at 940, and every value below lands on a
+ whole number of metres.
+
+ We say:
+
+Section: The One He Watches
+
+ Two metres past the herd's base, at the road edge. He faces across the road, not
+ along it, like every other pig.
+
+  gaze : Critter
+  gaze = gaze-pig 1000.0 2.0
+
+  gaze-got : List Real
+  gaze-got = [gaze.along, gaze.across, gaze.height, pig-height, pig-dist-before-end, gaze-pig-along-offset]
+
+  gaze-got-want : List Real
+  gaze-got-want = [942.0, 12.0, 1.1, 1.1, 60.0, 2.0]
+
+  gaze-kind-got : List Integer
+  gaze-kind-got = [gaze.codepoint, pig-cp, pig-novelty-count, big-herd-cols, big-herd-rows]
+
+  gaze-kind-want : List Integer
+  gaze-kind-want = [128022, 128022, 2, 7, 7]
+
+  gaze-face-got : List Boolean
+  gaze-face-got = [gaze.face-right]
+
+  gaze-face-want : List Boolean
+  gaze-face-want = [False]
+
+Section: The Big Herd
+
+ Forty-nine, laid out row by row, seven to a row -- so index `r * 7 + c` is the
+ order they come out in and the across value changes only every seventh animal.
+
+  herd : List Critter
+  herd = fill-pig-herd 1000.0
+
+  herd-count-got : List Integer
+  herd-count-got = [list-length herd, list-length (fill-pig-herd 500.0)]
+
+  herd-count-want : List Integer
+  herd-count-want = [49, 49]
+
+ The first row and the last, along: each column is four further on, and the whole
+ row has sheared six per row it is back.
+
+  along-of : Integer, Integer -> Real
+  along-of (r) (c) = (list-at herd (r * 7 + c)).along
+
+  row-alongs : Integer -> List Real
+  row-alongs (r) =
+    [along-of r 0, along-of r 1, along-of r 2, along-of r 3, along-of r 4, along-of r 5, along-of r 6]
+
+  herd-along-got : List Real
+  herd-along-got = row-alongs 0 & row-alongs 3 & row-alongs 6
+
+  herd-along-want : List Real
+  herd-along-want =
+    [ 934.0, 938.0, 942.0, 946.0, 950.0, 954.0, 958.0,
+      952.0, 956.0, 960.0, 964.0, 968.0, 972.0, 976.0,
+      970.0, 974.0, 978.0, 982.0, 986.0, 990.0, 994.0 ]
+
+ Across depends on the ROW ONLY, so all seven in a row share a band and the seven
+ bands are six apart. Taking one from each row is what shows that.
+
+  herd-across-got : List Real
+  herd-across-got =
+    [ (list-at herd 0).across, (list-at herd 6).across,
+      (list-at herd 7).across, (list-at herd 13).across,
+      (list-at herd 14).across, (list-at herd 21).across,
+      (list-at herd 28).across, (list-at herd 35).across,
+      (list-at herd 42).across, (list-at herd 48).across ]
+
+  herd-across-want : List Real
+  herd-across-want = [12.0, 12.0, 18.0, 18.0, 24.0, 30.0, 36.0, 42.0, 48.0, 48.0]
+
+  herd-kind-got : List Integer
+  herd-kind-got = [(list-at herd 0).codepoint, (list-at herd 48).codepoint]
+
+  herd-kind-want : List Integer
+  herd-kind-want = [128022, 128022]
+
+Section: The Straight Ranks
+
+ Four at the road edge and six six metres further off, at written-down offsets
+ either side of the base. No sine anywhere, so these are exact.
+
+  row : List Critter
+  row = fill-pig-row 1000.0
+
+  row-count-got : List Integer
+  row-count-got = [list-length row, list-length pig-row-front, list-length pig-row-back]
+
+  row-count-want : List Integer
+  row-count-want = [10, 4, 6]
+
+  row-along-got : List Real
+  row-along-got = list-map (\p -> p.along) row
+
+  row-along-want : List Real
+  row-along-want =
+    [ 934.0, 938.0, 942.0, 946.0,
+      930.0, 934.0, 938.0, 942.0, 946.0, 950.0 ]
+
+  row-across-got : List Real
+  row-across-got = list-map (\p -> p.across) row
+
+  row-across-want : List Real
+  row-across-want = [12.0, 12.0, 12.0, 12.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0]
+
+  offsets-got : List Real
+  offsets-got = pig-row-front & pig-row-back & [pig-back-row-offset, pig-herd-first-col, pig-col-spacing, pig-row-depth, pig-jitter-along, pig-jitter-across]
+
+  offsets-want : List Real
+  offsets-want =
+    [ -6.0, -2.0, 2.0, 6.0,
+      -10.0, -6.0, -2.0, 2.0, 6.0, 10.0,
+      6.0, -6.0, 4.0, 6.0, 1.2, 1.0 ]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "pg-gaze  " gaze-got gaze-got-want 0.0)
+    print-line-uni (grade-ints  "pg-kind  " gaze-kind-got gaze-kind-want)
+    print-line-uni (grade-bools "pg-face  " gaze-face-got gaze-face-want)
+    print-line-uni (grade-ints  "pg-nherd " herd-count-got herd-count-want)
+    print-line-uni (grade-ints  "pg-hkind " herd-kind-got herd-kind-want)
+    print-line-uni (grade-ints  "pg-nrow  " row-count-got row-count-want)
+    print-line-uni (grade-reals "pg-rowa  " row-along-got row-along-want 0.0)
+    print-line-uni (grade-reals "pg-rowx  " row-across-got row-across-want 0.0)
+    print-line-uni (grade-reals "pg-offs  " offsets-got offsets-want 0.0)
+    print-line-uni (grade-reals "pg-herda " herd-along-got herd-along-want 1.2)
+    print-line-uni (grade-reals "pg-herdx " herd-across-got herd-across-want 1.0)
+  end

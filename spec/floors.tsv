@@ -19,6 +19,7 @@ BillboardsSpec	34
 BlitSpec	92
 CameraSpec	22
 CanvasRollSpec	12
+CatDrawSpec	42
 CatPlanSpec	28
 CatSpec	103
 CatStillsSpec	31
@@ -53,6 +54,7 @@ TreesSpec	82
 TrigSpec	24
 TruckDrawSpec	62
 TruckPlanSpec	35
+TruckSpec	51
 VehicleLimitsSpec	17
 ViewYawSpec	11
 WorldSpec	84

@@ -1,0 +1,183 @@
+Chapter: CatDrawSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Stills
+  cites Safari chapter CatStills
+  cites Safari chapter CatDraw
+  cites Judge chapter Grade
+
+ CatDraw: the cat's baked stills, placed at a screen anchor and lifted by the
+ hop.
+
+ THE LIFT IS THE ONE THING HERE THAT CRITTER DOES NOT HAVE, and it goes into the
+ SAME scale as the art. `cat-pt` computes `b.y - (p.y + lift) * h`, so a lift of
+ a tenth raises the cat by a tenth of its own pixel height rather than by a tenth
+ of a pixel -- which is what makes the hop look the same size at every distance.
+ Adding the lift after the multiply instead would give a leap that shrinks with
+ range, and both forms agree at lift zero, so this is graded with a lift on.
+
+ THE BUFFER IS 256 AND NOT CRITTER'S 512. Half the animal's, and a longer
+ polygon is skipped rather than truncated -- the same refusal, a different
+ number, and worth grading because the two chapters look alike enough to have
+ their constants swapped.
+
+ THE COMMAND COUNT IS GRADED AS A RELATIONSHIP, not against a number read off
+ the baked table. A pose that draws emits exactly as many commands as the table
+ has polygons for it; that holds whatever the baker last produced, where a
+ written-down count would go stale the next time it ran. CatStillsSpec is what
+ grades the table itself.
+
+ We say:
+
+Section: Placing A Point
+
+ The anchor is the feet and the art scales by the pixel height, so a unit-frame
+ half is half the cat's height across and up.
+
+  feet : ScreenPt
+  feet = ScreenPt { x = 100.0, y = 200.0 }
+
+  pt-got : List Real
+  pt-got =
+    let a = cat-pt feet 50.0 0.0 (StillPt { x = 0.5, y = 0.4 })
+    in let b = cat-pt feet 50.0 0.0 (StillPt { x = 0.0, y = 0.0 })
+    in let c = cat-pt feet 50.0 0.0 (StillPt { x = -1.0, y = 1.0 })
+    in [a.x, a.y, b.x, b.y, c.x, c.y]
+
+  pt-want : List Real
+  pt-want = [125.0, 180.0, 100.0, 200.0, 50.0, 150.0]
+
+ THE LIFT SCALES WITH THE ART. A lift of a fifth raises every point by a fifth of
+ the pixel height -- ten pixels at h = 50, twenty at h = 100 -- and leaves x
+ alone. A lift added after the multiply would raise both by the same fifth of a
+ pixel and this is where they part.
+
+  lift-got : List Real
+  lift-got =
+    let a = cat-pt feet 50.0 0.2 (StillPt { x = 0.5, y = 0.4 })
+    in let b = cat-pt feet 100.0 0.2 (StillPt { x = 0.5, y = 0.4 })
+    in let z = cat-pt feet 50.0 0.0 (StillPt { x = 0.5, y = 0.4 })
+    in [a.x, a.y, z.y - a.y, b.y, a.x - z.x]
+
+  lift-want : List Real
+  lift-want = [125.0, 170.0, 10.0, 140.0, 0.0]
+
+ A whole polygon maps point by point, in order.
+
+  pts-got : List Real
+  pts-got =
+    let ps = cat-pts feet 50.0 0.0 [StillPt { x = 0.0, y = 0.0 }, StillPt { x = 0.5, y = 0.4 }] 0
+    in [ real-from-int (list-length ps),
+         (list-at ps 0).x, (list-at ps 0).y, (list-at ps 1).x, (list-at ps 1).y ]
+
+  pts-want : List Real
+  pts-want = [2.0, 100.0, 200.0, 125.0, 180.0]
+
+Section: The Buffer Guard
+
+ Two hundred and fifty-six, and a longer polygon is dropped rather than
+ shortened.
+
+  many : Integer -> List StillPt
+  many (n) = if n <= 0 then [] else [StillPt { x = 0.0, y = 0.0 }] & many (n - 1)
+
+  poly-of : Integer -> StillPoly
+  poly-of (n) = StillPoly { color = 9, grad = [], pts = many n }
+
+  guard-got : List Integer
+  guard-got =
+    [ max-cat-pts,
+      list-length (cat-poly feet 50.0 0.0 (poly-of 3)),
+      list-length (cat-poly feet 50.0 0.0 (poly-of 256)),
+      list-length (cat-poly feet 50.0 0.0 (poly-of 257)),
+      list-length (cat-poly feet 50.0 0.0 (poly-of 2)) ]
+
+  guard-want : List Integer
+  guard-want = [256, 1, 1, 0, 0]
+
+ It is a flat fill and it keeps its colour.
+
+  solid-got : List Integer
+  solid-got =
+    let c = list-at (cat-poly feet 50.0 0.0 (poly-of 3)) 0
+    in [c.tag, c.color, c.color2, list-length c.geom, list-length c.pts]
+
+  solid-want : List Integer
+  solid-want = [0, 9, 0, 0, 6]
+
+ A list of polygons comes out in array order, which is the painter's order the
+ baker preserved.
+
+  polys-got : List Integer
+  polys-got =
+    [ list-length (cat-polys feet 50.0 0.0 [poly-of 3, poly-of 4, poly-of 300] 0),
+      list-length (cat-polys feet 50.0 0.0 [] 0),
+      list-length (list-at (cat-polys feet 50.0 0.0 [poly-of 3, poly-of 4] 0) 1).pts ]
+
+  polys-want : List Integer
+  polys-want = [2, 0, 8]
+
+Section: Drawing One
+
+ The pixel height is the projected gap between the feet and a point `height`
+ metres above them, so a 1.7-metre cat through a focal of 500 is exactly one
+ pixel at 850 metres -- the boundary, and it still draws.
+
+  drawn : Real, Real -> Integer
+  drawn (forward) (height) = list-length (cat-draw 0.0 forward height 0 0.0 500.0 960.0)
+
+  size-got : List Integer
+  size-got =
+    [ drawn 850.0 1.7,
+      drawn 851.0 1.7,
+      drawn 2000.0 1.7 ]
+
+  size-want : List Integer
+  size-want = [list-length (cat-polys-for 0), 0, 0]
+
+ A pose that draws emits one command per polygon the table holds for it, and the
+ lift does not change how many.
+
+  count-got : List Integer
+  count-got =
+    [ list-length (cat-draw 0.0 100.0 1.7 0 0.0 500.0 960.0),
+      list-length (cat-draw 0.0 100.0 1.7 0 0.3 500.0 960.0),
+      list-length (cat-draw 0.0 100.0 1.7 2 0.0 500.0 960.0) ]
+
+  count-want : List Integer
+  count-want =
+    [ list-length (cat-polys-for 0),
+      list-length (cat-polys-for 0),
+      list-length (cat-polys-for 2) ]
+
+ The table has art for every pose the state machine can name.
+
+  table-got : List Boolean
+  table-got =
+    [ list-length (cat-polys-for 0) > 0,
+      list-length (cat-polys-for 1) > 0,
+      list-length (cat-polys-for 2) > 0,
+      list-length (cat-polys-for 3) > 0,
+      list-length (cat-polys-for 4) > 0,
+      list-length (cat-polys-for 5) > 0,
+      list-length (cat-polys-for 6) > 0 ]
+
+  table-want : List Boolean
+  table-want = [True, True, True, True, True, True, True]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "cd-pt    " pt-got pt-want 0.0)
+    print-line-uni (grade-reals "cd-lift  " lift-got lift-want 0.0)
+    print-line-uni (grade-reals "cd-pts   " pts-got pts-want 0.0)
+    print-line-uni (grade-ints  "cd-guard " guard-got guard-want)
+    print-line-uni (grade-ints  "cd-solid " solid-got solid-want)
+    print-line-uni (grade-ints  "cd-polys " polys-got polys-want)
+    print-line-uni (grade-ints  "cd-size  " size-got size-want)
+    print-line-uni (grade-ints  "cd-count " count-got count-want)
+    print-line-uni (grade-bools "cd-table " table-got table-want)
+  end

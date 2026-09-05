@@ -1,0 +1,246 @@
+Chapter: TruckSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Foreword chapter Maybe
+  cites Safari chapter VehicleLimits
+  cites Safari chapter World
+  cites Safari chapter Truck
+  cites Judge chapter Grade
+
+ Truck: the chase. Where it should be, what turn is coming, and the three rules
+ that move it one frame.
+
+ THE SCHEDULE IS WHERE IT IS AIMING, NOT WHERE IT IS. It closes from five hundred
+ metres ahead down to a hundred by the course end -- not to zero, because the
+ point is a photo finish -- and `truck-next` uses it only as the target the free
+ rule chases. Grading the schedule at both ends and the middle is what pins the
+ lerp; a chapter closing it to zero would look right for most of the course.
+
+ THE ABSENCE OF A TURN IS IN THE TYPE. The zig answers infinity for "no turn" and
+ Codex has no literal for that, so `next-turn` answers a `Maybe Turn` -- and the
+ terminus answers None rather than a turn of zero, which is the case that decides
+ whether the truck brakes as it crosses the finish. Both Nones are graded: past
+ the end of the road, and on a segment that terminates.
+
+ THREE RULES, AND THE FLAG BELONGS TO ONE OF THEM. `braking` is a comparison
+ against the PREVIOUS speed, not against the intent -- so a truck that wants to
+ brake but is already at the caution speed is not braking, and its lights are
+ off. That is the distinction graded at the end.
+
+ We say:
+
+Section: The Constants
+
+  fixed-got : List Real
+  fixed-got = [start-ahead, finish-lead, truck-turn-caution, truck-brake-distance, truck-max-v]
+
+  fixed-want : List Real
+  fixed-want = [500.0, 100.0, 0.8, 60.0, 2.75]
+
+ The chase accelerates a tenth harder than the rider and tops out a tenth faster,
+ which is what lets it stay ahead. Neither product is writable as a literal.
+
+  ratio-got : List Real
+  ratio-got = [truck-chase-accel, truck-max-v, truck-chase-accel / a-accel, truck-max-v / v-max]
+
+  ratio-want : List Real
+  ratio-want = [0.011, 2.75, 1.1, 1.1]
+
+  initial-got : List Real
+  initial-got = [truck-initial.pos, truck-initial.v]
+
+  initial-want : List Real
+  initial-want = [500.0, 0.3]
+
+  initial-flag-got : List Boolean
+  initial-flag-got = [truck-initial.braking]
+
+  initial-flag-want : List Boolean
+  initial-flag-want = [False]
+
+Section: The Schedule
+
+ At the start it wants to be five hundred ahead; at the line, a hundred. Halfway
+ down a thousand-metre course it wants three hundred.
+
+  sched-got : List Real
+  sched-got =
+    [ truck-schedule 0.0 1000.0,
+      truck-schedule 250.0 1000.0,
+      truck-schedule 500.0 1000.0,
+      truck-schedule 1000.0 1000.0,
+      truck-schedule 1000.0 1000.0 - 1000.0,
+      truck-schedule 0.0 1000.0 - 0.0 ]
+
+  sched-want : List Real
+  sched-want = [500.0, 650.0, 800.0, 1100.0, 100.0, 500.0]
+
+Section: The Next Turn
+
+ One segment, five hundred long, with a fifty-degree exit. Anywhere on it the
+ turn is at the far end and the safe speed is the table's.
+
+  one-seg : List Segment
+  one-seg = [segment-at 0]
+
+  turn-dist : List Segment, Real -> Real
+  turn-dist (segs) (pos) =
+    when next-turn segs pos
+     is Just (t) -> t.dist
+     is None -> 0.0 - 1.0
+
+  turn-v : List Segment, Real -> Real
+  turn-v (segs) (pos) =
+    when next-turn segs pos
+     is Just (t) -> t.v-turn
+     is None -> 0.0 - 1.0
+
+  turn-got : List Real
+  turn-got =
+    [ turn-dist one-seg 0.0, turn-dist one-seg 450.0, turn-dist one-seg 499.0,
+      turn-v one-seg 0.0, turn-v one-seg 450.0,
+      turn-speed (list-at one-seg 0).exit-angle ]
+
+  turn-want : List Real
+  turn-want = [500.0, 50.0, 1.0, 0.222, 0.222, 0.222]
+
+ Past the end of the road there is no turn, and neither is there one on the
+ segment that terminates -- a None rather than a turn of zero.
+
+  none-got : List Real
+  none-got =
+    [ turn-dist one-seg 500.0,
+      turn-dist one-seg 900.0,
+      turn-dist [segment-at 18] 0.0,
+      turn-dist [] 0.0 ]
+
+  none-want : List Real
+  none-want = [-1.0, -1.0, -1.0, -1.0]
+
+ A chain of two: the first turn is still the first segment's, and past it the
+ second segment's own.
+
+  two-seg : List Segment
+  two-seg = [segment-at 0, segment-at 1]
+
+  chain-got : List Real
+  chain-got =
+    [ turn-dist two-seg 0.0, turn-dist two-seg 500.0, turn-dist two-seg 800.0,
+      turn-dist two-seg 820.0 ]
+
+  chain-want : List Real
+  chain-want = [500.0, 320.0, 20.0, -1.0]
+
+Section: One Frame
+
+ Behind schedule and far from the turn, it accelerates by the chase rate and
+ moves by the new speed.
+
+  free : TruckState
+  free = truck-next (TruckState { pos = 100.0, v = 0.3, braking = False }) 0.0 one-seg 1000.0
+
+  free-got : List Real
+  free-got = [free.v, free.pos, free.v - 0.3]
+
+  free-want : List Real
+  free-want = [0.311, 100.311, 0.011]
+
+ Ahead of schedule it holds its speed rather than coasting down, and it still
+ moves. At the start the schedule is 500, so 600 is ahead of it and 400 is
+ behind -- both are graded, because the rule is a comparison and it is the only
+ thing separating them.
+
+  ahead : TruckState
+  ahead = truck-next (TruckState { pos = 600.0, v = 0.5, braking = False }) 0.0 one-seg 1000.0
+
+  behind : TruckState
+  behind = truck-next (TruckState { pos = 400.0, v = 0.5, braking = False }) 0.0 one-seg 1000.0
+
+  ahead-got : List Real
+  ahead-got = [ahead.v, ahead.pos, behind.v - ahead.v]
+
+  ahead-want : List Real
+  ahead-want = [0.5, 600.5, 0.011]
+
+ The top speed is a cap and not a target: a truck already at it stays there.
+
+  capped : TruckState
+  capped = truck-next (TruckState { pos = 100.0, v = truck-max-v, braking = False }) 0.0 one-seg 1000.0
+
+  capped-got : List Real
+  capped-got = [capped.v]
+
+  capped-want : List Real
+  capped-want = [2.75]
+
+  free-flag-got : List Boolean
+  free-flag-got = [free.braking, ahead.braking, capped.braking]
+
+  free-flag-want : List Boolean
+  free-flag-want = [False, False, False]
+
+Section: Braking
+
+ Inside the brake distance the kinematic rule takes over, arriving at the turn at
+ four fifths of the safe speed. It is recomputed every frame, so it tracks rather
+ than committing.
+
+  braking : TruckState
+  braking = truck-next (TruckState { pos = 450.0, v = 0.3, braking = False }) 0.0 one-seg 1000.0
+
+  brake-got : List Real
+  brake-got = [braking.v, braking.pos - 450.0]
+
+  brake-want : List Real
+  brake-want = [0.2994154176, 0.2994154176]
+
+  brake-flag-got : List Boolean
+  brake-flag-got = [braking.braking, braking.v < 0.3, braking.v > 0.1776]
+
+  brake-flag-want : List Boolean
+  brake-flag-want = [True, True, True]
+
+ THE LIGHTS ARE OFF WHEN IT IS NOT ACTUALLY SLOWING. A truck already at the
+ caution speed inside the brake zone cannot go slower, so the flag is False even
+ though the braking rule is the one that ran.
+
+  settled : TruckState
+  settled = truck-next (TruckState { pos = 450.0, v = 0.1776, braking = True }) 0.0 one-seg 1000.0
+
+  settled-got : List Boolean
+  settled-got = [settled.braking, settled.v ~0 0.1776]
+
+  settled-want : List Boolean
+  settled-want = [False, True]
+
+ Just outside the brake distance it is still free, and just inside it is not --
+ the boundary is `<=`, so a turn exactly sixty metres off brakes.
+
+  boundary-got : List Boolean
+  boundary-got =
+    [ (truck-next (TruckState { pos = 440.0, v = 0.3, braking = False }) 0.0 one-seg 1000.0).v < 0.3,
+      (truck-next (TruckState { pos = 439.0, v = 0.3, braking = False }) 0.0 one-seg 1000.0).v < 0.3 ]
+
+  boundary-want : List Boolean
+  boundary-want = [True, False]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tk-fixed " fixed-got fixed-want 0.0)
+    print-line-uni (grade-reals "tk-ratio " ratio-got ratio-want 0.000000000001)
+    print-line-uni (grade-reals "tk-init  " initial-got initial-want 0.0)
+    print-line-uni (grade-bools "tk-iflag " initial-flag-got initial-flag-want)
+    print-line-uni (grade-reals "tk-sched " sched-got sched-want 0.0)
+    print-line-uni (grade-reals "tk-turn  " turn-got turn-want 0.0)
+    print-line-uni (grade-reals "tk-none  " none-got none-want 0.0)
+    print-line-uni (grade-reals "tk-chain " chain-got chain-want 0.0)
+    print-line-uni (grade-reals "tk-free  " free-got free-want 0.000000000001)
+    print-line-uni (grade-reals "tk-ahead " ahead-got ahead-want 0.000000000001)
+    print-line-uni (grade-reals "tk-cap   " capped-got capped-want 0.0)
+    print-line-uni (grade-bools "tk-fflag " free-flag-got free-flag-want)
+    print-line-uni (grade-reals "tk-brake " brake-got brake-want 0.000000000001)
+    print-line-uni (grade-bools "tk-bflag " brake-flag-got brake-flag-want)
+    print-line-uni (grade-bools "tk-settle" settled-got settled-want)
+    print-line-uni (grade-bools "tk-bound " boundary-got boundary-want)
+  end

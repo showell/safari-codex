@@ -10,4 +10,15 @@
 #
 # An override is SAFARI_COBBLESTONE, a name nothing else exports -- which is the
 # property CODEX_ROOT lacks, and the reason pins.py SETS rather than defaults.
+#
+# THE PATH IS THE PIN AND THE COMMIT IS NOT, deliberately: the tree is a detached
+# worktree nobody else moves, so what it holds is checkable with `git -C <path>
+# log -1` and does not need restating in two places. Recorded here only as
+# orientation for a reader: it currently holds `u56-candidate-saturday`, and
+# moving it from U53 is what exposed the quire collision below.
+#
+# UPSTREAM NOW REGISTERS `Safari`, `Judge` AND `Gold` ITSELF. Update 55 took this
+# port into the depot as apps/safari/port. Both bundlers give the names below the
+# last word -- they mean THIS project's directories -- and both say so on every
+# bundle rather than resolving somewhere else in silence.
 cobblestone ~/showell_repos/cobblestone-safari

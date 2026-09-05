@@ -10,10 +10,10 @@
 # zig here and running `zig build-exe` on it would get a working binary while
 # skipping the check that says it is the right one.
 #
-# The worktree is the whole point: `codexzig-safari` on branch `safari` is not
-# the shared checkout, so nothing this project runs on can be rebuilt out from
-# under it by work happening next door. Same for the Cobblestone it is built
-# from. PROVENANCE.md names both.
+# The worktree is the whole point: `codexzig-safari` is not the transpiler's
+# active line, so nothing this project runs on can be rebuilt out from under it
+# by work happening next door. Same for the Cobblestone it is built from.
+# pins.tsv names all three trees and PROVENANCE.md explains them.
 #
 # This script does NOT run build.py on the happy path. build.py's own guard is
 # content-addressed -- generated/local/codexzig.fp holds the sha of the zig the
@@ -21,7 +21,8 @@
 # seconds a fixed-point re-check would cost do not belong in a sweep that runs
 # it once per module.
 set -euo pipefail
-tree="${CODEXZIG_TREE:-$HOME/showell_repos/codexzig-safari}"
+pin=$(sed 's/#.*//' "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/pins.tsv" | awk '$1=="codexzig"{print $2}')
+tree="${CODEXZIG_TREE:-${pin/#\~/$HOME}}"
 bin="$tree/generated/local/codexzig"
 src="$tree/generated/codexzig.qemu.zig"
 

@@ -42,7 +42,7 @@ fn list_tail_loop(comptime T17: type, xs: *CxList(T17), i_: i64, len_: i64, acc_
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -54,7 +54,7 @@ fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: 
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -67,11 +67,11 @@ fn real_max(a_: f64, b_: f64) f64 {
 }
 
 fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
-    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j +% 1))));
+    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j + 1))));
 }
 
 fn merge_items(a_: *CxList(Item), b_: *CxList(Item), i_: i64, j: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
+    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j + 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ + 1), j)))));
 }
 
 fn sort_tie() f64 {
@@ -97,7 +97,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -108,7 +108,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -121,11 +121,11 @@ fn mixed() *CxList(Item) {
 }
 
 fn fwds(xs: *CxList(Item), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(xs, i_).fwd }), fwds(xs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(xs, i_).fwd }), fwds(xs, (i_ + 1))));
 }
 
 fn idxs(xs: *CxList(Item), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(xs, i_).i_ }), idxs(xs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(xs, i_).i_ }), idxs(xs, (i_ + 1))));
 }
 
 fn kind_code(k_: Kind) i64 {
@@ -133,7 +133,7 @@ fn kind_code(k_: Kind) i64 {
 }
 
 fn kinds(xs: *CxList(Item), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ kind_code(cx_list_at(xs, i_).kind) }), kinds(xs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(xs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ kind_code(cx_list_at(xs, i_).kind) }), kinds(xs, (i_ + 1))));
 }
 
 fn order_want() *CxList(f64) {
@@ -238,12 +238,10 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
 // payloads and both signed zeroes come through exactly as they went in.
 fn cx_real_to_bits(v: f64) i64 {
     return @bitCast(v);

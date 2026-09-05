@@ -2,7 +2,9 @@
 """Run every spec, and PROVE EACH ONE CAN FAIL.
 
     ./spec/run.sh            the Rust interpreter alone
-    ./spec/run.sh --zig      also transpile and build each spec, and diff the arms
+    ./spec/run.sh --zig      also transpile each spec to zig, and diff the arms
+    ./spec/run.sh --wasm     also emit each spec as wasm, and diff the arms
+    ./spec/run.sh --arms     all three
 
 A spec is a self-checking Codex chapter: it carries its own expected values as
 literals and prints its own verdict, so any arm that runs Codex renders that
@@ -153,13 +155,70 @@ def zig_arm(name, mod, out, build, spec):
            "\n  zig:  " + zout.replace("\n", " | ")
 
 
+def wasm_arm(name, mod, out, build, spec):
+    """THE THIRD ARM, and it shares nothing with the second below the source.
+
+    Codex -> IR -> wasm, through plugs/wasm's own emitter: it never sees zig,
+    where the zig arm is zig all the way down. So the three arms are a tree
+    walker, a zig program and a wasm module, and a value all three agree on has
+    been computed three different ways from one text.
+
+    The binary is PINNED, not built here -- see harness/build_codexwasm.sh for
+    why this project stopped building its own.
+    """
+    unit = build / f"{mod}-unit.codex"
+    if not unit.is_file():
+        r = subprocess.run([BUNDLE, "one", str(spec), str(unit)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return r.stderr.strip() or "bundling failed"
+    codexwasm = subprocess.run([str(ROOT / "harness" / "build_codexwasm.sh")],
+                               capture_output=True, text=True)
+    if codexwasm.returncode != 0:
+        return codexwasm.stderr.strip() or "no codexwasm"
+    # The module comes out on STDERR and the diagnostics on stdout, which is
+    # codexzig's convention and inherited from it rather than chosen.
+    wat = build / f"{mod}.wat"
+    with open(unit) as fi, open(wat, "w") as fe, open(build / f"{mod}.wdiag", "w") as fo:
+        subprocess.run([codexwasm.stdout.strip()], stdin=fi, stderr=fe, stdout=fo)
+    if not wat.read_text().startswith("(module"):
+        first = (wat.read_text().splitlines() or ["(no output)"])[0]
+        return f"codexwasm emitted no module: {first[:120]}"
+    mod_wasm = build / f"{mod}.wasm"
+    if subprocess.run(["node", "--no-warnings", str(ROOT / "harness/wat2wasm.mjs"),
+                       str(wat), str(mod_wasm)]).returncode:
+        return "wat2wasm failed"
+    # wasmtime rather than node: node's WASI killed six of the judge's modules
+    # with a SIGSEGV at a line count that moved between runs, and a bed whose
+    # answer moves cannot referee a comparison. harness/wasm_arm.py has the
+    # incident; the stack size is the one plugs/wasm's own e2e bed uses.
+    stack = os.environ.get("SAFARI_WASM_STACK", "16777216")
+    w = subprocess.run([str(ROOT / "tools/bin/wasmtime"), "-W", f"max-wasm-stack={stack}",
+                        str(mod_wasm)], capture_output=True, text=True)
+    if w.returncode != 0:
+        return (f"THE MODULE DIED: exited {w.returncode} after "
+                f"{len((w.stdout + w.stderr).splitlines())} lines\n" + w.stdout + w.stderr)
+    wout = (w.stdout + w.stderr).strip()
+    if wout == out:
+        return None
+    known = arm_gaps().get(name)
+    if known:
+        return KNOWN + f"wasm differs -- issue {known[0]}: {known[1]}"
+    return "THE ARMS DISAGREE\n  rust: " + out.replace("\n", " | ") + \
+           "\n  wasm: " + wout.replace("\n", " | ")
+
+
 def main():
-    want_zig = "--zig" in sys.argv[1:]
-    if set(sys.argv[1:]) - {"--zig"}:
-        raise SystemExit("usage: run.sh [--zig]")
+    flags = set(sys.argv[1:])
+    want_zig = "--zig" in flags
+    want_wasm = "--wasm" in flags
+    if "--arms" in flags:
+        want_zig = want_wasm = True
+    if flags - {"--zig", "--wasm", "--arms"}:
+        raise SystemExit("usage: run.sh [--zig] [--wasm] [--arms]")
     if not os.access(BIN, os.X_OK):
         raise SystemExit(f"no codexrun at {BIN}; set CODEXRUN")
-    if want_zig and not os.access(BUNDLE, os.X_OK):
+    if (want_zig or want_wasm) and not os.access(BUNDLE, os.X_OK):
         raise SystemExit(f"no bundle at {BUNDLE}; set CODEXBUNDLE")
 
     build = ROOT / "build"
@@ -182,6 +241,8 @@ def main():
         why = check(out, floor[name])
         if why is None and want_zig:
             why = zig_arm(name, name.lower(), out, build, spec)
+        if why is None and want_wasm:
+            why = wasm_arm(name, name.lower(), out, build, spec)
         if why is not None and why.startswith(KNOWN):
             print(f"{name:18s} rust ok; {why[len(KNOWN):]}")
             continue
@@ -189,7 +250,8 @@ def main():
             print(f"{name}: {why}", file=sys.stderr)
             failed += 1
             continue
-        print(f"{name:18s} {'ok, both arms' if want_zig else ' '.join(out.split(chr(10)))}")
+        arms = ["rust"] + (["zig"] if want_zig else []) + (["wasm"] if want_wasm else [])
+        print(f"{name:18s} {'ok on ' + ', '.join(arms) if len(arms) > 1 else ' '.join(out.split(chr(10)))}")
 
     print()
     if failed:

@@ -11,6 +11,14 @@
 # An override is SAFARI_COBBLESTONE, a name nothing else exports -- which is the
 # property CODEX_ROOT lacks, and the reason pins.py SETS rather than defaults.
 #
+# THE TWO TRANSPILERS ARE PINS NOW TOO, and that is a change of posture rather
+# than a tidy-up. This project used to BUILD its own wasm transpiler, out of the
+# ladder's chapter list and a local copy of the harness. codex-zig-transpiler and
+# codex-wasm-transpiler now each exist to be a fixed point -- the emitter
+# emitting the same bytes for its own source on two roads -- which is a stronger
+# claim about a binary than this project could make about one it assembled. So
+# safari PULLS EXECUTABLES and builds neither.
+#
 # THE PATH IS THE PIN AND THE COMMIT IS NOT, deliberately: the tree is a detached
 # worktree nobody else moves, so what it holds is checkable with `git -C <path>
 # log -1` and does not need restating in two places. Recorded here only as
@@ -22,3 +30,5 @@
 # last word -- they mean THIS project's directories -- and both say so on every
 # bundle rather than resolving somewhere else in silence.
 cobblestone ~/showell_repos/cobblestone-safari
+codexzig    ~/showell_repos/codexzig-safari
+codexwasm   ~/showell_repos/codexwasm-safari

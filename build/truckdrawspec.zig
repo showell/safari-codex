@@ -199,7 +199,7 @@ fn list_tail_loop(comptime T19: type, xs: *CxList(T19), i_: i64, len_: i64, acc_
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -211,7 +211,7 @@ fn list_take_loop(comptime T21: type, xs: *CxList(T21), i_: i64, n_: i64, acc_: 
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -236,7 +236,7 @@ fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
     var _tl_s = s_;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
     }
 }
 
@@ -357,7 +357,7 @@ fn truck_box(center_along: f64, hw: f64) TruckBox {
 }
 
 fn sum_fwd(ps: *CxList(Vec3), i_: i64) f64 {
-    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).forward + sum_fwd(ps, (i_ +% 1)))));
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).forward + sum_fwd(ps, (i_ + 1)))));
 }
 
 fn truck_face(color: i64, ps: *CxList(Vec3)) TruckFace {
@@ -369,11 +369,11 @@ fn truck_axles(bx: TruckBox) *CxList(f64) {
 }
 
 fn face_rest(ys: *CxList(TruckFace), j: i64) *CxList(TruckFace) {
-    return (if ((j >= cx_list_len(ys))) cx_ll_empty(TruckFace) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(ys, j) }), face_rest(ys, (j +% 1))));
+    return (if ((j >= cx_list_len(ys))) cx_ll_empty(TruckFace) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(ys, j) }), face_rest(ys, (j + 1))));
 }
 
 fn merge_faces(a_: *CxList(TruckFace), b_: *CxList(TruckFace), i_: i64, j: i64) *CxList(TruckFace) {
-    return (if ((i_ >= cx_list_len(a_))) face_rest(b_, j) else (if ((j >= cx_list_len(b_))) face_rest(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(b_, j) }), merge_faces(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(a_, i_) }), merge_faces(a_, b_, (i_ +% 1), j)))));
+    return (if ((i_ >= cx_list_len(a_))) face_rest(b_, j) else (if ((j >= cx_list_len(b_))) face_rest(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(b_, j) }), merge_faces(a_, b_, i_, (j + 1))) else cx_ll_concat(cx_ll_of(TruckFace, &[_]TruckFace{ cx_list_at(a_, i_) }), merge_faces(a_, b_, (i_ + 1), j)))));
 }
 
 fn sort_faces(xs: *CxList(TruckFace)) *CxList(TruckFace) {
@@ -383,7 +383,7 @@ fn sort_faces(xs: *CxList(TruckFace)) *CxList(TruckFace) {
 fn any_behind(ps: *CxList(Vec3), i_: i64) bool {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(ps))) { return false; } else { if ((cx_list_at(ps, _tl_i).forward <= near())) { return true; } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+        if ((_tl_i >= cx_list_len(ps))) { return false; } else { if ((cx_list_at(ps, _tl_i).forward <= near())) { return true; } else { { const _tj2_1 = (_tl_i + 1); _tl_i = _tj2_1; continue; } } }
     }
 }
 
@@ -392,15 +392,15 @@ fn pt_dist(p_: ScreenPt, c_: ScreenPt) f64 {
 }
 
 fn max_radius(_arg_sp: *CxList(ScreenPt), c_: ScreenPt, i_: i64) f64 {
-    return @as(f64, (if ((i_ >= cx_list_len(_arg_sp))) @as(f64, @bitCast(@as(i64, 0))) else real_max(pt_dist(cx_list_at(_arg_sp, i_), c_), max_radius(_arg_sp, c_, (i_ +% 1)))));
+    return @as(f64, (if ((i_ >= cx_list_len(_arg_sp))) @as(f64, @bitCast(@as(i64, 0))) else real_max(pt_dist(cx_list_at(_arg_sp, i_), c_), max_radius(_arg_sp, c_, (i_ + 1)))));
 }
 
 fn sum_x(ps: *CxList(ScreenPt), i_: i64) f64 {
-    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).x + sum_x(ps, (i_ +% 1)))));
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).x + sum_x(ps, (i_ + 1)))));
 }
 
 fn sum_y(ps: *CxList(ScreenPt), i_: i64) f64 {
-    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).y + sum_y(ps, (i_ +% 1)))));
+    return @as(f64, (if ((i_ >= cx_list_len(ps))) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ps, i_).y + sum_y(ps, (i_ + 1)))));
 }
 
 fn glow_pt(cx: f64, cy: f64, rad: f64, i_: i64) ScreenPt {
@@ -408,7 +408,7 @@ fn glow_pt(cx: f64, cy: f64, rad: f64, i_: i64) ScreenPt {
 }
 
 fn glow_circle(cx: f64, cy: f64, rad: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= glow_sides())) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ glow_pt(cx, cy, rad, i_) }), glow_circle(cx, cy, rad, (i_ +% 1))));
+    return (if ((i_ >= glow_sides())) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ glow_pt(cx, cy, rad, i_) }), glow_circle(cx, cy, rad, (i_ + 1))));
 }
 
 fn g_abs(x: f64) f64 {
@@ -422,7 +422,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -433,7 +433,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -448,7 +448,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -525,7 +525,7 @@ fn mark(c_: i64, f: f64) TruckFace {
 }
 
 fn colours_of(fs: *CxList(TruckFace), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(fs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(fs, i_).color }), colours_of(fs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(fs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(fs, i_).color }), colours_of(fs, (i_ + 1))));
 }
 
 fn tied() *CxList(TruckFace) {
@@ -658,6 +658,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -679,16 +687,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

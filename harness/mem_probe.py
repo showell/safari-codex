@@ -223,7 +223,7 @@ def build(arm, force=False):
     back = "../../safari-codex"
     rel = f"{back}/build/memprobe"
     subprocess.run([PWSH, "-NoProfile", "-Command",
-                    f"& '{LADDER}/ast/bundle_codexir.ps1' "
+                    f"& '{LADDER}/src/bundle_codexir.ps1' "
                     f"-Harness '{rel}/{chapter.name}' -OutName '{rel}/{subject.name}' "
                     f"-PlugName 'prof_{arm}-subject' "
                     f"-MoreChapters @('codex/plugs/common/IRTextParser.codex','{spec['plug']}')"],

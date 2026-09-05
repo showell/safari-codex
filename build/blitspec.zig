@@ -137,7 +137,7 @@ fn span_lo(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) < _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) < _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
     }
 }
 
@@ -145,7 +145,7 @@ fn span_hi(xs: *CxList(f64), i_: i64, acc_: f64) f64 {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) > _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+        if ((_tl_i >= cx_list_len(xs))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 2); const _tj1_2 = (if ((cx_list_at(xs, _tl_i) > _tl_acc)) cx_list_at(xs, _tl_i) else _tl_acc); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
     }
 }
 
@@ -162,7 +162,7 @@ fn expand_cmd(c_: DrawCmd) *CxList(DrawCmd) {
 }
 
 fn blit_expand(cs: *CxList(DrawCmd), i_: i64) *CxList(DrawCmd) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(DrawCmd) else cx_ll_concat(expand_cmd(cx_list_at(cs, i_)), blit_expand(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(DrawCmd) else cx_ll_concat(expand_cmd(cx_list_at(cs, i_)), blit_expand(cs, (i_ + 1))));
 }
 
 fn g_abs(x: f64) f64 {
@@ -176,7 +176,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -187,7 +187,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -202,7 +202,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -396,6 +396,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -417,16 +425,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

@@ -71,7 +71,7 @@ fn list_tail_loop(comptime T17: type, xs: *CxList(T17), i_: i64, len_: i64, acc_
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -83,7 +83,7 @@ fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: 
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -100,7 +100,7 @@ fn project(_arg_p: Vec3, cf: f64, view_w: f64) ScreenPt {
 }
 
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const _v1_p = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ _v1_p.x, _v1_p.y }), flatten_screen(ps, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_1 = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_1.x, p_1.y }), flatten_screen(ps, (i_ + 1))); });
 }
 
 fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
@@ -166,7 +166,7 @@ fn less_xy(a_: ScreenPt, b_: ScreenPt) bool {
 fn hull_insert(_arg_p: ScreenPt, xs: *CxList(ScreenPt), i_: i64) *CxList(ScreenPt) {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(xs))) { return cx_ll_concat(xs, cx_ll_of(ScreenPt, &[_]ScreenPt{ _arg_p })); } else { if (less_xy(_arg_p, cx_list_at(xs, _tl_i))) { return cx_ll_concat(cx_ll_concat(list_take(ScreenPt, xs, _tl_i), cx_ll_of(ScreenPt, &[_]ScreenPt{ _arg_p })), list_tail_loop(ScreenPt, xs, (if ((_tl_i > cx_list_len(xs))) cx_list_len(xs) else _tl_i), cx_list_len(xs), cx_ll_empty(ScreenPt))); } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(xs))) { return cx_ll_concat(xs, cx_ll_of(ScreenPt, &[_]ScreenPt{ _arg_p })); } else { if (less_xy(_arg_p, cx_list_at(xs, _tl_i))) { return cx_ll_concat(cx_ll_concat(list_take(ScreenPt, xs, _tl_i), cx_ll_of(ScreenPt, &[_]ScreenPt{ _arg_p })), list_tail_loop(ScreenPt, xs, (if ((_tl_i > cx_list_len(xs))) cx_list_len(xs) else _tl_i), cx_list_len(xs), cx_ll_empty(ScreenPt))); } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -174,14 +174,14 @@ fn sort_pts(src: *CxList(ScreenPt), i_: i64, acc_: *CxList(ScreenPt)) *CxList(Sc
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= cx_list_len(src))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_2 = hull_insert(cx_list_at(src, _tl_i), _tl_acc, 0); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
+        if ((_tl_i >= cx_list_len(src))) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_2 = hull_insert(cx_list_at(src, _tl_i), _tl_acc, 0); _tl_i = _tj1_1; _tl_acc = _tj1_2; continue; } }
     }
 }
 
 fn hull_trim(hull: *CxList(ScreenPt), _arg_p: ScreenPt) *CxList(ScreenPt) {
     var _tl_hull = hull;
     while (true) {
-        const n_: i64 = cx_list_len(_tl_hull); if ((n_ < 2)) { return _tl_hull; } else { const a_ = cx_list_at(_tl_hull, (n_ -% 2)); const b_ = cx_list_at(_tl_hull, (n_ -% 1)); const cr: f64 = (((b_.x - a_.x) * (_arg_p.y - a_.y)) - ((b_.y - a_.y) * (_arg_p.x - a_.x))); if ((cr <= @as(f64, @bitCast(@as(i64, 0))))) { { const _tj6_0 = list_take(ScreenPt, _tl_hull, (n_ -% 1)); _tl_hull = _tj6_0; continue; } } else { return _tl_hull; } }
+        const n_: i64 = cx_list_len(_tl_hull); if ((n_ < 2)) { return _tl_hull; } else { const a_ = cx_list_at(_tl_hull, (n_ - 2)); const b_ = cx_list_at(_tl_hull, (n_ - 1)); const cr: f64 = (((b_.x - a_.x) * (_arg_p.y - a_.y)) - ((b_.y - a_.y) * (_arg_p.x - a_.x))); if ((cr <= @as(f64, @bitCast(@as(i64, 0))))) { { const _tj6_0 = list_take(ScreenPt, _tl_hull, (n_ - 1)); _tl_hull = _tj6_0; continue; } } else { return _tl_hull; } }
     }
 }
 
@@ -189,7 +189,7 @@ fn lower_chain(ps: *CxList(ScreenPt), i_: i64, hull: *CxList(ScreenPt)) *CxList(
     var _tl_i = i_;
     var _tl_hull = hull;
     while (true) {
-        if ((_tl_i >= cx_list_len(ps))) { return _tl_hull; } else { const _v1_p = cx_list_at(ps, _tl_i); { const _tj2_1 = (_tl_i +% 1); const _tj2_2 = cx_ll_concat(hull_trim(_tl_hull, _v1_p), cx_ll_of(ScreenPt, &[_]ScreenPt{ _v1_p })); _tl_i = _tj2_1; _tl_hull = _tj2_2; continue; } }
+        if ((_tl_i >= cx_list_len(ps))) { return _tl_hull; } else { const p_1 = cx_list_at(ps, _tl_i); { const _tj2_1 = (_tl_i + 1); const _tj2_2 = cx_ll_concat(hull_trim(_tl_hull, p_1), cx_ll_of(ScreenPt, &[_]ScreenPt{ p_1 })); _tl_i = _tj2_1; _tl_hull = _tj2_2; continue; } }
     }
 }
 
@@ -197,12 +197,12 @@ fn upper_chain(ps: *CxList(ScreenPt), i_: i64, hull: *CxList(ScreenPt)) *CxList(
     var _tl_i = i_;
     var _tl_hull = hull;
     while (true) {
-        if ((_tl_i < 0)) { return _tl_hull; } else { const _v1_p = cx_list_at(ps, _tl_i); { const _tj2_1 = (_tl_i -% 1); const _tj2_2 = cx_ll_concat(hull_trim(_tl_hull, _v1_p), cx_ll_of(ScreenPt, &[_]ScreenPt{ _v1_p })); _tl_i = _tj2_1; _tl_hull = _tj2_2; continue; } }
+        if ((_tl_i < 0)) { return _tl_hull; } else { const p_1 = cx_list_at(ps, _tl_i); { const _tj2_1 = (_tl_i - 1); const _tj2_2 = cx_ll_concat(hull_trim(_tl_hull, p_1), cx_ll_of(ScreenPt, &[_]ScreenPt{ p_1 })); _tl_i = _tj2_1; _tl_hull = _tj2_2; continue; } }
     }
 }
 
 fn convex_hull_pts(ps: *CxList(ScreenPt)) *CxList(ScreenPt) {
-    return b0: { const n_: i64 = cx_list_len(ps); break :b0 (if ((n_ < 3)) ps else b2: { const sorted = sort_pts(ps, 0, cx_ll_empty(ScreenPt)); break :b2 b3: { const lo = lower_chain(sorted, 0, cx_ll_empty(ScreenPt)); break :b3 b4: { const up = upper_chain(sorted, (n_ -% 1), cx_ll_empty(ScreenPt)); break :b4 cx_ll_concat(list_take(ScreenPt, lo, (cx_list_len(lo) -% 1)), list_take(ScreenPt, up, (cx_list_len(up) -% 1))); }; }; }); };
+    return b0: { const n_: i64 = cx_list_len(ps); break :b0 (if ((n_ < 3)) ps else b2: { const sorted = sort_pts(ps, 0, cx_ll_empty(ScreenPt)); break :b2 b3: { const lo = lower_chain(sorted, 0, cx_ll_empty(ScreenPt)); break :b3 b4: { const up = upper_chain(sorted, (n_ - 1), cx_ll_empty(ScreenPt)); break :b4 cx_ll_concat(list_take(ScreenPt, lo, (cx_list_len(lo) - 1)), list_take(ScreenPt, up, (cx_list_len(up) - 1))); }; }; }); };
 }
 
 fn g_abs(x: f64) f64 {
@@ -216,7 +216,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -227,7 +227,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -441,12 +441,10 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
 // payloads and both signed zeroes come through exactly as they went in.
 fn cx_real_to_bits(v: f64) i64 {
     return @bitCast(v);

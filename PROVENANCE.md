@@ -13,7 +13,8 @@ with the commit it came from written down and a script to re-copy.
 | what | where | how |
 |---|---|---|
 | the language | `~/showell_repos/cobblestone-safari` `safari-u56` | worktree of `NewRepository` |
-| the transpiler | `~/showell_repos/codexzig-safari` `safari` | worktree of `codex-zig-transpiler` |
+| the zig transpiler | `~/showell_repos/codexzig-safari` `safari-u56` | worktree of `codex-zig-transpiler` |
+| the wasm transpiler | `~/showell_repos/codexwasm-safari` `safari-u56` | worktree of `codex-wasm-transpiler` |
 | the game | `HISTORICAL_WASM_ROOT/` | copied, `./harness/refresh_game.sh` |
 | the chapter walk | `harness/cite_resolve.py` | copied, one local change |
 | the guest driver | still imported from the ladder | **and it should stay that way** — see below |
@@ -53,13 +54,17 @@ now give `quires.tsv` the last word and both print `SHADOWED:` on every bundle
 (rust-codex-compiler 6c18f73). Two gates caught it and neither was the one
 looking for a bundler bug.
 
-**The arms do not share a pin, and after this move they no longer agree.**
-`codexzig-safari` was built from `cobblestone-safari` at `9632bb87` -- the U53
-tree -- and it still is. That is sound for the spec suite, where the point is
-two independent implementations compiling the SAME bundled text, and the text
-both now get comes from this pin. It is not sound for anything that reads the
-transpiler's own subject as current; the section below records what it was built
-from, and that record is still accurate.
+**ALL THREE PINS ARE AT THE u56 CANDIDATE NOW, and the two transpilers are
+PULLED rather than built.** `codexzig-safari` and `codexwasm-safari` each carry a
+binary produced by its own project's `build.py` -- nine stages ending in a fixed
+point, the emitter emitting the same bytes for its own source on two roads --
+which is a stronger claim about a binary than this project could make about one
+it assembled. Each is a worktree on `safari-u56` so the active line cannot move
+under us, and `harness/build_codex{zig,wasm}.sh` resolve them through pins.tsv,
+check the fingerprint, and REFUSE rather than build.
+
+This project used to build its own wasm transpiler and no longer does; see
+`harness/build_codexwasm.sh` for the three reasons that stopped being right.
 
 ## The transpiler: `codexzig-safari`, branch `safari`
 

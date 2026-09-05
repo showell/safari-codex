@@ -30,7 +30,7 @@ fn map_list_loop(comptime T25: type, comptime T26: type, f: CxFn1(T25, T26), xs:
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i == len_)) { return _tl_acc; } else { { const _tj1_2 = (_tl_i +% 1); const _tj1_4 = cx_ll_push(_tl_acc, f.call(f.ctx, cx_list_at(xs, _tl_i))); _tl_i = _tj1_2; _tl_acc = _tj1_4; continue; } }
+        if ((_tl_i == len_)) { return _tl_acc; } else { { const _tj1_2 = (_tl_i + 1); const _tj1_4 = cx_ll_push(_tl_acc, f.call(f.ctx, cx_list_at(xs, _tl_i))); _tl_i = _tj1_2; _tl_acc = _tj1_4; continue; } }
     }
 }
 
@@ -43,7 +43,7 @@ fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
     var _tl_s = s_;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
     }
 }
 
@@ -99,7 +99,7 @@ fn atan_halve(t: f64, n_: i64) f64 {
     var _tl_t = t;
     var _tl_n = n_;
     while (true) {
-        if ((_tl_n <= 0)) { return _tl_t; } else { { const _tj1_0 = (_tl_t / (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + real_sqrt((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (_tl_t * _tl_t))))); const _tj1_1 = (_tl_n -% 1); _tl_t = _tj1_0; _tl_n = _tj1_1; continue; } }
+        if ((_tl_n <= 0)) { return _tl_t; } else { { const _tj1_0 = (_tl_t / (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + real_sqrt((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (_tl_t * _tl_t))))); const _tj1_1 = (_tl_n - 1); _tl_t = _tj1_0; _tl_n = _tj1_1; continue; } }
     }
 }
 
@@ -126,7 +126,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -155,7 +155,7 @@ fn atan_want() *CxList(f64) {
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(grade_reals("\x0e\x49\x13\x11\x12\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return r_sin(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, ang()), sin_want(), @as(f64, @bitCast(@as(i64, 4502148214488346440))))); _ = cx_print_line(grade_reals("\x0e\x49\x18\x10\x13\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return r_cos(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, ang()), cos_want(), @as(f64, @bitCast(@as(i64, 4506651814115716936))))); _ = cx_print_line(grade_reals("\x0e\x49\x0f\x0e\x0f\x12", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return r_atan(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, atan_in()), atan_want(), @as(f64, @bitCast(@as(i64, 4382569440205035030))))); break :b0; };
+    return b0: { _ = cx_print_line(grade_reals("\x0e\x49\x13\x11\x12\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return r_sin(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, ang()), sin_want(), @as(f64, @bitCast(@as(i64, 4502148214488346440))))); _ = cx_print_line(grade_reals("\x0e\x49\x18\x10\x13\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return r_cos(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, ang()), cos_want(), @as(f64, @bitCast(@as(i64, 4506651814115716936))))); _ = cx_print_line(grade_reals("\x0e\x49\x0f\x0e\x0f\x12", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return r_atan(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, atan_in()), atan_want(), @as(f64, @bitCast(@as(i64, 4382569440205035030))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -219,6 +219,14 @@ fn cx_ll_of(comptime T: type, vs: []const T) *CxList(T) {
     l.items.appendSliceAssumeCapacity(vs);
     return l;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -240,16 +248,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

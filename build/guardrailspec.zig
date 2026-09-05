@@ -72,7 +72,7 @@ fn list_take_loop(comptime T19: type, xs: *CxList(T19), i_: i64, n_: i64, acc_: 
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -85,7 +85,7 @@ fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
     var _tl_s = s_;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
     }
 }
 
@@ -142,7 +142,7 @@ fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ + 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ + 1))) }), bars(path_, (i_ + 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
@@ -150,11 +150,11 @@ fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
 }
 
 fn post_quad(path_: *CxList(RiderPt), i_: i64) RailPoly {
-    return b0: { const n_: i64 = cx_list_len(path_); break :b0 b1: { const ia: i64 = @as(i64, (if ((i_ == 0)) 0 else (i_ -% 1))); break :b1 b2: { const ib: i64 = (if (((i_ +% 1) >= n_)) (n_ -% 1) else (i_ +% 1)); break :b2 b3: { const a_ = cx_list_at(path_, ia); break :b3 b4: { const b_ = cx_list_at(path_, ib); break :b4 b5: { const dr: f64 = (b_.right - a_.right); break :b5 b6: { const df: f64 = (b_.forward - a_.forward); break :b6 b7: { const raw_: f64 = real_sqrt(((dr * dr) + (df * df))); break :b7 b8: { const run: f64 = @as(f64, (if ((raw_ == @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b8 b9: { const ox: f64 = ((dr / run) * half_post()); break :b9 b10: { const ofwd: f64 = ((df / run) * half_post()); break :b10 post_box(cx_list_at(path_, i_), ox, ofwd); }; }; }; }; }; }; }; }; }; }; };
+    return b0: { const n_: i64 = cx_list_len(path_); break :b0 b1: { const ia: i64 = @as(i64, (if ((i_ == 0)) 0 else (i_ - 1))); break :b1 b2: { const ib: i64 = (if (((i_ + 1) >= n_)) (n_ - 1) else (i_ + 1)); break :b2 b3: { const a_ = cx_list_at(path_, ia); break :b3 b4: { const b_ = cx_list_at(path_, ib); break :b4 b5: { const dr: f64 = (b_.right - a_.right); break :b5 b6: { const df: f64 = (b_.forward - a_.forward); break :b6 b7: { const raw_: f64 = real_sqrt(((dr * dr) + (df * df))); break :b7 b8: { const run: f64 = @as(f64, (if ((raw_ == @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b8 b9: { const ox: f64 = ((dr / run) * half_post()); break :b9 b10: { const ofwd: f64 = ((df / run) * half_post()); break :b10 post_box(cx_list_at(path_, i_), ox, ofwd); }; }; }; }; }; }; }; }; }; }; };
 }
 
 fn posts(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if ((i_ >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ post_quad(path_, i_) }), posts(path_, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ post_quad(path_, i_) }), posts(path_, (i_ + 1))));
 }
 
 fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
@@ -172,7 +172,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -183,7 +183,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -357,22 +357,20 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
 // rounded above it -- so the two arms agree at every magnitude.
 fn cx_real_from_int(n: i64) f64 {
     return @floatFromInt(n);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

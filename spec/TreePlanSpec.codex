@@ -1,0 +1,165 @@
+Chapter: TreePlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter Trees
+  cites Safari chapter World
+  cites Safari chapter DepthSort
+  cites Safari chapter TreePlan
+  cites Judge chapter Grade
+
+ TreePlan: walk the chain, place every tree that survives two culls, and hand the
+ survivors to the sort.
+
+ TWO CULLS, AND THEY ARE NOT THE SAME REFUSAL. A tree at or behind the near plane
+ is not in front of the rider at all; a tree in front but under two pixels tall is
+ there and not worth a polygon. They are graded separately, because collapsing
+ them into one distance test would pass any check that only counted survivors on
+ a normal frame -- the two disagree only at the extremes.
+
+ SCENERY CULLS ON THE LIVE FOCAL AND CRITTERS DO NOT, which the chapter says in
+ prose and is the reason the focal is a parameter here. Passing a small focal is
+ how the size cull is reached without moving anything: at a focal of 1 a
+ five-metre tree six metres away is under two pixels, and the whole segment
+ vanishes.
+
+ THE COUNTS COME FROM THE ROUTE. Segment 0 is 500 metres and fills 14 pairs -- 28
+ trees from six metres in, every thirty, stopping eighty-five short of the end.
+ Moving the rider 100 metres up it puts the first four pairs behind him, which is
+ 20 survivors, and that arithmetic is the test.
+
+ We say:
+
+Section: The Chain
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  origin : Pose
+  origin = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  up-road : Pose
+  up-road = Pose { along = 100.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  planted-got : List Integer
+  planted-got =
+    [ list-length (list-at segs 0).trees,
+      list-length (list-at segs 1).trees,
+      list-length (list-at segs 2).trees,
+      max-vis-trees ]
+
+  planted-want : List Integer
+  planted-want = [28, 16, 22, 640]
+
+Section: One Tree
+
+ At the origin looking straight down the road, a tree's depth is its along and
+ its right is its across -- the half-width shifts it to from-the-left and the
+ rider transform shifts it back.
+
+  one : List TreeItem
+  one = place-tree segs chain origin 0 500.0 2.0 (Tree { along = 120.0, across = 3.5, color = 1858082, height = 5.85 })
+
+  one-got : List Real
+  one-got = [(list-at one 0).right, (list-at one 0).fwd, (list-at one 0).height]
+
+  one-want : List Real
+  one-want = [3.5, 120.0, 5.85]
+
+  one-colour-got : List Integer
+  one-colour-got = [list-length one, (list-at one 0).color]
+
+  one-colour-want : List Integer
+  one-colour-want = [1, 1858082]
+
+ Behind the eye, and under two pixels. Neither survives, and the second is in
+ front of the rider when it goes.
+
+  cull-got : List Integer
+  cull-got =
+    [ list-length (place-tree segs chain origin 0 500.0 2.0 (Tree { along = 0.4, across = 3.5, color = 1858082, height = 5.85 })),
+      list-length (place-tree segs chain origin 0 500.0 2.0 (Tree { along = 0.5, across = 3.5, color = 1858082, height = 5.85 })),
+      list-length (place-tree segs chain origin 0 1.0 2.0 (Tree { along = 120.0, across = 3.5, color = 1858082, height = 5.85 })),
+      list-length (place-tree segs chain origin 0 500.0 2.0 (Tree { along = 2000.0, across = 3.5, color = 1858082, height = 5.85 })) ]
+
+  cull-want : List Integer
+  cull-want = [0, 1, 0, 0]
+
+Section: The Walk
+
+ Every tree on every segment of the chain, in chain order. At the origin all of
+ segment 0's survive; a hundred metres up the road the first four pairs are
+ behind the rider.
+
+  seg0-got : List Integer
+  seg0-got =
+    [ list-length (seg-trees segs chain origin 0 500.0 2.0 (list-at segs 0).trees 0),
+      list-length (seg-trees segs chain up-road 0 500.0 2.0 (list-at segs 0).trees 0),
+      list-length (seg-trees segs chain origin 0 1.0 2.0 (list-at segs 0).trees 0) ]
+
+  seg0-want : List Integer
+  seg0-want = [28, 20, 0]
+
+ The trees come out in the order they were planted, so the first pair is the
+ nearest and they straddle the road.
+
+  order-got : List Real
+  order-got =
+    let ts = seg-trees segs chain origin 0 500.0 2.0 (list-at segs 0).trees 0
+    in [ (list-at ts 0).fwd, (list-at ts 1).fwd, (list-at ts 2).fwd,
+         (list-at ts 0).right, (list-at ts 1).right ]
+
+  order-want : List Real
+  order-want = [6.0, 6.0, 36.0, -3.5, 3.5]
+
+ Alternate pairs are the taller tree, which is the tier scheme's doing rather
+ than anything TreePlan decides -- and 4.5 * 1.3 is not the literal 5.85, so this
+ line carries a tolerance where the hand-built tree above did not.
+
+  height-got : List Real
+  height-got =
+    let ts = seg-trees segs chain origin 0 500.0 2.0 (list-at segs 0).trees 0
+    in [(list-at ts 0).height, (list-at ts 2).height]
+
+  height-want : List Real
+  height-want = [5.85, 4.5]
+
+Section: Into the Frame
+
+ One item per surviving tree, indexed by its place in the collected list, so the
+ sort can find it again.
+
+  items-got : List Integer
+  items-got =
+    let ts = seg-trees segs chain origin 0 500.0 2.0 (list-at segs 0).trees 0
+    in let its = tree-items ts 0
+    in [ list-length its, (list-at its 0).i, (list-at its 27).i, list-length (tree-items [] 0) ]
+
+  items-want : List Integer
+  items-want = [28, 0, 27, 0]
+
+  item-fwd-got : List Real
+  item-fwd-got =
+    let its = tree-items (seg-trees segs chain origin 0 500.0 2.0 (list-at segs 0).trees 0) 0
+    in [(list-at its 0).fwd, (list-at its 2).fwd]
+
+  item-fwd-want : List Real
+  item-fwd-want = [6.0, 36.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "te-plant " planted-got planted-want)
+    print-line-uni (grade-reals "te-one   " one-got one-want 0.0001)
+    print-line-uni (grade-ints  "te-colour" one-colour-got one-colour-want)
+    print-line-uni (grade-ints  "te-cull  " cull-got cull-want)
+    print-line-uni (grade-ints  "te-seg0  " seg0-got seg0-want)
+    print-line-uni (grade-reals "te-order " order-got order-want 0.0001)
+    print-line-uni (grade-reals "te-height" height-got height-want 0.000000000001)
+    print-line-uni (grade-ints  "te-items " items-got items-want)
+    print-line-uni (grade-reals "te-ifwd  " item-fwd-got item-fwd-want 0.0001)
+  end

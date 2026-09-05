@@ -1,0 +1,168 @@
+Chapter: TruckPlanSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Frame
+  cites Safari chapter World
+  cites Safari chapter DepthSort
+  cites Safari chapter TruckPlan
+  cites Judge chapter Grade
+
+ TruckPlan: walk the truck's lead forward along the chain and say which segment
+ its centre landed on.
+
+ THE CHAIN IS THE REAL ONE. `segment-at` builds a Segment from the route table,
+ so a three-segment chain of the route's own first three -- 500, 320 and 400
+ metres -- costs nothing to stand up and grades the walk against lengths that are
+ written down rather than invented.
+
+ THE WALK IS A SUBTRACTION AND THE ASSERTION IS WHICH INDEX IT STOPS ON. A lead
+ that fits inside the current segment stops at 0; one that overruns it lands at
+ 1 with the remainder; one that overruns the whole chain is not drawn at all.
+ The last is the case an implementation gets wrong by clamping to the final
+ segment, which puts a truck at the end of the visible road forever.
+
+ A LEAD OF ZERO OR LESS IS NOT CLAMPED FORWARD. The truck is level with or behind
+ the rider and is simply absent -- the zig does not pull it back into view, and
+ `no-truck` is a well-formed record rather than an absence, so every field of it
+ is graded.
+
+ THE NEAR PLANE IS THE OTHER WAY OUT. A truck whose centre lands at or behind the
+ eye is dropped even though the walk found a segment for it, which is a different
+ refusal from running off the end of the chain and reaches the same answer.
+
+ We say:
+
+Section: The Chain
+
+ The route's first three segments, the rider at their origin looking straight
+ down the road.
+
+  segs : List Segment
+  segs = [segment-at 0, segment-at 1, segment-at 2]
+
+  chain : List Integer
+  chain = [0, 1, 2]
+
+  here : Pose
+  here = Pose { along = 0.0, across = 0.0, yaw = 0.0, hw = 2.0 }
+
+  lengths-got : List Real
+  lengths-got = [(list-at segs 0).length, (list-at segs 1).length, (list-at segs 2).length]
+
+  lengths-want : List Real
+  lengths-want = [500.0, 320.0, 400.0]
+
+Section: Where It Lands
+
+  lead-of : Real -> TruckAt
+  lead-of (lead) = truck-at segs chain here 0.0 lead
+
+  present-got : List Boolean
+  present-got =
+    [ (lead-of 100.0).present,
+      (lead-of 499.0).present,
+      (lead-of 600.0).present,
+      (lead-of 900.0).present,
+      (lead-of 2000.0).present,
+      (lead-of 0.0).present,
+      (lead-of (0.0 - 50.0)).present ]
+
+  present-want : List Boolean
+  present-want = [True, True, True, True, False, False, False]
+
+ The index the walk stopped on, and the remainder it carried into that segment.
+ Five hundred metres in is still segment 0; six hundred is a hundred into segment
+ 1; nine hundred is eighty into segment 2.
+
+  landed-got : List Integer
+  landed-got =
+    [ (lead-of 100.0).d, (lead-of 499.0).d, (lead-of 600.0).d, (lead-of 900.0).d ]
+
+  landed-want : List Integer
+  landed-want = [0, 0, 1, 2]
+
+  along-got : List Real
+  along-got =
+    [ (lead-of 100.0).along, (lead-of 499.0).along, (lead-of 600.0).along, (lead-of 900.0).along ]
+
+  along-want : List Real
+  along-want = [100.0, 499.0, 100.0, 80.0]
+
+ On the rider's own segment with no yaw, the depth is the lead itself -- the
+ truck is straight ahead. The cosine is the game's, so this is graded at its
+ accuracy rather than exactly.
+
+  fwd-got : List Real
+  fwd-got = [(lead-of 100.0).fwd, (lead-of 499.0).fwd]
+
+  fwd-want : List Real
+  fwd-want = [100.0, 499.0]
+
+Section: The Two Refusals
+
+ Nothing found, and everything zero rather than left over from the walk.
+
+  none-got : List Real
+  none-got =
+    let n = lead-of 2000.0
+    in [n.along, n.fwd, real-from-int n.d, no-truck.along, no-truck.fwd, real-from-int no-truck.d]
+
+  none-want : List Real
+  none-want = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+  none-flag-got : List Boolean
+  none-flag-got = [no-truck.present, (lead-of 2000.0).present]
+
+  none-flag-want : List Boolean
+  none-flag-want = [False, False]
+
+ A rider already past the truck's centre: the walk finds segment 0, and the near
+ plane rejects it. `along` is 100 and the rider is at 100, so the depth is zero.
+
+  behind : TruckAt
+  behind = truck-at segs chain (Pose { along = 100.0, across = 0.0, yaw = 0.0, hw = 2.0 }) 0.0 100.0
+
+  behind-got : List Boolean
+  behind-got =
+    [ behind.present,
+      (truck-at segs chain (Pose { along = 99.0, across = 0.0, yaw = 0.0, hw = 2.0 }) 0.0 100.0).present ]
+
+  behind-want : List Boolean
+  behind-want = [False, True]
+
+Section: Into the Frame
+
+ One item however long the body is, sorting at the centre-line depth, and none at
+ all when there is no truck.
+
+  items-got : List Integer
+  items-got =
+    [ list-length (truck-items (lead-of 100.0)),
+      list-length (truck-items (lead-of 2000.0)),
+      list-length (truck-items no-truck),
+      (list-at (truck-items (lead-of 100.0)) 0).i ]
+
+  items-want : List Integer
+  items-want = [1, 0, 0, 0]
+
+  item-fwd-got : List Real
+  item-fwd-got = [(list-at (truck-items (lead-of 499.0)) 0).fwd]
+
+  item-fwd-want : List Real
+  item-fwd-want = [499.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tp-length" lengths-got lengths-want 0.0)
+    print-line-uni (grade-bools "tp-presnt" present-got present-want)
+    print-line-uni (grade-ints  "tp-landed" landed-got landed-want)
+    print-line-uni (grade-reals "tp-along " along-got along-want 0.0)
+    print-line-uni (grade-reals "tp-fwd   " fwd-got fwd-want 0.0001)
+    print-line-uni (grade-reals "tp-none  " none-got none-want 0.0)
+    print-line-uni (grade-bools "tp-nflag " none-flag-got none-flag-want)
+    print-line-uni (grade-bools "tp-behind" behind-got behind-want)
+    print-line-uni (grade-ints  "tp-items " items-got items-want)
+    print-line-uni (grade-reals "tp-ifwd  " item-fwd-got item-fwd-want 0.0001)
+  end

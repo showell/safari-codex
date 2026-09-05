@@ -1,0 +1,206 @@
+Chapter: WorldSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Critter
+  cites Safari chapter Trees
+  cites Safari chapter Cat
+  cites Safari chapter World
+  cites Judge chapter Grade
+
+ World: the route table, and the segment each row of it builds.
+
+ THIS IS THE CHAPTER EVERY OTHER ONE READS, so the assertions here are about the
+ route as a whole rather than about one segment. Nineteen rows, each carrying a
+ length, a turn, and four flags; `segment-at` turns a row into everything the
+ renderer needs, and the flags are what decide which populations exist.
+
+ THE HEADINGS ARE GRADED IN DEGREES, WHICH IS HOW THE TABLE IS WRITTEN. Each
+ segment's heading is the running sum of the previous rows' turns, so the whole
+ accumulation -- and every sign in it -- is one list. Dividing the answer back by
+ `deg` gets the degrees, which agree with the written turns to 1.4e-14, so they
+ are graded a step rounded out from that. A chapter that took the absolute value
+ without restoring the sign would give the same first row and nothing else.
+
+ THE DISTRACTION RULE IS THE SUBTLE ONE. Nine of the nineteen segments carry
+ pigs, and the FIRST TWO of them get the big seven-by-seven herd while the rest
+ get two straight ranks -- the novelty wears off, which the chapter says in prose
+ and computes with `pig-count-to (i + 1) <= pig-novelty-count`. It is an
+ exclusive-looking test written inclusively over a count that includes the
+ current segment, so an off-by-one either way changes which segments distract.
+ The population SIZES are what catch that: 49 against 10.
+
+ We say:
+
+Section: The Table
+
+  route-shape-got : List Integer
+  route-shape-got =
+    [ list-length route,
+      pig-count-to 0 0, pig-count-to 3 0, pig-count-to 11 0, pig-count-to 12 0, pig-count-to 19 0 ]
+
+  route-shape-want : List Integer
+  route-shape-want = [19, 0, 1, 2, 3, 9]
+
+ The turns as written, recovered from the accumulated headings. Segment 0 faces
+ north; every later one carries the sum of the turns before it.
+
+  headings-got : List Real
+  headings-got =
+    [ heading-at 0 / deg, heading-at 1 / deg, heading-at 2 / deg, heading-at 3 / deg,
+      heading-at 4 / deg, heading-at 5 / deg, heading-at 6 / deg, heading-at 7 / deg,
+      heading-at 8 / deg, heading-at 9 / deg, heading-at 10 / deg, heading-at 11 / deg,
+      heading-at 12 / deg, heading-at 13 / deg, heading-at 14 / deg, heading-at 15 / deg,
+      heading-at 16 / deg, heading-at 17 / deg, heading-at 18 / deg ]
+
+  headings-want : List Real
+  headings-want =
+    [ 0.0, 50.0, -20.0, 0.0, 20.0, -50.0, -120.0, -40.0, -25.0, -95.0,
+      -80.0, -65.0, -50.0, -35.0, -85.0, -35.0, -85.0, -35.0, -85.0 ]
+
+  steps-got : List Real
+  steps-got = [heading-step 0 / deg, heading-step 1 / deg, heading-step 6 / deg, heading-step 18 / deg]
+
+  steps-want : List Real
+  steps-want = [50.0, -70.0, 80.0, 0.0]
+
+Section: A Segment
+
+ Lengths come straight off the table and the lane is four metres everywhere.
+
+  seg : Integer -> Segment
+  seg (i) = segment-at i
+
+  length-got : List Real
+  length-got =
+    [ (seg 0).length, (seg 1).length, (seg 6).length, (seg 9).length, (seg 18).length,
+      (seg 0).width, (seg 18).width ]
+
+  length-want : List Real
+  length-want = [500.0, 320.0, 1200.0, 800.0, 300.0, 4.0, 4.0]
+
+ Only the last segment terminates, and only it points its exit at itself; every
+ other one points at the next. A right turn is a non-negative one, so the
+ straight terminus counts as a right turn and it does not matter, because it has
+ no turn to take.
+
+  exit-got : List Integer
+  exit-got = [(seg 0).exit-to, (seg 1).exit-to, (seg 17).exit-to, (seg 18).exit-to]
+
+  exit-want : List Integer
+  exit-want = [1, 2, 18, 18]
+
+  flags-got : List Boolean
+  flags-got =
+    [ (seg 0).terminates, (seg 18).terminates,
+      (seg 0).exit-right, (seg 1).exit-right, (seg 6).exit-right, (seg 18).exit-right,
+      (seg 0).has-mid-tower, (seg 6).has-mid-tower, (seg 9).has-mid-tower,
+      (seg 0).has-cat, (seg 1).has-cat, (seg 12).has-cat, (seg 18).has-cat ]
+
+  flags-want : List Boolean
+  flags-want =
+    [ False, True,
+      True, False, True, True,
+      False, True, False,
+      False, True, True, True ]
+
+ The turn angle is the magnitude in radians, so a left and a right turn of the
+ same size give the same angle and differ only in `exit-right`. The commit point
+ is half a lane over its tangent before the end -- and the terminus commits at
+ the end, because it has no turn.
+
+ THE COMMIT POINT CARRIES `r-tan`'s ACCURACY. The wants below are the exact
+ tangent; the game's is sine over cosine from a fidelity polynomial, and the
+ difference grows with the angle because the tangent does: 5.6e-11 at fifty
+ degrees, 1.7e-9 at seventy, 4.4e-9 at eighty. Measured, and graded a step out
+ from the largest.
+
+  angle-got : List Real
+  angle-got =
+    [ (seg 0).exit-angle / deg, (seg 1).exit-angle / deg,
+      (seg 6).exit-angle / deg, (seg 18).exit-angle / deg,
+      (seg 18).commit-along ]
+
+  angle-want : List Real
+  angle-want = [50.0, 70.0, 80.0, 0.0, 300.0]
+
+  commit-got : List Real
+  commit-got = [(seg 0).commit-along, (seg 1).commit-along, (seg 6).commit-along]
+
+  commit-want : List Real
+  commit-want = [498.32180073764545, 319.2720595314676, 1199.647346038583]
+
+Section: The Populations
+
+ Nine segments carry pigs and the first two of them get the herd. The sizes are
+ what say which rule fired: forty-nine against ten, and nothing at all where the
+ row has no pigs.
+
+  pigs-got : List Integer
+  pigs-got =
+    [ list-length (seg 0).pigs, list-length (seg 2).pigs,
+      list-length (seg 10).pigs, list-length (seg 11).pigs,
+      list-length (seg 13).pigs, list-length (seg 18).pigs ]
+
+  pigs-want : List Integer
+  pigs-want = [0, 49, 49, 10, 10, 10]
+
+  distract-got : List Boolean
+  distract-got =
+    [ (seg 0).pigs-distract, (seg 2).pigs-distract,
+      (seg 10).pigs-distract, (seg 11).pigs-distract, (seg 18).pigs-distract ]
+
+  distract-want : List Boolean
+  distract-want = [False, True, True, False, False]
+
+ A bull adds one to the herd, so a segment that has one carries fifteen cattle
+ and one that does not carries fourteen.
+
+  cows-got : List Integer
+  cows-got = [list-length (seg 0).cows, list-length (seg 3).cows, list-length (seg 4).cows, list-length (seg 18).cows]
+
+  cows-want : List Integer
+  cows-want = [14, 14, 15, 15]
+
+ Trees fill the segment in pairs from six metres in, every thirty metres, and
+ stop eighty-five short of the end -- so a 300-metre segment gets seven pairs and
+ a 1200-metre one thirty-seven. The cap at ninety-six is far above any row here;
+ TreesSpec grades that boundary.
+
+  trees-got : List Integer
+  trees-got =
+    [ list-length (seg 0).trees, list-length (seg 1).trees,
+      list-length (seg 6).trees, list-length (seg 18).trees ]
+
+  trees-want : List Integer
+  trees-want = [28, 16, 74, 14]
+
+ THE CAT IS BUILT FOR EVERY SEGMENT, not only the ones that have one -- the zig
+ leaves the field undefined and Codex has no way to say that. So a segment
+ without a cat still carries a well-formed one, and its across values are the
+ chapter's constants rather than anything from the route.
+
+  cat-got : List Real
+  cat-got =
+    [ (seg 0).cat.mid-across, (seg 18).cat.mid-across,
+      (seg 0).cat.height, (seg 18).cat.height ]
+
+  cat-want : List Real
+  cat-want = [0.816, 0.816, 1.7, 1.7]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "wo-shape " route-shape-got route-shape-want)
+    print-line-uni (grade-reals "wo-head  " headings-got headings-want 0.000000000001)
+    print-line-uni (grade-reals "wo-step  " steps-got steps-want 0.000000000001)
+    print-line-uni (grade-reals "wo-length" length-got length-want 0.0)
+    print-line-uni (grade-ints  "wo-exit  " exit-got exit-want)
+    print-line-uni (grade-bools "wo-flags " flags-got flags-want)
+    print-line-uni (grade-reals "wo-angle " angle-got angle-want 0.000000000001)
+    print-line-uni (grade-reals "wo-commit" commit-got commit-want 0.00000001)
+    print-line-uni (grade-ints  "wo-pigs  " pigs-got pigs-want)
+    print-line-uni (grade-bools "wo-distr " distract-got distract-want)
+    print-line-uni (grade-ints  "wo-cows  " cows-got cows-want)
+    print-line-uni (grade-ints  "wo-trees " trees-got trees-want)
+    print-line-uni (grade-reals "wo-cat   " cat-got cat-want 0.0)
+  end

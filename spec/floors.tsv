@@ -40,9 +40,12 @@ ScenerySpec	26
 SkySpec	45
 StillsSpec	24
 TowerSpec	91
+TreePlanSpec	29
 TreeSpec	113
 TreesSpec	82
 TrigSpec	24
 TruckDrawSpec	62
+TruckPlanSpec	35
 VehicleLimitsSpec	17
 ViewYawSpec	11
+WorldSpec	84

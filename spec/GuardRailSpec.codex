@@ -1,0 +1,181 @@
+Chapter: GuardRailSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter GuardRail
+  cites Judge chapter Grade
+
+ GuardRail: a bar strip between path points and a slim post at each one, raised
+ off a ground path in the rider frame.
+
+ NO PROJECTION IS NEEDED TO GRADE ANY OF THIS. `rail-emit` answers polygons in
+ the rider frame; only `rail-draw-poly` reaches Camera, and RailCheck grades
+ that. So the whole of this chapter's geometry is reachable from a list of
+ points, and every number below is a sum or a quotient of two-digit constants.
+
+ THE POST DIRECTION IS THE PART WORTH THE TEST. A post's width is laid ALONG the
+ local run direction, taken from the neighbours either side and clamped at both
+ ends of the path -- so the first and last posts use a one-sided difference and
+ the middle ones a two-sided one. Getting that wrong turns every post face-on to
+ the road, which is a visible defect and an invisible arithmetic one. All three
+ cases are graded.
+
+ THE ZERO TEST IS BITWISE AND THAT MATTERS. The chapter uses `~0` rather than a
+ 4-ULP `~`, because a nearly-coincident pair of points is not a coincident one:
+ approximate equality would swing that post to the fallback direction instead of
+ its own. A genuinely repeated point is graded here, and it takes the fallback.
+
+ We say:
+
+Section: The Dimensions
+
+ The bar's band is the rail height plus and minus half its thickness; the post is
+ two centimetres wide, so half of it is one.
+
+  dims-got : List Real
+  dims-got = [rail-height, rail-thickness, rail-post-width, bar-top, bar-bot, half-post]
+
+  dims-want : List Real
+  dims-want = [0.5, 0.1, 0.02, 0.55, 0.45, 0.01]
+
+  fixed-got : List Integer
+  fixed-got = [rail-metal, rail-post-metal, rail-runout, max-rail-polys]
+
+  fixed-want : List Integer
+  fixed-want = [12765135, 10133672, 10, 3072]
+
+Section: A Straight Run
+
+ Three points ten metres apart, straight ahead. Two bar quads and three posts,
+ bars first -- which is the order the zig stores them in, and therefore the order
+ a truncation would drop from the end of.
+
+  pt : Real, Real -> RiderPt
+  pt (r) (f) = RiderPt { right = r, forward = f }
+
+  straight : List RiderPt
+  straight = [pt 0.0 10.0, pt 0.0 20.0, pt 0.0 30.0]
+
+  rails : List RailPoly
+  rails = rail-emit straight
+
+  shape-got : List Integer
+  shape-got =
+    [ list-length rails,
+      list-length (bars straight 0),
+      list-length (posts straight 0),
+      list-length (list-at rails 0).v,
+      list-length (list-at rails 4).v ]
+
+  shape-want : List Integer
+  shape-want = [5, 2, 3, 4, 4]
+
+  colour-got : List Integer
+  colour-got =
+    [ (list-at rails 0).color, (list-at rails 1).color,
+      (list-at rails 2).color, (list-at rails 3).color, (list-at rails 4).color ]
+
+  colour-want : List Integer
+  colour-want = [12765135, 12765135, 10133672, 10133672, 10133672]
+
+ Each poly sorts by the mean forward of its four corners: a bar quad sits midway
+ between its two points, a post sits at its own point.
+
+  fwd-got : List Real
+  fwd-got =
+    [ (list-at rails 0).fwd, (list-at rails 1).fwd,
+      (list-at rails 2).fwd, (list-at rails 3).fwd, (list-at rails 4).fwd ]
+
+  fwd-want : List Real
+  fwd-want = [15.0, 25.0, 10.0, 20.0, 30.0]
+
+ A bar quad walks bottom-near, bottom-far, top-far, top-near -- so its heights are
+ low, low, high, high and it closes rather than crossing itself.
+
+  bar-got : List Real
+  bar-got =
+    let v = (list-at rails 0).v
+    in [ (list-at v 0).forward, (list-at v 1).forward, (list-at v 2).forward, (list-at v 3).forward,
+         (list-at v 0).height, (list-at v 1).height, (list-at v 2).height, (list-at v 3).height ]
+
+  bar-want : List Real
+  bar-want = [10.0, 20.0, 20.0, 10.0, 0.45, 0.45, 0.55, 0.55]
+
+ A post stands on the ground and reaches the top of the bar, and its two feet
+ straddle its point by half a post width along the run.
+
+  post-got : List Real
+  post-got =
+    let v = (list-at rails 2).v
+    in [ (list-at v 0).forward, (list-at v 1).forward, (list-at v 2).forward, (list-at v 3).forward,
+         (list-at v 0).height, (list-at v 2).height,
+         (list-at v 0).right, (list-at v 1).right ]
+
+  post-want : List Real
+  post-want = [9.99, 10.01, 10.01, 9.99, 0.0, 0.55, 0.0, 0.0]
+
+Section: The Run Direction
+
+ A three-four-five diagonal, so the unit direction is exact: the offset splits
+ 0.006 across and 0.008 along. This is the case a face-on post would get wrong --
+ there, every post's `ox` would be zero whatever the run.
+
+  diagonal : List RiderPt
+  diagonal = [pt 0.0 10.0, pt 30.0 50.0]
+
+  diag-got : List Real
+  diag-got =
+    let v = (list-at (posts diagonal 0) 0).v
+    in [ (list-at v 0).right, (list-at v 1).right,
+         (list-at v 0).forward, (list-at v 1).forward ]
+
+  diag-want : List Real
+  diag-want = [-0.006, 0.006, 9.992, 10.008]
+
+ A repeated point has no run at all, and the fallback puts the post's width at
+ zero rather than dividing by it. Four coincident corners, and no fault.
+
+  doubled : List RiderPt
+  doubled = [pt 0.0 10.0, pt 0.0 10.0]
+
+  doubled-got : List Real
+  doubled-got =
+    let v = (list-at (posts doubled 0) 0).v
+    in [ real-from-int (list-length (rail-emit doubled)),
+         (list-at v 0).right, (list-at v 1).right,
+         (list-at v 0).forward, (list-at v 1).forward,
+         (list-at v 2).height ]
+
+  doubled-want : List Real
+  doubled-want = [3.0, 0.0, 0.0, 10.0, 10.0, 0.55]
+
+Section: Too Short To Raise
+
+ Fewer than two points has no run direction, so it raises nothing at all -- not a
+ lone post.
+
+  short-got : List Integer
+  short-got =
+    [ list-length (rail-emit []),
+      list-length (rail-emit [pt 0.0 10.0]),
+      list-length (rail-emit doubled),
+      list-length (bars [pt 0.0 10.0] 0) ]
+
+  short-want : List Integer
+  short-want = [0, 0, 3, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "gu-dims  " dims-got dims-want 0.0)
+    print-line-uni (grade-ints  "gu-fixed " fixed-got fixed-want)
+    print-line-uni (grade-ints  "gu-shape " shape-got shape-want)
+    print-line-uni (grade-ints  "gu-colour" colour-got colour-want)
+    print-line-uni (grade-reals "gu-fwd   " fwd-got fwd-want 0.0)
+    print-line-uni (grade-reals "gu-bar   " bar-got bar-want 0.0)
+    print-line-uni (grade-reals "gu-post  " post-got post-want 0.0)
+    print-line-uni (grade-reals "gu-diag  " diag-got diag-want 0.0)
+    print-line-uni (grade-reals "gu-double" doubled-got doubled-want 0.0)
+    print-line-uni (grade-ints  "gu-short " short-got short-want)
+  end

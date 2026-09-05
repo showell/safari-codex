@@ -1,0 +1,146 @@
+Chapter: SkySpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Lens
+  cites Safari chapter Sky
+  cites Judge chapter Grade
+
+ Sky: how far dusk has come, how red the afterglow is, and the two packed colours
+ that fall out of both.
+
+ THE COLOURS ARE INTEGERS AND THAT IS WHY THIS SPEC IS SHAPED AS IT IS. The dusk
+ fraction and the warmth are quotients of two-digit constants and land on
+ sixteen-digit doubles, so grading them as reals would say more about the
+ literals than about the sky. But `pack` rounds each channel and shifts it into
+ one word, so the OUTPUT is exact -- and it is the output the blitter gets. The
+ colour ladder below therefore grades seven steps of the route at 0.0, as
+ integers, and the reals are graded only where they are exactly 0 or exactly 1.
+
+ THAT IS NOT A WEAKER TEST THAN GRADING THE FRACTION. Both colours are a rounded
+ mix, so a wrong fraction moves a channel and the packed word changes; the whole
+ ramp is visible through them. What it does not pin is a fraction that is wrong by
+ less than half a channel, which is a quarter of one per cent of the ramp and is
+ not a defect anyone can act on.
+
+ THE TWO COLOURS DIVERGE ONLY WHERE THERE IS WARMTH, and that is the assertion
+ the ladder carries: at steps 0 to 2000 the sun is far above the horizon and the
+ sky and the horizon are the SAME word; at 3000 to 5000 the disc is crossing and
+ they differ; by 6000 it is deep below and they agree again. A chapter that mixed
+ the red into the upper sky would fail the first and last of those.
+
+ THE DARKENING IS SQUARED WHILE THE SUN IS UP AND LINEAR AFTER IT SETS, which is
+ why the sky barely moves over the first two thousand steps and then falls away.
+ The ladder is spaced evenly, so that shape reads straight off the numbers.
+
+ We say:
+
+Section: The Sun's Height
+
+ Step 0 is the calibrated start and it is the one height that is exact. The disc
+ is fully set when its top reaches the horizon, which is one radius below it.
+
+  height-got : List Real
+  height-got = [sun-height-px 0.0, sun-start-px, sun-radius-px, sun-fully-set-px, warmth-falloff-px, visible-bearing-limit]
+
+  height-want : List Real
+  height-want = [244.0, 244.0, 46.0, -46.0, 110.0, 1.4]
+
+ At step 0 no dusk has happened and there is no warmth: the sun is 244 pixels up,
+ which is more than two falloffs, so the warmth clamps at zero rather than going
+ negative. Far down the route both have run to their stops.
+
+  ends-got : List Real
+  ends-got =
+    [ sun-set-fraction 0.0, sunset-warmth 0.0,
+      sun-set-fraction 6000.0, sunset-warmth 6000.0,
+      sunset-glow ]
+
+  ends-want : List Real
+  ends-want = [0.0, 0.0, 1.0, 0.0, 0.85]
+
+Section: The Colour Ladder
+
+ Seven steps evenly spaced over the route. The sky word is the day-to-dusk mix
+ alone; the horizon word takes that and mixes the red in at the warmth.
+
+  sky-got : List Integer
+  sky-got =
+    [ sky-color 0.0, sky-color 1000.0, sky-color 2000.0, sky-color 3000.0,
+      sky-color 4000.0, sky-color 5000.0, sky-color 6000.0 ]
+
+  sky-want : List Integer
+  sky-want = [9358054, 9160418, 8633304, 7710918, 6393260, 4219010, 2374238]
+
+  horizon-got : List Integer
+  horizon-got =
+    [ horizon-color 0.0, horizon-color 1000.0, horizon-color 2000.0, horizon-color 3000.0,
+      horizon-color 4000.0, horizon-color 5000.0, horizon-color 6000.0 ]
+
+  horizon-want : List Integer
+  horizon-want = [9358054, 9160418, 8633304, 10324366, 13262919, 8019301, 2374238]
+
+ The three named colours pack to themselves, which is what says `pack` is a
+ shift-and-or and not an arithmetic accident.
+
+  packed-got : List Integer
+  packed-got = [pack day-sky, pack dusk-sky, pack sunset-red]
+
+  packed-want : List Integer
+  packed-want = [9358054, 2374238, 14571572]
+
+ A mix at either end is the end colour, and a mix at a half is the midpoint of
+ each channel, rounded.
+
+  mix-got : List Real
+  mix-got =
+    let a = lerp3 day-sky dusk-sky 0.0
+    in let b = lerp3 day-sky dusk-sky 1.0
+    in let m = lerp3 day-sky dusk-sky 0.5
+    in [a.r, a.g, a.b, b.r, b.g, b.b, m.r, m.g, m.b]
+
+  mix-want : List Real
+  mix-want = [142.0, 202.0, 230.0, 36.0, 58.0, 94.0, 89.0, 130.0, 162.0]
+
+Section: The Sun's Placement
+
+ Off-heading by more than the limit and the sun is not on screen at all: the
+ record answers False and three zeroes rather than an off-screen coordinate the
+ blitter would have to check.
+
+  facing : SunPos
+  facing = sun-pos (0.0 - 2.2176) 0.0 focal 960.0
+
+  away : SunPos
+  away = sun-pos 0.0 0.0 focal 960.0
+
+  visible-got : List Boolean
+  visible-got = [facing.visible, away.visible]
+
+  visible-want : List Boolean
+  visible-want = [True, False]
+
+ Looking straight at it, at the base focal: the disc is centred in the view and
+ its height above the horizon is its pixel height, measured down from the middle
+ of the screen. The scale is one because the focal is the base one.
+
+  place-got : List Real
+  place-got =
+    [ facing.x, facing.y, facing.scale,
+      away.x, away.y, away.scale ]
+
+  place-want : List Real
+  place-want = [480.0, 56.0, 1.0, 0.0, 0.0, 0.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "sk-height" height-got height-want 0.0)
+    print-line-uni (grade-reals "sk-ends  " ends-got ends-want 0.0)
+    print-line-uni (grade-ints  "sk-sky   " sky-got sky-want)
+    print-line-uni (grade-ints  "sk-horiz " horizon-got horizon-want)
+    print-line-uni (grade-ints  "sk-packed" packed-got packed-want)
+    print-line-uni (grade-reals "sk-mix   " mix-got mix-want 0.0)
+    print-line-uni (grade-bools "sk-vis   " visible-got visible-want)
+    print-line-uni (grade-reals "sk-place " place-got place-want 0.0)
+  end

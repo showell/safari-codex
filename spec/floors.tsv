@@ -24,6 +24,7 @@ EmojiStillsSpec	43
 FrameSpec	26
 GeomSpec	26
 GroundSpec	18
+GuardRailSpec	55
 HerdSpec	71
 JointSpec	8
 LensSpec	18
@@ -35,6 +36,7 @@ PoseSpec	26
 SafariCritterSpec	63
 SceneLimitsSpec	3
 ScenerySpec	26
+SkySpec	45
 StillsSpec	24
 TreesSpec	82
 TrigSpec	24

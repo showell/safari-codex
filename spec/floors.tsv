@@ -15,6 +15,7 @@
 # Seeded 2026-09-04 at each spec's then-current count.
 BikeSpec	27
 BillboardsSpec	34
+BlitSpec	92
 CameraSpec	22
 CanvasRollSpec	12
 CatSpec	103
@@ -38,6 +39,7 @@ SceneLimitsSpec	3
 ScenerySpec	26
 SkySpec	45
 StillsSpec	24
+TreeSpec	113
 TreesSpec	82
 TrigSpec	24
 TruckDrawSpec	62

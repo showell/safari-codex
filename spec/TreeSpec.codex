@@ -1,0 +1,222 @@
+Chapter: TreeSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Geom
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Tree
+  cites Judge chapter Grade
+
+ Tree: the screen layout of a conifer, its eight crown tiers, and the convex hull
+ that turns a projected ring into a cone's silhouette.
+
+ THE HULL IS THE REASON THIS SPEC EXISTS. Everything else here is a table or a
+ product; `convex-hull-pts` is Andrew's monotone chain, it decides the POINT
+ COUNT of every near tier, and the judge compares that count exactly. It is also
+ the one thing in the chapter with genuine edge cases, and they are graded from
+ hand-made integer points rather than from a projected ring -- a ring is sixteen
+ points in general position, which exercises none of them.
+
+ FOUR CASES, AND EACH ONE IS A DIFFERENT DECISION:
+   * an interior point is dropped, and so is a COLLINEAR one -- the trim test is
+     `<= 0`, which is the zig's choice, and swapping it for `< 0` keeps collinear
+     points and changes the count without changing the picture;
+   * three points in general position come back as three;
+   * four points all on one line come back as TWO, not four and not zero;
+   * fewer than three points come back UNSORTED and untouched, because the
+     function short-circuits before it sorts -- so a caller handing in two gets
+     them in the order it gave them.
+
+ The last is worth stating because it is the one an implementation "tidies up" by
+ sorting first and returning early after: that version answers the same set and a
+ different list.
+
+ THE METRICS ARE CHOSEN TO LAND ON WHOLE PIXELS. A tree 4 metres tall at 2 metres
+ forward through a focal of 500 gives a pixel height of exactly 1000, and every
+ fraction of it below -- 0.648 foliage, 0.44 trunk, 0.288 half-width -- is then a
+ whole number too.
+
+ We say:
+
+Section: The Proportions
+
+ Eight tiers, narrow at the top and widest at the bottom, each a fraction of the
+ foliage span. The three tables are read in step, so their lengths are part of
+ the contract.
+
+  table-got : List Real
+  table-got = tier-top & tier-bot & tier-wide
+
+  table-want : List Real
+  table-want =
+    [ 0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70,
+      0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0,
+      0.35, 0.44, 0.53, 0.63, 0.72, 0.81, 0.91, 1.0 ]
+
+  size-got : List Integer
+  size-got = [list-length tier-top, list-length tier-bot, list-length tier-wide, ring-n, trunk-color]
+
+  size-want : List Integer
+  size-want = [8, 8, 8, 16, 5914146]
+
+  frac-got : List Real
+  frac-got = [visible-trunk, crown-h, crown-w, min-cone-forward]
+
+  frac-want : List Real
+  frac-want = [0.44, 0.648, 0.288, 0.4]
+
+Section: The Layout
+
+ The pixel height is the gap between the projected feet and the projected top, so
+ perspective is applied once to a scalar. The crown hangs below the apex and the
+ trunk shows for the fraction under it.
+
+  m : Metrics
+  m = metrics 0.0 2.0 4.0 500.0 960.0
+
+  metric-got : List Real
+  metric-got = [m.bx, m.by, m.ht, m.foliage, m.apex-y, m.w]
+
+  metric-want : List Real
+  metric-want = [480.0, 600.0, 1000.0, 648.0, -488.0, 288.0]
+
+ The trunk is eight per cent of the height wide with a one-pixel floor, and it
+ runs from the ground up past the crown's base by a twentieth.
+
+  trunk : List DrawCmd
+  trunk = draw-trunk m False
+
+  trunk-got : List Real
+  trunk-got = (list-at trunk 0).pts
+
+  trunk-want : List Real
+  trunk-want = [440.0, 110.0, 520.0, 110.0, 520.0, 600.0, 440.0, 600.0]
+
+ Round or flat is the caller's choice and it is the only thing that changes: same
+ four points, a different tag, and the round one carries full strength.
+
+  trunk-tag-got : List Integer
+  trunk-tag-got =
+    let r = draw-trunk m True
+    in [ (list-at trunk 0).tag, (list-at r 0).tag,
+         (list-at trunk 0).color, (list-at r 0).color,
+         list-length (list-at r 0).pts ]
+
+  trunk-tag-want : List Integer
+  trunk-tag-want = [0, 1, 5914146, 5914146, 8]
+
+  trunk-strength-got : List Real
+  trunk-strength-got = [(list-at trunk 0).strength, (list-at (draw-trunk m True) 0).strength]
+
+  trunk-strength-want : List Real
+  trunk-strength-want = [0.0, 1.0]
+
+ A flat tier is an isosceles triangle: apex on the trunk axis, two feet either
+ side at the tier's own half-width. The top tier's feet land on the crown base,
+ which is where the trunk takes over.
+
+  tri-got : List Real
+  tri-got = (list-at (tier-triangle m 0 7) 0).pts & (list-at (tier-triangle m 7 7) 0).pts
+
+  tri-want : List Real
+  tri-want =
+    [ 480.0, -488.0, 580.8, -293.6, 379.2, -293.6,
+      480.0, -34.4, 768.0, 160.0, 192.0, 160.0 ]
+
+Section: The Hull
+
+ Hand-made points, so every cross product is an integer and the turn direction is
+ not a rounding question.
+
+  p : Real, Real -> ScreenPt
+  p (x) (y) = ScreenPt { x = x, y = y }
+
+  xy : List ScreenPt -> List Real
+  xy (ps) = flatten-screen ps 0
+
+ A square with a point inside it and a point in the middle of its bottom edge.
+ Both are dropped, and the four corners come back in hull order.
+
+  square : List ScreenPt
+  square = [p 0.0 0.0, p 4.0 0.0, p 4.0 4.0, p 0.0 4.0, p 2.0 2.0, p 2.0 0.0]
+
+  square-got : List Real
+  square-got = xy (convex-hull-pts square)
+
+  square-want : List Real
+  square-want = [0.0, 0.0, 4.0, 0.0, 4.0, 4.0, 0.0, 4.0]
+
+ Three points in general position are their own hull, and the sort is what puts
+ them in this order rather than the order they were written.
+
+  tri3-got : List Real
+  tri3-got = xy (convex-hull-pts [p 0.0 0.0, p 4.0 0.0, p 2.0 3.0])
+
+  tri3-want : List Real
+  tri3-want = [0.0, 0.0, 4.0, 0.0, 2.0, 3.0]
+
+ Four points on one line collapse to the two ends -- the case where dropping
+ collinear points is the whole answer rather than a detail of it.
+
+  line-got : List Real
+  line-got = xy (convex-hull-pts [p 0.0 0.0, p 1.0 1.0, p 2.0 2.0, p 3.0 3.0])
+
+  line-want : List Real
+  line-want = [0.0, 0.0, 3.0, 3.0]
+
+ Under three points, the function returns its argument untouched and UNSORTED.
+
+  short-got : List Real
+  short-got = xy (convex-hull-pts [p 1.0 2.0, p 0.0 0.0]) & xy (convex-hull-pts [p 9.0 9.0]) & xy (convex-hull-pts [])
+
+  short-want : List Real
+  short-want = [1.0, 2.0, 0.0, 0.0, 9.0, 9.0]
+
+ A repeated corner does not become an extra hull vertex.
+
+  dup-got : List Real
+  dup-got = xy (convex-hull-pts [p 0.0 0.0, p 0.0 0.0, p 4.0 0.0, p 4.0 4.0])
+
+  dup-want : List Real
+  dup-want = [0.0, 0.0, 4.0, 0.0, 4.0, 4.0]
+
+  count-got : List Integer
+  count-got =
+    [ list-length (convex-hull-pts square),
+      list-length (convex-hull-pts [p 0.0 0.0, p 4.0 0.0, p 2.0 3.0]),
+      list-length (convex-hull-pts [p 0.0 0.0, p 1.0 1.0, p 2.0 2.0, p 3.0 3.0]),
+      list-length (convex-hull-pts [p 1.0 2.0, p 0.0 0.0]),
+      list-length (convex-hull-pts [p 0.0 0.0, p 0.0 0.0, p 4.0 0.0, p 4.0 4.0]) ]
+
+  count-want : List Integer
+  count-want = [4, 3, 2, 2, 3]
+
+ The sort orders by x and breaks ties by y, which is what makes the two chains
+ monotone. Grading it directly is what says a hull failure is the chains and not
+ the order they were handed.
+
+  sorted-got : List Real
+  sorted-got = xy (sort-pts square 0 [])
+
+  sorted-want : List Real
+  sorted-want = [0.0, 0.0, 0.0, 4.0, 2.0, 0.0, 2.0, 2.0, 4.0, 0.0, 4.0, 4.0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-reals "tr-table " table-got table-want 0.0)
+    print-line-uni (grade-ints  "tr-size  " size-got size-want)
+    print-line-uni (grade-reals "tr-frac  " frac-got frac-want 0.0)
+    print-line-uni (grade-reals "tr-metric" metric-got metric-want 0.0)
+    print-line-uni (grade-reals "tr-trunk " trunk-got trunk-want 0.0)
+    print-line-uni (grade-ints  "tr-ttag  " trunk-tag-got trunk-tag-want)
+    print-line-uni (grade-reals "tr-tstr  " trunk-strength-got trunk-strength-want 0.0)
+    print-line-uni (grade-reals "tr-tri   " tri-got tri-want 0.000000001)
+    print-line-uni (grade-reals "tr-square" square-got square-want 0.0)
+    print-line-uni (grade-reals "tr-tri3  " tri3-got tri3-want 0.0)
+    print-line-uni (grade-reals "tr-line  " line-got line-want 0.0)
+    print-line-uni (grade-reals "tr-short " short-got short-want 0.0)
+    print-line-uni (grade-reals "tr-dup   " dup-got dup-want 0.0)
+    print-line-uni (grade-ints  "tr-count " count-got count-want)
+    print-line-uni (grade-reals "tr-sorted" sorted-got sorted-want 0.0)
+  end

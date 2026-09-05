@@ -1,0 +1,224 @@
+Chapter: BlitSpec
+  cites Foreword chapter ListUtils
+  cites Foreword chapter Console
+  cites Safari chapter Camera
+  cites Safari chapter Paint
+  cites Safari chapter Blit
+  cites Judge chapter Grade
+
+ Blit: the pass that runs over a finished frame and turns what the renderer
+ produced into what the browser receives.
+
+ IT IS THE ONLY PLACE TAG 2 EXISTS. Paint emits tag 1, a polygon with a shading
+ strength; this pass reads the polygon's x-extent and rewrites it as either a
+ flat tag 0 or a three-stop tag 2 with the colours already computed. So a reader
+ of `web/blitter.js` finds no tag 1 and a reader of `Safari chapter Paint` finds
+ no tag 2, and this chapter is the hinge between them.
+
+ THREE WAYS A SHADE BECOMES FLAT, and they are separate branches that a rewrite
+ would happily merge: no strength at all, too few points to have an extent, and
+ an extent under a pixel. All three keep the polygon and its colour untouched --
+ the command is downgraded, never dropped -- and each is graded, because merging
+ them into one test would still pass any check that only asked for tag 0.
+
+ THE DROPS ARE A DIFFERENT MATTER AND GO THE OTHER WAY. A disc under half a pixel
+ or under two per cent alpha, and a radial fill under half a pixel, are REMOVED
+ from the frame. Both thresholds are `>=`, so a command exactly on one survives,
+ and that boundary is graded from both sides.
+
+ EVERY COLOUR HERE IS AN INTEGER, so the shading ladder is exact: 0x804020 has
+ channels 128, 64 and 32, which scale to whole numbers at the edge factor and the
+ middle factor alike. The saturation case is the one that needs a wide colour --
+ 250 lifted by a quarter is 312.5, which rounds to 313 and clamps.
+
+ We say:
+
+Section: Channels
+
+ A colour is 0xRRGGBB and the three accessors are shifts and masks, so packing
+ what was unpacked gives the colour back.
+
+  chan-got : List Integer
+  chan-got =
+    [ chan-r 8405024, chan-g 8405024, chan-b 8405024,
+      pack-rgb (chan-r 8405024) (chan-g 8405024) (chan-b 8405024),
+      chan-r 16777215, chan-g 16777215, chan-b 16777215,
+      chan-r 0, pack-rgb 0 0 0, pack-rgb 255 255 255 ]
+
+  chan-want : List Integer
+  chan-want = [128, 64, 32, 8405024, 255, 255, 255, 0, 0, 16777215]
+
+ Scaling a channel rounds and then saturates -- it never wraps, which is the
+ failure a mask instead of a clamp would give.
+
+  shade-got : List Integer
+  shade-got =
+    [ shade-chan 128 0.6, shade-chan 64 0.6, shade-chan 32 0.6,
+      shade-chan 250 1.25, shade-chan 255 1.0, shade-chan 255 2.0,
+      shade-chan 0 1.25, shade-color 8405024 0.6 ]
+
+  shade-want : List Integer
+  shade-want = [77, 38, 19, 255, 255, 255, 0, 5056019]
+
+Section: The Three Stops
+
+ The edges darken by four tenths of the strength and the middle lifts by a
+ quarter of it, so the stops come out dark, bright, dark -- and the first and
+ third are the SAME colour, which is what makes the gradient symmetric.
+
+  stops-got : List Integer
+  stops-got =
+    width-shade-stops 8405024 1.0 & width-shade-stops 8405024 0.5
+      & [width-shade-edge 8405024 1.0, width-shade-middle 8405024 1.0]
+
+  stops-want : List Integer
+  stops-want =
+    [ 5056019, 10506280, 5056019,
+      6697754, 9455652, 6697754,
+      5056019, 10506280 ]
+
+ At zero strength both factors are one, so every stop is the colour itself.
+
+  zero-got : List Integer
+  zero-got = width-shade-stops 8405024 0.0
+
+  zero-want : List Integer
+  zero-want = [8405024, 8405024, 8405024]
+
+  glow-got : List Integer
+  glow-got = [shade-chan 250 1.25, width-shade-middle 16448250 1.0]
+
+  glow-want : List Integer
+  glow-want = [255, 16777215]
+
+Section: Worth Drawing
+
+ Both thresholds are `>=`, so a command sitting exactly on one is kept.
+
+  visible-got : List Boolean
+  visible-got =
+    [ disc-visible 0.5 0.02, disc-visible 0.49 0.02, disc-visible 0.5 0.019,
+      disc-visible 10.0 1.0, radial-visible 0.5, radial-visible 0.49,
+      too-narrow-to-shade 10.0 10.5, too-narrow-to-shade 10.0 11.0, too-narrow-to-shade 10.0 30.0 ]
+
+  visible-want : List Boolean
+  visible-want = [True, False, False, True, True, False, True, False, False]
+
+  limits-got : List Real
+  limits-got = [min-disc-radius, min-disc-alpha, min-gradient-radius, min-shade-width, shade-edge-darken, shade-middle-lift]
+
+  limits-want : List Real
+  limits-want = [0.5, 0.02, 0.5, 1.0, 0.4, 0.25]
+
+Section: The Extent
+
+ The x coordinates are the even entries of the flattened polygon, and the walk
+ skips the y's.
+
+  poly : List Real
+  poly = [10.0, 1.0, 30.0, 2.0, 20.0, 3.0]
+
+  span-got : List Real
+  span-got =
+    [ span-lo poly 0 (list-at poly 0), span-hi poly 0 (list-at poly 0),
+      span-lo [5.0, 99.0] 0 5.0, span-hi [5.0, 99.0] 0 5.0 ]
+
+  span-want : List Real
+  span-want = [10.0, 30.0, 5.0, 5.0]
+
+Section: The Rewrite
+
+  cmd : Integer, Integer, Real, List Real, List Real -> DrawCmd
+  cmd (tag) (color) (strength) (geom) (pts) =
+    DrawCmd { tag = tag, color = color, color2 = 0, strength = strength, geom = geom, pts = pts }
+
+ A wide shaded polygon becomes tag 2: the edge colour first, the middle second,
+ the extent in `geom`, and the polygon carried through unchanged.
+
+  wide : DrawCmd
+  wide = expand-shade (cmd 1 8405024 1.0 [] poly)
+
+  wide-got : List Integer
+  wide-got = [wide.tag, wide.color, wide.color2, list-length wide.geom, list-length wide.pts]
+
+  wide-want : List Integer
+  wide-want = [2, 5056019, 10506280, 2, 6]
+
+  wide-geom-got : List Real
+  wide-geom-got = wide.geom & wide.pts & [wide.strength]
+
+  wide-geom-want : List Real
+  wide-geom-want = [10.0, 30.0, 10.0, 1.0, 30.0, 2.0, 20.0, 3.0, 0.0]
+
+ The three ways it stays flat. Each keeps the colour and the points and answers
+ tag 0 with an empty `geom`.
+
+  flat-of : DrawCmd -> List Integer
+  flat-of (c) =
+    let e = expand-shade c
+    in [e.tag, e.color, e.color2, list-length e.geom, list-length e.pts]
+
+  flat-got : List Integer
+  flat-got =
+    flat-of (cmd 1 8405024 0.0 [] poly)
+      & flat-of (cmd 1 8405024 1.0 [] [5.0])
+      & flat-of (cmd 1 8405024 1.0 [] [10.0, 1.0, 10.5, 2.0, 10.2, 3.0])
+
+  flat-want : List Integer
+  flat-want =
+    [ 0, 8405024, 0, 0, 6,
+      0, 8405024, 0, 0, 1,
+      0, 8405024, 0, 0, 6 ]
+
+Section: The Frame
+
+ Everything that is not a tag 1, a disc or a radial fill passes through
+ untouched, and the two that can vanish do so by leaving the list shorter.
+
+  frame : List DrawCmd
+  frame =
+    [ cmd 0 111 0.0 [] poly,
+      cmd 1 8405024 1.0 [] poly,
+      cmd 3 222 0.02 [1.0, 2.0, 0.5] [],
+      cmd 3 333 0.019 [1.0, 2.0, 0.5] [],
+      cmd 3 444 1.0 [1.0, 2.0, 0.49] [],
+      cmd 4 555 0.0 [1.0, 2.0, 0.5] poly,
+      cmd 4 666 0.0 [1.0, 2.0, 0.49] poly,
+      cmd 5 777 0.0 [] poly ]
+
+  frame-got : List Integer
+  frame-got =
+    let out = blit-expand frame 0
+    in [ list-length out,
+         (list-at out 0).tag, (list-at out 0).color,
+         (list-at out 1).tag, (list-at out 1).color,
+         (list-at out 2).tag, (list-at out 2).color,
+         (list-at out 3).tag, (list-at out 3).color,
+         (list-at out 4).tag, (list-at out 4).color ]
+
+  frame-want : List Integer
+  frame-want = [5, 0, 111, 2, 5056019, 3, 222, 4, 555, 5, 777]
+
+  empty-got : List Integer
+  empty-got = [list-length (blit-expand [] 0), list-length (expand-cmd (cmd 3 1 0.5 [0.0, 0.0, 0.1] []))]
+
+  empty-want : List Integer
+  empty-want = [0, 0]
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    print-line-uni (grade-ints  "bl-chan  " chan-got chan-want)
+    print-line-uni (grade-ints  "bl-shade " shade-got shade-want)
+    print-line-uni (grade-ints  "bl-stops " stops-got stops-want)
+    print-line-uni (grade-ints  "bl-zero  " zero-got zero-want)
+    print-line-uni (grade-ints  "bl-glow  " glow-got glow-want)
+    print-line-uni (grade-bools "bl-vis   " visible-got visible-want)
+    print-line-uni (grade-reals "bl-limits" limits-got limits-want 0.0)
+    print-line-uni (grade-reals "bl-span  " span-got span-want 0.0)
+    print-line-uni (grade-ints  "bl-wide  " wide-got wide-want)
+    print-line-uni (grade-reals "bl-wgeom " wide-geom-got wide-geom-want 0.0)
+    print-line-uni (grade-ints  "bl-flat  " flat-got flat-want)
+    print-line-uni (grade-ints  "bl-frame " frame-got frame-want)
+    print-line-uni (grade-ints  "bl-empty " empty-got empty-want)
+  end

@@ -128,7 +128,7 @@ fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
 }
 
 fn clip_near_edge(poly: *CxList(Vec3), _arg_near: f64, i_: i64) *CxList(Vec3) {
-    return b0: { const n_: i64 = cx_list_len(poly); break :b0 (if ((i_ >= n_)) cx_ll_empty(Vec3) else b2: { const a_ = cx_list_at(poly, i_); break :b2 b3: { const b_ = cx_list_at(poly, ((i_ +% 1) -% (@divTrunc((i_ +% 1), n_) *% n_))); break :b3 b4: { const a_in: bool = (a_.forward >= _arg_near); break :b4 b5: { const b_in: bool = (b_.forward >= _arg_near); break :b5 b6: { const kept = (if (a_in) cx_ll_of(Vec3, &[_]Vec3{ a_ }) else cx_ll_empty(Vec3)); break :b6 b7: { const crossed = (if ((if (a_in) b_in else (if (b_in) false else true))) cx_ll_empty(Vec3) else clip_cross(a_, b_, _arg_near)); break :b7 cx_ll_concat(cx_ll_concat(kept, crossed), clip_near_edge(poly, _arg_near, (i_ +% 1))); }; }; }; }; }; }); };
+    return b0: { const n_: i64 = cx_list_len(poly); break :b0 (if ((i_ >= n_)) cx_ll_empty(Vec3) else b2: { const a_ = cx_list_at(poly, i_); break :b2 b3: { const b_ = cx_list_at(poly, ((i_ + 1) - (@divTrunc((i_ + 1), n_) * n_))); break :b3 b4: { const a_in: bool = (a_.forward >= _arg_near); break :b4 b5: { const b_in: bool = (b_.forward >= _arg_near); break :b5 b6: { const kept = (if (a_in) cx_ll_of(Vec3, &[_]Vec3{ a_ }) else cx_ll_empty(Vec3)); break :b6 b7: { const crossed = (if ((if (a_in) b_in else (if (b_in) false else true))) cx_ll_empty(Vec3) else clip_cross(a_, b_, _arg_near)); break :b7 cx_ll_concat(cx_ll_concat(kept, crossed), clip_near_edge(poly, _arg_near, (i_ + 1))); }; }; }; }; }; }); };
 }
 
 fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
@@ -186,7 +186,7 @@ fn g_max(a_: f64, b_: f64) f64 {
 fn first_rel_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i +% 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i + 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -201,14 +201,14 @@ fn grade_px(name: []const u8, got: *CxList(f64), want: *CxList(f64), atol: f64, 
 fn first_px_diff(got: *CxList(f64), want: *CxList(f64), atol: f64, rtol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i +% 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i + 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
     }
 }
 
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -283,23 +283,23 @@ fn thetas() *CxList(f64) {
 }
 
 fn cf_inner(l_: f64, j: i64) *CxList(f64) {
-    return (if ((j >= cx_list_len(attns()))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cam_focal(l_, cx_list_at(attns(), j)) }), cf_inner(l_, (j +% 1))));
+    return (if ((j >= cx_list_len(attns()))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cam_focal(l_, cx_list_at(attns(), j)) }), cf_inner(l_, (j + 1))));
 }
 
 fn cf_outer(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(leans()))) cx_ll_empty(f64) else cx_ll_concat(cf_inner(cx_list_at(leans(), i_), 0), cf_outer((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(leans()))) cx_ll_empty(f64) else cx_ll_concat(cf_inner(cx_list_at(leans(), i_), 0), cf_outer((i_ + 1))));
 }
 
 fn pr_h(f: f64, r_: f64, k_: i64) *CxList(f64) {
-    return (if ((k_ >= cx_list_len(heights()))) cx_ll_empty(f64) else b1: { const s_ = project(cx_new(Vec3S{ .right = r_, .forward = f, .height = cx_list_at(heights(), k_) }), focal(), camera_w()); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ s_.x, s_.y }), pr_h(f, r_, (k_ +% 1))); });
+    return (if ((k_ >= cx_list_len(heights()))) cx_ll_empty(f64) else b1: { const s_ = project(cx_new(Vec3S{ .right = r_, .forward = f, .height = cx_list_at(heights(), k_) }), focal(), camera_w()); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ s_.x, s_.y }), pr_h(f, r_, (k_ + 1))); });
 }
 
 fn pr_r(f: f64, j: i64) *CxList(f64) {
-    return (if ((j >= cx_list_len(rights()))) cx_ll_empty(f64) else cx_ll_concat(pr_h(f, cx_list_at(rights(), j), 0), pr_r(f, (j +% 1))));
+    return (if ((j >= cx_list_len(rights()))) cx_ll_empty(f64) else cx_ll_concat(pr_h(f, cx_list_at(rights(), j), 0), pr_r(f, (j + 1))));
 }
 
 fn pr_f(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(fwds()))) cx_ll_empty(f64) else cx_ll_concat(pr_r(cx_list_at(fwds(), i_), 0), pr_f((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(fwds()))) cx_ll_empty(f64) else cx_ll_concat(pr_r(cx_list_at(fwds(), i_), 0), pr_f((i_ + 1))));
 }
 
 fn gd() *CxList(f64) {
@@ -307,7 +307,7 @@ fn gd() *CxList(f64) {
 }
 
 fn tr(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(yaws()))) cx_ll_empty(f64) else b1: { const y: f64 = cx_list_at(yaws(), i_); break :b1 b2: { const a_ = to_rider(@as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4613937818241073152))), @as(f64, @bitCast(@as(i64, 4611686018427387904))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), y, @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b2 b3: { const b_ = to_rider(@as(f64, @bitCast(@as(i64, 4639129828656676864))), @as(f64, @bitCast(@as(i64, 4619848792751996928))), @as(f64, @bitCast(@as(i64, 4633781804099174400))), (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4609434218613702656)))), y, @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b3 cx_ll_concat(cx_ll_of(f64, &[_]f64{ a_.right, a_.forward, b_.right, b_.forward }), tr((i_ +% 1))); }; }; });
+    return (if ((i_ >= cx_list_len(yaws()))) cx_ll_empty(f64) else b1: { const y: f64 = cx_list_at(yaws(), i_); break :b1 b2: { const a_ = to_rider(@as(f64, @bitCast(@as(i64, 4621819117588971520))), @as(f64, @bitCast(@as(i64, 4613937818241073152))), @as(f64, @bitCast(@as(i64, 4611686018427387904))), @as(f64, @bitCast(@as(i64, 4602678819172646912))), y, @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b2 b3: { const b_ = to_rider(@as(f64, @bitCast(@as(i64, 4639129828656676864))), @as(f64, @bitCast(@as(i64, 4619848792751996928))), @as(f64, @bitCast(@as(i64, 4633781804099174400))), (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4609434218613702656)))), y, @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b3 cx_ll_concat(cx_ll_of(f64, &[_]f64{ a_.right, a_.forward, b_.right, b_.forward }), tr((i_ + 1))); }; }; });
 }
 
 fn fu_dir(th: f64, rt: bool) *CxList(f64) {
@@ -315,7 +315,7 @@ fn fu_dir(th: f64, rt: bool) *CxList(f64) {
 }
 
 fn fu(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(thetas()))) cx_ll_empty(f64) else b1: { const th: f64 = cx_list_at(thetas(), i_); break :b1 cx_ll_concat(cx_ll_concat(fu_dir(th, false), fu_dir(th, true)), fu((i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(thetas()))) cx_ll_empty(f64) else b1: { const th: f64 = cx_list_at(thetas(), i_); break :b1 cx_ll_concat(cx_ll_concat(fu_dir(th, false), fu_dir(th, true)), fu((i_ + 1))); });
 }
 
 fn lm() *CxList(f64) {
@@ -339,7 +339,7 @@ fn poly_d() *CxList(Vec3) {
 }
 
 fn clipped(poly: *CxList(Vec3), i_: i64) *CxList(f64) {
-    return b0: { const cl = clip_near(poly, near()); break :b0 (if ((i_ >= cx_list_len(cl))) cx_ll_empty(f64) else b2: { const v_ = cx_list_at(cl, i_); break :b2 cx_ll_concat(cx_ll_of(f64, &[_]f64{ v_.right, v_.forward, v_.height }), clipped(poly, (i_ +% 1))); }); };
+    return b0: { const cl = clip_near(poly, near()); break :b0 (if ((i_ >= cx_list_len(cl))) cx_ll_empty(f64) else b2: { const v_ = cx_list_at(cl, i_); break :b2 cx_ll_concat(cx_ll_of(f64, &[_]f64{ v_.right, v_.forward, v_.height }), clipped(poly, (i_ + 1))); }); };
 }
 
 fn clip_count(poly: *CxList(Vec3)) i64 {
@@ -408,6 +408,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -429,16 +437,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

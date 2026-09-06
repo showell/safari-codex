@@ -73,7 +73,7 @@ fn g_finite(x: f64) bool {
 fn first_real_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i +% 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { if ((g_abs((cx_list_at(got, _tl_i) - cx_list_at(want, _tl_i))) > tol)) { return _tl_i; } else { { const _tj3_3 = (_tl_i + 1); _tl_i = _tj3_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -84,7 +84,7 @@ fn grade_reals(name: []const u8, got: *CxList(f64), want: *CxList(f64), tol: f64
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -99,7 +99,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -140,15 +140,15 @@ fn g_ducks_face() *CxList(bool) {
 }
 
 fn flat_pts(ps: *CxList(PondPt), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.cu, p_.cv }), flat_pts(ps, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.cu, p_.cv }), flat_pts(ps, (i_ + 1))); });
 }
 
 fn flat_duck_pts(ds: *CxList(Duck), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(f64) else b1: { const d_ = cx_list_at(ds, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ d_.p_.cu, d_.p_.cv }), flat_duck_pts(ds, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(f64) else b1: { const d_ = cx_list_at(ds, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ d_.p_.cu, d_.p_.cv }), flat_duck_pts(ds, (i_ + 1))); });
 }
 
 fn duck_faces(ds: *CxList(Duck), i_: i64) *CxList(bool) {
-    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(bool) else b1: { const d_ = cx_list_at(ds, i_); break :b1 cx_ll_concat(cx_ll_of(bool, &[_]bool{ d_.face_right }), duck_faces(ds, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(bool) else b1: { const d_ = cx_list_at(ds, i_); break :b1 cx_ll_concat(cx_ll_of(bool, &[_]bool{ d_.face_right }), duck_faces(ds, (i_ + 1))); });
 }
 
 fn opening() void {
@@ -213,12 +213,10 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
 // payloads and both signed zeroes come through exactly as they went in.
 fn cx_real_to_bits(v: f64) i64 {
     return @bitCast(v);

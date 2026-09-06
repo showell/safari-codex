@@ -284,7 +284,7 @@ fn list_tail_loop(comptime T19: type, xs: *CxList(T19), i_: i64, len_: i64, acc_
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= len_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -296,7 +296,7 @@ fn list_take_loop(comptime T21: type, xs: *CxList(T21), i_: i64, n_: i64, acc_: 
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i +% 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
+        if ((_tl_i >= n_)) { return _tl_acc; } else { { const _tj1_1 = (_tl_i + 1); const _tj1_3 = cx_ll_push(_tl_acc, cx_list_at(xs, _tl_i)); _tl_i = _tj1_1; _tl_acc = _tj1_3; continue; } }
     }
 }
 
@@ -321,7 +321,7 @@ fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
     var _tl_s = s_;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
     }
 }
 
@@ -414,7 +414,7 @@ fn clip_cross(a_: Vec3, b_: Vec3, _arg_near: f64) *CxList(Vec3) {
 }
 
 fn clip_near_edge(poly: *CxList(Vec3), _arg_near: f64, i_: i64) *CxList(Vec3) {
-    return b0: { const n_: i64 = cx_list_len(poly); break :b0 (if ((i_ >= n_)) cx_ll_empty(Vec3) else b2: { const a_ = cx_list_at(poly, i_); break :b2 b3: { const b_ = cx_list_at(poly, ((i_ +% 1) -% (@divTrunc((i_ +% 1), n_) *% n_))); break :b3 b4: { const a_in: bool = (a_.forward >= _arg_near); break :b4 b5: { const b_in: bool = (b_.forward >= _arg_near); break :b5 b6: { const kept = (if (a_in) cx_ll_of(Vec3, &[_]Vec3{ a_ }) else cx_ll_empty(Vec3)); break :b6 b7: { const crossed = (if ((if (a_in) b_in else (if (b_in) false else true))) cx_ll_empty(Vec3) else clip_cross(a_, b_, _arg_near)); break :b7 cx_ll_concat(cx_ll_concat(kept, crossed), clip_near_edge(poly, _arg_near, (i_ +% 1))); }; }; }; }; }; }); };
+    return b0: { const n_: i64 = cx_list_len(poly); break :b0 (if ((i_ >= n_)) cx_ll_empty(Vec3) else b2: { const a_ = cx_list_at(poly, i_); break :b2 b3: { const b_ = cx_list_at(poly, ((i_ + 1) - (@divTrunc((i_ + 1), n_) * n_))); break :b3 b4: { const a_in: bool = (a_.forward >= _arg_near); break :b4 b5: { const b_in: bool = (b_.forward >= _arg_near); break :b5 b6: { const kept = (if (a_in) cx_ll_of(Vec3, &[_]Vec3{ a_ }) else cx_ll_empty(Vec3)); break :b6 b7: { const crossed = (if ((if (a_in) b_in else (if (b_in) false else true))) cx_ll_empty(Vec3) else clip_cross(a_, b_, _arg_near)); break :b7 cx_ll_concat(cx_ll_concat(kept, crossed), clip_near_edge(poly, _arg_near, (i_ + 1))); }; }; }; }; }; }); };
 }
 
 fn clip_near(poly: *CxList(Vec3), _arg_near: f64) *CxList(Vec3) {
@@ -622,11 +622,11 @@ fn tree_height_for(color: i64, even: bool) f64 {
 }
 
 fn fill_trees(scheme: Scheme, length: f64, along: f64, k_: i64, n_: i64) *CxList(Tree) {
-    return (if ((along > (length - tree_end_inset()))) cx_ll_empty(Tree) else (if (((n_ +% 2) > max_trees())) cx_ll_empty(Tree) else fill_trees_pair(scheme, length, along, k_, n_)));
+    return (if ((along > (length - tree_end_inset()))) cx_ll_empty(Tree) else (if (((n_ + 2) > max_trees())) cx_ll_empty(Tree) else fill_trees_pair(scheme, length, along, k_, n_)));
 }
 
 fn fill_trees_pair(scheme: Scheme, length: f64, along: f64, k_: i64, n_: i64) *CxList(Tree) {
-    return b0: { const even: bool = ((k_ -% (@divTrunc(k_, 2) *% 2)) == 0); break :b0 b1: { const color: i64 = (if (even) conifer_green() else accent_color(scheme)); break :b1 b2: { const height: f64 = tree_height_for(color, even); break :b2 b3: { const x: f64 = (if ((color == conifer_gold())) ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + (@as(f64, @bitCast(@as(i64, 4616189618054758400))) * tree_road_offset())) else ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tree_road_offset())); break :b3 cx_ll_concat(cx_ll_of(Tree, &[_]Tree{ cx_new(TreeS{ .along = along, .across = (@as(f64, @bitCast(@as(i64, 0))) - x), .color = color, .height = height }), cx_new(TreeS{ .along = along, .across = x, .color = color, .height = height }) }), fill_trees(scheme, length, (along + tree_spacing()), (k_ +% 1), (n_ +% 2))); }; }; }; };
+    return b0: { const even: bool = ((k_ - (@divTrunc(k_, 2) * 2)) == 0); break :b0 b1: { const color: i64 = (if (even) conifer_green() else accent_color(scheme)); break :b1 b2: { const height: f64 = tree_height_for(color, even); break :b2 b3: { const x: f64 = (if ((color == conifer_gold())) ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + (@as(f64, @bitCast(@as(i64, 4616189618054758400))) * tree_road_offset())) else ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tree_road_offset())); break :b3 cx_ll_concat(cx_ll_of(Tree, &[_]Tree{ cx_new(TreeS{ .along = along, .across = (@as(f64, @bitCast(@as(i64, 0))) - x), .color = color, .height = height }), cx_new(TreeS{ .along = along, .across = x, .color = color, .height = height }) }), fill_trees(scheme, length, (along + tree_spacing()), (k_ + 1), (n_ + 2))); }; }; }; };
 }
 
 fn bull_cp() i64 {
@@ -682,11 +682,11 @@ fn herd_jitter_across() f64 {
 }
 
 fn cows_from(i_: i64) *CxList(Critter) {
-    return (if ((i_ >= 14)) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cow_at(i_) }), cows_from((i_ +% 1))));
+    return (if ((i_ >= 14)) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cow_at(i_) }), cows_from((i_ + 1))));
 }
 
 fn cow_at(i_: i64) Critter {
-    return b0: { const fi: f64 = cx_real_from_int(i_); break :b0 b1: { const col: f64 = cx_real_from_int(@divTrunc(i_, 3)); break :b1 b2: { const row: f64 = cx_real_from_int((i_ -% (@divTrunc(i_, 3) *% 3))); break :b2 b3: { const along: f64 = ((((bull_dist() + herd_gap_behind_bull()) + (col * herd_col_spacing())) + ((row - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * herd_row_stagger())) + (herd_jitter_along() * r_sin((fi * @as(f64, @bitCast(@as(i64, 4613262278296967578))))))); break :b3 b4: { const across: f64 = (@as(f64, @bitCast(@as(i64, 0))) - ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (row * herd_row_depth())) + (herd_jitter_across() * r_cos((fi * @as(f64, @bitCast(@as(i64, 4611235658464650854)))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = cow_cp(), .height = (if (((i_ -% (@divTrunc(i_, 4) *% 4)) == 1)) calf_height() else cow_height()), .face_right = true }); }; }; }; }; };
+    return b0: { const fi: f64 = cx_real_from_int(i_); break :b0 b1: { const col: f64 = cx_real_from_int(@divTrunc(i_, 3)); break :b1 b2: { const row: f64 = cx_real_from_int((i_ - (@divTrunc(i_, 3) * 3))); break :b2 b3: { const along: f64 = ((((bull_dist() + herd_gap_behind_bull()) + (col * herd_col_spacing())) + ((row - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * herd_row_stagger())) + (herd_jitter_along() * r_sin((fi * @as(f64, @bitCast(@as(i64, 4613262278296967578))))))); break :b3 b4: { const across: f64 = (@as(f64, @bitCast(@as(i64, 0))) - ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (row * herd_row_depth())) + (herd_jitter_across() * r_cos((fi * @as(f64, @bitCast(@as(i64, 4611235658464650854)))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = cow_cp(), .height = (if (((i_ - (@divTrunc(i_, 4) * 4)) == 1)) calf_height() else cow_height()), .face_right = true }); }; }; }; }; };
 }
 
 fn fill_cows(bull: bool) *CxList(Critter) {
@@ -742,15 +742,15 @@ fn pig_back_row_offset() f64 {
 }
 
 fn herd_pig_at(base_: f64, r_: i64, c_: i64) Critter {
-    return b0: { const i_: f64 = cx_real_from_int(((r_ *% big_herd_cols()) +% c_)); break :b0 b1: { const fr: f64 = cx_real_from_int(r_); break :b1 b2: { const fc: f64 = cx_real_from_int(c_); break :b2 b3: { const along: f64 = ((((base_ + pig_herd_first_col()) + (fc * pig_col_spacing())) + (fr * pig_row_depth())) + (pig_jitter_along() * r_sin((i_ * @as(f64, @bitCast(@as(i64, 4612361558371493478))))))); break :b3 b4: { const across: f64 = ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (fr * pig_row_depth())) + (pig_jitter_across() * r_cos((i_ * @as(f64, @bitCast(@as(i64, 4610334938539176755))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }); }; }; }; }; };
+    return b0: { const i_: f64 = cx_real_from_int(((r_ * big_herd_cols()) + c_)); break :b0 b1: { const fr: f64 = cx_real_from_int(r_); break :b1 b2: { const fc: f64 = cx_real_from_int(c_); break :b2 b3: { const along: f64 = ((((base_ + pig_herd_first_col()) + (fc * pig_col_spacing())) + (fr * pig_row_depth())) + (pig_jitter_along() * r_sin((i_ * @as(f64, @bitCast(@as(i64, 4612361558371493478))))))); break :b3 b4: { const across: f64 = ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (fr * pig_row_depth())) + (pig_jitter_across() * r_cos((i_ * @as(f64, @bitCast(@as(i64, 4610334938539176755))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }); }; }; }; }; };
 }
 
 fn herd_cols_from(base_: f64, r_: i64, c_: i64) *CxList(Critter) {
-    return (if ((c_ >= big_herd_cols())) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ herd_pig_at(base_, r_, c_) }), herd_cols_from(base_, r_, (c_ +% 1))));
+    return (if ((c_ >= big_herd_cols())) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ herd_pig_at(base_, r_, c_) }), herd_cols_from(base_, r_, (c_ + 1))));
 }
 
 fn herd_rows_from(base_: f64, r_: i64) *CxList(Critter) {
-    return (if ((r_ >= big_herd_rows())) cx_ll_empty(Critter) else cx_ll_concat(herd_cols_from(base_, r_, 0), herd_rows_from(base_, (r_ +% 1))));
+    return (if ((r_ >= big_herd_rows())) cx_ll_empty(Critter) else cx_ll_concat(herd_cols_from(base_, r_, 0), herd_rows_from(base_, (r_ + 1))));
 }
 
 fn fill_pig_herd(length: f64) *CxList(Critter) {
@@ -766,7 +766,7 @@ fn pig_row_back() *CxList(f64) {
 }
 
 fn row_pigs_at(base_: f64, across: f64, ds: *CxList(f64), i_: i64) *CxList(Critter) {
-    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = (base_ + cx_list_at(ds, i_)), .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }) }), row_pigs_at(base_, across, ds, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = (base_ + cx_list_at(ds, i_)), .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }) }), row_pigs_at(base_, across, ds, (i_ + 1))));
 }
 
 fn fill_pig_row(length: f64) *CxList(Critter) {
@@ -794,7 +794,7 @@ fn next_tree_loop(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Ma
 }
 
 fn next_tree_step(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Maybe(f64) {
-    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) tree_improves(best, t.along) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ +% 1), Maybe(f64){ .Just = t.along }) else next_tree_loop(ts, desired, (i_ +% 1), best)); }; };
+    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) tree_improves(best, t.along) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ + 1), Maybe(f64){ .Just = t.along }) else next_tree_loop(ts, desired, (i_ + 1), best)); }; };
 }
 
 fn heading_step(i_: i64) f64 {
@@ -802,23 +802,23 @@ fn heading_step(i_: i64) f64 {
 }
 
 fn heading_at(i_: i64) f64 {
-    return @as(f64, (if ((i_ <= 0)) @as(f64, @bitCast(@as(i64, 0))) else (heading_at((i_ -% 1)) + heading_step((i_ -% 1)))));
+    return @as(f64, (if ((i_ <= 0)) @as(f64, @bitCast(@as(i64, 0))) else (heading_at((i_ - 1)) + heading_step((i_ - 1)))));
 }
 
 fn pig_count_to(i_: i64, acc_: i64) i64 {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_i -% 1); const _tj1_1 = (if (cx_list_at(route(), (_tl_i -% 1)).pigs) (_tl_acc +% 1) else _tl_acc); _tl_i = _tj1_0; _tl_acc = _tj1_1; continue; } }
+        if ((_tl_i <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_i - 1); const _tj1_1 = (if (cx_list_at(route(), (_tl_i - 1)).pigs) (_tl_acc + 1) else _tl_acc); _tl_i = _tj1_0; _tl_acc = _tj1_1; continue; } }
     }
 }
 
 fn segment_at(i_: i64) Segment {
-    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ +% 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ +% 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(angle)))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), from_maybe(f64, next_tree_loop(trees, cat_along(), 0, Maybe(f64){ .None = {} }), cat_along())), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
+    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ + 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ + 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / r_tan(angle)))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), from_maybe(f64, next_tree_loop(trees, cat_along(), 0, Maybe(f64){ .None = {} }), cat_along())), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
 }
 
 fn segments_from(i_: i64) *CxList(Segment) {
-    return (if ((i_ >= cx_list_len(route()))) cx_ll_empty(Segment) else cx_ll_concat(cx_ll_of(Segment, &[_]Segment{ segment_at(i_) }), segments_from((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(route()))) cx_ll_empty(Segment) else cx_ll_concat(cx_ll_of(Segment, &[_]Segment{ segment_at(i_) }), segments_from((i_ + 1))));
 }
 
 fn build_world() *CxList(Segment) {
@@ -826,7 +826,7 @@ fn build_world() *CxList(Segment) {
 }
 
 fn route_distance_from(ss: *CxList(Segment), seg: i64, i_: i64) f64 {
-    return @as(f64, (if ((i_ >= seg)) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ss, i_).length + route_distance_from(ss, seg, (i_ +% 1)))));
+    return @as(f64, (if ((i_ >= seg)) @as(f64, @bitCast(@as(i64, 0))) else (cx_list_at(ss, i_).length + route_distance_from(ss, seg, (i_ + 1)))));
 }
 
 fn camera_w() f64 {
@@ -854,11 +854,11 @@ fn project(p_: Vec3, cf: f64, view_w: f64) ScreenPt {
 }
 
 fn project_all(ps: *CxList(Vec3), cf: f64, view_w: f64, i_: i64) *CxList(ScreenPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(ScreenPt) else cx_ll_concat(cx_ll_of(ScreenPt, &[_]ScreenPt{ project(cx_list_at(ps, i_), cf, view_w) }), project_all(ps, cf, view_w, (i_ + 1))));
 }
 
 fn flatten_screen(ps: *CxList(ScreenPt), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.x, p_.y }), flatten_screen(ps, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else b1: { const p_ = cx_list_at(ps, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.x, p_.y }), flatten_screen(ps, (i_ + 1))); });
 }
 
 fn push_poly(color: i64, ps: *CxList(ScreenPt)) *CxList(DrawCmd) {
@@ -914,7 +914,7 @@ fn bar_quad(p_: RiderPt, q: RiderPt) RailPoly {
 }
 
 fn bars(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if (((i_ +% 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ +% 1))) }), bars(path_, (i_ +% 1))));
+    return (if (((i_ + 1) >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ bar_quad(cx_list_at(path_, i_), cx_list_at(path_, (i_ + 1))) }), bars(path_, (i_ + 1))));
 }
 
 fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
@@ -922,11 +922,11 @@ fn post_box(p_: RiderPt, ox: f64, ofwd: f64) RailPoly {
 }
 
 fn post_quad(path_: *CxList(RiderPt), i_: i64) RailPoly {
-    return b0: { const n_: i64 = cx_list_len(path_); break :b0 b1: { const ia: i64 = @as(i64, (if ((i_ == 0)) 0 else (i_ -% 1))); break :b1 b2: { const ib: i64 = (if (((i_ +% 1) >= n_)) (n_ -% 1) else (i_ +% 1)); break :b2 b3: { const a_ = cx_list_at(path_, ia); break :b3 b4: { const b_ = cx_list_at(path_, ib); break :b4 b5: { const dr: f64 = (b_.right - a_.right); break :b5 b6: { const df: f64 = (b_.forward - a_.forward); break :b6 b7: { const raw_: f64 = real_sqrt(((dr * dr) + (df * df))); break :b7 b8: { const run: f64 = @as(f64, (if ((raw_ == @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b8 b9: { const ox: f64 = ((dr / run) * half_post()); break :b9 b10: { const ofwd: f64 = ((df / run) * half_post()); break :b10 post_box(cx_list_at(path_, i_), ox, ofwd); }; }; }; }; }; }; }; }; }; }; };
+    return b0: { const n_: i64 = cx_list_len(path_); break :b0 b1: { const ia: i64 = @as(i64, (if ((i_ == 0)) 0 else (i_ - 1))); break :b1 b2: { const ib: i64 = (if (((i_ + 1) >= n_)) (n_ - 1) else (i_ + 1)); break :b2 b3: { const a_ = cx_list_at(path_, ia); break :b3 b4: { const b_ = cx_list_at(path_, ib); break :b4 b5: { const dr: f64 = (b_.right - a_.right); break :b5 b6: { const df: f64 = (b_.forward - a_.forward); break :b6 b7: { const raw_: f64 = real_sqrt(((dr * dr) + (df * df))); break :b7 b8: { const run: f64 = @as(f64, (if ((raw_ == @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else raw_)); break :b8 b9: { const ox: f64 = ((dr / run) * half_post()); break :b9 b10: { const ofwd: f64 = ((df / run) * half_post()); break :b10 post_box(cx_list_at(path_, i_), ox, ofwd); }; }; }; }; }; }; }; }; }; }; };
 }
 
 fn posts(path_: *CxList(RiderPt), i_: i64) *CxList(RailPoly) {
-    return (if ((i_ >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ post_quad(path_, i_) }), posts(path_, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(path_))) cx_ll_empty(RailPoly) else cx_ll_concat(cx_ll_of(RailPoly, &[_]RailPoly{ post_quad(path_, i_) }), posts(path_, (i_ + 1))));
 }
 
 fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
@@ -934,11 +934,11 @@ fn rail_emit(path_: *CxList(RiderPt)) *CxList(RailPoly) {
 }
 
 fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
-    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j +% 1))));
+    return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j + 1))));
 }
 
 fn merge_items(a_: *CxList(Item), b_: *CxList(Item), i_: i64, j: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j +% 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ +% 1), j)))));
+    return (if ((i_ >= cx_list_len(a_))) rest_from(b_, j) else (if ((j >= cx_list_len(b_))) rest_from(a_, i_) else (if (deeper_than(cx_list_at(b_, j).fwd, cx_list_at(a_, i_).fwd)) cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(b_, j) }), merge_items(a_, b_, i_, (j + 1))) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(a_, i_) }), merge_items(a_, b_, (i_ + 1), j)))));
 }
 
 fn sort_tie() f64 {
@@ -966,7 +966,7 @@ fn build_chain(_arg_segs: *CxList(Segment), start_: i64) *CxList(i64) {
 }
 
 fn chain_from(_arg_segs: *CxList(Segment), s_: i64, n_: i64) *CxList(i64) {
-    return (if ((n_ >= look_ahead())) cx_ll_empty(i64) else (if ((n_ >= max_chain())) cx_ll_empty(i64) else (if (cx_list_at(_arg_segs, s_).terminates) cx_ll_of(i64, &[_]i64{ s_ }) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ s_ }), chain_from(_arg_segs, cx_list_at(_arg_segs, s_).exit_to, (n_ +% 1))))));
+    return (if ((n_ >= look_ahead())) cx_ll_empty(i64) else (if ((n_ >= max_chain())) cx_ll_empty(i64) else (if (cx_list_at(_arg_segs, s_).terminates) cx_ll_of(i64, &[_]i64{ s_ }) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ s_ }), chain_from(_arg_segs, cx_list_at(_arg_segs, s_).exit_to, (n_ + 1))))));
 }
 
 fn compose_down(_arg_segs: *CxList(Segment), ch: *CxList(i64), k_: i64, a_: f64, x: f64) AX {
@@ -974,7 +974,7 @@ fn compose_down(_arg_segs: *CxList(Segment), ch: *CxList(i64), k_: i64, a_: f64,
     var _tl_a = a_;
     var _tl_x = x;
     while (true) {
-        if ((_tl_k <= 0)) { return cx_new(AXS{ .a_ = _tl_a, .x = _tl_x }); } else { const seg = cx_list_at(_arg_segs, cx_list_at(ch, (_tl_k -% 1))); const p_ = next_to_cur(_tl_a, _tl_x, seg.length, seg.exit_angle, seg.exit_right, seg.width); { const _tj3_2 = (_tl_k -% 1); const _tj3_3 = p_.a_; const _tj3_4 = p_.x; _tl_k = _tj3_2; _tl_a = _tj3_3; _tl_x = _tj3_4; continue; } }
+        if ((_tl_k <= 0)) { return cx_new(AXS{ .a_ = _tl_a, .x = _tl_x }); } else { const seg = cx_list_at(_arg_segs, cx_list_at(ch, (_tl_k - 1))); const p_ = next_to_cur(_tl_a, _tl_x, seg.length, seg.exit_angle, seg.exit_right, seg.width); { const _tj3_2 = (_tl_k - 1); const _tj3_3 = p_.a_; const _tj3_4 = p_.x; _tl_k = _tj3_2; _tl_a = _tj3_3; _tl_x = _tj3_4; continue; } }
     }
 }
 
@@ -999,7 +999,7 @@ fn min_scenery_px() f64 {
 }
 
 fn chain_gap(w: *CxList(Segment), ch: *CxList(i64), along: f64, d_: i64) f64 {
-    return (if ((d_ <= 0)) (@as(f64, @bitCast(@as(i64, 0))) - along) else (chain_gap(w, ch, along, (d_ -% 1)) + cx_list_at(w, cx_list_at(ch, (d_ -% 1))).length));
+    return (if ((d_ <= 0)) (@as(f64, @bitCast(@as(i64, 0))) - along) else (chain_gap(w, ch, along, (d_ - 1)) + cx_list_at(w, cx_list_at(ch, (d_ - 1))).length));
 }
 
 fn cat_item(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, gap: f64, sg: Segment, v_: f64) *CxList(CatItem) {
@@ -1011,7 +1011,7 @@ fn seg_cat(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, 
 }
 
 fn walk_cats(w: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, along: f64, v_: f64, d_: i64) *CxList(CatItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(CatItem) else cx_ll_concat(seg_cat(w, ch, pose, d_, cf, along, v_), walk_cats(w, ch, pose, cf, along, v_, (d_ +% 1))));
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(CatItem) else cx_ll_concat(seg_cat(w, ch, pose, d_, cf, along, v_), walk_cats(w, ch, pose, cf, along, v_, (d_ + 1))));
 }
 
 fn max_vis_cats() i64 {
@@ -1019,7 +1019,7 @@ fn max_vis_cats() i64 {
 }
 
 fn cat_items(cs: *CxList(CatItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(cs, i_).fwd, .kind = Kind.KCat, .i_ = i_ }) }), cat_items(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(cs, i_).fwd, .kind = Kind.KCat, .i_ = i_ }) }), cat_items(cs, (i_ + 1))));
 }
 
 fn min_critter_px() f64 {
@@ -1037,14 +1037,14 @@ fn verdict(rp: RiderPt, h_: f64, cp_: i64, fr: bool) Placed {
 fn kept_of(ps: *CxList(Placed), i_: i64) *CxList(Billboard) {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(ps))) { return cx_ll_empty(Billboard); } else { if (cx_list_at(ps, _tl_i).kept) { return cx_ll_concat(cx_ll_of(Billboard, &[_]Billboard{ cx_list_at(ps, _tl_i).b_ }), kept_of(ps, (_tl_i +% 1))); } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+        if ((_tl_i >= cx_list_len(ps))) { return cx_ll_empty(Billboard); } else { if (cx_list_at(ps, _tl_i).kept) { return cx_ll_concat(cx_ll_of(Billboard, &[_]Billboard{ cx_list_at(ps, _tl_i).b_ }), kept_of(ps, (_tl_i + 1))); } else { { const _tj2_1 = (_tl_i + 1); _tl_i = _tj2_1; continue; } } }
     }
 }
 
 fn size_culled_of(ps: *CxList(Placed), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(ps))) { return 0; } else { if (cx_list_at(ps, _tl_i).size_culled) { return (1 +% size_culled_of(ps, (_tl_i +% 1))); } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+        if ((_tl_i >= cx_list_len(ps))) { return 0; } else { if (cx_list_at(ps, _tl_i).size_culled) { return (1 + size_culled_of(ps, (_tl_i + 1))); } else { { const _tj2_1 = (_tl_i + 1); _tl_i = _tj2_1; continue; } } }
     }
 }
 
@@ -1113,15 +1113,15 @@ fn place_duck(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Map
 }
 
 fn place_all(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, hw: f64, crs: *CxList(Critter), i_: i64) *CxList(Placed) {
-    return (if ((i_ >= cx_list_len(crs))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_critter(_arg_segs, ch, pose, d_, hw, cx_list_at(crs, i_)) }), place_all(_arg_segs, ch, pose, d_, hw, crs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(crs))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_critter(_arg_segs, ch, pose, d_, hw, cx_list_at(crs, i_)) }), place_all(_arg_segs, ch, pose, d_, hw, crs, (i_ + 1))));
 }
 
 fn place_all_via(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, hw: f64, crs: *CxList(Critter), i_: i64) *CxList(Placed) {
-    return (if ((i_ >= cx_list_len(crs))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_critter_via(_arg_segs, ch, pose, m_, hw, cx_list_at(crs, i_)) }), place_all_via(_arg_segs, ch, pose, m_, hw, crs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(crs))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_critter_via(_arg_segs, ch, pose, m_, hw, cx_list_at(crs, i_)) }), place_all_via(_arg_segs, ch, pose, m_, hw, crs, (i_ + 1))));
 }
 
 fn place_ducks(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, i_: i64) *CxList(Placed) {
-    return (if ((i_ >= cx_list_len(ducks()))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_duck(_arg_segs, ch, pose, m_, from_len, cx_list_at(ducks(), i_)) }), place_ducks(_arg_segs, ch, pose, m_, from_len, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ducks()))) cx_ll_empty(Placed) else cx_ll_concat(cx_ll_of(Placed, &[_]Placed{ place_duck(_arg_segs, ch, pose, m_, from_len, cx_list_at(ducks(), i_)) }), place_ducks(_arg_segs, ch, pose, m_, from_len, (i_ + 1))));
 }
 
 fn farm_seg_reach() i64 {
@@ -1149,7 +1149,7 @@ fn seg_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_:
 }
 
 fn walk_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(Placed) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(Placed) else cx_ll_concat(seg_billboards(_arg_segs, ch, pose, d_), walk_billboards(_arg_segs, ch, pose, (d_ +% 1))));
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(Placed) else cx_ll_concat(seg_billboards(_arg_segs, ch, pose, d_), walk_billboards(_arg_segs, ch, pose, (d_ + 1))));
 }
 
 fn behind_billboards(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(Placed) {
@@ -1161,7 +1161,7 @@ fn max_vis_critters() i64 {
 }
 
 fn cow_items(bs: *CxList(Billboard), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(bs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(bs, i_).fwd, .kind = Kind.KCow, .i_ = i_ }) }), cow_items(bs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(bs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(bs, i_).fwd, .kind = Kind.KCow, .i_ = i_ }) }), cow_items(bs, (i_ + 1))));
 }
 
 fn outer_cu(exit_right: bool, wd: f64) f64 {
@@ -1177,7 +1177,7 @@ fn leg_steps(dist: f64) i64 {
 }
 
 fn leg_points(from: RiderPt, dr: f64, df: f64, steps: i64, i_: i64) *CxList(RiderPt) {
-    return (if ((i_ > steps)) cx_ll_empty(RiderPt) else b1: { const t: f64 = (cx_real_from_int(i_) / cx_real_from_int(steps)); break :b1 cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ cx_new(RiderPtS{ .right = (from.right + (dr * t)), .forward = (from.forward + (df * t)) }) }), leg_points(from, dr, df, steps, (i_ +% 1))); });
+    return (if ((i_ > steps)) cx_ll_empty(RiderPt) else b1: { const t: f64 = (cx_real_from_int(i_) / cx_real_from_int(steps)); break :b1 cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ cx_new(RiderPtS{ .right = (from.right + (dr * t)), .forward = (from.forward + (df * t)) }) }), leg_points(from, dr, df, steps, (i_ + 1))); });
 }
 
 fn push_leg(from: RiderPt, to: RiderPt) *CxList(RiderPt) {
@@ -1185,11 +1185,11 @@ fn push_leg(from: RiderPt, to: RiderPt) *CxList(RiderPt) {
 }
 
 fn rail_run_up(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, cu: f64, k_: i64) *CxList(RiderPt) {
-    return (if ((k_ < 0)) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len - cx_real_from_int(k_)), cu) }), rail_run_up(_arg_segs, ch, pose, m_, from_len, cu, (k_ -% 1))));
+    return (if ((k_ < 0)) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len - cx_real_from_int(k_)), cu) }), rail_run_up(_arg_segs, ch, pose, m_, from_len, cu, (k_ - 1))));
 }
 
 fn rail_run_out(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, x: f64, k_: i64) *CxList(RiderPt) {
-    return (if ((k_ > rail_runout())) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, cx_real_from_int(k_), x) }), rail_run_out(_arg_segs, ch, pose, m_, x, (k_ +% 1))));
+    return (if ((k_ > rail_runout())) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, cx_real_from_int(k_), x) }), rail_run_out(_arg_segs, ch, pose, m_, x, (k_ + 1))));
 }
 
 fn joint_rail_path(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_map: Mapper, to_map: Mapper, from_len: f64, from_w: f64, to_w: f64, exit_right: bool) *CxList(RiderPt) {
@@ -1201,7 +1201,7 @@ fn joint_rails(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, from_m
 }
 
 fn walk_rails(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(RailPoly) {
-    return (if (((d_ +% 1) >= cx_list_len(ch))) cx_ll_empty(RailPoly) else cx_ll_concat(joint_rails(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ +% 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ +% 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right), walk_rails(_arg_segs, ch, pose, (d_ +% 1))));
+    return (if (((d_ + 1) >= cx_list_len(ch))) cx_ll_empty(RailPoly) else cx_ll_concat(joint_rails(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ + 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ + 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right), walk_rails(_arg_segs, ch, pose, (d_ + 1))));
 }
 
 fn behind_rails(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(RailPoly) {
@@ -1209,7 +1209,7 @@ fn behind_rails(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_
 }
 
 fn rail_items(rs: *CxList(RailPoly), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(rs, i_).fwd, .kind = Kind.KRail, .i_ = i_ }) }), rail_items(rs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(rs, i_).fwd, .kind = Kind.KRail, .i_ = i_ }) }), rail_items(rs, (i_ + 1))));
 }
 
 fn tower_beyond() f64 {
@@ -1229,7 +1229,7 @@ fn tower_yaw() f64 {
 }
 
 fn tower_if_ahead(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, a0: f64, x0: f64, yw: f64, key: i64) *CxList(TowerItem) {
-    return b0: { const c_ = map_pt(_arg_segs, ch, pose, m_, a0, x0); break :b0 (if ((c_.forward <= near())) cx_ll_empty(TowerItem) else cx_ll_of(TowerItem, &[_]TowerItem{ cx_new(TowerItemS{ .map = m_, .a0 = a0, .x0 = x0, .yaw = yw, .fwd = c_.forward, .off_ = cx_real_from_int(((key *% 37) -% (@divTrunc((key *% 37), 120) *% 120))) }) })); };
+    return b0: { const c_ = map_pt(_arg_segs, ch, pose, m_, a0, x0); break :b0 (if ((c_.forward <= near())) cx_ll_empty(TowerItem) else cx_ll_of(TowerItem, &[_]TowerItem{ cx_new(TowerItemS{ .map = m_, .a0 = a0, .x0 = x0, .yaw = yw, .fwd = c_.forward, .off_ = cx_real_from_int(((key * 37) - (@divTrunc((key * 37), 120) * 120))) }) })); };
 }
 
 fn seg_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
@@ -1237,11 +1237,11 @@ fn seg_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64
 }
 
 fn seg_mid_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (sg.has_mid_tower) tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - seg_tower_left()), @as(f64, @bitCast(@as(i64, 0))), (cx_list_at(ch, d_) +% 60)) else cx_ll_empty(TowerItem)); };
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 (if (sg.has_mid_tower) tower_if_ahead(_arg_segs, ch, pose, chain_map(d_), (sg.length / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), ((sg.width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) - seg_tower_left()), @as(f64, @bitCast(@as(i64, 0))), (cx_list_at(ch, d_) + 60)) else cx_ll_empty(TowerItem)); };
 }
 
 fn walk_towers(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64) *CxList(TowerItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TowerItem) else cx_ll_concat(seg_towers(_arg_segs, ch, pose, d_), walk_towers(_arg_segs, ch, pose, (d_ +% 1))));
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TowerItem) else cx_ll_concat(seg_towers(_arg_segs, ch, pose, d_), walk_towers(_arg_segs, ch, pose, (d_ + 1))));
 }
 
 fn behind_tower(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64) *CxList(TowerItem) {
@@ -1253,7 +1253,7 @@ fn max_vis_towers() i64 {
 }
 
 fn tower_items(ts: *CxList(TowerItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTower, .i_ = i_ }) }), tower_items(ts, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTower, .i_ = i_ }) }), tower_items(ts, (i_ + 1))));
 }
 
 fn place_tree(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, tr: Tree) *CxList(TreeItem) {
@@ -1261,11 +1261,11 @@ fn place_tree(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64
 }
 
 fn seg_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, hw: f64, trs: *CxList(Tree), i_: i64) *CxList(TreeItem) {
-    return (if ((i_ >= cx_list_len(trs))) cx_ll_empty(TreeItem) else cx_ll_concat(place_tree(_arg_segs, ch, pose, d_, cf, hw, cx_list_at(trs, i_)), seg_trees(_arg_segs, ch, pose, d_, cf, hw, trs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(trs))) cx_ll_empty(TreeItem) else cx_ll_concat(place_tree(_arg_segs, ch, pose, d_, cf, hw, cx_list_at(trs, i_)), seg_trees(_arg_segs, ch, pose, d_, cf, hw, trs, (i_ + 1))));
 }
 
 fn walk_trees(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, d_: i64) *CxList(TreeItem) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TreeItem) else cx_ll_concat(seg_trees(_arg_segs, ch, pose, d_, cf, (cx_list_at(_arg_segs, cx_list_at(ch, d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), cx_list_at(_arg_segs, cx_list_at(ch, d_)).trees, 0), walk_trees(_arg_segs, ch, pose, cf, (d_ +% 1))));
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(TreeItem) else cx_ll_concat(seg_trees(_arg_segs, ch, pose, d_, cf, (cx_list_at(_arg_segs, cx_list_at(ch, d_)).width / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), cx_list_at(_arg_segs, cx_list_at(ch, d_)).trees, 0), walk_trees(_arg_segs, ch, pose, cf, (d_ + 1))));
 }
 
 fn max_vis_trees() i64 {
@@ -1273,7 +1273,7 @@ fn max_vis_trees() i64 {
 }
 
 fn tree_items(ts: *CxList(TreeItem), i_: i64) *CxList(Item) {
-    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTree, .i_ = i_ }) }), tree_items(ts, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ts))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_new(ItemS{ .fwd = cx_list_at(ts, i_).fwd, .kind = Kind.KTree, .i_ = i_ }) }), tree_items(ts, (i_ + 1))));
 }
 
 fn no_truck() TruckAt {
@@ -1284,7 +1284,7 @@ fn truck_step(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, remaini
     var _tl_remaining = remaining;
     var _tl_d = d_;
     while (true) {
-        if ((_tl_d >= cx_list_len(ch))) { return no_truck(); } else { if ((_tl_remaining > cx_list_at(_arg_segs, cx_list_at(ch, _tl_d)).length)) { { const _tj2_3 = (_tl_remaining - cx_list_at(_arg_segs, cx_list_at(ch, _tl_d)).length); const _tj2_4 = (_tl_d +% 1); _tl_remaining = _tj2_3; _tl_d = _tj2_4; continue; } } else { return truck_here(_arg_segs, ch, pose, _tl_remaining, _tl_d); } }
+        if ((_tl_d >= cx_list_len(ch))) { return no_truck(); } else { if ((_tl_remaining > cx_list_at(_arg_segs, cx_list_at(ch, _tl_d)).length)) { { const _tj2_3 = (_tl_remaining - cx_list_at(_arg_segs, cx_list_at(ch, _tl_d)).length); const _tj2_4 = (_tl_d + 1); _tl_remaining = _tj2_3; _tl_d = _tj2_4; continue; } } else { return truck_here(_arg_segs, ch, pose, _tl_remaining, _tl_d); } }
     }
 }
 
@@ -1301,15 +1301,15 @@ fn truck_items(t: TruckAt) *CxList(Item) {
 }
 
 fn seg_cull_count(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
-    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 @as(i64, (if ((d_ >= farm_seg_reach())) (cx_list_len(sg.cows) +% cx_list_len(sg.pigs)) else 0)); };
+    return b0: { const sg = cx_list_at(_arg_segs, cx_list_at(ch, d_)); break :b0 @as(i64, (if ((d_ >= farm_seg_reach())) (cx_list_len(sg.cows) + cx_list_len(sg.pigs)) else 0)); };
 }
 
 fn walk_seg_cull(_arg_segs: *CxList(Segment), ch: *CxList(i64), d_: i64) i64 {
-    return @as(i64, (if ((d_ >= cx_list_len(ch))) 0 else (seg_cull_count(_arg_segs, ch, d_) +% walk_seg_cull(_arg_segs, ch, (d_ +% 1)))));
+    return @as(i64, (if ((d_ >= cx_list_len(ch))) 0 else (seg_cull_count(_arg_segs, ch, d_) + walk_seg_cull(_arg_segs, ch, (d_ + 1)))));
 }
 
 fn collect(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, along: f64, v_: f64, truck_pos: f64) Collected {
-    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 b1: { const placed = (if ((seg_idx > 0)) cx_ll_concat(walk_billboards(_arg_segs, ch, pose, 0), behind_billboards(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_billboards(_arg_segs, ch, pose, 0)); break :b1 b2: { const trees = list_take(TreeItem, walk_trees(_arg_segs, ch, pose, cf, 0), max_vis_trees()); break :b2 b3: { const towers = list_take(TowerItem, (if ((seg_idx > 0)) cx_ll_concat(walk_towers(_arg_segs, ch, pose, 0), behind_tower(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_towers(_arg_segs, ch, pose, 0)), max_vis_towers()); break :b3 b4: { const cows = list_take(Billboard, kept_of(placed, 0), max_vis_critters()); break :b4 b5: { const cats = list_take(CatItem, walk_cats(_arg_segs, ch, pose, cf, along, v_, 0), max_vis_cats()); break :b5 b6: { const rails = (if ((seg_idx > 0)) cx_ll_concat(walk_rails(_arg_segs, ch, pose, 0), behind_rails(_arg_segs, ch, pose, (seg_idx -% 1))) else walk_rails(_arg_segs, ch, pose, 0)); break :b6 b7: { const tk = truck_at(_arg_segs, ch, pose, along, (truck_pos - (route_distance_from(_arg_segs, seg_idx, 0) + along))); break :b7 cx_new(CollectedS{ .trees = trees, .towers = towers, .cows = cows, .cats = cats, .rails = rails, .truck = tk, .order = sort_items(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(tree_items(trees, 0), tower_items(towers, 0)), cow_items(cows, 0)), cat_items(cats, 0)), truck_items(tk)), rail_items(rails, 0))), .cull_seg = walk_seg_cull(_arg_segs, ch, 0), .cull_size = size_culled_of(placed, 0) }); }; }; }; }; }; }; }; };
+    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 b1: { const placed = (if ((seg_idx > 0)) cx_ll_concat(walk_billboards(_arg_segs, ch, pose, 0), behind_billboards(_arg_segs, ch, pose, (seg_idx - 1))) else walk_billboards(_arg_segs, ch, pose, 0)); break :b1 b2: { const trees = list_take(TreeItem, walk_trees(_arg_segs, ch, pose, cf, 0), max_vis_trees()); break :b2 b3: { const towers = list_take(TowerItem, (if ((seg_idx > 0)) cx_ll_concat(walk_towers(_arg_segs, ch, pose, 0), behind_tower(_arg_segs, ch, pose, (seg_idx - 1))) else walk_towers(_arg_segs, ch, pose, 0)), max_vis_towers()); break :b3 b4: { const cows = list_take(Billboard, kept_of(placed, 0), max_vis_critters()); break :b4 b5: { const cats = list_take(CatItem, walk_cats(_arg_segs, ch, pose, cf, along, v_, 0), max_vis_cats()); break :b5 b6: { const rails = (if ((seg_idx > 0)) cx_ll_concat(walk_rails(_arg_segs, ch, pose, 0), behind_rails(_arg_segs, ch, pose, (seg_idx - 1))) else walk_rails(_arg_segs, ch, pose, 0)); break :b6 b7: { const tk = truck_at(_arg_segs, ch, pose, along, (truck_pos - (route_distance_from(_arg_segs, seg_idx, 0) + along))); break :b7 cx_new(CollectedS{ .trees = trees, .towers = towers, .cows = cows, .cats = cats, .rails = rails, .truck = tk, .order = sort_items(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(cx_ll_concat(tree_items(trees, 0), tower_items(towers, 0)), cow_items(cows, 0)), cat_items(cats, 0)), truck_items(tk)), rail_items(rails, 0))), .cull_seg = walk_seg_cull(_arg_segs, ch, 0), .cull_size = size_culled_of(placed, 0) }); }; }; }; }; }; }; }; };
 }
 
 fn g_abs(x: f64) f64 {
@@ -1327,7 +1327,7 @@ fn g_max(a_: f64, b_: f64) f64 {
 fn first_rel_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i +% 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i + 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -1342,14 +1342,14 @@ fn grade_px(name: []const u8, got: *CxList(f64), want: *CxList(f64), atol: f64, 
 fn first_px_diff(got: *CxList(f64), want: *CxList(f64), atol: f64, rtol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i +% 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i + 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
     }
 }
 
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -1364,7 +1364,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -1465,7 +1465,7 @@ fn ground_vert(p_: RiderPt) Vec3 {
 }
 
 fn ground_verts(ps: *CxList(RiderPt), i_: i64) *CxList(Vec3) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(Vec3) else cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ ground_vert(cx_list_at(ps, i_)) }), ground_verts(ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(Vec3) else cx_ll_concat(cx_ll_of(Vec3, &[_]Vec3{ ground_vert(cx_list_at(ps, i_)) }), ground_verts(ps, (i_ + 1))));
 }
 
 fn emit_ground_color(ps: *CxList(RiderPt), color: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
@@ -1497,11 +1497,11 @@ fn chunks_for(len_: f64) i64 {
 }
 
 fn road_slice(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(DrawCmd) {
-    return (if ((ci >= n_)) cx_ll_empty(DrawCmd) else cx_ll_concat(emit_ground(slice_quad(_arg_segs, ch, pose, d_, ci, n_, len_, wd), cf, view_w), road_slice(_arg_segs, ch, pose, d_, cf, view_w, (ci +% 1), n_, len_, wd)));
+    return (if ((ci >= n_)) cx_ll_empty(DrawCmd) else cx_ll_concat(emit_ground(slice_quad(_arg_segs, ch, pose, d_, ci, n_, len_, wd), cf, view_w), road_slice(_arg_segs, ch, pose, d_, cf, view_w, (ci + 1), n_, len_, wd)));
 }
 
 fn slice_quad(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, ci: i64, n_: i64, len_: f64, wd: f64) *CxList(RiderPt) {
-    return b0: { const a0: f64 = ((len_ * cx_real_from_int(ci)) / cx_real_from_int(n_)); break :b0 b1: { const a1: f64 = ((len_ * cx_real_from_int((ci +% 1))) / cx_real_from_int(n_)); break :b1 cx_ll_of(RiderPt, &[_]RiderPt{ at(_arg_segs, ch, pose, d_, a0, @as(f64, @bitCast(@as(i64, 0)))), at(_arg_segs, ch, pose, d_, a0, wd), at(_arg_segs, ch, pose, d_, a1, wd), at(_arg_segs, ch, pose, d_, a1, @as(f64, @bitCast(@as(i64, 0)))) }); }; };
+    return b0: { const a0: f64 = ((len_ * cx_real_from_int(ci)) / cx_real_from_int(n_)); break :b0 b1: { const a1: f64 = ((len_ * cx_real_from_int((ci + 1))) / cx_real_from_int(n_)); break :b1 cx_ll_of(RiderPt, &[_]RiderPt{ at(_arg_segs, ch, pose, d_, a0, @as(f64, @bitCast(@as(i64, 0)))), at(_arg_segs, ch, pose, d_, a0, wd), at(_arg_segs, ch, pose, d_, a1, wd), at(_arg_segs, ch, pose, d_, a1, @as(f64, @bitCast(@as(i64, 0)))) }); }; };
 }
 
 fn seg_road(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
@@ -1521,7 +1521,7 @@ fn emit_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, 
 }
 
 fn pond_shape(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, ps: *CxList(PondPt), i_: i64) *CxList(RiderPt) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len + cx_list_at(ps, i_).cv), cx_list_at(ps, i_).cu) }), pond_shape(_arg_segs, ch, pose, m_, from_len, ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(RiderPt) else cx_ll_concat(cx_ll_of(RiderPt, &[_]RiderPt{ map_pt(_arg_segs, ch, pose, m_, (from_len + cx_list_at(ps, i_).cv), cx_list_at(ps, i_).cu) }), pond_shape(_arg_segs, ch, pose, m_, from_len, ps, (i_ + 1))));
 }
 
 fn emit_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, m_: Mapper, from_len: f64, cf: f64, view_w: f64) *CxList(DrawCmd) {
@@ -1533,7 +1533,7 @@ fn seg_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64
 }
 
 fn seg_joint_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return (if (((d_ +% 1) >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else emit_joint_ground(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ +% 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ +% 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right, cf, view_w));
+    return (if (((d_ + 1) >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else emit_joint_ground(_arg_segs, ch, pose, chain_map(d_), chain_map((d_ + 1)), cx_list_at(_arg_segs, cx_list_at(ch, d_)).length, cx_list_at(_arg_segs, cx_list_at(ch, d_)).width, cx_list_at(_arg_segs, cx_list_at(ch, (d_ + 1))).width, cx_list_at(_arg_segs, cx_list_at(ch, d_)).exit_right, cf, view_w));
 }
 
 fn seg_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
@@ -1541,7 +1541,7 @@ fn seg_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, d_
 }
 
 fn walk_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, cf: f64, view_w: f64, d_: i64) *CxList(DrawCmd) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else cx_ll_concat(seg_ground(_arg_segs, ch, pose, d_, cf, view_w), walk_ground(_arg_segs, ch, pose, cf, view_w, (d_ +% 1))));
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(DrawCmd) else cx_ll_concat(seg_ground(_arg_segs, ch, pose, d_, cf, view_w), walk_ground(_arg_segs, ch, pose, cf, view_w, (d_ + 1))));
 }
 
 fn behind_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose, prev_idx: i64, cf: f64, view_w: f64) *CxList(DrawCmd) {
@@ -1553,7 +1553,7 @@ fn behind_pond_ground(_arg_segs: *CxList(Segment), ch: *CxList(i64), pose: Pose,
 }
 
 fn frame_ground(_arg_segs: *CxList(Segment), seg_idx: i64, pose: Pose, cf: f64, view_w: f64) *CxList(DrawCmd) {
-    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(_arg_segs, ch, pose, cf, view_w, 0), behind_ground(_arg_segs, ch, pose, (seg_idx -% 1), cf, view_w)) else walk_ground(_arg_segs, ch, pose, cf, view_w, 0)); };
+    return b0: { const ch = build_chain(_arg_segs, seg_idx); break :b0 (if ((seg_idx > 0)) cx_ll_concat(walk_ground(_arg_segs, ch, pose, cf, view_w, 0), behind_ground(_arg_segs, ch, pose, (seg_idx - 1), cf, view_w)) else walk_ground(_arg_segs, ch, pose, cf, view_w, 0)); };
 }
 
 fn segs() *CxList(Segment) {
@@ -1565,11 +1565,11 @@ fn n_segs() i64 {
 }
 
 fn chain_flat(i_: i64) *CxList(i64) {
-    return (if ((i_ >= n_segs())) cx_ll_empty(i64) else cx_ll_concat(build_chain(segs(), i_), chain_flat((i_ +% 1))));
+    return (if ((i_ >= n_segs())) cx_ll_empty(i64) else cx_ll_concat(build_chain(segs(), i_), chain_flat((i_ + 1))));
 }
 
 fn chain_lens(i_: i64) *CxList(i64) {
-    return (if ((i_ >= n_segs())) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(build_chain(segs(), i_)) }), chain_lens((i_ +% 1))));
+    return (if ((i_ >= n_segs())) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(build_chain(segs(), i_)) }), chain_lens((i_ + 1))));
 }
 
 fn sample_beyond() f64 {
@@ -1601,39 +1601,39 @@ fn prev_indices() *CxList(i64) {
 }
 
 fn at_over_xs(ch: *CxList(i64), pose: Pose, d_: i64, xs: *CxList(f64), a_: f64, j: i64) *CxList(f64) {
-    return (if ((j >= cx_list_len(xs))) cx_ll_empty(f64) else b1: { const p_ = at(segs(), ch, pose, d_, a_, cx_list_at(xs, j)); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.right, p_.forward }), at_over_xs(ch, pose, d_, xs, a_, (j +% 1))); });
+    return (if ((j >= cx_list_len(xs))) cx_ll_empty(f64) else b1: { const p_ = at(segs(), ch, pose, d_, a_, cx_list_at(xs, j)); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.right, p_.forward }), at_over_xs(ch, pose, d_, xs, a_, (j + 1))); });
 }
 
 fn at_over_as(ch: *CxList(i64), pose: Pose, d_: i64, as: *CxList(f64), xs: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(as))) cx_ll_empty(f64) else cx_ll_concat(at_over_xs(ch, pose, d_, xs, cx_list_at(as, i_), 0), at_over_as(ch, pose, d_, as, xs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(as))) cx_ll_empty(f64) else cx_ll_concat(at_over_xs(ch, pose, d_, xs, cx_list_at(as, i_), 0), at_over_as(ch, pose, d_, as, xs, (i_ + 1))));
 }
 
 fn at_over_ds(ch: *CxList(i64), pose: Pose, d_: i64) *CxList(f64) {
-    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(f64) else b1: { const sg = cx_list_at(segs(), cx_list_at(ch, d_)); break :b1 cx_ll_concat(at_over_as(ch, pose, d_, sample_as(sg), sample_xs(sg), 0), at_over_ds(ch, pose, (d_ +% 1))); });
+    return (if ((d_ >= cx_list_len(ch))) cx_ll_empty(f64) else b1: { const sg = cx_list_at(segs(), cx_list_at(ch, d_)); break :b1 cx_ll_concat(at_over_as(ch, pose, d_, sample_as(sg), sample_xs(sg), 0), at_over_ds(ch, pose, (d_ + 1))); });
 }
 
 fn at_over_chains(pose: Pose, i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(sample_starts()))) cx_ll_empty(f64) else cx_ll_concat(at_over_ds(build_chain(segs(), cx_list_at(sample_starts(), i_)), pose, 0), at_over_chains(pose, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(sample_starts()))) cx_ll_empty(f64) else cx_ll_concat(at_over_ds(build_chain(segs(), cx_list_at(sample_starts(), i_)), pose, 0), at_over_chains(pose, (i_ + 1))));
 }
 
 fn at_stream(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(poses()))) cx_ll_empty(f64) else cx_ll_concat(at_over_chains(cx_list_at(poses(), i_), 0), at_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(poses()))) cx_ll_empty(f64) else cx_ll_concat(at_over_chains(cx_list_at(poses(), i_), 0), at_stream((i_ + 1))));
 }
 
 fn prev_over_xs(pv: Segment, pose: Pose, xs: *CxList(f64), a_: f64, j: i64) *CxList(f64) {
-    return (if ((j >= cx_list_len(xs))) cx_ll_empty(f64) else b1: { const p_ = map_pt(segs(), cx_ll_empty(i64), pose, prev_map(pv), a_, cx_list_at(xs, j)); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.right, p_.forward }), prev_over_xs(pv, pose, xs, a_, (j +% 1))); });
+    return (if ((j >= cx_list_len(xs))) cx_ll_empty(f64) else b1: { const p_ = map_pt(segs(), cx_ll_empty(i64), pose, prev_map(pv), a_, cx_list_at(xs, j)); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ p_.right, p_.forward }), prev_over_xs(pv, pose, xs, a_, (j + 1))); });
 }
 
 fn prev_over_as(pv: Segment, pose: Pose, as: *CxList(f64), xs: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(as))) cx_ll_empty(f64) else cx_ll_concat(prev_over_xs(pv, pose, xs, cx_list_at(as, i_), 0), prev_over_as(pv, pose, as, xs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(as))) cx_ll_empty(f64) else cx_ll_concat(prev_over_xs(pv, pose, xs, cx_list_at(as, i_), 0), prev_over_as(pv, pose, as, xs, (i_ + 1))));
 }
 
 fn prev_over_poses(pv: Segment, i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(poses()))) cx_ll_empty(f64) else cx_ll_concat(prev_over_as(pv, cx_list_at(poses(), i_), sample_as(pv), sample_xs(pv), 0), prev_over_poses(pv, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(poses()))) cx_ll_empty(f64) else cx_ll_concat(prev_over_as(pv, cx_list_at(poses(), i_), sample_as(pv), sample_xs(pv), 0), prev_over_poses(pv, (i_ + 1))));
 }
 
 fn prev_stream(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(prev_indices()))) cx_ll_empty(f64) else cx_ll_concat(prev_over_poses(cx_list_at(segs(), cx_list_at(prev_indices(), i_)), 0), prev_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(prev_indices()))) cx_ll_empty(f64) else cx_ll_concat(prev_over_poses(cx_list_at(segs(), cx_list_at(prev_indices(), i_)), 0), prev_stream((i_ + 1))));
 }
 
 fn creatures() *CxList(Creature) {
@@ -1645,31 +1645,31 @@ fn turns() *CxList(bool) {
 }
 
 fn sc_pair(c_: Creature, j: i64) *CxList(Critter) {
-    return (if ((j >= cx_list_len(turns()))) cx_ll_empty(Critter) else cx_ll_concat(corner_critters(c_, @as(f64, @bitCast(@as(i64, 4643985272004935680))), cx_list_at(turns(), j), @as(f64, @bitCast(@as(i64, 4611686018427387904)))), sc_pair(c_, (j +% 1))));
+    return (if ((j >= cx_list_len(turns()))) cx_ll_empty(Critter) else cx_ll_concat(corner_critters(c_, @as(f64, @bitCast(@as(i64, 4643985272004935680))), cx_list_at(turns(), j), @as(f64, @bitCast(@as(i64, 4611686018427387904)))), sc_pair(c_, (j + 1))));
 }
 
 fn sc_all(i_: i64) *CxList(Critter) {
-    return (if ((i_ >= cx_list_len(creatures()))) cx_ll_empty(Critter) else cx_ll_concat(sc_pair(cx_list_at(creatures(), i_), 0), sc_all((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(creatures()))) cx_ll_empty(Critter) else cx_ll_concat(sc_pair(cx_list_at(creatures(), i_), 0), sc_all((i_ + 1))));
 }
 
 fn sc_count_pair(c_: Creature, j: i64) *CxList(i64) {
-    return (if ((j >= cx_list_len(turns()))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(corner_critters(c_, @as(f64, @bitCast(@as(i64, 4643985272004935680))), cx_list_at(turns(), j), @as(f64, @bitCast(@as(i64, 4611686018427387904))))) }), sc_count_pair(c_, (j +% 1))));
+    return (if ((j >= cx_list_len(turns()))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(corner_critters(c_, @as(f64, @bitCast(@as(i64, 4643985272004935680))), cx_list_at(turns(), j), @as(f64, @bitCast(@as(i64, 4611686018427387904))))) }), sc_count_pair(c_, (j + 1))));
 }
 
 fn sc_counts(i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(creatures()))) cx_ll_empty(i64) else cx_ll_concat(sc_count_pair(cx_list_at(creatures(), i_), 0), sc_counts((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(creatures()))) cx_ll_empty(i64) else cx_ll_concat(sc_count_pair(cx_list_at(creatures(), i_), 0), sc_counts((i_ + 1))));
 }
 
 fn cr_cps(cs: *CxList(Critter), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).codepoint }), cr_cps(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).codepoint }), cr_cps(cs, (i_ + 1))));
 }
 
 fn cr_faces(cs: *CxList(Critter), i_: i64) *CxList(bool) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ cx_list_at(cs, i_).face_right }), cr_faces(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ cx_list_at(cs, i_).face_right }), cr_faces(cs, (i_ + 1))));
 }
 
 fn cr_place(cs: *CxList(Critter), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else b1: { const c_ = cx_list_at(cs, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ c_.along, c_.across, c_.height }), cr_place(cs, (i_ +% 1))); });
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else b1: { const c_ = cx_list_at(cs, i_); break :b1 cx_ll_concat(cx_ll_of(f64, &[_]f64{ c_.along, c_.across, c_.height }), cr_place(cs, (i_ + 1))); });
 }
 
 fn states() *CxList(State) {
@@ -1685,7 +1685,7 @@ fn collect_of(st: State) Collected {
 }
 
 fn cull_stream(i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(cull_pair(collect_of(cx_list_at(states(), i_))), cull_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(cull_pair(collect_of(cx_list_at(states(), i_))), cull_stream((i_ + 1))));
 }
 
 fn cull_pair(c_: Collected) *CxList(i64) {
@@ -1693,30 +1693,30 @@ fn cull_pair(c_: Collected) *CxList(i64) {
 }
 
 fn rail_count_stream(i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(collect_of(cx_list_at(states(), i_)).rails) }), rail_count_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_len(collect_of(cx_list_at(states(), i_)).rails) }), rail_count_stream((i_ + 1))));
 }
 
 fn fwds_of(rs: *CxList(RailPoly), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(rs, i_).fwd }), fwds_of(rs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(rs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(rs, i_).fwd }), fwds_of(rs, (i_ + 1))));
 }
 
 fn rail_fwd_stream(i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(f64) else cx_ll_concat(fwds_of(collect_of(cx_list_at(states(), i_)).rails, 0), rail_fwd_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(f64) else cx_ll_concat(fwds_of(collect_of(cx_list_at(states(), i_)).rails, 0), rail_fwd_stream((i_ + 1))));
 }
 
 fn inversions(xs: *CxList(Item), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if (((_tl_i +% 1) >= cx_list_len(xs))) { return 0; } else { if (deeper_than(cx_list_at(xs, (_tl_i +% 1)).fwd, cx_list_at(xs, _tl_i).fwd)) { return (1 +% inversions(xs, (_tl_i +% 1))); } else { { const _tj2_1 = (_tl_i +% 1); _tl_i = _tj2_1; continue; } } }
+        if (((_tl_i + 1) >= cx_list_len(xs))) { return 0; } else { if (deeper_than(cx_list_at(xs, (_tl_i + 1)).fwd, cx_list_at(xs, _tl_i).fwd)) { return (1 + inversions(xs, (_tl_i + 1))); } else { { const _tj2_1 = (_tl_i + 1); _tl_i = _tj2_1; continue; } } }
     }
 }
 
 fn order_defects(i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(defect_pair(collect_of(cx_list_at(states(), i_))), order_defects((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(states()))) cx_ll_empty(i64) else cx_ll_concat(defect_pair(collect_of(cx_list_at(states(), i_))), order_defects((i_ + 1))));
 }
 
 fn defect_pair(c_: Collected) *CxList(i64) {
-    return cx_ll_of(i64, &[_]i64{ inversions(c_.order, 0), (cx_list_len(c_.order) -% (((((cx_list_len(c_.trees) +% cx_list_len(c_.towers)) +% cx_list_len(c_.cows)) +% cx_list_len(c_.cats)) +% cx_list_len(c_.rails)) +% cx_list_len(truck_items(c_.truck)))) });
+    return cx_ll_of(i64, &[_]i64{ inversions(c_.order, 0), (cx_list_len(c_.order) - (((((cx_list_len(c_.trees) + cx_list_len(c_.towers)) + cx_list_len(c_.cows)) + cx_list_len(c_.cats)) + cx_list_len(c_.rails)) + cx_list_len(truck_items(c_.truck)))) });
 }
 
 fn no_defects() *CxList(i64) {
@@ -1732,23 +1732,23 @@ fn ground_of(i_: i64) *CxList(DrawCmd) {
 }
 
 fn ground_stream(i_: i64) *CxList(DrawCmd) {
-    return (if ((i_ >= cx_list_len(ground_states()))) cx_ll_empty(DrawCmd) else cx_ll_concat(ground_of(i_), ground_stream((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ground_states()))) cx_ll_empty(DrawCmd) else cx_ll_concat(ground_of(i_), ground_stream((i_ + 1))));
 }
 
 fn g_tags(cs: *CxList(DrawCmd), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).tag }), g_tags(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).tag }), g_tags(cs, (i_ + 1))));
 }
 
 fn g_cols(cs: *CxList(DrawCmd), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).color }), g_cols(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(cs, i_).color }), g_cols(cs, (i_ + 1))));
 }
 
 fn g_counts(cs: *CxList(DrawCmd), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ @divTrunc(cx_list_len(cx_list_at(cs, i_).pts), 2) }), g_counts(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ @divTrunc(cx_list_len(cx_list_at(cs, i_).pts), 2) }), g_counts(cs, (i_ + 1))));
 }
 
 fn g_coords(cs: *CxList(DrawCmd), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_list_at(cs, i_).pts, g_coords(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_list_at(cs, i_).pts, g_coords(cs, (i_ + 1))));
 }
 
 fn cat_of(sg: Segment) Cat {
@@ -1771,7 +1771,7 @@ fn cat_poses(si: i64, i_: i64) *CxList(i64) {
     var _tl_si = si;
     var _tl_i = i_;
     while (true) {
-        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(i64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si +% 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { return cx_ll_concat(cx_ll_of(i64, &[_]i64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).pose_idx }), cat_poses(_tl_si, (_tl_i +% 1))); } }
+        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(i64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si + 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { return cx_ll_concat(cx_ll_of(i64, &[_]i64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).pose_idx }), cat_poses(_tl_si, (_tl_i + 1))); } }
     }
 }
 
@@ -1779,7 +1779,7 @@ fn cat_lifts(si: i64, i_: i64) *CxList(f64) {
     var _tl_si = si;
     var _tl_i = i_;
     while (true) {
-        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si +% 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).lift }), cat_lifts(_tl_si, (_tl_i +% 1))); } }
+        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si + 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).lift }), cat_lifts(_tl_si, (_tl_i + 1))); } }
     }
 }
 
@@ -1787,7 +1787,7 @@ fn cat_ground(si: i64, i_: i64) *CxList(f64) {
     var _tl_si = si;
     var _tl_i = i_;
     while (true) {
-        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si +% 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { if (is_airborne(gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si))) { { const _tj3_0 = _tl_si; const _tj3_1 = (_tl_i +% 1); _tl_si = _tj3_0; _tl_i = _tj3_1; continue; } } else { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).across }), cat_ground(_tl_si, (_tl_i +% 1))); } } }
+        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si + 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { if (is_airborne(gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si))) { { const _tj3_0 = _tl_si; const _tj3_1 = (_tl_i + 1); _tl_si = _tj3_0; _tl_i = _tj3_1; continue; } } else { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).across }), cat_ground(_tl_si, (_tl_i + 1))); } } }
     }
 }
 
@@ -1795,7 +1795,7 @@ fn cat_flight(si: i64, i_: i64) *CxList(f64) {
     var _tl_si = si;
     var _tl_i = i_;
     while (true) {
-        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si +% 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { if (is_airborne(gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si))) { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).across }), cat_flight(_tl_si, (_tl_i +% 1))); } else { { const _tj3_0 = _tl_si; const _tj3_1 = (_tl_i +% 1); _tl_si = _tj3_0; _tl_i = _tj3_1; continue; } } } }
+        if ((_tl_si >= cx_list_len(cat_speeds()))) { return cx_ll_empty(f64); } else { if ((_tl_i > 120)) { { const _tj2_0 = (_tl_si + 1); const _tj2_1 = 0; _tl_si = _tj2_0; _tl_i = _tj2_1; continue; } } else { if (is_airborne(gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si))) { return cx_ll_concat(cx_ll_of(f64, &[_]f64{ cat_state(cat_of(cx_list_at(segs(), 1)), gap_at(_tl_i), cx_list_at(cat_speeds(), _tl_si)).across }), cat_flight(_tl_si, (_tl_i + 1))); } else { { const _tj3_0 = _tl_si; const _tj3_1 = (_tl_i + 1); _tl_si = _tj3_0; _tl_i = _tj3_1; continue; } } } }
     }
 }
 
@@ -1865,6 +1865,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -1886,16 +1894,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

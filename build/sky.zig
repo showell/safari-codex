@@ -70,7 +70,7 @@ fn map_list_loop(comptime T25: type, comptime T26: type, f: CxFn1(T25, T26), xs:
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i == len_)) { return _tl_acc; } else { { const _tj1_2 = (_tl_i +% 1); const _tj1_4 = cx_ll_push(_tl_acc, f.call(f.ctx, cx_list_at(xs, _tl_i))); _tl_i = _tj1_2; _tl_acc = _tj1_4; continue; } }
+        if ((_tl_i == len_)) { return _tl_acc; } else { { const _tj1_2 = (_tl_i + 1); const _tj1_4 = cx_ll_push(_tl_acc, f.call(f.ctx, cx_list_at(xs, _tl_i))); _tl_i = _tj1_2; _tl_acc = _tj1_4; continue; } }
     }
 }
 
@@ -134,7 +134,7 @@ fn wrap(x: f64, fuel: i64) f64 {
     var _tl_x = x;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return _tl_x; } else { if ((_tl_x > pi())) { { const _tj2_0 = (_tl_x - two_pi()); const _tj2_1 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_fuel = _tj2_1; continue; } } else { if ((_tl_x < (@as(f64, @bitCast(@as(i64, 0))) - pi()))) { { const _tj3_0 = (_tl_x + two_pi()); const _tj3_1 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_fuel = _tj3_1; continue; } } else { return _tl_x; } } }
+        if ((_tl_fuel <= 0)) { return _tl_x; } else { if ((_tl_x > pi())) { { const _tj2_0 = (_tl_x - two_pi()); const _tj2_1 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_fuel = _tj2_1; continue; } } else { if ((_tl_x < (@as(f64, @bitCast(@as(i64, 0))) - pi()))) { { const _tj3_0 = (_tl_x + two_pi()); const _tj3_1 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_fuel = _tj3_1; continue; } } else { return _tl_x; } } }
     }
 }
 
@@ -277,7 +277,7 @@ fn g_max(a_: f64, b_: f64) f64 {
 fn first_rel_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i +% 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i + 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -292,14 +292,14 @@ fn grade_px(name: []const u8, got: *CxList(f64), want: *CxList(f64), atol: f64, 
 fn first_px_diff(got: *CxList(f64), want: *CxList(f64), atol: f64, rtol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i +% 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i + 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
     }
 }
 
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -314,7 +314,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -371,7 +371,7 @@ fn probe_step() f64 {
 }
 
 fn poses_at(cf: f64, hs: *CxList(f64), i_: i64) *CxList(SunPos) {
-    return (if ((i_ >= cx_list_len(hs))) cx_ll_empty(SunPos) else cx_ll_concat(cx_ll_of(SunPos, &[_]SunPos{ sun_pos(cx_list_at(hs, i_), probe_step(), cf, camera_w()) }), poses_at(cf, hs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(hs))) cx_ll_empty(SunPos) else cx_ll_concat(cx_ll_of(SunPos, &[_]SunPos{ sun_pos(cx_list_at(hs, i_), probe_step(), cf, camera_w()) }), poses_at(cf, hs, (i_ + 1))));
 }
 
 fn all_poses() *CxList(SunPos) {
@@ -379,23 +379,23 @@ fn all_poses() *CxList(SunPos) {
 }
 
 fn pose_visible(ps: *CxList(SunPos), i_: i64) *CxList(bool) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ cx_list_at(ps, i_).visible }), pose_visible(ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ cx_list_at(ps, i_).visible }), pose_visible(ps, (i_ + 1))));
 }
 
 fn pose_x(ps: *CxList(SunPos), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).x }), pose_x(ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).x }), pose_x(ps, (i_ + 1))));
 }
 
 fn pose_y(ps: *CxList(SunPos), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).y }), pose_y(ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).y }), pose_y(ps, (i_ + 1))));
 }
 
 fn pose_scale(ps: *CxList(SunPos), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).scale }), pose_scale(ps, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ps))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ps, i_).scale }), pose_scale(ps, (i_ + 1))));
 }
 
 fn opening() void {
-    return b0: { _ = cx_print_line(grade_px("\x13\x22\x1e\x49\x14\x0d\x11\x1d\x14\x0e\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return sun_height_px(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_height(), @as(f64, @bitCast(@as(i64, 4547007122018943789))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x22\x1e\x49\x16\x19\x13\x22\x02\x02\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return sun_set_fraction(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_dusk(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x22\x1e\x49\x1b\x0f\x15\x1a\x0e\x14\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) f64 { _ = _ctx4; return sunset_warmth(p0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_warmth(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_ints("\x13\x22\x1e\x49\x18\x10\x17\x10\x15\x02\x02\x02", list_map(f64, i64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) i64 { _ = _ctx4; return sky_color(p0); } }; break :b4 CxFn1(f64, i64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_color())); _ = cx_print_line(grade_ints("\x13\x22\x1e\x49\x14\x10\x15\x11\x26\x10\x12\x02", list_map(f64, i64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, p0: f64) i64 { _ = _ctx4; return horizon_color(p0); } }; break :b4 CxFn1(f64, i64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_horizon())); _ = cx_print_line(grade_bools("\x13\x19\x12\x49\x21\x11\x13\x11\x20\x17\x0d", pose_visible(all_poses(), 0), g_sun_visible())); _ = cx_print_line(grade_px("\x13\x19\x12\x49\x24\x02\x02\x02\x02\x02\x02\x02", pose_x(all_poses(), 0), g_sun_x(), @as(f64, @bitCast(@as(i64, 4562254508917369340))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_px("\x13\x19\x12\x49\x1e\x02\x02\x02\x02\x02\x02\x02", pose_y(all_poses(), 0), g_sun_y(), @as(f64, @bitCast(@as(i64, 4562254508917369340))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x19\x12\x49\x13\x18\x0f\x17\x0d\x02\x02\x02", pose_scale(all_poses(), 0), g_sun_scale(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); break :b0; };
+    return b0: { _ = cx_print_line(grade_px("\x13\x22\x1e\x49\x14\x0d\x11\x1d\x14\x0e\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return sun_height_px(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_height(), @as(f64, @bitCast(@as(i64, 4547007122018943789))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x22\x1e\x49\x16\x19\x13\x22\x02\x02\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return sun_set_fraction(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_dusk(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x22\x1e\x49\x1b\x0f\x15\x1a\x0e\x14\x02\x02", list_map(f64, f64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) f64 { _ = _ctx4; return sunset_warmth(_cp0); } }; break :b4 CxFn1(f64, f64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_warmth(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_ints("\x13\x22\x1e\x49\x18\x10\x17\x10\x15\x02\x02\x02", list_map(f64, i64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) i64 { _ = _ctx4; return sky_color(_cp0); } }; break :b4 CxFn1(f64, i64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_color())); _ = cx_print_line(grade_ints("\x13\x22\x1e\x49\x14\x10\x15\x11\x26\x10\x12\x02", list_map(f64, i64, b4: { const _Env4 = struct { fn call(_ctx4: *anyopaque, _cp0: f64) i64 { _ = _ctx4; return horizon_color(_cp0); } }; break :b4 CxFn1(f64, i64){ .ctx = cx_new(_Env4{  }), .call = &_Env4.call }; }, steps()), g_sky_horizon())); _ = cx_print_line(grade_bools("\x13\x19\x12\x49\x21\x11\x13\x11\x20\x17\x0d", pose_visible(all_poses(), 0), g_sun_visible())); _ = cx_print_line(grade_px("\x13\x19\x12\x49\x24\x02\x02\x02\x02\x02\x02\x02", pose_x(all_poses(), 0), g_sun_x(), @as(f64, @bitCast(@as(i64, 4562254508917369340))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_px("\x13\x19\x12\x49\x1e\x02\x02\x02\x02\x02\x02\x02", pose_y(all_poses(), 0), g_sun_y(), @as(f64, @bitCast(@as(i64, 4562254508917369340))), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); _ = cx_print_line(grade_rel("\x13\x19\x12\x49\x13\x18\x0f\x17\x0d\x02\x02\x02", pose_scale(all_poses(), 0), g_sun_scale(), @as(f64, @bitCast(@as(i64, 4517329193108106637))))); break :b0; };
 }
 
 fn cx_entry() void {
@@ -466,6 +466,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -487,16 +495,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

@@ -188,7 +188,7 @@ fn dm_sqrt_scaled(x: f64, s_: f64, fuel: i64) f64 {
     var _tl_s = s_;
     var _tl_fuel = fuel;
     while (true) {
-        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel -% 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel -% 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
+        if ((_tl_fuel <= 0)) { return (_tl_s * dm_sqrt_core(_tl_x)); } else { if ((_tl_x >= @as(f64, @bitCast(@as(i64, 4616189618054758400))))) { { const _tj2_0 = (_tl_x / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj2_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); const _tj2_2 = (_tl_fuel - 1); _tl_x = _tj2_0; _tl_s = _tj2_1; _tl_fuel = _tj2_2; continue; } } else { if ((_tl_x < @as(f64, @bitCast(@as(i64, 4598175219545276416))))) { { const _tj3_0 = (_tl_x * @as(f64, @bitCast(@as(i64, 4616189618054758400)))); const _tj3_1 = (_tl_s * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); const _tj3_2 = (_tl_fuel - 1); _tl_x = _tj3_0; _tl_s = _tj3_1; _tl_fuel = _tj3_2; continue; } } else { return (_tl_s * dm_sqrt_core(_tl_x)); } } }
     }
 }
 
@@ -228,38 +228,6 @@ fn real_cos(x: f64) f64 {
     return dm_sin_poly(dm_fold_quadrant(dm_reduce((x + dm_half_pi()))));
 }
 
-fn round_real(x: f64) f64 {
-    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
-}
-
-fn ln2() f64 {
-    return @as(f64, @bitCast(@as(i64, 4604418534313441775)));
-}
-
-fn exp_poly(r_: f64) f64 {
-    return b0: { const t1: f64 = r_; break :b0 b1: { const t2: f64 = ((t1 * r_) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); break :b1 b2: { const t3: f64 = ((t2 * r_) / @as(f64, @bitCast(@as(i64, 4613937818241073152)))); break :b2 b3: { const t4: f64 = ((t3 * r_) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b3 b4: { const t5: f64 = ((t4 * r_) / @as(f64, @bitCast(@as(i64, 4617315517961601024)))); break :b4 b5: { const t6: f64 = ((t5 * r_) / @as(f64, @bitCast(@as(i64, 4618441417868443648)))); break :b5 b6: { const t7: f64 = ((t6 * r_) / @as(f64, @bitCast(@as(i64, 4619567317775286272)))); break :b6 b7: { const t8: f64 = ((t7 * r_) / @as(f64, @bitCast(@as(i64, 4620693217682128896)))); break :b7 b8: { const t9: f64 = ((t8 * r_) / @as(f64, @bitCast(@as(i64, 4621256167635550208)))); break :b8 b9: { const t10: f64 = ((t9 * r_) / @as(f64, @bitCast(@as(i64, 4621819117588971520)))); break :b9 b10: { const t11: f64 = ((t10 * r_) / @as(f64, @bitCast(@as(i64, 4622382067542392832)))); break :b10 b11: { const t12: f64 = ((t11 * r_) / @as(f64, @bitCast(@as(i64, 4622945017495814144)))); break :b11 ((((((((((((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + t1) + t2) + t3) + t4) + t5) + t6) + t7) + t8) + t9) + t10) + t11) + t12); }; }; }; }; }; }; }; }; }; }; }; };
-}
-
-fn pow2_up(k_: i64, acc_: f64) f64 {
-    var _tl_k = k_;
-    var _tl_acc = acc_;
-    while (true) {
-        if ((_tl_k <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k -% 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
-    }
-}
-
-fn pow2_down(k_: i64, acc_: f64) f64 {
-    var _tl_k = k_;
-    var _tl_acc = acc_;
-    while (true) {
-        if ((_tl_k >= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k +% 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
-    }
-}
-
-fn exp_real(x: f64) f64 {
-    return b0: { const k_: i64 = cx_real_to_int(round_real((x / ln2()))); break :b0 (exp_poly((x - (cx_real_from_int(k_) * ln2()))) * (if ((k_ >= 0)) pow2_up(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else pow2_down(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); };
-}
-
 fn pi() f64 {
     return dm_pi();
 }
@@ -284,7 +252,7 @@ fn atan_halve(t: f64, n_: i64) f64 {
     var _tl_t = t;
     var _tl_n = n_;
     while (true) {
-        if ((_tl_n <= 0)) { return _tl_t; } else { { const _tj1_0 = (_tl_t / (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + real_sqrt((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (_tl_t * _tl_t))))); const _tj1_1 = (_tl_n -% 1); _tl_t = _tj1_0; _tl_n = _tj1_1; continue; } }
+        if ((_tl_n <= 0)) { return _tl_t; } else { { const _tj1_0 = (_tl_t / (@as(f64, @bitCast(@as(i64, 4607182418800017408))) + real_sqrt((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + (_tl_t * _tl_t))))); const _tj1_1 = (_tl_n - 1); _tl_t = _tj1_0; _tl_n = _tj1_1; continue; } }
     }
 }
 
@@ -306,6 +274,38 @@ fn r_atan2(y: f64, x: f64) f64 {
 
 fn r_sign(x: f64) f64 {
     return @as(f64, (if ((x > @as(f64, @bitCast(@as(i64, 0))))) @as(f64, @bitCast(@as(i64, 4607182418800017408))) else @as(f64, (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else @as(f64, @bitCast(@as(i64, 0)))))));
+}
+
+fn round_real(x: f64) f64 {
+    return b0: { const t: f64 = cx_real_from_int(cx_real_to_int(x)); break :b0 b1: { const f: f64 = (x - t); break :b1 (if ((f >= @as(f64, @bitCast(@as(i64, 4602678819172646912))))) (t + @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else (if ((f <= (@as(f64, @bitCast(@as(i64, 0))) - @as(f64, @bitCast(@as(i64, 4602678819172646912)))))) (t - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else t)); }; };
+}
+
+fn ln2() f64 {
+    return @as(f64, @bitCast(@as(i64, 4604418534313441775)));
+}
+
+fn exp_poly(r_: f64) f64 {
+    return b0: { const t1: f64 = r_; break :b0 b1: { const t2: f64 = ((t1 * r_) / @as(f64, @bitCast(@as(i64, 4611686018427387904)))); break :b1 b2: { const t3: f64 = ((t2 * r_) / @as(f64, @bitCast(@as(i64, 4613937818241073152)))); break :b2 b3: { const t4: f64 = ((t3 * r_) / @as(f64, @bitCast(@as(i64, 4616189618054758400)))); break :b3 b4: { const t5: f64 = ((t4 * r_) / @as(f64, @bitCast(@as(i64, 4617315517961601024)))); break :b4 b5: { const t6: f64 = ((t5 * r_) / @as(f64, @bitCast(@as(i64, 4618441417868443648)))); break :b5 b6: { const t7: f64 = ((t6 * r_) / @as(f64, @bitCast(@as(i64, 4619567317775286272)))); break :b6 b7: { const t8: f64 = ((t7 * r_) / @as(f64, @bitCast(@as(i64, 4620693217682128896)))); break :b7 b8: { const t9: f64 = ((t8 * r_) / @as(f64, @bitCast(@as(i64, 4621256167635550208)))); break :b8 b9: { const t10: f64 = ((t9 * r_) / @as(f64, @bitCast(@as(i64, 4621819117588971520)))); break :b9 b10: { const t11: f64 = ((t10 * r_) / @as(f64, @bitCast(@as(i64, 4622382067542392832)))); break :b10 b11: { const t12: f64 = ((t11 * r_) / @as(f64, @bitCast(@as(i64, 4622945017495814144)))); break :b11 ((((((((((((@as(f64, @bitCast(@as(i64, 4607182418800017408))) + t1) + t2) + t3) + t4) + t5) + t6) + t7) + t8) + t9) + t10) + t11) + t12); }; }; }; }; }; }; }; }; }; }; }; };
+}
+
+fn pow2_up(k_: i64, acc_: f64) f64 {
+    var _tl_k = k_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_k <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k - 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4611686018427387904)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
+    }
+}
+
+fn pow2_down(k_: i64, acc_: f64) f64 {
+    var _tl_k = k_;
+    var _tl_acc = acc_;
+    while (true) {
+        if ((_tl_k >= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_k + 1); const _tj1_1 = (_tl_acc * @as(f64, @bitCast(@as(i64, 4602678819172646912)))); _tl_k = _tj1_0; _tl_acc = _tj1_1; continue; } }
+    }
+}
+
+fn exp_real(x: f64) f64 {
+    return b0: { const k_: i64 = cx_real_to_int(round_real((x / ln2()))); break :b0 (exp_poly((x - (cx_real_from_int(k_) * ln2()))) * (if ((k_ >= 0)) pow2_up(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))) else pow2_down(k_, @as(f64, @bitCast(@as(i64, 4607182418800017408)))))); };
 }
 
 fn cat_height() f64 {
@@ -421,11 +421,11 @@ fn tree_height_for(color: i64, even: bool) f64 {
 }
 
 fn fill_trees(scheme: Scheme, length: f64, along: f64, k_: i64, n_: i64) *CxList(Tree) {
-    return (if ((along > (length - tree_end_inset()))) cx_ll_empty(Tree) else (if (((n_ +% 2) > max_trees())) cx_ll_empty(Tree) else fill_trees_pair(scheme, length, along, k_, n_)));
+    return (if ((along > (length - tree_end_inset()))) cx_ll_empty(Tree) else (if (((n_ + 2) > max_trees())) cx_ll_empty(Tree) else fill_trees_pair(scheme, length, along, k_, n_)));
 }
 
 fn fill_trees_pair(scheme: Scheme, length: f64, along: f64, k_: i64, n_: i64) *CxList(Tree) {
-    return b0: { const even: bool = ((k_ -% (@divTrunc(k_, 2) *% 2)) == 0); break :b0 b1: { const color: i64 = (if (even) conifer_green() else accent_color(scheme)); break :b1 b2: { const height: f64 = tree_height_for(color, even); break :b2 b3: { const x: f64 = (if ((color == conifer_gold())) ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + (@as(f64, @bitCast(@as(i64, 4616189618054758400))) * tree_road_offset())) else ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tree_road_offset())); break :b3 cx_ll_concat(cx_ll_of(Tree, &[_]Tree{ cx_new(TreeS{ .along = along, .across = (@as(f64, @bitCast(@as(i64, 0))) - x), .color = color, .height = height }), cx_new(TreeS{ .along = along, .across = x, .color = color, .height = height }) }), fill_trees(scheme, length, (along + tree_spacing()), (k_ +% 1), (n_ +% 2))); }; }; }; };
+    return b0: { const even: bool = ((k_ - (@divTrunc(k_, 2) * 2)) == 0); break :b0 b1: { const color: i64 = (if (even) conifer_green() else accent_color(scheme)); break :b1 b2: { const height: f64 = tree_height_for(color, even); break :b2 b3: { const x: f64 = (if ((color == conifer_gold())) ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + (@as(f64, @bitCast(@as(i64, 4616189618054758400))) * tree_road_offset())) else ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + tree_road_offset())); break :b3 cx_ll_concat(cx_ll_of(Tree, &[_]Tree{ cx_new(TreeS{ .along = along, .across = (@as(f64, @bitCast(@as(i64, 0))) - x), .color = color, .height = height }), cx_new(TreeS{ .along = along, .across = x, .color = color, .height = height }) }), fill_trees(scheme, length, (along + tree_spacing()), (k_ + 1), (n_ + 2))); }; }; }; };
 }
 
 fn bull_cp() i64 {
@@ -481,11 +481,11 @@ fn herd_jitter_across() f64 {
 }
 
 fn cows_from(i_: i64) *CxList(Critter) {
-    return (if ((i_ >= 14)) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cow_at(i_) }), cows_from((i_ +% 1))));
+    return (if ((i_ >= 14)) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cow_at(i_) }), cows_from((i_ + 1))));
 }
 
 fn cow_at(i_: i64) Critter {
-    return b0: { const fi: f64 = cx_real_from_int(i_); break :b0 b1: { const col: f64 = cx_real_from_int(@divTrunc(i_, 3)); break :b1 b2: { const row: f64 = cx_real_from_int((i_ -% (@divTrunc(i_, 3) *% 3))); break :b2 b3: { const along: f64 = ((((bull_dist() + herd_gap_behind_bull()) + (col * herd_col_spacing())) + ((row - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * herd_row_stagger())) + (herd_jitter_along() * r_sin((fi * @as(f64, @bitCast(@as(i64, 4613262278296967578))))))); break :b3 b4: { const across: f64 = (@as(f64, @bitCast(@as(i64, 0))) - ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (row * herd_row_depth())) + (herd_jitter_across() * r_cos((fi * @as(f64, @bitCast(@as(i64, 4611235658464650854)))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = cow_cp(), .height = (if (((i_ -% (@divTrunc(i_, 4) *% 4)) == 1)) calf_height() else cow_height()), .face_right = true }); }; }; }; }; };
+    return b0: { const fi: f64 = cx_real_from_int(i_); break :b0 b1: { const col: f64 = cx_real_from_int(@divTrunc(i_, 3)); break :b1 b2: { const row: f64 = cx_real_from_int((i_ - (@divTrunc(i_, 3) * 3))); break :b2 b3: { const along: f64 = ((((bull_dist() + herd_gap_behind_bull()) + (col * herd_col_spacing())) + ((row - @as(f64, @bitCast(@as(i64, 4607182418800017408)))) * herd_row_stagger())) + (herd_jitter_along() * r_sin((fi * @as(f64, @bitCast(@as(i64, 4613262278296967578))))))); break :b3 b4: { const across: f64 = (@as(f64, @bitCast(@as(i64, 0))) - ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (row * herd_row_depth())) + (herd_jitter_across() * r_cos((fi * @as(f64, @bitCast(@as(i64, 4611235658464650854)))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = cow_cp(), .height = (if (((i_ - (@divTrunc(i_, 4) * 4)) == 1)) calf_height() else cow_height()), .face_right = true }); }; }; }; }; };
 }
 
 fn fill_cows(bull: bool) *CxList(Critter) {
@@ -549,15 +549,15 @@ fn gaze_pig(length: f64, lane_half: f64) Critter {
 }
 
 fn herd_pig_at(base_: f64, r_: i64, c_: i64) Critter {
-    return b0: { const i_: f64 = cx_real_from_int(((r_ *% big_herd_cols()) +% c_)); break :b0 b1: { const fr: f64 = cx_real_from_int(r_); break :b1 b2: { const fc: f64 = cx_real_from_int(c_); break :b2 b3: { const along: f64 = ((((base_ + pig_herd_first_col()) + (fc * pig_col_spacing())) + (fr * pig_row_depth())) + (pig_jitter_along() * r_sin((i_ * @as(f64, @bitCast(@as(i64, 4612361558371493478))))))); break :b3 b4: { const across: f64 = ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (fr * pig_row_depth())) + (pig_jitter_across() * r_cos((i_ * @as(f64, @bitCast(@as(i64, 4610334938539176755))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }); }; }; }; }; };
+    return b0: { const i_: f64 = cx_real_from_int(((r_ * big_herd_cols()) + c_)); break :b0 b1: { const fr: f64 = cx_real_from_int(r_); break :b1 b2: { const fc: f64 = cx_real_from_int(c_); break :b2 b3: { const along: f64 = ((((base_ + pig_herd_first_col()) + (fc * pig_col_spacing())) + (fr * pig_row_depth())) + (pig_jitter_along() * r_sin((i_ * @as(f64, @bitCast(@as(i64, 4612361558371493478))))))); break :b3 b4: { const across: f64 = ((((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) + herd_road_offset()) + (fr * pig_row_depth())) + (pig_jitter_across() * r_cos((i_ * @as(f64, @bitCast(@as(i64, 4610334938539176755))))))); break :b4 cx_new(CritterS{ .along = along, .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }); }; }; }; }; };
 }
 
 fn herd_cols_from(base_: f64, r_: i64, c_: i64) *CxList(Critter) {
-    return (if ((c_ >= big_herd_cols())) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ herd_pig_at(base_, r_, c_) }), herd_cols_from(base_, r_, (c_ +% 1))));
+    return (if ((c_ >= big_herd_cols())) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ herd_pig_at(base_, r_, c_) }), herd_cols_from(base_, r_, (c_ + 1))));
 }
 
 fn herd_rows_from(base_: f64, r_: i64) *CxList(Critter) {
-    return (if ((r_ >= big_herd_rows())) cx_ll_empty(Critter) else cx_ll_concat(herd_cols_from(base_, r_, 0), herd_rows_from(base_, (r_ +% 1))));
+    return (if ((r_ >= big_herd_rows())) cx_ll_empty(Critter) else cx_ll_concat(herd_cols_from(base_, r_, 0), herd_rows_from(base_, (r_ + 1))));
 }
 
 fn fill_pig_herd(length: f64) *CxList(Critter) {
@@ -573,7 +573,7 @@ fn pig_row_back() *CxList(f64) {
 }
 
 fn row_pigs_at(base_: f64, across: f64, ds: *CxList(f64), i_: i64) *CxList(Critter) {
-    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = (base_ + cx_list_at(ds, i_)), .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }) }), row_pigs_at(base_, across, ds, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(Critter) else cx_ll_concat(cx_ll_of(Critter, &[_]Critter{ cx_new(CritterS{ .along = (base_ + cx_list_at(ds, i_)), .across = across, .codepoint = pig_cp(), .height = pig_height(), .face_right = false }) }), row_pigs_at(base_, across, ds, (i_ + 1))));
 }
 
 fn fill_pig_row(length: f64) *CxList(Critter) {
@@ -601,7 +601,7 @@ fn next_tree_loop(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Ma
 }
 
 fn next_tree_step(ts: *CxList(Tree), desired: f64, i_: i64, best: Maybe(f64)) Maybe(f64) {
-    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) tree_improves(best, t.along) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ +% 1), Maybe(f64){ .Just = t.along }) else next_tree_loop(ts, desired, (i_ +% 1), best)); }; };
+    return b0: { const t = cx_list_at(ts, i_); break :b0 b1: { const take: bool = (if ((t.across > @as(f64, @bitCast(@as(i64, 0))))) (if ((t.along >= desired)) tree_improves(best, t.along) else false) else false); break :b1 (if (take) next_tree_loop(ts, desired, (i_ + 1), Maybe(f64){ .Just = t.along }) else next_tree_loop(ts, desired, (i_ + 1), best)); }; };
 }
 
 fn heading_step(i_: i64) f64 {
@@ -609,23 +609,23 @@ fn heading_step(i_: i64) f64 {
 }
 
 fn heading_at(i_: i64) f64 {
-    return @as(f64, (if ((i_ <= 0)) @as(f64, @bitCast(@as(i64, 0))) else (heading_at((i_ -% 1)) + heading_step((i_ -% 1)))));
+    return @as(f64, (if ((i_ <= 0)) @as(f64, @bitCast(@as(i64, 0))) else (heading_at((i_ - 1)) + heading_step((i_ - 1)))));
 }
 
 fn pig_count_to(i_: i64, acc_: i64) i64 {
     var _tl_i = i_;
     var _tl_acc = acc_;
     while (true) {
-        if ((_tl_i <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_i -% 1); const _tj1_1 = (if (cx_list_at(route(), (_tl_i -% 1)).pigs) (_tl_acc +% 1) else _tl_acc); _tl_i = _tj1_0; _tl_acc = _tj1_1; continue; } }
+        if ((_tl_i <= 0)) { return _tl_acc; } else { { const _tj1_0 = (_tl_i - 1); const _tj1_1 = (if (cx_list_at(route(), (_tl_i - 1)).pigs) (_tl_acc + 1) else _tl_acc); _tl_i = _tj1_0; _tl_acc = _tj1_1; continue; } }
     }
 }
 
 fn segment_at(i_: i64) Segment {
-    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ +% 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ +% 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / (real_sin(angle) / real_cos(angle))))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), from_maybe(f64, next_tree_loop(trees, cat_along(), 0, Maybe(f64){ .None = {} }), cat_along())), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
+    return b0: { const c_ = cx_list_at(route(), i_); break :b0 b1: { const angle: f64 = (real_abs(c_.turn_deg) * deg()); break :b1 b2: { const trees = fill_trees(c_.scheme, c_.length, tree_start_inset(), 0, 0); break :b2 b3: { const distract: bool = (if (c_.pigs) (pig_count_to((i_ + 1), 0) <= pig_novelty_count()) else false); break :b3 cx_new(SegmentS{ .length = c_.length, .width = lane_width(), .trees = trees, .cows = fill_cows(c_.bull), .pigs = (if (c_.pigs) (if (distract) fill_pig_herd(c_.length) else fill_pig_row(c_.length)) else cx_ll_empty(Critter)), .pigs_distract = distract, .exit_angle = angle, .exit_right = (c_.turn_deg >= @as(f64, @bitCast(@as(i64, 0)))), .exit_to = (if (c_.terminates) i_ else (i_ + 1)), .commit_along = (if (c_.terminates) c_.length else (c_.length - ((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))) / (real_sin(angle) / real_cos(angle))))), .north_heading = heading_at(i_), .has_mid_tower = (c_.length > mid_tower_min_length()), .has_cat = c_.cat, .cat = cat_make((lane_width() / @as(f64, @bitCast(@as(i64, 4611686018427387904)))), tree_road_offset(), from_maybe(f64, next_tree_loop(trees, cat_along(), 0, Maybe(f64){ .None = {} }), cat_along())), .terminates = c_.terminates, .exit_creature = (if (c_.terminates) Creature.NoCreature else c_.creature) }); }; }; }; };
 }
 
 fn segments_from(i_: i64) *CxList(Segment) {
-    return (if ((i_ >= cx_list_len(route()))) cx_ll_empty(Segment) else cx_ll_concat(cx_ll_of(Segment, &[_]Segment{ segment_at(i_) }), segments_from((i_ +% 1))));
+    return (if ((i_ >= cx_list_len(route()))) cx_ll_empty(Segment) else cx_ll_concat(cx_ll_of(Segment, &[_]Segment{ segment_at(i_) }), segments_from((i_ + 1))));
 }
 
 fn build_world() *CxList(Segment) {
@@ -741,7 +741,7 @@ fn sim_loop(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f
 }
 
 fn sim_step(start_: RiderState, left_bound: f64, right_bound: f64, start_side: f64, start_along: f64, crossed0: bool, i_: i64, phys: RiderState) ArcOutcome {
-    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ +% 1), phys))))); }; }; };
+    return b0: { const across: f64 = phys.across; break :b0 b1: { const forward: f64 = (phys.along - start_along); break :b1 b2: { const crossed: bool = (if (((across * start_side) < @as(f64, @bitCast(@as(i64, 0))))) true else crossed0); break :b2 (if ((across < left_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderLeft, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((across > right_bound)) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderRight, .forward = real_min(forward, min_forward_progress()), .crossed = crossed, .end_across = across, .frames = cx_real_from_int(i_) }) else (if ((forward < @as(f64, @bitCast(@as(i64, 0))))) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = forward, .crossed = crossed, .end_across = across, .frames = no_frames() }) else (if ((forward >= min_forward_progress())) cx_new(ArcOutcomeS{ .shoulder = Shoulder.ShoulderNone, .forward = min_forward_progress(), .crossed = crossed, .end_across = across, .frames = no_frames() }) else sim_loop(start_, left_bound, right_bound, start_side, start_along, crossed, (i_ + 1), phys))))); }; }; };
 }
 
 fn project_arc(state: RiderState, seg: Segment) ArcOutcome {
@@ -777,7 +777,7 @@ fn search_lean(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i
 }
 
 fn search_step(state: RiderState, seg: Segment, target: f64, lo: f64, hi: f64, i_: i64, mid: f64) f64 {
-    return (if (want_more_right(project_arc(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ +% 1)) else search_lean(state, seg, target, lo, mid, (i_ +% 1)));
+    return (if (want_more_right(project_arc(with_tilt(state, mid), seg), target)) search_lean(state, seg, target, mid, hi, (i_ + 1)) else search_lean(state, seg, target, lo, mid, (i_ + 1)));
 }
 
 fn a_accel() f64 {
@@ -875,7 +875,7 @@ fn g_max(a_: f64, b_: f64) f64 {
 fn first_rel_diff(got: *CxList(f64), want: *CxList(f64), tol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i +% 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (tol * g_max(@as(f64, @bitCast(@as(i64, 4607182418800017408))), g_abs(w))))) { return _tl_i; } else { { const _tj4_3 = (_tl_i + 1); _tl_i = _tj4_3; continue; } } } else { return _tl_i; } }
     }
 }
 
@@ -890,14 +890,14 @@ fn grade_px(name: []const u8, got: *CxList(f64), want: *CxList(f64), atol: f64, 
 fn first_px_diff(got: *CxList(f64), want: *CxList(f64), atol: f64, rtol: f64, i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i +% 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (g_finite(cx_list_at(got, _tl_i))) { const w: f64 = cx_list_at(want, _tl_i); if ((g_abs((cx_list_at(got, _tl_i) - w)) > (atol + (rtol * g_abs(w))))) { return _tl_i; } else { { const _tj4_4 = (_tl_i + 1); _tl_i = _tj4_4; continue; } } } else { return _tl_i; } }
     }
 }
 
 fn first_int_diff(got: *CxList(i64), want: *CxList(i64), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if ((cx_list_at(got, _tl_i) != cx_list_at(want, _tl_i))) { return _tl_i; } else { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } }
     }
 }
 
@@ -912,7 +912,7 @@ fn bool_eq(a_: bool, b_: bool) bool {
 fn first_bool_diff(got: *CxList(bool), want: *CxList(bool), i_: i64) i64 {
     var _tl_i = i_;
     while (true) {
-        if ((_tl_i >= cx_list_len(got))) { return (0 -% 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i +% 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
+        if ((_tl_i >= cx_list_len(got))) { return (0 - 1); } else { if (bool_eq(cx_list_at(got, _tl_i), cx_list_at(want, _tl_i))) { { const _tj2_2 = (_tl_i + 1); _tl_i = _tj2_2; continue; } } else { return _tl_i; } }
     }
 }
 
@@ -989,7 +989,7 @@ fn cases() *CxList(RiderState) {
 }
 
 fn nexts(cs: *CxList(RiderState), i_: i64) *CxList(RiderState) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(RiderState) else cx_ll_concat(cx_ll_of(RiderState, &[_]RiderState{ get_next_rider_state(cx_list_at(cs, i_), segs()) }), nexts(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(RiderState) else cx_ll_concat(cx_ll_of(RiderState, &[_]RiderState{ get_next_rider_state(cx_list_at(cs, i_), segs()) }), nexts(cs, (i_ + 1))));
 }
 
 fn outs() *CxList(RiderState) {
@@ -997,43 +997,43 @@ fn outs() *CxList(RiderState) {
 }
 
 fn f_seg(ss: *CxList(RiderState), i_: i64) *CxList(i64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(ss, i_).segment }), f_seg(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(i64) else cx_ll_concat(cx_ll_of(i64, &[_]i64{ cx_list_at(ss, i_).segment }), f_seg(ss, (i_ + 1))));
 }
 
 fn f_along(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).along }), f_along(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).along }), f_along(ss, (i_ + 1))));
 }
 
 fn f_across(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).across }), f_across(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).across }), f_across(ss, (i_ + 1))));
 }
 
 fn f_yaw(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).yaw }), f_yaw(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).yaw }), f_yaw(ss, (i_ + 1))));
 }
 
 fn f_v(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).v_ }), f_v(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).v_ }), f_v(ss, (i_ + 1))));
 }
 
 fn f_tilt(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).tilt }), f_tilt(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).tilt }), f_tilt(ss, (i_ + 1))));
 }
 
 fn f_heading(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).heading }), f_heading(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).heading }), f_heading(ss, (i_ + 1))));
 }
 
 fn f_gazeyaw(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).gaze_yaw }), f_gazeyaw(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).gaze_yaw }), f_gazeyaw(ss, (i_ + 1))));
 }
 
 fn f_focus(ss: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).focus }), f_focus(ss, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ss))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ cx_list_at(ss, i_).focus }), f_focus(ss, (i_ + 1))));
 }
 
 fn finished(cs: *CxList(RiderState), i_: i64) *CxList(bool) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ is_finished(cx_list_at(cs, i_), segs()) }), finished(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ is_finished(cx_list_at(cs, i_), segs()) }), finished(cs, (i_ + 1))));
 }
 
 fn angles() *CxList(f64) {
@@ -1041,15 +1041,15 @@ fn angles() *CxList(f64) {
 }
 
 fn turn_speeds(ds: *CxList(f64), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ turn_speed(((cx_list_at(ds, i_) * pi()) / @as(f64, @bitCast(@as(i64, 4640537203540230144))))) }), turn_speeds(ds, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(ds))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ turn_speed(((cx_list_at(ds, i_) * pi()) / @as(f64, @bitCast(@as(i64, 4640537203540230144))))) }), turn_speeds(ds, (i_ + 1))));
 }
 
 fn gawks(cs: *CxList(RiderState), i_: i64) *CxList(bool) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ gawk_engaged(cx_list_at(cs, i_), cx_list_at(segs(), cx_list_at(cs, i_).segment)) }), gawks(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(bool) else cx_ll_concat(cx_ll_of(bool, &[_]bool{ gawk_engaged(cx_list_at(cs, i_), cx_list_at(segs(), cx_list_at(cs, i_).segment)) }), gawks(cs, (i_ + 1))));
 }
 
 fn pig_brakes(cs: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(brake_of(cx_list_at(cs, i_)), pig_brakes(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(brake_of(cx_list_at(cs, i_)), pig_brakes(cs, (i_ + 1))));
 }
 
 fn brake_of(c_: RiderState) *CxList(f64) {
@@ -1057,7 +1057,7 @@ fn brake_of(c_: RiderState) *CxList(f64) {
 }
 
 fn focuses(cs: *CxList(RiderState), i_: i64) *CxList(f64) {
-    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ gaze_focus(cx_list_at(cs, i_).focus) }), focuses(cs, (i_ +% 1))));
+    return (if ((i_ >= cx_list_len(cs))) cx_ll_empty(f64) else cx_ll_concat(cx_ll_of(f64, &[_]f64{ gaze_focus(cx_list_at(cs, i_).focus) }), focuses(cs, (i_ + 1))));
 }
 
 fn opening() void {
@@ -1122,6 +1122,14 @@ fn cx_ll_concat(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     c.items.appendSliceAssumeCapacity(b.items.items);
     return c;
 }
+// mov-rr on bare metal (emit-real-to-bits-builtin): a Real f64 and its bit
+// pattern are the same sixty-four bits in a general register, so there the
+// conversion is a register move. Zig separates the two types and spells the
+// same identity @bitCast. Total, since every f64 has a bit pattern: NaN
+// payloads and both signed zeroes come through exactly as they went in.
+fn cx_real_to_bits(v: f64) i64 {
+    return @bitCast(v);
+}
 // cvtsi2sd on bare metal (emit-real-from-int-builtin): a signed i64 to
 // f64 in the default rounding mode, which is round-to-nearest-even.
 // @floatFromInt is that same conversion -- exact below 2^53 and correctly
@@ -1143,16 +1151,6 @@ fn cx_real_to_int(v: f64) i64 {
     if (v >= 9223372036854775808.0) return -9223372036854775808;
     if (v < -9223372036854775808.0) return -9223372036854775808;
     return @intFromFloat(v);
-}
-// mov-rr on bare metal (emit-real-to-bits-builtin), which is to say NOTHING:
-// bare metal holds a Real f64 as its own bits in a general register, so the
-// value and its bit pattern are the same sixty-four bits and the conversion
-// is a register move. Zig separates the two types, so the same identity is
-// spelled @bitCast. It is total -- every f64 has a bit pattern -- so unlike
-// cx_real_to_int there is nothing to guard: no range to fall out of, and NaN
-// payloads and both signed zeroes come through exactly as they went in.
-fn cx_real_to_bits(v: f64) i64 {
-    return @bitCast(v);
 }
 fn cx_list_len(l: anytype) i64 {
     return @intCast(l.items.items.len);

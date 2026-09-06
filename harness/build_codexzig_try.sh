@@ -42,7 +42,14 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 export CODEX_ROOT="${SAFARI_COBBLESTONE:-$HOME/showell_repos/cobblestone-safari}"
 export COBBLESTONE_ROOT="$CODEX_ROOT"
-tree="${CODEXZIG_TREE:-$HOME/showell_repos/codexzig-safari}"
+# **THE CANDIDATE DERIVES FROM THE TREE THE ARMS ACTUALLY RUN**, which is the
+# codexzig pin, read here rather than named twice. It used to default to
+# `codexzig-safari`, and once that stopped being the pin a candidate built here
+# would have been cut from a different base than the binary it is compared
+# against -- which is the one thing a candidate must not be. Nothing is written
+# into the tree; it is read for source only.
+pin=$(sed 's/#.*//' pins.tsv | awk '$1=="codexzig"{print $2}')
+tree="${CODEXZIG_TREE:-${pin/#\~/$HOME}}"
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 # Debug, matching build.py's stage 6: the candidate is compared against binaries
 # built that way, and an -O here would make the two incomparable.

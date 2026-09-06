@@ -10,10 +10,13 @@
 # zig here and running `zig build-exe` on it would get a working binary while
 # skipping the check that says it is the right one.
 #
-# The worktree is the whole point: `codexzig-safari` is not the transpiler's
-# active line, so nothing this project runs on can be rebuilt out from under it
-# by work happening next door. Same for the Cobblestone it is built from.
-# pins.tsv names all three trees and PROVENANCE.md explains them.
+# THE PIN NAMES THE TRANSPILER'S OWN TREE. It used to name a private worktree of
+# it, so that work next door could not rebuild this out from under a run. What
+# that bought was a silently stale oracle -- on 2026-09-06 the worktree still
+# held a binary built from `cc6eab7e` while the language pin had moved to
+# `422405d0` -- and the fingerprint check below is the thing that was actually
+# doing the protecting. pins.tsv names all three trees; PROVENANCE.md explains
+# them, and every run's own PROVENANCE records the path and size that ran.
 #
 # This script does NOT run build.py on the happy path. build.py's own guard is
 # content-addressed -- generated/local/codexzig.fp holds the sha of the zig the

@@ -13,8 +13,8 @@ with the commit it came from written down and a script to re-copy.
 | what | where | how |
 |---|---|---|
 | the language | `~/showell_repos/cobblestone-safari` `safari-u56` | worktree of `NewRepository` |
-| the zig transpiler | `~/showell_repos/codexzig-safari` `safari-u56` | worktree of `codex-zig-transpiler` |
-| the wasm transpiler | `~/showell_repos/codexwasm-safari` `safari-u56` | worktree of `codex-wasm-transpiler` |
+| the zig transpiler | `~/showell_repos/codex-zig-transpiler` | that project's own tree |
+| the wasm transpiler | `~/showell_repos/codex-wasm-transpiler` | that project's own tree |
 | the game | `HISTORICAL_WASM_ROOT/` | copied, `./harness/refresh_game.sh` |
 | the chapter walk | `harness/cite_resolve.py` | copied, one local change |
 | the guest driver | still imported from the ladder | **and it should stay that way** — see below |
@@ -55,22 +55,34 @@ now give `quires.tsv` the last word and both print `SHADOWED:` on every bundle
 looking for a bundler bug.
 
 **ALL THREE PINS ARE AT THE u56 CANDIDATE NOW, and the two transpilers are
-PULLED rather than built.** `codexzig-safari` and `codexwasm-safari` each carry a
-binary produced by its own project's `build.py` -- nine stages ending in a fixed
-point, the emitter emitting the same bytes for its own source on two roads --
-which is a stronger claim about a binary than this project could make about one
-it assembled. Each is a worktree on `safari-u56` so the active line cannot move
-under us, and `harness/build_codex{zig,wasm}.sh` resolve them through pins.tsv,
-check the fingerprint, and REFUSE rather than build.
+PULLED rather than built.** Each carries a binary produced by its own project's
+`build.py` -- nine stages ending in a fixed point, the emitter emitting the same
+bytes for its own source on two roads -- which is a stronger claim about a
+binary than this project could make about one it assembled.
+`harness/build_codex{zig,wasm}.sh` resolve them through pins.tsv, check the
+fingerprint against the tree's own generated source, and REFUSE rather than
+build.
+
+**THEY NAME THOSE PROJECTS' TREES DIRECTLY, and used to name private worktrees
+of them.** The worktrees existed so that work next door could not rebuild
+safari's transpiler underneath it. What they actually bought was a silently
+stale oracle: on 2026-09-06 both still held binaries built from `cc6eab7e` while
+the language pin had already moved to `422405d0`, so every arm was grading
+today's source through a transpiler two Updates behind and nothing said so. A
+pin that drifts without complaining is worse than one that moves. The
+fingerprint check and the per-run PROVENANCE are what make the drift visible
+now; `CODEXZIG=`/`CODEXWASM=` remain the way to test a candidate build, and are
+not a way to make a stale pin look current.
 
 This project used to build its own wasm transpiler and no longer does; see
 `harness/build_codexwasm.sh` for the three reasons that stopped being right.
 
-## The transpiler: `codexzig-safari`, branch `safari`
+## The transpiler: `codex-zig-transpiler`
 
 `codexzig` is one program — Codex source in, Zig out — and it is what makes this
-project move. `./harness/build_codexzig.sh` is the only door to it: it builds
-the worktree with that project's own `build.py` and prints the binary's path.
+project move. `./harness/build_codexzig.sh` is the only door to it: it resolves
+the pin, checks the binary's fingerprint against that tree's own generated
+source, and prints the path.
 
 **Its own machinery, not a shortcut.** `build.py` is nine stages, three of them
 QEMU guests, and it ends by checking the fixed point: the emitter emits the same

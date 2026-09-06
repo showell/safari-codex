@@ -19,6 +19,21 @@
 # claim about a binary than this project could make about one it assembled. So
 # safari PULLS EXECUTABLES and builds neither.
 #
+# AND THEY NOW NAME THOSE PROJECTS' OWN TREES, not private worktrees of them.
+# The worktrees existed so that work next door could not rebuild safari's
+# transpiler underneath it. What they actually bought was a SILENTLY STALE
+# ORACLE: on 2026-09-06 both still held binaries built from `cc6eab7e` while the
+# language pin had moved to `422405d0`, so every arm was grading today's source
+# with a transpiler two Updates behind, and nothing said so. A pin that drifts
+# without complaining is worse than one that moves.
+#
+# The staleness the worktrees guarded against is CHEAP TO SEE and expensive to
+# miss: `harness/build_codex{zig,wasm}.sh` fingerprint the binary against its
+# tree's own generated source and refuse a mismatch, and every run's PROVENANCE
+# records the path and size of what actually ran. `CODEXZIG=`/`CODEXWASM=` still
+# override for a candidate build -- that is what they are for, and NOT a way to
+# make a stale pin look current.
+#
 # THE PATH IS THE PIN AND THE COMMIT IS NOT, deliberately: the tree is a detached
 # worktree nobody else moves, so what it holds is checkable with `git -C <path>
 # log -1` and does not need restating in two places. Recorded here only as
@@ -30,5 +45,5 @@
 # last word -- they mean THIS project's directories -- and both say so on every
 # bundle rather than resolving somewhere else in silence.
 cobblestone ~/showell_repos/cobblestone-safari
-codexzig    ~/showell_repos/codexzig-safari
-codexwasm   ~/showell_repos/codexwasm-safari
+codexzig    ~/showell_repos/codex-zig-transpiler
+codexwasm   ~/showell_repos/codex-wasm-transpiler

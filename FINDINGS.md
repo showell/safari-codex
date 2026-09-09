@@ -115,6 +115,11 @@ depot's own test programs and `real-from-int` 15, `real-to-bits` 12 and
   (plug and seed must agree bit for bit), which is precisely the decision we should
   not make from outside. Carries a concrete, cheap ask: the values that
   `codex/test/ops/real-literal-rounding` is missing.
+  **Update: the rounding half is upstream issue #125 / COMPILER-57, OPEN and
+  owner-acknowledged "stays open until measured and fixed"; #106 (the 19-digit
+  overflow) is CLOSED. On 2026-09-09 we posted a self-checking probe and an
+  Update-57 measurement on #125 (`outbound/issue125-followup-measure-it-yourself.md`),
+  answering "not yet measured on our side".**
 
 **Investigate before choosing.**
 

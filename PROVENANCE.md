@@ -1,81 +1,67 @@
 # What this project is built against, and how it is pinned
 
-This port has four dependencies outside its own repository, and until 2026-08-30
-every one of them was a path into a checkout somebody else was working in. That
-is not a dependency you can build against; it is one you can only build beside.
-A green sweep meant "green against whatever those trees held this afternoon",
-and any of them could move between two runs of the same command.
-
-**Two rules now.** A tree we compile is a WORKTREE ON OUR OWN BRANCH, so work
-next door cannot rebuild it under us. A tree we merely read from is COPIED IN,
-with the commit it came from written down and a script to re-copy.
+This port depends on things outside its own repository, and until 2026-08-30
+every one was a path into a checkout somebody else was working in. That is not a
+dependency you can build against; it is one you can only build beside. A green
+sweep meant "green against whatever those trees held this afternoon", and any of
+them could move between two runs of the same command. The two transpilers are
+now BORROWED as built binaries with their pin recorded; the language is DERIVED
+from those binaries rather than pinned here at all.
 
 | what | where | how |
 |---|---|---|
-| the language | `~/showell_repos/cobblestone-safari` `safari-u56` | worktree of `NewRepository` |
-| the zig transpiler | `~/showell_repos/codex-zig-transpiler` | that project's own tree |
-| the wasm transpiler | `~/showell_repos/codex-wasm-transpiler` | that project's own tree |
+| the zig transpiler | `~/showell_repos/codex-zig-transpiler` | that project's own tree; pulled, fingerprint-checked |
+| the wasm transpiler | `~/showell_repos/codex-wasm-transpiler` | that project's own tree; pulled, fingerprint-checked |
+| the language | DERIVED | `harness/cobblestone_pin.py`, from what the two transpilers were built against |
 | the game | `HISTORICAL_WASM_ROOT/` | copied, `./harness/refresh_game.sh` |
 | the chapter walk | `harness/cite_resolve.py` | copied, one local change |
 | the guest driver | still imported from the ladder | **and it should stay that way** — see below |
 
-## The language: `cobblestone-safari`, branch `safari-u56`
+## The language: DERIVED, not pinned
 
 Cobblestone is the Codex language: the foreword every chapter cites, the seed
-the guest arms boot, and the plugs both transpilers are made of. `CODEX_ROOT`
-points here, and so does the `COBBLESTONE_ROOT` that `harness/wasm_plug_build.py`
-bundles the wasm plug from.
+the guest arms boot, and the plugs both transpilers are made of. Bundling a spec
+resolves its `Foreword` cites against a Cobblestone checkout, so `CODEX_ROOT`
+must point at one.
 
-    head      cc6eab7e  u56-candidate-saturday, 2026-09-05
-              = Update 55, plus what is out to upstream as pull requests, plus
-                what is going out. See that branch for the formula; it is the
-                optimistic view of what Update 56 will contain, which is what
-                this port wants to be grading against.
+**Safari no longer names that checkout.** It used to: a `cobblestone` line in
+pins.tsv pointed at a private worktree, `~/showell_repos/cobblestone-safari`.
+That was a SECOND copy of a pin the transpilers already carry, and the copy that
+drifts. On 2026-09-09 it sat at `422405d0` (Update 55 era) while both
+transpilers had moved to `8570fba1` (the Update 58 candidate), so the arms would
+have graded a U55 language with U57 binaries and nothing said so. The
+private-pin mechanism dated to the earliest days and was never anything but a
+footgun.
 
-**Everything the old block itemised is gone because upstream took it.** This pin
-spent five weeks at Update 53 plus twenty-three of our own plug commits, each
-listed here with the finding it fixed. All twenty-three are in Update 55 now, so
-the itemisation would be a list of things this pin no longer needs to carry. The
-branch `safari` still points at the last of them, `9632bb87`, and
-WASM_FINDINGS.md still maps them to the eleven findings.
+**`harness/cobblestone_pin.py` derives it instead.** It reads the checkout each
+borrowed transpiler recorded in its `generated/PROVENANCE`, REQUIRES the two to
+agree, and refuses otherwise -- the agreement is the drift check, at the one
+place it matters, and there is no safari copy left to fall out of step.
+`SAFARI_COBBLESTONE` still overrides explicitly for a candidate build.
 
-**The lesson that block taught is the one to keep:** it was left at `e8486215`
-for ten commits, and a stale pin is not a weaker claim than no pin -- it is a
-false one. Same for the branch name in the table above: this tree was briefly a
-detached HEAD, which has the property the rule is actually about (nothing next
-door can move it) while making the table wrong. It is a branch again.
+    current   ~/showell_repos/cobblestone-u58  8570fba1
+              = Update 57 plus our three ZigEmitter commits (the U58 candidate),
+              which is what both transpilers were built from and therefore what
+              the arms grade against.
 
-**MOVING THIS PIN IS NOT A ONE-ARM CHANGE ANY MORE, and the last move proves
-it.** Going U53 -> u56 candidate broke fifteen specs to `graded 0 values` and
-dropped `harness/bundle_gate.sh` to 6 identical of 40, because Update
-55 took this port INTO the depot as `apps/safari/port` and registered `Safari`,
-`Judge` and `Gold` under the names this project has always used. Both bundlers
-now give `quires.tsv` the last word and both print `SHADOWED:` on every bundle
-(rust-codex-compiler 6c18f73). Two gates caught it and neither was the one
-looking for a bundler bug.
+**MOVING THE PIN IS NOT A ONE-ARM CHANGE, and that is half of why it is now
+derived.** Going from a U53 pin to the u56 candidate once broke fifteen specs to
+`graded 0 values` and dropped `harness/bundle_gate.sh` to 6 identical of 40,
+because Update 55 took this port INTO the depot as `apps/safari/port` and
+registered `Safari`, `Judge` and `Gold` under the names this project has always
+used. Both bundlers now give `quires.tsv` the last word and print `SHADOWED:` on
+every bundle. Two gates caught it and neither was the one looking for a bundler
+bug.
 
-**ALL THREE PINS ARE AT THE u56 CANDIDATE NOW, and the two transpilers are
-PULLED rather than built.** Each carries a binary produced by its own project's
-`build.py` -- nine stages ending in a fixed point, the emitter emitting the same
-bytes for its own source on two roads -- which is a stronger claim about a
-binary than this project could make about one it assembled.
-`harness/build_codex{zig,wasm}.sh` resolve them through pins.tsv, check the
-fingerprint against the tree's own generated source, and REFUSE rather than
-build.
-
-**THEY NAME THOSE PROJECTS' TREES DIRECTLY, and used to name private worktrees
-of them.** The worktrees existed so that work next door could not rebuild
-safari's transpiler underneath it. What they actually bought was a silently
-stale oracle: on 2026-09-06 both still held binaries built from `cc6eab7e` while
-the language pin had already moved to `422405d0`, so every arm was grading
-today's source through a transpiler two Updates behind and nothing said so. A
-pin that drifts without complaining is worse than one that moves. The
-fingerprint check and the per-run PROVENANCE are what make the drift visible
-now; `CODEXZIG=`/`CODEXWASM=` remain the way to test a candidate build, and are
-not a way to make a stale pin look current.
-
-This project used to build its own wasm transpiler and no longer does; see
-`harness/build_codexwasm.sh` for the three reasons that stopped being right.
+**The transpilers are PULLED, not built here.** Each carries a binary produced
+by its own project's `build.py` -- nine stages ending in a fixed point, the
+emitter emitting the same bytes for its own source on two roads -- which is a
+stronger claim about a binary than this project could make about one it
+assembled. `harness/build_codex{zig,wasm}.sh` resolve them through pins.tsv,
+check the fingerprint against the tree's own generated source, and REFUSE rather
+than build. This project used to build its own wasm transpiler and no longer
+does; see `harness/build_codexwasm.sh` for the three reasons that stopped being
+right.
 
 ## The transpiler: `codex-zig-transpiler`
 
@@ -97,29 +83,20 @@ the safety checks are on and nothing here is a benchmark. A stray `-O` on one
 side of a comparison is how this project once made two binaries that were not
 comparable.
 
-    checkout  316f9ce4  Rebuild on the fixed harness (2026-09-01)
-    built     from cobblestone-safari 9632bb87, CLEAN -- no `+dirty`, which
-              means the record names a commit the build was actually made from.
-              generated/PROVENANCE in that worktree records the seed, the
-              guests and what each one touched: 437s, fixed point HOLDS
-              byte-identical, arith matches all nine lines.
+    checkout  de6c4d7  (codex-zig-transpiler master)
+    built     from cobblestone-u58 8570fba1, CLEAN. generated/PROVENANCE in that
+              tree records the seed, the guests and what each touched: fixed
+              point HOLDS byte-identical, arith matches, built in 494s.
 
-**Why it was rebuilt, and the sentence this block used to end with was wrong.**
-Earlier on 2026-08-31 this record read "still current at 9632bb87", on the
-argument that the subject re-bundles to the same bytes at the new pin because
-no chapter codexzig cites had moved. That was true of the PIN and it stopped
-being true of the HARNESS: `source/CodexZigHarness.codex` changed that night
-(the `-halted` literal, `b896ff5`), and the harness is bundled into the subject.
-
-The old sentence went on to say `build_codexzig.sh` "agrees, and its agreement
-is visible rather than silent". **It is silent, and that is finding 14.** The
-script hashes `generated/codexzig.qemu.zig` and compares it to the fingerprint
-of the binary built FROM that zig -- so it can tell whether the binary is
-current with the generated zig, and cannot tell whether the generated zig is
-current with the source. Measured: the source moved at 00:09 and the
-fingerprint still matched a zig generated at 14:47. A warm 6.8s sweep is
-therefore evidence that nothing needed rebuilding only if somebody already
-knows the source did not move.
+**The fingerprint cannot see a stale SOURCE, and that is finding 14.**
+`build_codexzig.sh` hashes `generated/codexzig.qemu.zig` and compares it to the
+fingerprint of the binary built FROM that zig -- so it can tell whether the
+binary is current with the generated zig, and cannot tell whether the generated
+zig is current with the transpiler's source. Once measured: the source moved at
+00:09 and the fingerprint still matched a zig generated at 14:47. A warm sweep
+is therefore evidence that nothing needed rebuilding only if somebody already
+knows the source did not move -- which is the transpiler project's own concern,
+since safari only borrows the result.
 
 ## The game: `HISTORICAL_WASM_ROOT/`
 

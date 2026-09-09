@@ -11,10 +11,11 @@ tracked, so the diff shows you what moved. THIS is what you want when the answer
 has to survive being read next week -- a run whose intermediates are somewhere
 nobody edits, next to a file saying what produced them.
 
-WHAT A PROVENANCE IS FOR HERE. Three arms and four pinned trees is more moving
-parts than a green line can carry, and every one of them can move without the
-suite noticing: the language pin, either transpiler pin, the Rust binary, zig,
-wasmtime, node. A run that cannot say which of those it measured is not evidence
+WHAT A PROVENANCE IS FOR HERE. Three arms with two pinned transpilers plus the
+language they were built against (derived, not pinned) is more moving parts than
+a green line can carry, and every one can move without the suite noticing: the
+derived language, either transpiler, the Rust binary, zig, wasmtime, node. A run
+that cannot say which of those it measured is not evidence
 about any of them. So this writes ONE file naming all of it, next to the
 intermediates it produced -- and it names them by COMMIT and by fingerprint,
 never by "the current checkout".

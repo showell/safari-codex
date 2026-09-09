@@ -24,9 +24,11 @@
 #     fixed to call `compile-frontend-cdx` -- which is the standing rule, and
 #     keeping a second harness here means learning that lesson twice.
 #
-# So the binary is PINNED, exactly as the language and the zig transpiler are:
-# a worktree on our own branch that nothing next door can rebuild under us.
-# pins.tsv names it. This script checks the fingerprint and REFUSES if it is
+# So the binary is PINNED like the zig transpiler: the transpiler project's own
+# tree, which safari borrows and pins.tsv names -- pulled, not built here, and
+# not a safari-owned worktree. The LANGUAGE is not pinned at all; it is derived
+# from what these binaries were built against (harness/cobblestone_pin.py).
+# This script checks the fingerprint and REFUSES if it is
 # stale rather than building -- building belongs to the project that owns it,
 # and a build starting on its own is a cost the caller did not ask for.
 set -euo pipefail

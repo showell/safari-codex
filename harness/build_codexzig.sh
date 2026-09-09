@@ -3,7 +3,8 @@
 #
 #     eval codexzig=$(./harness/build_codexzig.sh)     # or just read the path
 #
-# THE TRANSPILER IS BUILT BY ITS OWN PROJECT, IN A WORKTREE THIS ONE OWNS.
+# THE TRANSPILER IS BUILT BY ITS OWN PROJECT, IN ITS OWN TREE, WHICH SAFARI
+# BORROWS -- it is not a safari-owned worktree.
 # codex-zig-transpiler/build.py is nine stages, three of them guests, and it ends
 # by checking the fixed point -- the emitter emitting the same bytes for its own
 # source under QEMU and as the native binary it produced. Copying the generated

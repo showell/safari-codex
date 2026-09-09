@@ -192,17 +192,21 @@ baked art is the blitter diff and the eye test. See **Stills, not frames** below
 
 ## Before the loop will run
 
-**`pins.tsv` is the authority and it names three trees.** It is a file rather
-than a default inside a Python module because things that are not Python read it
--- `spec/run.sh`, `harness/build_codexzig.sh`, `harness/build_codexwasm.sh` and
-`spec/arms.py` all resolve their pin from it.
+**`pins.tsv` names the two trees safari borrows: `codexzig` and `codexwasm`,
+each the transpiler project's own tree.** It is a file rather than a default
+inside a Python module because things that are not Python read it.
 
-    cobblestone   the Codex checkout the port compiles against
-    codexzig      the zig transpiler's worktree
-    codexwasm     the wasm transpiler's worktree
+    codexzig      the zig transpiler's tree
+    codexwasm     the wasm transpiler's tree
 
-Each is a worktree on its own branch so that work happening next door cannot
-rebuild it under us. `PROVENANCE.md` says what each holds and why.
+**Safari does NOT pin the language.** The Codex checkout the arms compile
+against is DERIVED, not named here: `harness/cobblestone_pin.py` reads the
+checkout each borrowed transpiler recorded in its `generated/PROVENANCE`,
+requires the two to agree, and refuses otherwise -- so the pin is whatever the
+binaries were built from, and cannot drift from them. `spec/run.sh`,
+`spec/arms.py` and the off-path harness scripts derive `CODEX_ROOT` through it.
+A private safari pin used to live here and drifted two Updates behind the
+transpilers; `PROVENANCE.md` tells that story and names the current pin.
 
 **THIS PROJECT BUILDS NEITHER TRANSPILER AND SHOULD NOT.**
 `harness/build_codex{zig,wasm}.sh` resolve the pin, check the binary's

@@ -1,49 +1,36 @@
-# The trees this port is pinned to. One `name<space>path` per line; `~` is home.
+# The trees this port borrows from. One `name<space>path` per line; `~` is home.
 #
-# IT IS A FILE BECAUSE TWO LANGUAGES READ IT. The pin used to live as a default
-# inside harness/pins.py, which meant anything that was not Python had to import
-# Python to find out which checkout this port compiles against -- and the Rust
-# arm, which resolves its own cites, would otherwise have inherited the box's
-# ambient CODEX_ROOT instead. That is not hypothetical: pointed at the shared
-# tree, 25 of 35 safari units bundled differently, because the two checkouts'
-# DeviceMath differ.
+# SAFARI DOES NOT PIN THE LANGUAGE. It used to: a `cobblestone` line here named
+# safari's own Cobblestone worktree, a SECOND copy of a pin the transpilers
+# already carry -- and the copy that drifts. On 2026-09-09 it sat at 422405d0
+# (Update 55 era) while both transpilers had moved to 8570fba1 (the Update 58
+# candidate), so the arms would have graded a U55 language with U57 binaries and
+# nothing said so. The whole private-pin mechanism dated to the earliest days
+# and was never anything but a footgun.
 #
-# An override is SAFARI_COBBLESTONE, a name nothing else exports -- which is the
-# property CODEX_ROOT lacks, and the reason pins.py SETS rather than defaults.
+# THE LANGUAGE IS NOW DERIVED FROM THE BORROWED BINARIES. codexzig and codexwasm
+# each record the checkout they were built from in their generated provenance;
+# `harness/cobblestone_pin.py` reads both, REFUSES if they disagree, and hands
+# back the path. The agreement of the two transpilers IS the drift check, at the
+# one place it matters, and there is no safari copy left to fall out of step.
+# `SAFARI_COBBLESTONE` still overrides explicitly for a candidate build.
 #
-# THE TWO TRANSPILERS ARE PINS NOW TOO, and that is a change of posture rather
-# than a tidy-up. This project used to BUILD its own wasm transpiler, out of the
-# ladder's chapter list and a local copy of the harness. codex-zig-transpiler and
-# codex-wasm-transpiler now each exist to be a fixed point -- the emitter
+# WHAT STAYS HERE is only the two things safari borrows: the transpiler trees.
+# This project BUILDS NEITHER. Each exists to be a fixed point -- the emitter
 # emitting the same bytes for its own source on two roads -- which is a stronger
 # claim about a binary than this project could make about one it assembled. So
-# safari PULLS EXECUTABLES and builds neither.
+# safari PULLS EXECUTABLES; `harness/build_codex{zig,wasm}.sh` fingerprint the
+# binary against its tree's own generated source and refuse a mismatch, and
+# every run's PROVENANCE records the path and size of what actually ran.
+# `CODEXZIG=`/`CODEXWASM=` override for a candidate build -- that is what they
+# are for, and NOT a way to make a stale pin look current.
 #
-# AND THEY NOW NAME THOSE PROJECTS' OWN TREES, not private worktrees of them.
-# The worktrees existed so that work next door could not rebuild safari's
-# transpiler underneath it. What they actually bought was a SILENTLY STALE
-# ORACLE: on 2026-09-06 both still held binaries built from `cc6eab7e` while the
-# language pin had moved to `422405d0`, so every arm was grading today's source
-# with a transpiler two Updates behind, and nothing said so. A pin that drifts
-# without complaining is worse than one that moves.
-#
-# The staleness the worktrees guarded against is CHEAP TO SEE and expensive to
-# miss: `harness/build_codex{zig,wasm}.sh` fingerprint the binary against its
-# tree's own generated source and refuse a mismatch, and every run's PROVENANCE
-# records the path and size of what actually ran. `CODEXZIG=`/`CODEXWASM=` still
-# override for a candidate build -- that is what they are for, and NOT a way to
-# make a stale pin look current.
-#
-# THE PATH IS THE PIN AND THE COMMIT IS NOT, deliberately: the tree is a detached
-# worktree nobody else moves, so what it holds is checkable with `git -C <path>
-# log -1` and does not need restating in two places. Recorded here only as
-# orientation for a reader: it currently holds `u56-candidate-sunday`, and
-# moving it from U53 is what exposed the quire collision below.
+# THE PATH IS THE PIN AND THE COMMIT IS NOT: each tree is one nobody else moves,
+# so what it holds is checkable with `git -C <path> log -1`.
 #
 # UPSTREAM NOW REGISTERS `Safari`, `Judge` AND `Gold` ITSELF. Update 55 took this
 # port into the depot as apps/safari/port. Both bundlers give the names below the
 # last word -- they mean THIS project's directories -- and both say so on every
 # bundle rather than resolving somewhere else in silence.
-cobblestone ~/showell_repos/cobblestone-safari
 codexzig    ~/showell_repos/codex-zig-transpiler
 codexwasm   ~/showell_repos/codex-wasm-transpiler

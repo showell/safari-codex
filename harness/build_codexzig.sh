@@ -13,16 +13,17 @@
 # THE PIN NAMES THE TRANSPILER'S OWN TREE. It used to name a private worktree of
 # it, so that work next door could not rebuild this out from under a run. What
 # that bought was a silently stale oracle -- on 2026-09-06 the worktree still
-# held a binary built from `cc6eab7e` while the language pin had moved to
-# `422405d0` -- and the fingerprint check below is the thing that was actually
-# doing the protecting. pins.tsv names all three trees; PROVENANCE.md explains
-# them, and every run's own PROVENANCE records the path and size that ran.
+# held a binary built from `cc6eab7e` while the language pin had moved -- and the
+# fingerprint check below is the thing that was actually doing the protecting.
+# pins.tsv names the two transpiler trees; PROVENANCE.md explains them, and every
+# run's own PROVENANCE records the path and size that ran.
 #
-# This script does NOT run build.py on the happy path. build.py's own guard is
-# content-addressed -- generated/local/codexzig.fp holds the sha of the zig the
-# binary was built from -- so the check is a hash and a comparison, and the
-# seconds a fixed-point re-check would cost do not belong in a sweep that runs
-# it once per module.
+# THIS SCRIPT NEVER BUILDS -- it checks the fingerprint and REFUSES if stale,
+# exactly as build_codexwasm.sh does, and for the same reason: building belongs
+# to the project that owns it, and a build starting on its own is a cost the
+# caller did not ask for. safari borrows this binary; it does not make it. The
+# guard is content-addressed -- generated/local/codexzig.fp holds the sha of the
+# zig the binary was built from -- so the check is a hash and a comparison.
 set -euo pipefail
 pin=$(sed 's/#.*//' "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/pins.tsv" | awk '$1=="codexzig"{print $2}')
 tree="${CODEXZIG_TREE:-${pin/#\~/$HOME}}"
@@ -46,8 +47,8 @@ fi
 [ -d "$tree" ] || { echo "no transpiler worktree at $tree (see PROVENANCE.md)" >&2; exit 1; }
 want=$(sha256sum "$src" | awk '{print $1}')
 if [ ! -x "$bin" ] || [ "$(cat "$tree/generated/local/codexzig.fp" 2>/dev/null)" != "$want" ]; then
-    echo "codexzig is missing or stale in $tree; building it there" >&2
-    ( cd "$tree" && COBBLESTONE_ROOT="${COBBLESTONE_ROOT:-$HOME/showell_repos/cobblestone-safari}" \
-        python3 -u build.py ) >&2
+    echo "codexzig is missing or stale in $tree." >&2
+    echo "Build it THERE -- \`cd $tree && python3 build.py\` -- and re-run." >&2
+    exit 1
 fi
 printf '%s' "$bin"

@@ -44,22 +44,14 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def _apply_pin():
-    """Set CODEX_ROOT from pins.tsv, the way spec/run.sh does.
-
-    SET, not defaulted. This box exports a CODEX_ROOT globally, pointing at a
-    different tree, and letting it win is the exact bug harness/pins.py was
-    written for -- pointed at the shared checkout, 25 of 35 safari units bundled
-    differently. SAFARI_COBBLESTONE is the override, a name nothing else exports.
+    """Set CODEX_ROOT the way spec/run.sh does: DERIVED from the borrowed
+    transpilers, never a safari pin. harness/cobblestone_pin.py reads the
+    checkout each was built from and refuses if they disagree; ambient
+    CODEX_ROOT is not consulted, and SAFARI_COBBLESTONE overrides explicitly.
     """
-    if os.environ.get("SAFARI_COBBLESTONE"):
-        os.environ["CODEX_ROOT"] = os.path.expanduser(os.environ["SAFARI_COBBLESTONE"])
-        return
-    for line in (ROOT / "pins.tsv").read_text().splitlines():
-        line = line.split("#")[0].strip()
-        if line.startswith("cobblestone"):
-            os.environ["CODEX_ROOT"] = os.path.expanduser(line.split()[1])
-            return
-    raise SystemExit("pins.tsv names no cobblestone tree")
+    sys.path.insert(0, str(ROOT / "harness"))
+    from cobblestone_pin import resolve
+    os.environ["CODEX_ROOT"] = str(resolve())
 
 
 _apply_pin()

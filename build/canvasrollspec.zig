@@ -35,12 +35,16 @@ const RiderStateS = struct {
 };
 const RiderState = *RiderStateS;
 
+fn real_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
 fn roll_deadband() f64 {
     return @as(f64, @bitCast(@as(i64, 4562254508917369340)));
 }
 
 fn rider_roll(s_: RiderState) f64 {
-    return b0: { const t: f64 = s_.tilt; break :b0 @as(f64, (if (((if ((t < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - t) else t) < roll_deadband())) @as(f64, @bitCast(@as(i64, 0))) else t)); };
+    return b0: { const t: f64 = s_.tilt; break :b0 @as(f64, (if ((real_abs(t) < roll_deadband())) @as(f64, @bitCast(@as(i64, 0))) else t)); };
 }
 
 fn g_abs(x: f64) f64 {

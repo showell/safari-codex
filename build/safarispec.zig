@@ -477,20 +477,36 @@ fn dm_reduce(x: f64) f64 {
     return b0: { const k_: f64 = cx_real_from_int(cx_real_to_int((x / dm_two_pi()))); break :b0 b1: { const r_: f64 = (x - (k_ * dm_two_pi())); break :b1 (if ((r_ > dm_pi())) (r_ - dm_two_pi()) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_pi()))) (r_ + dm_two_pi()) else r_)); }; };
 }
 
-fn dm_fold_quadrant(r_: f64) f64 {
-    return (if ((r_ > dm_half_pi())) (dm_pi() - r_) else (if ((r_ < (@as(f64, @bitCast(@as(i64, 0))) - dm_half_pi()))) ((@as(f64, @bitCast(@as(i64, 0))) - dm_pi()) - r_) else r_));
+fn dm_quarter_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4605249457297304853)));
+}
+
+fn dm_three_quarter_pi() f64 {
+    return @as(f64, @bitCast(@as(i64, 4612488097114038738)));
 }
 
 fn dm_sin_poly(r_: f64) f64 {
-    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 (((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))); }; }; }; }; }; };
+    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r3: f64 = (r2 * r_); break :b1 b2: { const r5: f64 = (r3 * r2); break :b2 b3: { const r7: f64 = (r5 * r2); break :b3 b4: { const r9: f64 = (r7 * r2); break :b4 b5: { const r11: f64 = (r9 * r2); break :b5 b6: { const r13: f64 = (r11 * r2); break :b6 b7: { const r15: f64 = (r13 * r2); break :b7 (((((((r_ - (r3 / @as(f64, @bitCast(@as(i64, 4618441417868443648))))) + (r5 / @as(f64, @bitCast(@as(i64, 4638144666238189568))))) - (r7 / @as(f64, @bitCast(@as(i64, 4662263553305083904))))) + (r9 / @as(f64, @bitCast(@as(i64, 4689977843394805760))))) - (r11 / @as(f64, @bitCast(@as(i64, 4720626352061939712))))) + (r13 / @as(f64, @bitCast(@as(i64, 4753323511810883584))))) - (r15 / @as(f64, @bitCast(@as(i64, 4788179038478794752))))); }; }; }; }; }; }; }; };
+}
+
+fn dm_cos_poly(r_: f64) f64 {
+    return b0: { const r2: f64 = (r_ * r_); break :b0 b1: { const r4: f64 = (r2 * r2); break :b1 b2: { const r6: f64 = (r4 * r2); break :b2 b3: { const r8: f64 = (r6 * r2); break :b3 b4: { const r10: f64 = (r8 * r2); break :b4 b5: { const r12: f64 = (r10 * r2); break :b5 b6: { const r14: f64 = (r12 * r2); break :b6 b7: { const r16: f64 = (r14 * r2); break :b7 ((((((((@as(f64, @bitCast(@as(i64, 4607182418800017408))) - (r2 / @as(f64, @bitCast(@as(i64, 4611686018427387904))))) + (r4 / @as(f64, @bitCast(@as(i64, 4627448617123184640))))) - (r6 / @as(f64, @bitCast(@as(i64, 4649544402794971136))))) + (r8 / @as(f64, @bitCast(@as(i64, 4675774352187195392))))) - (r10 / @as(f64, @bitCast(@as(i64, 4705047200009289728))))) + (r12 / @as(f64, @bitCast(@as(i64, 4736815922046566400))))) - (r14 / @as(f64, @bitCast(@as(i64, 4770521722250067968))))) + (r16 / @as(f64, @bitCast(@as(i64, 4806193436988276736))))); }; }; }; }; }; }; }; };
+}
+
+fn dm_sin_octant(a_: f64) f64 {
+    return (if ((a_ <= dm_quarter_pi())) dm_sin_poly(a_) else (if ((a_ <= dm_three_quarter_pi())) dm_cos_poly((a_ - dm_half_pi())) else dm_sin_poly((dm_pi() - a_))));
+}
+
+fn dm_cos_octant(a_: f64) f64 {
+    return (if ((a_ <= dm_quarter_pi())) dm_cos_poly(a_) else (if ((a_ <= dm_three_quarter_pi())) dm_sin_poly((dm_half_pi() - a_)) else (@as(f64, @bitCast(@as(i64, 0))) - dm_cos_poly((dm_pi() - a_)))));
 }
 
 fn real_sin(x: f64) f64 {
-    return dm_sin_poly(dm_fold_quadrant(dm_reduce(x)));
+    return b0: { const r_: f64 = dm_reduce(x); break :b0 (if ((r_ < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - dm_sin_octant((@as(f64, @bitCast(@as(i64, 0))) - r_))) else dm_sin_octant(r_)); };
 }
 
 fn real_cos(x: f64) f64 {
-    return dm_sin_poly(dm_fold_quadrant(dm_reduce((x + dm_half_pi()))));
+    return dm_cos_octant(real_abs(dm_reduce(x)));
 }
 
 fn pi() f64 {

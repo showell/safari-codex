@@ -40,8 +40,8 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-export CODEX_ROOT="${SAFARI_COBBLESTONE:-$HOME/showell_repos/cobblestone-safari}"
-export COBBLESTONE_ROOT="$CODEX_ROOT"
+CODEX_ROOT="$(python3 "$root/harness/cobblestone_pin.py")" || exit 2
+export CODEX_ROOT COBBLESTONE_ROOT="$CODEX_ROOT"
 # **THE CANDIDATE DERIVES FROM THE TREE THE ARMS ACTUALLY RUN**, which is the
 # codexzig pin, read here rather than named twice. It used to default to
 # `codexzig-safari`, and once that stopped being the pin a candidate built here

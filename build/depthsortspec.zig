@@ -66,6 +66,10 @@ fn real_max(a_: f64, b_: f64) f64 {
     return (if ((a_ > b_)) a_ else b_);
 }
 
+fn real_abs(x: f64) f64 {
+    return (if ((x < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - x) else x);
+}
+
 fn rest_from(ys: *CxList(Item), j: i64) *CxList(Item) {
     return (if ((j >= cx_list_len(ys))) cx_ll_empty(Item) else cx_ll_concat(cx_ll_of(Item, &[_]Item{ cx_list_at(ys, j) }), rest_from(ys, (j + 1))));
 }
@@ -79,7 +83,7 @@ fn sort_tie() f64 {
 }
 
 fn deeper_than(x: f64, y: f64) bool {
-    return ((x - y) > (sort_tie() * real_max((if ((y < @as(f64, @bitCast(@as(i64, 0))))) (@as(f64, @bitCast(@as(i64, 0))) - y) else y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
+    return ((x - y) > (sort_tie() * real_max(real_abs(y), @as(f64, @bitCast(@as(i64, 4607182418800017408))))));
 }
 
 fn sort_items(xs: *CxList(Item)) *CxList(Item) {

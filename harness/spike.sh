@@ -7,10 +7,11 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(dirname "$here")"
-# SET, not defaulted: CODEX_ROOT is exported in this box's login environment,
-# so `${CODEX_ROOT:=...}` reads as a pin and is not one. harness/pins.py has
-# the incident. SAFARI_COBBLESTONE is the override nothing else exports.
-export CODEX_ROOT="${SAFARI_COBBLESTONE:-$HOME/showell_repos/cobblestone-safari}"
+# DERIVED, not defaulted: the pin comes from the borrowed transpilers via
+# harness/cobblestone_pin.py, which refuses if they disagree. Ambient CODEX_ROOT
+# is not consulted; SAFARI_COBBLESTONE overrides explicitly.
+CODEX_ROOT="$(python3 "$here/cobblestone_pin.py")" || exit 2
+export CODEX_ROOT
 zig="${ZIG:-$HOME/zig-0.16.0/zig}"
 # OURS, built by its own project in a worktree this one owns. It used to
 # default into the SHARED transpiler checkout, which meant the compiler under

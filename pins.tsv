@@ -32,5 +32,5 @@
 # port into the depot as apps/safari/port. Both bundlers give the names below the
 # last word -- they mean THIS project's directories -- and both say so on every
 # bundle rather than resolving somewhere else in silence.
-codexzig    ~/showell_repos/codex-zig-transpiler
+codexzig    ~/codexzig
 codexwasm   ~/showell_repos/codex-wasm-transpiler

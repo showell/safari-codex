@@ -9,7 +9,7 @@ Chapter: CritterPlanSpec
   cites Safari chapter World
   cites Safari chapter DepthSort
   cites Safari chapter CritterPlan
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  CritterPlan: which animals are close enough to be worth placing, and in what
  order they go into the sort.

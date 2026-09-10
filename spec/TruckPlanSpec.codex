@@ -6,7 +6,7 @@ Chapter: TruckPlanSpec
   cites Safari chapter World
   cites Safari chapter DepthSort
   cites Safari chapter TruckPlan
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  TruckPlan: walk the truck's lead forward along the chain and say which segment
  its centre landed on.

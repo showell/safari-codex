@@ -14,7 +14,7 @@ Chapter: RenderSpec
   cites Safari chapter DepthSort
   cites Safari chapter World
   cites Safari chapter Render
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Render: one frame's collection -- every kind gathered, capped, and merged into a
  single depth order.

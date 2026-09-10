@@ -4,7 +4,7 @@ Chapter: BlitSpec
   cites Safari chapter Camera
   cites Safari chapter Paint
   cites Safari chapter Blit
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Blit: the pass that runs over a finished frame and turns what the renderer
  produced into what the browser receives.

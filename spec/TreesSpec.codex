@@ -2,7 +2,7 @@ Chapter: TreesSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter Trees
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Trees: the pair-at-a-time fill, and the two things that stop it.
 

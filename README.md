@@ -1,541 +1,110 @@
 # safari-codex
 
 **A driving screensaver, written in Codex, that we own outright.** It began as a
-port of a Zig original and that port is finished and eye-tested; what it is now
-is a real application in the language, and the most demanding customer the Codex
-toolchain has.
-
-It is also an oracle, twice over. `judge/` runs one program four ways -- through
-the zig plug, through the compiler's own x86-64 emitter under QEMU, and through
-two independent roads to wasm -- and compares all of them to the real game.
-`spec/` runs every chapter three ways and compares those to each other. Between
-them they have found more defects in the toolchain than any other thing in this
-ecosystem. `WASM_FINDINGS.md` and `FINDINGS.md` are the record.
-
-**Start with `spec/`.** It covers all 54 chapters, needs no probe and no gold,
-and answers in seconds where `judge/` answers in minutes.
-
-**Fidelity to the Zig original is no longer a constraint.** It was, for as long
-as it took to establish that the port was faithful without anyone having to
-remember which giraffes stood at which intersections; that job is done. The
-checks below still grade against the game because a free, exact oracle is worth
-keeping -- not because the port is forbidden to diverge. It may diverge, and in
-features too.
-
-**And as of 2026-09-03 it has stopped matching the original's SHAPE.** Every
-chapter here began as one of the game's files, and several of those files were
-two jobs; `Camera` held a lens, a projection and a near plane that it never
-read, and the near plane was carried by four callers into `Geom`'s clipping.
-The chapter boundaries are ours now, chosen for cohesion, and the `A port of
-wasm/<x>.zig` line at the top of a chapter is PROVENANCE rather than a promise
--- it says where the code came from, not what shape it must keep.
-
-**What is still promised, and it is the part that was doing the work.** The
-four arms compile the same Codex source and must print the same bytes. The
-golds are regenerated from the zig probe and grade VALUES. The eye test is a
-picture a human looks at. Not one of those has an opinion about which chapter
-computed a number, which is exactly why the structure was free to move and the
-behaviour is not: a restructure either leaves every value identical or it does
-not, and the sweep says which.
-
-`PROVENANCE.md` pins the trees this builds against. `FINDINGS.md` and
-`WASM_FINDINGS.md` are the defects this project found, written to be sent.
-`PORTING_NOTES.txt` is the lessons file -- the first thing to read before
+port of a Zig original; the port is finished and eye-tested, and what it is now
+is a real application in the language and one of the most demanding customers
+the Codex toolchain has. `FINDINGS.md` and `WASM_FINDINGS.md` are the defects it
+found; `PORTING_NOTES.txt` is the lessons file, the first thing to read before
 writing a Codex chapter.
 
-## The four arms, and what each one is worth
-
-Stated in one place because the chain is easy to overclaim, and the overclaim is
-flattering.
-
-1. **The oracle.** `probe/probe_<mod>.zig` imports the **real, unmodified** game
-   module and writes `gold/<Mod>Gold.codex`. Every number this project claims
-   about faithfulness comes from here and nowhere else.
-2. **The port, through the zig plug.** `./harness/run.sh` bundles a check,
-   transpiles it with `codexzig`, builds the zig, runs it, and grades the port's
-   values against that gold. **This is the only arm that compares the port to the
-   GAME.** GREEN means they agree within the tolerance each check states.
-3. **Bare metal.** `./harness/metal.py` runs the same checks through the Codex
-   compiler's own x86-64 emitter, as a kernel image under QEMU, and requires the
-   two arms to print the same bytes. Diverse double-compiling in Wheeler's sense,
-   applied to a program rather than to a compiler.
-4. **Wasm, by two roads.** `./harness/wasm_arm.py` compares `Codex -> zig -> wasm`
-   against `Codex -> IR -> plugs/wasm`, which share no code below the IR. With
-   `--native` the right road is `build/codexwasm` and no guest boots at all.
-   **Its `--both` mode is RED and the emitters are not why** — the two roads run
-   different IR pass pipelines, so its byte comparison cannot attribute a
-   difference. `WASM_FINDINGS.md` finding 13; `--native --all` is the arm.
-
-**What the four together establish.** The port agrees with the game (1 and 2), and
-three independent compile paths reproduce that agreement — which is what rules out
-the port merely being bent the same way one emitter is. Arms 3 and 4 both call
-`run.sh` first and it exits non-zero on RED, so neither can compare two arms of a
-port that is failing its own checks: the verdict travels with them.
-
-**What it does not establish, in three parts.**
-
-- **Arms 3 and 4 compare emitters, not the game.** They ask whether the answer
-  depends on the toolchain, and the answer is no. Faithfulness is arm 2's word.
-- **Bare metal and the wasm roads are never compared directly.** Arm 3 ties bare
-  metal to the zig arm; arm 4 ties the two wasm roads to each other and to the zig
-  arm's own output. The link between bare metal and `codex -> wasm` is transitive
-  through arm 2, not measured.
-- **A check compares VERDICTS, not values** — `Grade` prints `name ok 2468`, so two
-  arms inside a tolerance agree whatever their last bits did. The exception is
-  `metal.py --entry`, which compares arms 2 and 3 on **523,414 IEEE-754 bit
-  patterns with no tolerance anywhere**, and `plug_probe.py`, which compares the
-  two plugs on values a few lines at a time.
-
-## What the checks still buy, now that the port is done
-
-**Structure compares exactly; numbers carry a measured tolerance.** Codex `Real`
-is f64 in every plug and the game computes in f32, so every computed number
-differs somewhere in the last bits. Point counts, colours, tags and indices
-never get slack -- a wrong count is a wrong shape and no coordinate tolerance
-should be able to hide one. Section D of `PORTING_NOTES` records what each
-tolerance had to admit and why.
-
-Where the port deliberately differs, it says so at the definition and the check
-gates it at a measured bound. There is one such place: the cat's airborne arc
-uses `b^0.75` where the game uses `pow(b, 0.7)`, bounded at 0.109m and zero at
-both ends.
-
-Two rules from the port that still hold, because they are about Codex and not
-about fidelity:
-
-- **Port the answer, not the cost model.** An in-place algorithm carried
-  literally onto persistent lists can gain a whole complexity class
-  (`PORTING_NOTES` E4).
-- **Take the better name where nothing pins it.**
+**Fidelity to the Zig original is no longer a constraint**, and the chapter
+boundaries are ours, chosen for cohesion. The `A port of wasm/<x>.zig` line at
+the top of a chapter is provenance, not a promise.
 
 ## The unit tests: `spec/`
 
-**Run these first, and they cover every chapter.** `./spec/run.sh` grades all 54
-of `port/`'s chapters against their own written-down answers, in seconds, one
-process per spec. It is what to run after a compiler change, before anything in
-`judge/` -- which asks a different and much more expensive question.
+`spec/` holds 54 self-checking Codex chapters, one per chapter of `port/`. A
+spec carries its own expected values as literals and prints its own verdict --
+`name ok N` per graded seam, `BAD` on a miss -- so any arm that runs Codex
+renders that verdict alone. `spec/Grade.codex` (quire `Spec`) is the one grader:
+every seam flattens to a list of Reals, Integers or Booleans.
 
-The counts and the timings are printed by the run and written into a
-PROVENANCE by `./spec/arms.py`; they are not repeated here, because a number in
-a README is a number nobody re-measures.
+    ./spec/run.sh        the edit loop: every spec on the Rust interpreter, seconds
+    ./spec/export.py     freeze every spec into units/ -- the resolved program
+                         beside its verdict as <Spec>.expected
 
-A spec is a **self-checking Codex chapter**: it carries its own expected values
-as literals and prints its own verdict, so any arm that runs Codex renders that
-verdict alone. No gold bank, no probe, no zig.
+**Every other arm grades safari from the OUTSIDE.** `units/` is a corpus like
+any other -- self-contained `.codex` beside `.expected` -- and
+`cobblestone-curated-tests/arms/*` take it as they take the curated and Roc
+corpora: the zig plug (`run-zig`), the wasm plug (`run-wasm`), our own IR through
+the zig plug (`ir-zig`), and the two frozen IRs (`freeze-upstream-ir`,
+`freeze-rust-ir`, `ir-rust`, `ir-diff`). Nothing downstream knows what a spec,
+a floor or a cite is.
 
-    ./spec/run.sh            the Rust interpreter alone -- the edit loop
-    ./spec/run.sh --zig      also transpile each spec to zig and diff the arms
-    ./spec/run.sh --wasm     also emit each spec as wasm and diff the arms
-    ./spec/run.sh --arms     all three, writing into build/
-    ./spec/arms.py           all three in a sandbox, with one PROVENANCE
+    cd ~/showell_repos/cobblestone-curated-tests
+    arms/run-zig ~/showell_repos/safari-codex/units
 
-**THESE ARE THREE DIFFERENT ARMS FROM THE FOUR ABOVE, and the difference is the
-point.** `judge/` compares the port to the GAME through a zig probe. `spec/`
-compares three independent compilations of the same Codex text to each other: a
-Rust tree walker that shares nothing with either compiler, `Codex -> zig`, and
-`Codex -> IR -> plugs/wasm`, which never sees zig. A value all three agree on has
-been computed three ways from one source.
+`units/` is tracked: the `.expected` files almost never change, the frozen IRs
+change when the pin moves or when the Rust compiler changes on purpose, and the
+diff of a re-export is the review.
 
-`spec/arms.py` is the one to run when the answer has to survive being read next
-week. It puts every intermediate in a sandbox nobody edits and writes a single
-PROVENANCE naming all four pinned trees by commit, every binary by path and
-size, and the versions of zig, wasmtime and node -- with a `+DIRTY` marker on
-any tree that had uncommitted changes, because such a tree's sha describes
-something that is not what ran. It builds nothing; every binary is resolved by
-the harness script that owns it, and each of those refuses rather than building.
-
-**It is a coffee-break run and must stay one.** If it ever passes ten minutes,
-cut the zig arm's per-spec link rather than the coverage.
-
-Four rules the files are held to, each of which caught something:
+Four rules the specs are held to, each of which caught something:
 
 - **Derive, then confirm. Never capture.** `NumSpec`'s rounding table rederived
   with the obvious `floor(|x| + 0.5)` walks straight back into the bug `Num`'s
-  docstring records fixing. A captured table would have written that bug in as
-  the definition of correct.
+  docstring records fixing.
 - **Measure the tolerance by tightening it until it breaks**, and say what it
-  had to admit. Most lines grade at exactly 0.0; where one does not, the prose
-  beside it says which polynomial's accuracy it is carrying.
-- **Grade what the chapter decides, not what it delegates.** A drawing chapter's
-  projected coordinates belong to `Camera` and to the checks in `judge/`; its
-  own arithmetic and its own ordering are what a spec takes.
+  had to admit. Most lines grade at exactly 0.0.
+- **Grade what the chapter decides, not what it delegates.**
 - **A spec must not be able to pass by doing nothing.** `spec/floors.tsv` gives
-  each spec the fewest graded values it must still be checking, and the runner
-  sums the `ok N` counts and refuses below the line. It is a floor and not a
-  gold -- `>=`, so adding assertions never churns the file. `spec/mutate.py` is
-  a one-off authoring tool for watching a new spec fail once; it is not part of
-  the gate and should not become part of it again.
+  each spec the fewest graded values it must still be checking; `run.sh` and
+  `export.py` refuse below the line. A floor, not a gold: `>=`, so adding
+  assertions never churns the file. `spec/mutate.py` is a one-off authoring
+  tool for watching a new spec fail once.
 
-**`spec/arm-gaps.tsv` is where a filed disagreement lives.** A spec whose zig or
-wasm answer differs for a reason already reported upstream is named there with
-its issue number, reported every run, and not fatal. The spec keeps its 0.0
-tolerance: rewriting a correct test to match a broken implementation buries the
-defect and then defends it. A line there is a promise to remove it.
+**`units/arm-gaps.tsv` is where a filed disagreement lives.** A unit whose
+output through a named arm differs for a reason already reported upstream is
+named there with its issue, reported every run as `differs-filed`, and not
+fatal. **The `.expected` is the CORRECT value and the arm is what is wrong**:
+rewriting a correct test to match a broken implementation buries the defect and
+then defends it. A line there is a promise to remove it. Today's three are the
+issue-125 Real literals, which both plugs still round the old way.
 
-**Two hazards that cost red lines and will cost more.** Codex refuses a bare
-`==` between Reals (CDX2085 -- say `~` or `~0`) and refuses an application whose
-arguments continue onto the next line (CDX1070 -- bind it with a `let`). The
-Rust interpreter accepts both. So a spec can be green on the fast path and stop
-the zig arm emitting at all, which is exactly what the three-arm run is for.
+**Two hazards that cost red lines.** Codex refuses a bare `==` between Reals
+(CDX2085 -- say `~` or `~0`) and refuses an application whose arguments continue
+onto the next line (CDX1070 -- bind it with a `let`). The Rust interpreter
+accepts both, so a spec can be green on the edit loop and stop the zig arm
+emitting at all; that is what the outside arms are for.
 
 **The baked stills stay in, but held to a budget.** `CatStills` and
-`EmojiStills` are hundreds of KB of generated literals and they are the likeliest
-thing here to find a front-end limit, so they belong in the default path -- but
-they should not dominate it. What costs is NAMING a table, not walking one: a
-nullary binding emits as a function (`PORTING_NOTES` B13), so every mention of
-`pose-rest-polys` rebuilds all of its points, linearly and unmemoised. So each
-table is reached ONCE, through the dispatch those specs have to grade anyway.
+`EmojiStills` are hundreds of KB of generated literals (`harness/bake_stills.py`)
+and the likeliest thing here to find a front-end limit. What costs is NAMING a
+table, not walking one (`PORTING_NOTES` B13), so each table is reached once.
 
-They are still the trickiest thing here, and they are deliberately out of some
-checks: `judge/` has never had a `CatStillsCheck`, because the honest oracle for
-baked art is the blitter diff and the eye test. See **Stills, not frames** below.
+## The trees safari borrows
 
-## Before the loop will run
-
-**`pins.tsv` names the two trees safari borrows: `codexzig` and `codexwasm`,
-each the transpiler project's own tree.** It is a file rather than a default
-inside a Python module because things that are not Python read it.
-
-    codexzig      the zig transpiler's tree
-    codexwasm     the wasm transpiler's tree
-
-**Safari does NOT pin the language.** The Codex checkout the arms compile
-against is DERIVED, not named here: `harness/cobblestone_pin.py` reads the
-checkout each borrowed transpiler recorded in its `generated/PROVENANCE`,
-requires the two to agree, and refuses otherwise -- so the pin is whatever the
-binaries were built from, and cannot drift from them. `spec/run.sh`,
-`spec/arms.py` and the off-path harness scripts derive `CODEX_ROOT` through it.
-A private safari pin used to live here and drifted two Updates behind the
-transpilers; `PROVENANCE.md` tells that story and names the current pin.
-
-**THIS PROJECT BUILDS NEITHER TRANSPILER AND SHOULD NOT.**
-`harness/build_codex{zig,wasm}.sh` resolve the pin, check the binary's
-fingerprint against its tree, print the path, and REFUSE if it is stale --
-building belongs to the project that owns it. `harness/build_codexwasm.sh`
-carries the three reasons this changed; the short version is that
-codex-zig-transpiler and codex-wasm-transpiler each end in a fixed point, which
-is a stronger claim about a binary than this project could make about one it
-assembled out of parts.
-
-Two more things must exist and are not pins: `ZIG` (the version is pinned) and
-`SAFARI_LADDER`, which `harness/metal.py` and `harness/bundle.py` still use for
-`ring_compile` and `codex_vm`. **The ladder is deprecated**, and it has already
-moved `ast/` to `src/` under this project once; expect the next move not to
-announce itself either.
-
-## The loop
-
-    ./harness/run.sh
-
-That is the whole interface. With no arguments it runs every check in `judge/`;
-name one or more chapters to run just those. It prints `GREEN` or `RED`. For each
-module it:
-
-1. builds `probe/probe_<mod>.zig` and runs it — the probe imports the **real,
-   unmodified** game module, so the hand-written Zig is the oracle;
-2. writes its answers to `gold/<Mod>Gold.codex`, regenerated every run;
-3. bundles the check with `harness/bundle.py`;
-4. transpiles it with `codexzig`, builds the Zig, runs it, and grades.
-
-**One check's oracle is not a zig probe.** `Blit`'s decisions have always lived in
-the browser, so a check that owns a `harness/gen_<mod>_gold.js` gets its gold from
-node reading `HISTORICAL_WASM_ROOT/blitter.js` instead of from step 1. The sweep
-then finishes with `--- Blitter ---`: `harness/blitter_diff.js`, which runs the
-forked `web/blitter.js` and the frozen original side by side over a recording
-canvas. That leg is what stands behind the claim that moving the shading recipe into
-Codex did not change the picture. `harness/second_show.js` runs after it and
-is in the sweep for the same reason: it rotted once and nothing noticed,
-because nothing ran it.
-
-**A minute and a half cold, six and a half seconds when nothing has changed.** It
-was nine minutes. Two things fixed that, and both are worth knowing:
-
-`zig build-exe -O ReleaseFast` cost 22s per invocation and ran twice per module.
-That is *not* our code being optimised — a two-line program whose whole body is one
-`std.debug.print` costs the same 22s, and 1,200 extra lines of generated Codex cost
-0.05s. It is LLVM compiling zig's own formatting machinery on a two-core box.
-Nothing here is a benchmark, so both builds are Debug, which also turns on the
-safety checks a correctness harness wants.
-
-Then the sweep **skips what has not changed**, keyed on a hash of the bundled unit —
-which *is* the transitive closure of every `cites` edge, so there is no dependency
-list to keep in step. The gold's own hash is folded into its key, which is what
-keeps the promise below that a hand-edited gold cannot survive one run.
-`PORTING_NOTES` C9 and C10 have the measurements.
-
-    ./harness/run.sh Render          # just one module, about 3s
-
-**The sweep boots no QEMU guest.** `harness/metal.py` does — that is the third arm,
-below — and the ladder's compute rules apply to it and to nothing else here.
-
-## The third arm: the same check on bare metal
-
-    ./harness/metal.py Pond          # one check, both ways
-    ./harness/metal.py --all         # all eighteen, smallest first (3m26s)
-
-The sweep above verifies the **port** against the game, and it does that through
-the zig plug: Codex source in, zig out, a native binary that prints a verdict.
-That proves the port and says **nothing about the plug**.
-
-So the same check is run a second way — through the Codex compiler's own x86-64
-emitter, as a kernel image booted under QEMU — and the two arms must print the
-same bytes. That is a Diverse Double-Compiling check in Wheeler's sense, applied
-to a program instead of to a compiler. `codex-zig-ladder` next door does it for
-the compiler; this does it for this port.
-
-**All eighteen checks agree, byte for byte**, including the whole-frame check's
-3,091 commands and 7,518 coordinates. No tolerance is involved — this compares
-printed verdicts, and verdicts are text.
-
-**`RideCheck` is the only check here that is a long-lived *stateful* computation**
-rather than a pure function or a single frame — 6,960 frames of fold, in 9 s inside
-the guest against 1.0 s native — and the two arms agree on its derived numbers as
-well as its verdicts: 6,960 against 7,000, segment 13 at 265 frames, 68,700 mm at
-the last shared sample.
-
-**Be careful what that is worth, because the obvious reading is wrong.** It is
-tempting to say the ride's knife edge makes it a sharp detector of a difference
-between the two emitters. It does not, and `probe_sens.zig` is what says so: a
-ONE-TIME perturbation of 1e-7 is absorbed completely, and a PERSISTENT relative
-bias only starts to move anything at 1e-7 — 1e-8 and 1e-9 change nothing at all.
-Two IEEE f64 emitters differ, if they differ, at about 1e-16 an operation, eight
-orders below that floor. So this check is **blind** to exactly the emitter faults a
-DDC check most wants — FMA contraction, x87 excess precision, a reassociated
-sum — because every one of them lives at 1e-16.
-
-**The knife edge is calibrated to f32 epsilon, which is the port-against-game gap
-and nowhere near the arm-against-arm one.** What the agreement genuinely rules out
-is gross divergence: a persistent difference of 1e-7 or more between the emitters.
-The 9 s is worth as much as the agreement — the ride depends on no input at all,
-so a sufficiently eager `fold-constants` could have evaluated the whole thing at
-compile time and had the guest print an answer the emitted x86 never computed. Nine
-seconds of guest time and a second of native time say neither arm did.
-
-**A check compares verdicts, not values**, and that is a real limit on what the
-sweep above proves: `Grade` prints `name ok 2468`, so two arms that both sit
-inside a tolerance agree whatever their last bits did. `--entry` is the answer.
-
-    ./harness/metal.py --entry SpikeMain SpikePondMain SpikeCatMain SpikeTruckMain
-
-It runs a poc *entry* chapter instead of a check, and the spike entries print
-every coordinate of every frame as its exact IEEE-754 bit pattern. **All eight
-viewpoints plus the speed profile, and the two arms agree BIT FOR BIT on every
-value:**
-
-| entry | fields |
-|---|---|
-| `SpikeProfileMain` — the ported physics over the whole route | 20,002 |
-| `SpikeMain` — the pig herd, the mid-tower | 123,974 |
-| `SpikePondMain` — the duck pond, the corner zebras | 128,402 |
-| `SpikeCatMain` — the cat frozen, the cat mid-leap | 161,134 |
-| `SpikeTruckMain` — the truck in daylight and at dusk | 89,902 |
-| | **523,414** |
-
-**The two arms produce every one of those bytes identically** — the sky, the
-ground, the trees, the towers, the rails, the animals, the cat's leap and the
-whole truck. That is the statement worth making; verdict agreement is the
-cheap sweep. Eight guests, about six minutes.
-
-No byte total is written here, and that is deliberate. The one that used to be
-was measured before `real-to-bits` landed three paragraphs below, so it read
-half the true size and sat wrong through two rewrites that re-checked the field
-counts beside it. `ls -l build/spike_*.metal` answers it in the present tense.
-
-**The comparison is only as fine as the last digit printed**, and that scale was
-inherited rather than chosen. These entries were written to feed `spike_svg.py`,
-which draws at 960 by 600, so hundredths of a pixel was overkill *for a picture* —
-and then the same text was pointed at a second compiler, where at a hundredth of a
-pixel two emitters could disagree by four orders of magnitude and this would call
-them equal.
-
-**There is no scale now.** `real-to-bits` landed in the zig plug on 2026-08-30
-(PR 100), so a coordinate goes out as its exact IEEE-754 pattern and the
-diff is bit-for-bit. That is what lets the third arm finally see the emitter faults
-it was blind to under any decimal scale — FMA contraction, x87 excess precision, a
-reassociated sum, all of which live at 1e-16 (`PORTING_NOTES` D11 is where that
-limit was measured and admitted). The text stopped being readable by a human on the
-same day it started being read by a second compiler, which is the right trade.
-
-**The guest's heap decides how big an entry may be, and it is smaller than the
-host's.** The prelude bump-allocates and never reclaims, so a run's whole output
-has to fit at once, at about 700 MB a frame. A native process's 4 GiB reserve
-holds six frames; the venue's 3072 MB holds five, and at the driver's default
-1 GB the guest dies after one — printing `OUT OF MEMORY` cleanly rather than
-corrupting anything. So **two viewpoints per entry, which is the guest's number
-rather than the host's**, and the split is the whole reason the table above has
-four rows instead of one that cannot run.
-
-The machinery is the ladder's, borrowed rather than restated: `ring_compile`
-streams a cite-resolved unit into the seed under QEMU and hands back a `.cdx`,
-`codex_vm.run_cdx` boots it and captures the serial. Both take the ladder's
-compute lock and both refuse off the venue, so this cannot start a guest without
-asking. It came to about forty lines of harness, which is worth saying because it
-had been imagined as a project.
-
-**What it found was in the diagnostics, not the output.** The seed emitted 1,268
-`CDX4010` (bounds proven, info), 15 `CDX4030` (pipeline, info) and **ten
-`CDX3006` warnings** — three real name collisions in a port that had been green
-for its whole life: `bar-quad` defined in both `Tower` and `GuardRail`,
-`tower-beyond` and `tower-right` in both `Render` and `RenderCheck`. `codexzig`'s
-diagnostic stream carried none of them. Nothing was misbehaving — each chapter
-sees its own definition — but a mention from a chapter that defines neither
-resolves by the order the build globs files, which is not a property to rely on.
-All three are renamed; the missing diagnostics are `FINDINGS.md` item 5.
-
-The lesson is about arms rather than about this port: **an arm you develop against
-is an arm whose silence you have learned to trust.** `PORTING_NOTES` B5 records
-the flat-namespace hazard as something to watch for by hand — by hand is how it
-was watched for, and three instances still got in.
-
-**What it does not prove.** Only that two emitters agree on this source. A defect
-in the shared front end is invisible to it, exactly as the ladder's own README
-says of its rungs.
-
-## The fourth arm: the same program as wasm, twice, by two different roads
-
-    ./harness/wasm_arm.py --native --all  # the day-to-day check: 18 units, NO guest
-    ./harness/plug_probe.py               # the plug's own differential probes
-    ./harness/wasm_plug_build.py          # once per emitter change, 18s, one guest
-    ./harness/wasm_arm.py Pond World Num Camera
-    ./harness/wasm_arm.py --entry SpikeProfileMain
-
-The first three arms agree, so this one does not re-run them. It asks a narrower
-question than the third arm and gets a sharper answer:
-
-    Codex -> zig -> wasm      codexzig, then zig build-exe -target wasm32-wasi
-    Codex -> IR  -> wasm      the seed, then plugs/wasm's own emitter
-
-Both roads end as a wasm32-wasi module run by **wasmtime**, and the two must
-print the same bytes. **They share no code below the IR.** The left road is the
-one this project has always used with a wasm back end bolted on the end; the
-right road never sees zig at all, and its emitter is a different program written
-by different hands. A difference between them is a defect in one of the two, and
-the source is the same source either way, so it is not in the port.
-
-`harness/wasm_arm.py` is the whole thing and it is about two hundred and eighty
-lines. Two guests per module: one compiles the bundled unit to IR on the seed,
-one runs the wasm plug over that IR — or no guest at all under `--native`, which
-is what this arm runs day to day. `wat2wasm` is wabt's own JS build under
-`tools/`. **The runner is `wasmtime`, not `node:wasi`**, which this section
-recommended for as long as `WASM_FINDINGS.md` has recorded that `node:wasi`
-aborts with SIGSEGV on four of fourteen checks; `tools/README.md` has the
-install line.
-
-**The QEMU is cheap, and that was the open question.** 18 s and one guest for the
-plug; 4-13 s to compile a unit to IR; 2-9 s to transpile it. A check is under ten
-seconds end to end and the whole 20,002-field spike entry is 27 s. Nothing here
-is near the third arm's minute-a-guest, because none of these units are the
-compiler.
-
-**What it found was that Real did not work at all.** No Codex program that
-computes with `Real` had ever assembled through the wasm plug. Every real on that
-target is carried as f64 bits in an i64 slot, which is the right representation
-and was half implemented: the reinterprets that get a value into an f64
-operation and back out of it were simply missing, so `f64.add` was handed two
-i64s and its f64 result stored into an i64 slot. The four ordered comparisons
-emitted `i64.lt_s` on the bit patterns, which is not a near miss — it reads the
-sign bit as the top of a two's-complement integer, so every negative real sorts
-above every positive one and `-2.0 < -1.0` comes out False, and the foreword's
-own `real-min`, `real-max` and `real-abs` are three lines of `<` and `>`. Four
-builtins had no form at all. `WASM_FINDINGS.md` finding 1 has the change; it is on
-`wasm-plug-real-conversions` for sending.
-
-**What agrees now.** All eighteen units emit and agree — `Pond`, `World`, `Num`
-and `Camera` were the first four — and `SpikeProfileMain`
-on **20,002 IEEE-754 bit patterns, with no tolerance anywhere**: the ported
-physics over the whole route, by two emitters that share no code below the IR.
-
-### What it takes to make it fail
-
-A check compares VERDICTS, and a verdict is `name ok 2468` — the third arm's own
-limit, and this arm inherits it. So the arm was made to fail on purpose, three
-ways, each a plausible one-token slip in the emitter rather than a perturbed
-input:
-
-| fault in `WasmEmitter.codex` | wrong only when | `World` verdicts | `SpikeProfileMain` values |
-|---|---|---|---|
-| `real-from-int` converts unsigned | the integer is negative | **agrees** | CAUGHT (hangs, no output) |
-| ordered compare `f64.lt` -> `f64.le` | the two are equal | — | CAUGHT (296 of 257,787 bytes) |
-| `real-to-int` rounds, not truncates | the fraction is >= 0.5 | — | CAUGHT (1,736 bytes) |
-
-**The first row is the one worth reading.** A faulted emitter, seven wrong
-instructions in the emitted module, and `World` was GREEN. That is not the arm
-being blind: rebuilding the same module with the fault repaired, host-side,
-prints byte-identical output, so `WorldCheck` never calls `real-from-int` with a
-negative at all. The fault was unreachable in that program. But the verdict said
-`ok` either way, and a verdict that says `ok` for a program carrying seven wrong
-instructions is exactly as much comfort as it sounds like.
-
-**`--entry` is the answer, as it was for the third arm.** The spike entries print
-every value as its exact IEEE-754 pattern, and all three faults are caught there
-— two of them by the program failing to terminate, which is its own kind of
-evidence that the physics genuinely runs. Verdicts are the cheap sweep; values
-are the statement.
-
-`./harness/metal_chapter.py` grades a single chapter on all three arms, which
-is how a test going upstream gets bare metal's answer rather than ours.
+`pins.tsv` names the two bundles: `codexzig` and `codexwasm`. **Safari does not
+pin the language**: `harness/cobblestone_pin.py` reads the checkout each borrowed
+transpiler recorded in its provenance, requires the two to agree, and refuses
+otherwise. **This project builds neither transpiler**; `harness/build_codex{zig,wasm}.sh`
+resolve the pin, check the binary against its tree, print the path, and refuse
+a stale one. `CODEXZIG=`/`CODEXWASM=` override for a candidate build.
 
 ## Layout
 
 | directory | holds | written by |
 |---|---|---|
-| `port/` | the port itself — Codex chapters, quire `Safari` | hand |
-| `judge/` | graders and check roots, quire `Judge` | hand |
-| `gold/` | gold chapters, quire `Gold` | **generated, then tracked** |
-| `probe/` | Zig probes that import the real game | hand |
-| `poc/` | browser and spike ENTRY chapters, quire `Poc` — throwaway by design | hand |
-| `harness/` | the four steps, plus the spike and wasm builders, the browser oracle and the dev server | hand |
-| `build/` | bundled units, emitted zig, diagnostics — **tracked**; binaries are not | generated |
+| `port/` | the port itself -- Codex chapters, quire `Safari` | hand |
+| `spec/` | the 54 specs, `Grade`, the floors, the runner and the exporter, quire `Spec` | hand |
+| `units/` | every spec resolved, with its frozen verdict and IRs, and `arm-gaps.tsv` | `spec/export.py`, the arms |
+| `poc/` | browser ENTRY chapters, quire `Poc` -- throwaway by design | hand |
+| `harness/` | the browser build, its oracle and dev server, the stills baker, the pin | hand |
 | `web/` | the browser page: this project's FORK of `blitter.js`, plus the wasm | mixed |
 | `price-b/` | the fixed-point measurements behind the dialect decision | one-off |
 | `spike/` | the original feasibility spike | historical |
 
-**Four files in `harness/` answer to the browser rather than to zig.**
-`blitter_oracle.js` reads the shading recipe and the thresholds out of the frozen
-original; `gen_blit_gold.js` writes `gold/BlitGold.codex` from it; `blitter_diff.js`
-runs the fork and the original side by side over a recording canvas;
-`paint_probe.js` hands the real module's own buffer to the real blitter for 300
-frames and checks the canvas calls add up. The first three are in the sweep;
-`paint_probe.js` runs at the end of `harness/build_wasm.sh`, where the wasm is.
-`serve.py` serves `web/` with `no-store`, which is the whole reason it is not one
-line of `python3 -m http.server`.
+Three files in `harness/` answer to the browser: `blitter_oracle.js` reads the
+shading recipe and thresholds out of the frozen original, `blitter_diff.js` runs
+the fork and the original side by side over a recording canvas (run it by hand
+after touching `web/blitter.js` or `port/Blit.codex`), and `paint_probe.js` hands
+the real module's buffer to the real blitter for 300 frames at the end of
+`build_wasm.sh`. `serve.py` serves `web/` with `no-store`.
 
-Two files in `probe/` are not probes in the usual sense and say so in their own
-headers: `probe_num.zig` imports no game module at all, because `Num` is not a port
-of one (its oracle is zig's own `@round`, `@floor`, `@mod` and `@exp`), and
-`probe_sens.zig` is a sensitivity EXPERIMENT that `run.sh` never builds — it is the
-evidence behind `PORTING_NOTES` D11 and nothing grades it.
-
-`probe/wasm` is a symlink to `HISTORICAL_WASM_ROOT/`, so the probes can
-`@import` the game with a relative path. That settles NOTES open decision 1: the
-port lives here, and the symlink pays for it.
-
-## Adding a module
-
-Add three files and nothing else — `harness/run.sh` discovers the rest:
-
-    port/<Chapter>.codex        the port
-    probe/probe_<chapter>.zig   the oracle, printing `<kind> <name> <values...>`
-    judge/<Chapter>Check.codex  flatten each seam, hand it to Grade
-
-The chapter name is written once and everything else is derived from it. The
-probe is **snake_case, named after the game file it imports** — `GuardRail` gives
-`probe/probe_guard_rail.zig` beside `wasm/guard_rail.zig` — and the gold chapter
-is the name with `Gold` appended, so the check cites `Gold chapter <Chapter>Gold`.
-
-**`harness/names.py` owns that snake_case rule and is the only place it lives.**
-It is importable and runnable, so `run.sh`, `spike.sh`, `gen_gold.py` and
-`metal.py` all ask it rather than restating it. There were four copies once and
-two of them disagreed on consecutive capitals — `IOBuffer` was `i_o_buffer` to the
-python and `i_obuffer` to the shell (`PORTING_NOTES` C18).
-
-`harness/metal.py <Chapter>` then works on it with no further wiring: the third
-arm reads the same three files.
-
-`judge/Grade.codex` is the only grader. Every seam flattens to a list of Reals,
-Integers or Booleans, so one grader serves pond, the camera, and eventually the
-draw-command buffer — which is itself a flat list. Keep flattening at the seam
-rather than growing a judge per module.
+**Retired 2026-09-10:** the `judge/` checks, the `gold/` chapters, the zig
+`probe/`s that generated them, and the harness sweep, bare-metal and two-road
+wasm arms that ran them. They were the port's faithfulness instrument and the
+port is done; the specs grade every chapter, the outside arms grade every
+plug, and cobblestone-qemu answers for bare metal. Git history holds them.
 
 ## The browser proof of concept
 
@@ -552,13 +121,13 @@ module at that path was the only thing here that differed from the real game. It
 is a real file now: the browser half held decisions -- a shading recipe and four
 visibility thresholds -- and those have moved into `port/Blit.codex`, where they
 can be run and graded. The original stays untouched and is the oracle;
-`harness/blitter_diff.js` runs both over a recording canvas every sweep and
+`harness/blitter_diff.js` runs both over a recording canvas, by hand, and
 demands the same picture out of the two different wires.
 
 **`poc/Drive.codex` drives the real route.** Nothing in the frame is placed by
 hand: the road and its corners, the conifers, the intersection towers, the guard
 rails and the pond all come out of `Safari chapter World` — the same nineteen
-segments, graded seam by seam against `gold/WorldGold.codex` — mapped by
+segments, graded seam by seam by `WorldSpec` — mapped by
 `Render`'s chain, ordered by `Render`'s depth sort, and floored by `Render`'s
 ground pass. 2,430 draw commands in the
 opening frame, sixteen of them the truck. `u` runs 0..1 and walks the whole course by arc length; Space
@@ -626,46 +195,6 @@ lets a page that allocates and never reclaims run indefinitely; `PORTING_NOTES` 
 paint. It does not check a single VALUE.** That is the largest uncovered
 surface left in this project.
 
-## Looking at one thing: the spike loop
-
-    ./harness/spike.sh          # then http://localhost:9200/spikes/
-
-**Throwaway by design and graded by nothing.** `poc/Spike.codex` renders single
-still frames at hand-picked points on the route, and `harness/spike_svg.py` turns
-them into flat SVGs — no wasm, no blitter, no animation. A picture you can open is
-a faster loop than a page you have to drive to the right spot. `run.sh` does not
-call any of it; delete `poc/Spike*.codex`, `harness/spike.sh` and
-`harness/spike_svg.py` and nothing else changes.
-
-**The animals draw themselves now**, so a still shows exactly what the browser
-shows rather than an approximation of it. The spike used to emit a marker box and
-have the SVG script read the game's baked art off disk. Both tables are generated
-into the port now — `EmojiStills` and `CatStills` — so every polygon in a still
-arrives in the draw-command stream like everything else, and the SVG's reader for
-the game's own art has been **deleted**: 108 lines that nothing had called since
-the cat's flipbook was generated (`PORTING_NOTES` C18).
-
-That turns out to check things. The pig-herd viewpoint draws **exactly 49 pig
-markers**, which is the 7×7 distraction block `w-npigs` records for segment 2, all
-of them surviving the culls; the duck pond draws six ducks and the corner pairs
-draw two apiece. Eight viewpoints ship: the big pig herd, the mid-tower on the
-1200m leg, the duck pond, a corner zebra pair, the cat frozen and mid-leap, and the
-truck in daylight and at dusk.
-
-**Two viewpoints per BINARY, and it is now habit rather than need.** The spike
-prints one frame per viewpoint and never rewinds its arena (`PORTING_NOTES` C6), so
-a run holds every frame it has printed — and while the printers concatenated left
-to right they held a *quadratic* amount of it, which is what actually set the
-ceiling. Six viewpoints used to exhaust the 4 GiB reserve; after the halving fix an
-entry peaks at **133 MB** and all eight would fit in one binary (`PORTING_NOTES`
-C17). The pairs are kept because they exist and give the guest one entry at a time
-to fail in: `SpikeMain` (the pig herd and the mid-tower),
-`SpikePondMain`, `SpikeCatMain`, `SpikeTruckMain` and `SpikeProfileMain`, each a
-fresh process. `poc/SpikePrint.codex` holds the draw-command printing the four FRAME entries
-share — `SpikeProfileMain` prints profile points, which are not draw commands, so
-it does not cite it — and `harness/spike.sh` names the list once. Sharing by citing the *first entry* is
-what does not work: two `opening`s in one bundle collide on the flat namespace.
-
 ## Stills, not frames
 
 `emoji_frames.zig` and `cat_frames.zig` are the game's names and they read like
@@ -722,15 +251,3 @@ fixed-point port in integer milli-units — was priced and rejected.
 plug, so `Grade` reports *where* a list first disagrees. When `real-to-int` lands
 this becomes a scaled-integer dump and full-frame diffs.
 
-**Gold is generated every run, and tracked anyway.** It is a second copy of the
-oracle, and the worry that put it in `.gitignore` at first was that a second copy
-can quietly disagree with the first. That worry is real but it is not load-bearing
-here: `harness/gen_gold.py` rebuilds every gold chapter from the zig probe on every
-sweep, so a stale or hand-edited gold cannot survive a single `./harness/run.sh` —
-it is overwritten before it is ever read. What tracking buys is a reviewable diff:
-when a port changes an answer, the gold moves in the same commit and you can see
-which values moved and by how much, which is exactly what a Real-valued check
-cannot tell you at the console.
-
-The rule that still holds is **never edit `gold/` by hand.** Every file there says
-so in its own header, and the next run will overwrite it regardless.

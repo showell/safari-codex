@@ -2,7 +2,7 @@ Chapter: DepthSortSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter DepthSort
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  DepthSort, graded on the two properties its docstring says are load-bearing.
 

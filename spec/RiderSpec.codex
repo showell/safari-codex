@@ -11,7 +11,7 @@ Chapter: RiderSpec
   cites Safari chapter Throttle
   cites Safari chapter Gaze
   cites Safari chapter Rider
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Rider: one frame. Decide the controls, run the physics, then resolve the road
  graph by POSITION.

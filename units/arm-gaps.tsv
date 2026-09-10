@@ -1,0 +1,12 @@
+# Units whose output through a named ARM differs for a reason that is FILED and
+# is not ours. THE .expected IS THE CORRECT VALUE and the arm is what is wrong,
+# so these are recorded rather than fixed by loosening a tolerance.
+#
+#   unit<TAB>arm<TAB>issue and what differs
+#
+BikeSpec	run-zig	issue 125: Real literals are not correctly rounded in the plug, bk-exact 1 ULP
+BikeSpec	run-wasm	issue 125: as run-zig
+ViewYawSpec	run-zig	issue 125: vy-yaw 0.012500000000000011, 1 ULP
+ViewYawSpec	run-wasm	issue 125: as run-zig
+TreesSpec	run-zig	issue 125: tr-hx 11.700000000000001, 1 ULP low
+TreesSpec	run-wasm	issue 125: as run-zig

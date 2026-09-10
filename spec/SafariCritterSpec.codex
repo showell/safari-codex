@@ -2,7 +2,7 @@ Chapter: SafariCritterSpec
   cites Foreword chapter ListUtils
   cites Foreword chapter Console
   cites Safari chapter SafariCritter
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  SafariCritter: which big animal stands at a corner, and which side it stands on.
 

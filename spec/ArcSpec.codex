@@ -6,7 +6,7 @@ Chapter: ArcSpec
   cites Safari chapter Bike
   cites Safari chapter World
   cites Safari chapter Arc
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Arc: run the bike's physics forward from where the rider is and report where he
  would leave the road, if he would.

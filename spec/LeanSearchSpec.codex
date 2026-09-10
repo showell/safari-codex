@@ -7,7 +7,7 @@ Chapter: LeanSearchSpec
   cites Safari chapter World
   cites Safari chapter Arc
   cites Safari chapter LeanSearch
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  LeanSearch: bisect for the lean that puts the rider where he wants to be, by
  projecting a whole arc at each candidate.

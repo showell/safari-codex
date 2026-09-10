@@ -7,7 +7,7 @@ Chapter: TreePlanSpec
   cites Safari chapter World
   cites Safari chapter DepthSort
   cites Safari chapter TreePlan
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  TreePlan: walk the chain, place every tree that survives two culls, and hand the
  survivors to the sort.

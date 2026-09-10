@@ -4,7 +4,7 @@ Chapter: TruckDrawSpec
   cites Safari chapter Geom
   cites Safari chapter Camera
   cites Safari chapter TruckDraw
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  TruckDraw: the box the whole truck is measured from, the axles hung off it, and
  the face sort that decides what paints over what.

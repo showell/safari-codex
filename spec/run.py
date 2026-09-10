@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Run every spec, and PROVE EACH ONE CAN FAIL.
+"""Run every spec on the Rust interpreter, and PROVE EACH ONE CAN FAIL.
 
-    ./spec/run.sh            the Rust interpreter alone
-    ./spec/run.sh --zig      also transpile each spec to zig, and diff the arms
-    ./spec/run.sh --wasm     also emit each spec as wasm, and diff the arms
-    ./spec/run.sh --arms     all three
+    ./spec/run.sh            the edit loop: all 54 specs, one process per spec
 
 A spec is a self-checking Codex chapter: it carries its own expected values as
-literals and prints its own verdict, so any arm that runs Codex renders that
-verdict alone. There is no gold and no probe. See spec/TrigSpec.codex for what
-one looks like and judge/ for the different, more expensive question those ask.
+literals and prints its own verdict (`name ok N` per graded seam, BAD on a
+miss). This is the edit loop; the other arms -- the zig plug, the wasm plug,
+our own IR through the plug -- grade safari from the OUTSIDE:
+`./spec/export.py` freezes each spec's resolved program and verdict into
+`units/`, and cobblestone-curated-tests/arms/* take that directory like any
+other corpus of units.
 
 A SPEC CAN PASS BY DOING NOTHING, and `spec/floors.tsv` is what stops it.
 `grade-reals` on two empty lists reports `ok 0`, so a spec whose input list an
@@ -17,22 +17,12 @@ edit emptied would sail through a gate that only greps for BAD. Each spec
 therefore declares the fewest graded values it must still be checking, and this
 sums the `ok N` counts and refuses below the line. A floor rather than a gold:
 `>=` means adding assertions never churns the file, and nobody is tempted to
-update an expected number as a reflex when something goes red.
+update an expected number as a reflex when something goes red. `spec/mutate.py`
+is a one-off authoring tool for watching a new spec fail once; it is not part
+of the gate.
 
-THAT REPLACED A MUTANT PASS, and the mutant was an overreaction. It re-ran every
-spec with its tolerances negated and its want lists lengthened, and demanded
-every line go BAD. It worked, and it doubled the run, needed its own poisoner,
-and had to explain itself twice over. A floor answers the same question -- is
-this spec still grading anything -- for a line of arithmetic. `spec/mutate.py`
-is still there for ONE-OFF use when authoring a new spec; it is not part of the
-gate and should not become part of it again.
-
-ONE PROCESS PER SPEC, WHICH IS THE FLOOR. This was a bash loop shelling out to
-bundle.py and mutate.py per spec: three interpreter starts each, 2.1 s for
-thirteen specs and about 8 s projected for fifty. It then became one Python
-process spawning a bundler and two interpreters per spec. Now `codexrun`
-resolves its own cites, so bundling is a compiler phase rather than another
-process, and a spec costs exactly one spawn.
+`codexrun` resolves the spec's cites itself (quires.tsv, walking up from the
+spec), so a spec costs exactly one spawn.
 """
 import os
 import pathlib
@@ -49,35 +39,7 @@ BIN = os.environ.get(
     os.environ.get("CARGO_TARGET_DIR", os.path.expanduser("~/build/rust-target"))
     + "/release/codexrun",
 )
-# THE RUST ARM RESOLVES ITS OWN CITES. This used to import harness/bundle.py,
-# which meant the compiler under test was handed a unit assembled by a different
-# toolchain -- and a bundling bug applied identically to every arm is one no
-# comparison between them can find. Both bundlers agree on all 35 safari targets
-# byte for byte, and that agreement is the gate rather than an assumption.
-BUNDLE = os.environ.get(
-    "CODEXBUNDLE",
-    os.environ.get("CARGO_TARGET_DIR", os.path.expanduser("~/build/rust-target"))
-    + "/release/bundle",
-)
 
-
-# A zig-arm difference that is filed and not ours: reported, never fatal.
-KNOWN = "\0known\0"
-
-
-def arm_gaps():
-    """-> {spec name: (issue, what differs)} for known, filed zig-arm gaps."""
-    out = {}
-    f = ROOT / "spec" / "arm-gaps.tsv"
-    if not f.is_file():
-        return out
-    for line in f.read_text().splitlines():
-        line = line.split("#")[0].rstrip()
-        if not line.strip():
-            continue
-        name, issue, note = (line.split("\t") + ["", ""])[:3]
-        out[name.strip()] = (issue.strip(), note.strip())
-    return out
 
 
 def floors():
@@ -119,115 +81,11 @@ def check(out, floor):
     return None
 
 
-def zig_arm(name, mod, out, build, spec):
-    # The zig arm takes a UNIT, so this is where a bundle still gets written --
-    # for the other arm's benefit, not for ours.
-    r = subprocess.run([BUNDLE, "one", str(spec), str(build / f"{mod}-unit.codex")],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        return r.stderr.strip() or "bundling failed"
-    codexzig = subprocess.run([str(ROOT / "harness" / "build_codexzig.sh")],
-                              capture_output=True, text=True).stdout.strip().splitlines()[-1]
-    zig = os.environ.get("ZIG", os.path.expanduser("~/zig-0.16.0/zig"))
-    # THE PROGRAM COMES OUT ON STDERR AND THE DIAGNOSTICS ON STDOUT, which is
-    # backwards from every instinct and is what the bash this replaced did:
-    # `2> $mod.zig > $mod.diag`. Porting it the obvious way round broke the zig
-    # arm silently -- every spec reported "codexzig emitted no program" the
-    # first time anyone ran it again.
-    with open(build / f"{mod}-unit.codex") as f:
-        r = subprocess.run([codexzig], stdin=f, capture_output=True, text=True)
-    (build / f"{mod}.zig").write_text(r.stderr)
-    (build / f"{mod}.diag").write_text(r.stdout)
-    if "// THE PRELUDE" not in r.stderr:
-        return "codexzig emitted no program"
-    if subprocess.run([zig, "build-exe", f"{mod}.zig"], cwd=build).returncode:
-        return "zig build failed"
-    z = subprocess.run([f"./{mod}"], cwd=build, capture_output=True, text=True)
-    zout = (z.stdout + z.stderr).strip()
-    if zout == out:
-        return None
-    known = arm_gaps().get(name)
-    if known:
-        # Recorded, filed, and not ours. Reported every run so it cannot fade
-        # into the scenery, but it does not fail the gate.
-        return KNOWN + f"zig differs -- issue {known[0]}: {known[1]}"
-    return "THE ARMS DISAGREE\n  rust: " + out.replace("\n", " | ") + \
-           "\n  zig:  " + zout.replace("\n", " | ")
-
-
-def wasm_arm(name, mod, out, build, spec):
-    """THE THIRD ARM, and it shares nothing with the second below the source.
-
-    Codex -> IR -> wasm, through plugs/wasm's own emitter: it never sees zig,
-    where the zig arm is zig all the way down. So the three arms are a tree
-    walker, a zig program and a wasm module, and a value all three agree on has
-    been computed three different ways from one text.
-
-    The binary is PINNED, not built here -- see harness/build_codexwasm.sh for
-    why this project stopped building its own.
-    """
-    # ALWAYS RE-BUNDLE, never reuse what is on disk. This read
-    # `if not unit.is_file()` and a tamper test caught it: with the zig arm's
-    # unit already written, the wasm arm compiled THAT and reported the zig
-    # arm's tampered label as its own answer. In ordinary use the failure is
-    # quieter and worse -- edit a spec, run `--wasm` alone, and it grades the
-    # bundle from whenever the file was last written. Bundling is 4 ms.
-    unit = build / f"{mod}-unit.codex"
-    r = subprocess.run([BUNDLE, "one", str(spec), str(unit)],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        return r.stderr.strip() or "bundling failed"
-    codexwasm = subprocess.run([str(ROOT / "harness" / "build_codexwasm.sh")],
-                               capture_output=True, text=True)
-    if codexwasm.returncode != 0:
-        return codexwasm.stderr.strip() or "no codexwasm"
-    # The module comes out on STDERR and the diagnostics on stdout, which is
-    # codexzig's convention and inherited from it rather than chosen.
-    wat = build / f"{mod}.wat"
-    with open(unit) as fi, open(wat, "w") as fe, open(build / f"{mod}.wdiag", "w") as fo:
-        subprocess.run([codexwasm.stdout.strip()], stdin=fi, stderr=fe, stdout=fo)
-    if not wat.read_text().startswith("(module"):
-        first = (wat.read_text().splitlines() or ["(no output)"])[0]
-        return f"codexwasm emitted no module: {first[:120]}"
-    mod_wasm = build / f"{mod}.wasm"
-    if subprocess.run(["node", "--no-warnings", str(ROOT / "harness/wat2wasm.mjs"),
-                       str(wat), str(mod_wasm)]).returncode:
-        return "wat2wasm failed"
-    # wasmtime rather than node: node's WASI killed six of the judge's modules
-    # with a SIGSEGV at a line count that moved between runs, and a bed whose
-    # answer moves cannot referee a comparison. harness/wasm_arm.py has the
-    # incident; the stack size is the one plugs/wasm's own e2e bed uses.
-    stack = os.environ.get("SAFARI_WASM_STACK", "16777216")
-    w = subprocess.run([str(ROOT / "tools/bin/wasmtime"), "-W", f"max-wasm-stack={stack}",
-                        str(mod_wasm)], capture_output=True, text=True)
-    if w.returncode != 0:
-        return (f"THE MODULE DIED: exited {w.returncode} after "
-                f"{len((w.stdout + w.stderr).splitlines())} lines\n" + w.stdout + w.stderr)
-    wout = (w.stdout + w.stderr).strip()
-    if wout == out:
-        return None
-    known = arm_gaps().get(name)
-    if known:
-        return KNOWN + f"wasm differs -- issue {known[0]}: {known[1]}"
-    return "THE ARMS DISAGREE\n  rust: " + out.replace("\n", " | ") + \
-           "\n  wasm: " + wout.replace("\n", " | ")
-
-
 def main():
-    flags = set(sys.argv[1:])
-    want_zig = "--zig" in flags
-    want_wasm = "--wasm" in flags
-    if "--arms" in flags:
-        want_zig = want_wasm = True
-    if flags - {"--zig", "--wasm", "--arms"}:
-        raise SystemExit("usage: run.sh [--zig] [--wasm] [--arms]")
+    if sys.argv[1:]:
+        raise SystemExit("usage: run.sh   (the other arms: ./spec/export.py, then cobblestone-curated-tests/arms/*)")
     if not os.access(BIN, os.X_OK):
         raise SystemExit(f"no codexrun at {BIN}; set CODEXRUN")
-    if (want_zig or want_wasm) and not os.access(BUNDLE, os.X_OK):
-        raise SystemExit(f"no bundle at {BUNDLE}; set CODEXBUNDLE")
-
-    build = ROOT / "build"
-    build.mkdir(exist_ok=True)
     floor = floors()
     specs = sorted((ROOT / "spec").glob("*Spec.codex"))
     if not specs:
@@ -241,22 +99,13 @@ def main():
     failed = 0
     for spec in specs:
         name = spec.stem
-        # codexrun resolves the spec's cites itself; there is no unit to write.
         out = run(spec)
         why = check(out, floor[name])
-        if why is None and want_zig:
-            why = zig_arm(name, name.lower(), out, build, spec)
-        if why is None and want_wasm:
-            why = wasm_arm(name, name.lower(), out, build, spec)
-        if why is not None and why.startswith(KNOWN):
-            print(f"{name:18s} rust ok; {why[len(KNOWN):]}")
-            continue
         if why is not None:
             print(f"{name}: {why}", file=sys.stderr)
             failed += 1
             continue
-        arms = ["rust"] + (["zig"] if want_zig else []) + (["wasm"] if want_wasm else [])
-        print(f"{name:18s} {'ok on ' + ', '.join(arms) if len(arms) > 1 else ' '.join(out.split(chr(10)))}")
+        print(f"{name:18s} {' '.join(out.split(chr(10)))}")
 
     print()
     if failed:

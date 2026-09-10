@@ -2,7 +2,7 @@ Chapter: ViewYawSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter ViewYaw
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  ViewYaw: the extra camera yaw on top of the bike's heading.
 

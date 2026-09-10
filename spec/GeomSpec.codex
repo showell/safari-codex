@@ -2,7 +2,7 @@ Chapter: GeomSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter Geom
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Geom, checked against the geometry rather than against itself.
 

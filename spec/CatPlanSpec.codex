@@ -7,7 +7,7 @@ Chapter: CatPlanSpec
   cites Safari chapter World
   cites Safari chapter DepthSort
   cites Safari chapter CatPlan
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  CatPlan: find the segments that have a cat, clock its crossing from the rider's
  gap, and place the still.

@@ -8,7 +8,7 @@ Chapter: ItemDrawSpec
   cites Safari chapter TowerPlan
   cites Safari chapter World
   cites Safari chapter ItemDraw
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  ItemDraw: draw one collected item, whichever kind it turned out to be.
 

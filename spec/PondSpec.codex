@@ -2,7 +2,7 @@ Chapter: PondSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter Pond
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  Pond: pure data, spot-checked, plus the one thing its prose claims and nothing
  verifies.

@@ -6,7 +6,7 @@ Chapter: RailPlanSpec
   cites Safari chapter GuardRail
   cites Safari chapter World
   cites Safari chapter RailPlan
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  RailPlan: the path a guard rail takes around a corner, sampled a metre at a
  time.

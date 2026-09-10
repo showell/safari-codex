@@ -2,7 +2,7 @@ Chapter: VehicleLimitsSpec
   cites Foreword chapter Console
   cites Foreword chapter ListUtils
   cites Safari chapter VehicleLimits
-  cites Judge chapter Grade
+  cites Spec chapter Grade
 
  VehicleLimits, and the table lookup whose miss is indistinguishable from a hit.
 

@@ -1,4 +1,4 @@
-Chapter: ListUtils
+Chapter: Foreword--ListUtils
 
  We say:
 
@@ -93,7 +93,7 @@ Section: Filter and Search
 
 Page 1
 
-Chapter: Tuple
+Chapter: Foreword--Tuple
 
 Section: Definitions
 
@@ -119,7 +119,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Console
+Chapter: Foreword--Console
 
  We say:
 
@@ -131,7 +131,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: DeviceMath
+Chapter: Gpu--DeviceMath
 
  We say:
 
@@ -333,7 +333,7 @@ Section: Arc Tangent
     else if y < 0.0 then 0.0 - dm-half-pi
     else 0.0
 
-Chapter: Trig
+Chapter: Safari--Trig
   cites Gpu chapter DeviceMath
 
  Sine, cosine, tangent and arc tangent in Real.
@@ -484,7 +484,7 @@ Section: Arc Tangent
   r-sign : Real -> Real
   r-sign (x) = if x > 0.0 then 1.0 else (if x < 0.0 then 0.0 - 1.0 else 0.0)
 
-Chapter: Geom
+Chapter: Safari--Geom
   cites Safari chapter Trig
 
  Pure rider-relative geometry: the coordinate types, the world-to-rider transform,
@@ -637,7 +637,7 @@ Section: Near-Plane Clipping
   clip-near : List Vec3, Real -> List Vec3
   clip-near (poly) (near) = clip-near-edge poly near 0
 
-Chapter: Camera
+Chapter: Safari--Camera
   cites Safari chapter Geom
 
  The perspective projection: a rider-relative ground point at a height becomes a
@@ -688,7 +688,7 @@ Section: Projection
     if i >= list-length ps then []
     else [project (list-at ps i) cf view-w] & project-all ps cf view-w (i + 1)
 
-Chapter: Paint
+Chapter: Safari--Paint
   cites Safari chapter Camera
 
  The seam to JS: a draw command in wasm/paint.zig's wire.
@@ -817,7 +817,7 @@ Section: The Gradient Fills
     if list-length ps < 3 then []
     else [DrawCmd { tag = 6, color = rgba0, color2 = rgba1, strength = 0.0, geom = [off0, off1, cx, cy, ux, uy, vx, vy], pts = flatten-screen ps 0 }]
 
-Chapter: GuardRail
+Chapter: Safari--GuardRail
   cites Gpu chapter DeviceMath
   cites Safari chapter Geom
   cites Safari chapter Camera
@@ -1007,7 +1007,7 @@ Section: Draw
     if i >= list-length ps then []
     else (rail-draw-poly (list-at ps i) cf view-w) & rail-draw-all ps cf view-w (i + 1)
 
-Chapter: Grade
+Chapter: Spec--Grade
 
  The reusable grader: compare a flattened list of values against gold and say
  WHERE the first disagreement is.

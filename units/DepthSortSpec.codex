@@ -1,4 +1,4 @@
-Chapter: ListUtils
+Chapter: Foreword--ListUtils
 
  We say:
 
@@ -93,7 +93,7 @@ Section: Filter and Search
 
 Page 1
 
-Chapter: Tuple
+Chapter: Foreword--Tuple
 
 Section: Definitions
 
@@ -119,7 +119,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Console
+Chapter: Foreword--Console
 
  We say:
 
@@ -131,7 +131,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: DeviceMath
+Chapter: Gpu--DeviceMath
 
  We say:
 
@@ -333,7 +333,7 @@ Section: Arc Tangent
     else if y < 0.0 then 0.0 - dm-half-pi
     else 0.0
 
-Chapter: DepthSort
+Chapter: Safari--DepthSort
   cites Gpu chapter DeviceMath
   cites Foreword chapter ListUtils
 
@@ -455,7 +455,7 @@ Section: One Pass, Front to Back
     if list-length xs <= 1 then xs
     else merge-items (sort-items (list-take xs (list-length xs / 2))) (sort-items (list-drop xs (list-length xs / 2))) 0 0
 
-Chapter: Grade
+Chapter: Spec--Grade
 
  The reusable grader: compare a flattened list of values against gold and say
  WHERE the first disagreement is.

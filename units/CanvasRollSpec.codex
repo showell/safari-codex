@@ -1,4 +1,4 @@
-Chapter: ListUtils
+Chapter: Foreword--ListUtils
 
  We say:
 
@@ -93,7 +93,7 @@ Section: Filter and Search
 
 Page 1
 
-Chapter: Tuple
+Chapter: Foreword--Tuple
 
 Section: Definitions
 
@@ -119,7 +119,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Console
+Chapter: Foreword--Console
 
  We say:
 
@@ -131,7 +131,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: DeviceMath
+Chapter: Gpu--DeviceMath
 
  We say:
 
@@ -333,7 +333,7 @@ Section: Arc Tangent
     else if y < 0.0 then 0.0 - dm-half-pi
     else 0.0
 
-Chapter: Pose
+Chapter: Safari--Pose
 
  The rider's state, and nothing else.
 
@@ -390,7 +390,7 @@ Section: State
   with-tilt (s) (t) =
     RiderState { segment = s.segment, along = s.along, across = s.across, yaw = s.yaw, v = s.v, tilt = t, heading = s.heading, gaze-yaw = s.gaze-yaw, focus = s.focus }
 
-Chapter: CanvasRoll
+Chapter: Safari--CanvasRoll
   cites Gpu chapter DeviceMath
   cites Safari chapter Pose
 
@@ -428,7 +428,7 @@ Section: The Canvas Roll
     let t = s.tilt
     in if real-abs t < roll-deadband then 0.0 else t
 
-Chapter: Grade
+Chapter: Spec--Grade
 
  The reusable grader: compare a flattened list of values against gold and say
  WHERE the first disagreement is.

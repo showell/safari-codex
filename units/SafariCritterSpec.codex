@@ -1,4 +1,4 @@
-Chapter: ListUtils
+Chapter: Foreword--ListUtils
 
  We say:
 
@@ -93,7 +93,7 @@ Section: Filter and Search
 
 Page 1
 
-Chapter: Tuple
+Chapter: Foreword--Tuple
 
 Section: Definitions
 
@@ -119,7 +119,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Console
+Chapter: Foreword--Console
 
  We say:
 
@@ -131,7 +131,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Scenery
+Chapter: Safari--Scenery
 
  The vocabulary the roadside populations share: what a tree is, what a critter
  is, which colour scheme a segment runs, which big animal stands at its exit --
@@ -211,7 +211,7 @@ Section: What Stands Beside the Road
     is Zebra -> False
     is Rhino -> False
 
-Chapter: SafariCritter
+Chapter: Safari--SafariCritter
   cites Safari chapter Scenery
 
  The two big animals parked AT a corner: an ADULT standing just past the far
@@ -301,7 +301,7 @@ Section: The Corner Pair
             Critter { along = along + baby-beyond, across = 0.0, codepoint = sp.cp, height = adult-h * baby-ratio, face-right = turn-right }]
       else []
 
-Chapter: Grade
+Chapter: Spec--Grade
 
  The reusable grader: compare a flattened list of values against gold and say
  WHERE the first disagreement is.

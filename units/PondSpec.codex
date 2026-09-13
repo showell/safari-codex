@@ -1,4 +1,4 @@
-Chapter: ListUtils
+Chapter: Foreword--ListUtils
 
  We say:
 
@@ -93,7 +93,7 @@ Section: Filter and Search
 
 Page 1
 
-Chapter: Tuple
+Chapter: Foreword--Tuple
 
 Section: Definitions
 
@@ -119,7 +119,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Console
+Chapter: Foreword--Console
 
  We say:
 
@@ -131,7 +131,7 @@ Section: Definitions
 
 Page 1
 
-Chapter: Pond
+Chapter: Safari--Pond
 
  pond -- a small pond at a corner (seg13), just BEYOND a right-turn intersection,
  off to its LEFT, with ducks floating on the water. Pure data and dimensions; the
@@ -222,7 +222,7 @@ Section: Ducks
       Duck { p = PondPt { cu = -12.0, cv = 7.0 }, face-right = False },
       Duck { p = PondPt { cu = -20.0, cv = 8.0 }, face-right = True } ]
 
-Chapter: Grade
+Chapter: Spec--Grade
 
  The reusable grader: compare a flattened list of values against gold and say
  WHERE the first disagreement is.

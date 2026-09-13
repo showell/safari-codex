@@ -3,3 +3,7 @@
 Safari port
 Spec spec
 Poc poc
+# The Cobblestone checkout the Rust tools resolve Foreword cites against, since
+# no spec sits inside one. It repeats the codexzig bundle's pin, and
+# harness/cobblestone_pin.py refuses when the two disagree.
+checkout ~/showell_repos/cobblestone-u60rel

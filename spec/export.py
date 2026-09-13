@@ -13,7 +13,8 @@ nothing about specs, floors or cites.
 
 The language is the one the borrowed transpilers were built from
 (harness/cobblestone_pin.py); the quires are this repo's quires.tsv, which the
-bundler finds by walking up from the spec.
+bundler finds by walking up from the spec. Its `checkout` line names that same
+checkout for the Rust tools, and cobblestone_pin.py refuses when they disagree.
 """
 import os
 import pathlib
@@ -36,19 +37,19 @@ def main():
                          capture_output=True, text=True)
     if pin.returncode != 0:
         raise SystemExit(pin.stderr.strip() or "no pin")
-    env = dict(os.environ, CODEX_ROOT=pin.stdout.strip())
+    language = pin.stdout.strip()
     for b in (BIN, BUNDLE):
         if not os.access(b, os.X_OK):
             raise SystemExit(f"missing {b}")
     out = ROOT / "units"
     out.mkdir(exist_ok=True)
     floor = floors()
-    print(f"language {env['CODEX_ROOT']}\ninterpreter {BIN}\n")
+    print(f"language {language}\ninterpreter {BIN}\n")
     n_ok = n_bad = 0
     for spec in sorted((ROOT / "spec").glob("*Spec.codex")):
         name = spec.stem
         unit = out / f"{name}.codex"
-        r = subprocess.run([BUNDLE, "one", str(spec), str(unit)], env=env, capture_output=True, text=True)
+        r = subprocess.run([BUNDLE, "one", str(spec), str(unit)], capture_output=True, text=True)
         if r.returncode != 0:
             print(f"{name:<28} BUNDLE FAILED  {(r.stderr.strip().splitlines() or ['?'])[-1][:70]}")
             unit.unlink(missing_ok=True); n_bad += 1; continue

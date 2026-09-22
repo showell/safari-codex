@@ -27,7 +27,8 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
-HOSTED_ENTRY = """pub fn main() void {
+HOSTED_ENTRY = """pub fn main(cx_init: std.process.Init.Minimal) void {
+    cx_environ = cx_init.environ;
     const stack_bytes: usize = 512 * 1024 * 1024;
     const t = std.Thread.spawn(.{ .stack_size = stack_bytes }, cx_entry, .{}) catch @panic("spawn");
     t.join();

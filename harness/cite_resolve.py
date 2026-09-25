@@ -42,6 +42,7 @@ CODEX = pins.COBBLESTONE
 CITE = re.compile(r'^\s*cites\s+([A-Za-z_][A-Za-z0-9_]*)\s+chapter\s+'
                   r'([A-Za-z_][A-Za-z0-9_ -]*?)\s*(?:\(.*)?$', re.M)
 QUIRE_LINE = re.compile(r"'([A-Za-z][A-Za-z0-9]*)'\s*=\s*'([^']+)'")
+INDEXED_QUIRE = re.compile(r"^\s*\$QuireDirs\['([A-Za-z][A-Za-z0-9]*)'\]\s*=\s*'([^']+)'", re.M)
 EMBEDDED = re.compile(r'^Chapter:\s*(\w+)--(.+?)\s*$', re.M)
 
 # The two chapters `Resolve-CiteOrder` walks whether or not anything cites
@@ -96,11 +97,19 @@ def quire_dirs():
     A copy can be compared and a derivation quietly answers a different
     question -- the same argument plug-build-lib.ps1 makes at the top of itself
     after a derived table silently dropped three whole quires.
+
+    THE GENERATED REGISTRY, read where it is generated. Since Update 62 the map
+    is written in Codex (codex/build/quiremapScript.codex) and generated to
+    build/host/windows/quire-map.ps1; build/quire-map.ps1 stays upstream only
+    as a shim for the scripts that dot-source that path, and has no table. A
+    quire can also be added after the table by indexed assignment -- U62
+    registers `$QuireDirs['Accp'] = 'apps\\accp'` that way -- so those lines
+    are read too. rust-codex-compiler's src/bundle.rs reads it the same way.
     """
-    text = (CODEX / 'build' / 'quire-map.ps1').read_text(errors='replace')
+    text = (CODEX / 'build' / 'host' / 'windows' / 'quire-map.ps1').read_text(errors='replace')
     body = text.split('$QuireDirs = @{', 1)[1].split('}', 1)[0]
-    return _CaseInsensitive(
-        (q, d.replace('\\', '/')) for q, d in QUIRE_LINE.findall(body))
+    pairs = QUIRE_LINE.findall(body) + INDEXED_QUIRE.findall(text)
+    return _CaseInsensitive((q, d.replace('\\', '/')) for q, d in pairs)
 
 
 def resolve(path, dirs=None):

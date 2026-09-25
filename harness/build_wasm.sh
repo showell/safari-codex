@@ -74,8 +74,15 @@ echo "---"
 # of wire it produces. .bss costs nothing until touched (wasmify), so reserving
 # generously is close to free; wasm32 caps the whole address space at 4 GiB.
 python3 harness/wasmify.py "build/$mod.zig" "build/${mod}_wasm.zig" "${HEAP_MB:-256}" "$shim"
+# ReleaseSafe, not ReleaseSmall. Emitted Codex traps on Integer overflow
+# through zig's safety checks, which ReleaseSmall and ReleaseFast turn into
+# undefined behaviour; since Update 62 the zig plug refuses both at comptime
+# (our issue 157, item 3). ReleaseSmall built this module at 730,157 bytes.
+# -fstrip because ReleaseSmall stripped debug info and ReleaseSafe does not:
+# unstripped the module was 17,903,778 bytes, stripped 2,645,676 -- the rest of
+# the growth over ReleaseSmall is the safety checks, which are the point.
 ( cd build && "$zig" build-exe "${mod}_wasm.zig" \
-    -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseSmall \
+    -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseSafe -fstrip \
     -femit-bin=safari_codex.wasm )
 cp build/safari_codex.wasm web/driving/safari.wasm
 echo "web/driving/safari.wasm  ($(wc -c < web/driving/safari.wasm) bytes)"
